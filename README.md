@@ -260,11 +260,22 @@ docker run -d -p 6379:6379 redis:alpine
 python main.py
 ```
 
-The API will be available at `http://localhost:8000`
+The services will be available at:
+- **WebApp**: `http://localhost:3000` - Beautiful web interface for meal plan management  
+- **API**: `http://localhost:8000` - RESTful API endpoints
+
+## Web Interface
+
+Visit `http://localhost:3000` for the beautiful web interface featuring:
+- 🍽️ **Interactive meal plan viewer** with detailed nutritional breakdowns
+- 📊 **Visual charts** for macronutrient distribution  
+- 🔍 **Barcode lookup demo** - Test barcode scanning in your browser
+- 📸 **OCR demo** - Upload nutrition labels for processing
+- 📱 **Responsive design** - Works perfectly on all devices
 
 ## API Documentation
 
-Once running, visit `http://localhost:8000/docs` for interactive API documentation.
+Visit `http://localhost:8000/docs` for interactive Swagger API documentation or `http://localhost:8000/redoc` for ReDoc format.
 
 ## Testing
 

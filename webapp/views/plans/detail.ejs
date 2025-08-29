@@ -1,0 +1,338 @@
+<% layout('layout') -%>
+
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <!-- Header Section -->
+    <div class="mb-8">
+        <div class="flex items-center justify-between">
+            <div>
+                <h1 class="text-3xl font-bold text-gray-900"><%= plan.name %></h1>
+                <p class="mt-2 text-gray-600">
+                    Generated on <%= new Date(plan.created_at).toLocaleDateString('en-US', { 
+                        weekday: 'long', 
+                        year: 'numeric', 
+                        month: 'long', 
+                        day: 'numeric' 
+                    }) %>
+                </p>
+            </div>
+            <div class="flex space-x-3">
+                <button onclick="exportPlan()" class="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 transition-colors">
+                    📄 Export PDF
+                </button>
+                <button onclick="sharePlan()" class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors">
+                    📤 Share
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Overview Cards -->
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+        <!-- Daily Calories -->
+        <div class="bg-white rounded-lg shadow p-6">
+            <div class="flex items-center">
+                <div class="p-3 rounded-full bg-blue-100">
+                    <span class="text-2xl">🔥</span>
+                </div>
+                <div class="ml-4">
+                    <p class="text-sm font-medium text-gray-600">Daily Target</p>
+                    <p class="text-2xl font-bold text-gray-900"><%= Math.round(plan.daily_calorie_target) %></p>
+                    <p class="text-xs text-gray-500">kcal</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- BMR -->
+        <div class="bg-white rounded-lg shadow p-6">
+            <div class="flex items-center">
+                <div class="p-3 rounded-full bg-green-100">
+                    <span class="text-2xl">⚡</span>
+                </div>
+                <div class="ml-4">
+                    <p class="text-sm font-medium text-gray-600">BMR</p>
+                    <p class="text-2xl font-bold text-gray-900"><%= Math.round(plan.bmr) %></p>
+                    <p class="text-xs text-gray-500">kcal/day</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- TDEE -->
+        <div class="bg-white rounded-lg shadow p-6">
+            <div class="flex items-center">
+                <div class="p-3 rounded-full bg-yellow-100">
+                    <span class="text-2xl">🏃</span>
+                </div>
+                <div class="ml-4">
+                    <p class="text-sm font-medium text-gray-600">TDEE</p>
+                    <p class="text-2xl font-bold text-gray-900"><%= Math.round(plan.tdee) %></p>
+                    <p class="text-xs text-gray-500">kcal/day</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Total Actual -->
+        <div class="bg-white rounded-lg shadow p-6">
+            <div class="flex items-center">
+                <div class="p-3 rounded-full bg-purple-100">
+                    <span class="text-2xl">📊</span>
+                </div>
+                <div class="ml-4">
+                    <p class="text-sm font-medium text-gray-600">Actual Total</p>
+                    <p class="text-2xl font-bold text-gray-900"><%= Math.round(plan.metrics.total_calories) %></p>
+                    <p class="text-xs text-gray-500">kcal</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Macros Overview -->
+    <div class="bg-white rounded-lg shadow mb-8">
+        <div class="px-6 py-4 border-b border-gray-200">
+            <h2 class="text-lg font-semibold text-gray-900">Macronutrient Breakdown</h2>
+        </div>
+        <div class="p-6">
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <!-- Macro Chart -->
+                <div class="flex justify-center">
+                    <div class="relative w-64 h-64">
+                        <canvas id="macrosChart"></canvas>
+                    </div>
+                </div>
+                
+                <!-- Macro Details -->
+                <div class="space-y-4">
+                    <div class="flex items-center justify-between p-4 bg-blue-50 rounded-lg">
+                        <div class="flex items-center">
+                            <div class="w-4 h-4 bg-blue-500 rounded-full mr-3"></div>
+                            <span class="font-medium text-gray-900">Protein</span>
+                        </div>
+                        <div class="text-right">
+                            <p class="font-bold text-gray-900"><%= Math.round(plan.metrics.protein_g) %>g</p>
+                            <p class="text-sm text-gray-600"><%= Math.round(plan.metrics.protein_percent) %>%</p>
+                        </div>
+                    </div>
+                    
+                    <div class="flex items-center justify-between p-4 bg-red-50 rounded-lg">
+                        <div class="flex items-center">
+                            <div class="w-4 h-4 bg-red-500 rounded-full mr-3"></div>
+                            <span class="font-medium text-gray-900">Fat</span>
+                        </div>
+                        <div class="text-right">
+                            <p class="font-bold text-gray-900"><%= Math.round(plan.metrics.fat_g) %>g</p>
+                            <p class="text-sm text-gray-600"><%= Math.round(plan.metrics.fat_percent) %>%</p>
+                        </div>
+                    </div>
+                    
+                    <div class="flex items-center justify-between p-4 bg-green-50 rounded-lg">
+                        <div class="flex items-center">
+                            <div class="w-4 h-4 bg-green-500 rounded-full mr-3"></div>
+                            <span class="font-medium text-gray-900">Carbohydrates</span>
+                        </div>
+                        <div class="text-right">
+                            <p class="font-bold text-gray-900"><%= Math.round(plan.metrics.carbs_g) %>g</p>
+                            <p class="text-sm text-gray-600"><%= Math.round(plan.metrics.carbs_percent) %>%</p>
+                        </div>
+                    </div>
+                    
+                    <div class="flex items-center justify-between p-4 bg-yellow-50 rounded-lg">
+                        <div class="flex items-center">
+                            <div class="w-4 h-4 bg-yellow-500 rounded-full mr-3"></div>
+                            <span class="font-medium text-gray-900">Sugars</span>
+                        </div>
+                        <div class="text-right">
+                            <p class="font-bold text-gray-900"><%= Math.round(plan.metrics.sugars_g) %>g</p>
+                            <p class="text-sm text-gray-600">-</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Meals Section -->
+    <div class="space-y-6">
+        <h2 class="text-2xl font-bold text-gray-900">Daily Meals</h2>
+        
+        <% plan.meals.forEach((meal, mealIndex) => { %>
+        <div class="bg-white rounded-lg shadow meal-card">
+            <div class="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+                <div class="flex items-center">
+                    <span class="text-2xl mr-3">
+                        <% if (meal.name === 'Breakfast') { %>🌅
+                        <% } else if (meal.name === 'Lunch') { %>🌞
+                        <% } else if (meal.name === 'Dinner') { %>🌙
+                        <% } else { %>🍿
+                        <% } %>
+                    </span>
+                    <div>
+                        <h3 class="text-lg font-semibold text-gray-900"><%= meal.name %></h3>
+                        <p class="text-sm text-gray-600">
+                            Target: <%= Math.round(meal.target_calories) %> kcal | 
+                            Actual: <%= Math.round(meal.actual_calories) %> kcal
+                        </p>
+                    </div>
+                </div>
+                <div class="flex items-center">
+                    <div class="w-16 h-16">
+                        <svg class="w-16 h-16 transform -rotate-90">
+                            <circle cx="32" cy="32" r="28" stroke="#e5e7eb" stroke-width="4" fill="transparent"/>
+                            <circle cx="32" cy="32" r="28" stroke="#3b82f6" stroke-width="4" fill="transparent"
+                                    stroke-dasharray="<%= 2 * Math.PI * 28 %>"
+                                    stroke-dashoffset="<%= 2 * Math.PI * 28 * (1 - Math.min(meal.actual_calories / meal.target_calories, 1)) %>"
+                                    class="progress-ring"/>
+                        </svg>
+                    </div>
+                    <span class="ml-2 text-sm font-medium text-gray-600">
+                        <%= Math.round((meal.actual_calories / meal.target_calories) * 100) %>%
+                    </span>
+                </div>
+            </div>
+            
+            <div class="p-6">
+                <div class="space-y-4">
+                    <% meal.items.forEach((item, itemIndex) => { %>
+                    <div class="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                        <div class="flex-1">
+                            <h4 class="font-medium text-gray-900"><%= item.name %></h4>
+                            <div class="mt-1 flex items-center space-x-4 text-sm text-gray-600">
+                                <span>📏 <%= item.serving %></span>
+                                <span>🔥 <%= Math.round(item.calories) %> kcal</span>
+                                <% if (item.barcode) { %>
+                                <span class="font-mono text-xs bg-gray-200 px-2 py-1 rounded"><%= item.barcode %></span>
+                                <% } %>
+                            </div>
+                            <div class="mt-2 grid grid-cols-2 md:grid-cols-5 gap-2 text-xs">
+                                <span class="bg-blue-100 text-blue-800 px-2 py-1 rounded">
+                                    P: <%= Math.round(item.macros.protein_g * 10) / 10 %>g
+                                </span>
+                                <span class="bg-red-100 text-red-800 px-2 py-1 rounded">
+                                    F: <%= Math.round(item.macros.fat_g * 10) / 10 %>g
+                                </span>
+                                <span class="bg-green-100 text-green-800 px-2 py-1 rounded">
+                                    C: <%= Math.round(item.macros.carbs_g * 10) / 10 %>g
+                                </span>
+                                <span class="bg-yellow-100 text-yellow-800 px-2 py-1 rounded">
+                                    S: <%= Math.round(item.macros.sugars_g * 10) / 10 %>g
+                                </span>
+                                <span class="bg-gray-100 text-gray-800 px-2 py-1 rounded">
+                                    Salt: <%= Math.round(item.macros.salt_g * 10) / 10 %>g
+                                </span>
+                            </div>
+                        </div>
+                        <div class="ml-4 flex space-x-2">
+                            <button onclick="editItem(<%= mealIndex %>, <%= itemIndex %>)" 
+                                    class="text-gray-400 hover:text-blue-600 transition-colors">
+                                ✏️
+                            </button>
+                            <button onclick="removeItem(<%= mealIndex %>, <%= itemIndex %>)" 
+                                    class="text-gray-400 hover:text-red-600 transition-colors">
+                                🗑️
+                            </button>
+                        </div>
+                    </div>
+                    <% }); %>
+                </div>
+                
+                <div class="mt-4 pt-4 border-t border-gray-200">
+                    <button onclick="addItem(<%= mealIndex %>)" 
+                            class="w-full py-2 border-2 border-dashed border-gray-300 rounded-lg text-gray-600 hover:border-blue-400 hover:text-blue-600 transition-colors">
+                        + Add Item to <%= meal.name %>
+                    </button>
+                </div>
+            </div>
+        </div>
+        <% }); %>
+    </div>
+
+    <!-- Plan Info -->
+    <div class="mt-8 bg-blue-50 border border-blue-200 rounded-lg p-6">
+        <h3 class="text-lg font-semibold text-blue-900 mb-4">Plan Information</h3>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+            <div>
+                <span class="font-medium text-blue-900">Flexibility Used:</span>
+                <span class="ml-2 text-blue-700"><%= plan.flexibility_used ? 'Yes' : 'No' %></span>
+            </div>
+            <div>
+                <span class="font-medium text-blue-900">Optional Products:</span>
+                <span class="ml-2 text-blue-700"><%= plan.optional_products_used %> included</span>
+            </div>
+            <div>
+                <span class="font-medium text-blue-900">Plan ID:</span>
+                <span class="ml-2 font-mono text-blue-700"><%= plan.id %></span>
+            </div>
+            <div>
+                <span class="font-medium text-blue-900">Created:</span>
+                <span class="ml-2 text-blue-700"><%= new Date(plan.created_at).toLocaleString() %></span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Initialize macros chart
+document.addEventListener('DOMContentLoaded', function() {
+    const ctx = document.getElementById('macrosChart').getContext('2d');
+    new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: ['Protein', 'Fat', 'Carbs'],
+            datasets: [{
+                data: [
+                    <%= plan.metrics.protein_percent %>,
+                    <%= plan.metrics.fat_percent %>,
+                    <%= plan.metrics.carbs_percent %>
+                ],
+                backgroundColor: ['#3b82f6', '#ef4444', '#22c55e'],
+                borderWidth: 0
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: false
+                }
+            }
+        }
+    });
+});
+
+// Plan actions
+function exportPlan() {
+    alert('Export functionality would be implemented here');
+    // Implementation would generate PDF of the meal plan
+}
+
+function sharePlan() {
+    const url = window.location.href;
+    if (navigator.share) {
+        navigator.share({
+            title: '<%= plan.name %>',
+            text: 'Check out my DietIntel meal plan!',
+            url: url
+        });
+    } else {
+        navigator.clipboard.writeText(url).then(() => {
+            alert('Plan URL copied to clipboard!');
+        });
+    }
+}
+
+function editItem(mealIndex, itemIndex) {
+    alert(`Edit item ${itemIndex} in meal ${mealIndex} - Implementation coming soon`);
+    // Implementation would open edit modal
+}
+
+function removeItem(mealIndex, itemIndex) {
+    if (confirm('Are you sure you want to remove this item?')) {
+        alert(`Remove item ${itemIndex} from meal ${mealIndex} - Implementation coming soon`);
+        // Implementation would call API to remove item
+    }
+}
+
+function addItem(mealIndex) {
+    alert(`Add new item to meal ${mealIndex} - Implementation coming soon`);
+    // Implementation would open add item modal
+}
+</script>

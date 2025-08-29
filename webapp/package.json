@@ -1,0 +1,55 @@
+{
+  "name": "dietintel-webapp",
+  "version": "1.0.0",
+  "description": "Express.js web application for DietIntel meal plan management",
+  "main": "app.js",
+  "scripts": {
+    "start": "node app.js",
+    "dev": "nodemon app.js",
+    "test": "jest",
+    "lint": "eslint .",
+    "build": "npm run build:css",
+    "build:css": "tailwindcss -i ./public/css/input.css -o ./public/css/output.css --watch"
+  },
+  "keywords": [
+    "nutrition",
+    "meal-planning",
+    "dietintel",
+    "express",
+    "webapp"
+  ],
+  "author": "DietIntel Team",
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.18.2",
+    "ejs": "^3.1.9",
+    "axios": "^1.6.2",
+    "express-rate-limit": "^7.1.5",
+    "helmet": "^7.1.0",
+    "morgan": "^1.10.0",
+    "dotenv": "^16.3.1",
+    "moment": "^2.29.4",
+    "express-validator": "^7.0.1",
+    "cookie-parser": "^1.4.6",
+    "cors": "^2.8.5",
+    "compression": "^1.7.4"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.2",
+    "jest": "^29.7.0",
+    "supertest": "^6.3.3",
+    "eslint": "^8.55.0",
+    "tailwindcss": "^3.3.6",
+    "autoprefixer": "^10.4.16",
+    "postcss": "^8.4.32"
+  },
+  "engines": {
+    "node": ">=16.0.0",
+    "npm": ">=8.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/krukmat/diet-intel.git",
+    "directory": "webapp"
+  }
+}

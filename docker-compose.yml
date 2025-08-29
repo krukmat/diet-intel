@@ -93,6 +93,35 @@ services:
       timeout: 10s
       retries: 3
 
+  # Express.js WebApp
+  webapp:
+    build:
+      context: ./webapp
+      dockerfile: Dockerfile
+    container_name: dietintel_webapp
+    environment:
+      NODE_ENV: development
+      DIETINTEL_API_URL: http://api:8000
+      API_TIMEOUT: 30000
+      PORT: 3000
+      SESSION_SECRET: webapp-session-secret-change-in-production
+    volumes:
+      - ./webapp:/app
+      - /app/node_modules
+    ports:
+      - "3000:3000"
+    networks:
+      - dietintel_network
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
   # pgAdmin for database management (optional)
   pgadmin:
     image: dpage/pgadmin4:latest

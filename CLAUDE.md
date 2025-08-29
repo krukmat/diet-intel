@@ -73,3 +73,4 @@ DietIntel is a FastAPI application for nutrition tracking with product lookup, O
 - **Greedy Selection Algorithm**: Prioritizes optional products, max 3 items per meal (5 with flexibility)
 - **Calorie Tolerance**: ±5% strict mode, ±15% flexible mode
 - **Macro Tracking**: Complete nutritional analysis with percentage breakdowns
+- always evaluate the diagrams in the readme files to show the correct architecture on the platform
