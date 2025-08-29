@@ -58,6 +58,39 @@ class Config(BaseSettings):
         description="Maximum Redis connection pool size"
     )
     
+    # Database configuration
+    database_url: str = Field(
+        default="postgresql://dietintel_user:dietintel_password@localhost:5432/dietintel",
+        description="PostgreSQL database URL"
+    )
+    
+    database_pool_size: int = Field(
+        default=5,
+        description="Database connection pool size"
+    )
+    
+    database_max_overflow: int = Field(
+        default=10,
+        description="Maximum database connection overflow"
+    )
+    
+    # Security configuration
+    secret_key: str = Field(
+        default="your-secret-key-change-in-production",
+        description="Secret key for JWT token generation"
+    )
+    
+    access_token_expire_minutes: int = Field(
+        default=30,
+        description="Access token expiration time in minutes"
+    )
+    
+    # Application configuration
+    environment: str = Field(
+        default="development",
+        description="Application environment (development, production, testing)"
+    )
+    
     # Logging configuration
     log_level: str = Field(
         default="INFO",
