@@ -308,11 +308,6 @@ Visit `http://localhost:3000` for the beautiful web interface featuring:
 
 ![Meal Plan Detail](screenshots/meal-plan-detail.png)
 
-#### Interactive API Documentation
-*Swagger UI providing comprehensive API testing interface*
-
-![API Documentation](screenshots/api-docs.png)
-
 ## Mobile App (React Native)
 
 The DietIntel mobile app provides a native mobile experience for iOS and Android platforms, featuring barcode scanning and nutrition lookup capabilities.
