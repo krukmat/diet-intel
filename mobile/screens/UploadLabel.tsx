@@ -40,7 +40,11 @@ interface OCRResult {
   scanned_at: string;
 }
 
-export default function UploadLabel() {
+interface UploadLabelProps {
+  onBackPress: () => void;
+}
+
+export default function UploadLabel({ onBackPress }: UploadLabelProps) {
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
@@ -431,8 +435,14 @@ export default function UploadLabel() {
       <ExpoStatusBar style="light" backgroundColor="#007AFF" />
       
       <View style={styles.header}>
-        <Text style={styles.title}>🏷️ Upload Nutrition Label</Text>
-        <Text style={styles.headerSubtitle}>Scan product labels with OCR</Text>
+        <TouchableOpacity style={styles.backButton} onPress={onBackPress}>
+          <Text style={styles.backButtonText}>🏠</Text>
+        </TouchableOpacity>
+        <View style={styles.headerContent}>
+          <Text style={styles.title}>🏷️ Upload Nutrition Label</Text>
+          <Text style={styles.headerSubtitle}>Scan product labels with OCR</Text>
+        </View>
+        <View style={styles.headerSpacer} />
       </View>
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
@@ -454,8 +464,29 @@ const styles = StyleSheet.create({
     backgroundColor: '#007AFF',
     paddingVertical: 20,
     paddingHorizontal: 20,
+    flexDirection: 'row',
     alignItems: 'center',
     paddingTop: Platform.OS === 'android' ? 40 : 20,
+  },
+  backButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    minWidth: 40,
+    alignItems: 'center',
+  },
+  backButtonText: {
+    color: 'white',
+    fontSize: 20,
+    fontWeight: 'bold',
+  },
+  headerContent: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  headerSpacer: {
+    width: 60, // Same width as back button to center content
   },
   title: {
     color: 'white',

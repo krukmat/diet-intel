@@ -301,18 +301,18 @@ The DietIntel mobile app provides a native mobile experience for iOS and Android
 
 ### Mobile App Screenshots
 
-#### Navigation & Barcode Scanner
-*DietIntel mobile app with tab navigation - Barcode Scanner screen active*
+#### Home Screen with Tab Navigation
+*DietIntel mobile app with tab navigation - Barcode Scanner home screen*
 
 ![Android Barcode Scanner](mobile/screenshots/android-app-loaded.png)
 
-#### Upload Label Feature  
-*Upload Label screen with image capture options for OCR processing*
+#### Upload Label Feature with Home Navigation
+*Upload Label screen with home button navigation and image capture options for OCR processing*
 
-![Android Upload Label](mobile/screenshots/dev-menu-check.png)
+![Android Upload Label](mobile/screenshots/barcode-scanner-updated.png)
 
-#### Daily Meal Plan Generation
-*Complete meal plan interface with daily progress tracking and detailed nutritional breakdown*
+#### Daily Meal Plan Generation with Navigation
+*Complete meal plan interface with home navigation, daily progress tracking and detailed nutritional breakdown*
 
 ![Android Meal Plan Generation](mobile/screenshots/meal-plan-generation-final.png)
 
@@ -348,8 +348,10 @@ The DietIntel mobile app provides a native mobile experience for iOS and Android
 - **Customization Options**: Modify meals and dietary preferences ✅
 - **Redis Caching**: Fast meal plan retrieval with 24-hour cache TTL ✅
 
-#### General
+#### Navigation & User Experience
 - **Tab Navigation**: Switch between Barcode Scanner, Upload Label, and Meal Plan screens
+- **Home Button Navigation**: 🏠 home button in feature screens to return to main screen
+- **Back Navigation**: Seamless navigation flow preventing users from getting trapped in screens
 - **API Integration**: Connected to DietIntel backend API with comprehensive error handling
 - **Privacy Protected**: Local processing, no images stored permanently
 - **Network Optimization**: Timeouts, compression, and progress feedback

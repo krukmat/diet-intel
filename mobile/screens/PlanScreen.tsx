@@ -330,7 +330,11 @@ const CustomizeModal: React.FC<CustomizeModalProps> = ({ visible, onClose, onCon
   );
 };
 
-export default function PlanScreen() {
+interface PlanScreenProps {
+  onBackPress: () => void;
+}
+
+export default function PlanScreen({ onBackPress }: PlanScreenProps) {
   const [dailyPlan, setDailyPlan] = useState<DailyPlan | null>(null);
   const [loading, setLoading] = useState(false);
   const [customizeModal, setCustomizeModal] = useState({
@@ -499,8 +503,14 @@ export default function PlanScreen() {
       <ExpoStatusBar style="light" backgroundColor="#007AFF" />
       
       <View style={styles.header}>
-        <Text style={styles.title}>🍽️ Daily Meal Plan</Text>
-        <Text style={styles.subtitle}>Today's Plan ({dailyPlan.daily_calorie_target} kcal)</Text>
+        <TouchableOpacity style={styles.backButton} onPress={onBackPress}>
+          <Text style={styles.backButtonText}>🏠</Text>
+        </TouchableOpacity>
+        <View style={styles.headerContent}>
+          <Text style={styles.title}>🍽️ Daily Meal Plan</Text>
+          <Text style={styles.subtitle}>Today's Plan ({dailyPlan.daily_calorie_target} kcal)</Text>
+        </View>
+        <View style={styles.headerSpacer} />
       </View>
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
@@ -559,8 +569,29 @@ const styles = StyleSheet.create({
     backgroundColor: '#007AFF',
     paddingVertical: 20,
     paddingHorizontal: 20,
+    flexDirection: 'row',
     alignItems: 'center',
     paddingTop: Platform.OS === 'android' ? 40 : 20,
+  },
+  backButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    minWidth: 40,
+    alignItems: 'center',
+  },
+  backButtonText: {
+    color: 'white',
+    fontSize: 20,
+    fontWeight: 'bold',
+  },
+  headerContent: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  headerSpacer: {
+    width: 60, // Same width as back button to center content
   },
   title: {
     color: 'white',

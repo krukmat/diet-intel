@@ -143,12 +143,12 @@ export default function App() {
   }
 
   if (currentScreen === 'upload') {
-    return <UploadLabel />;
+    return <UploadLabel onBackPress={() => setCurrentScreen('scanner')} />;
   }
 
   if (currentScreen === 'plan') {
     console.log('Rendering PlanScreen...');
-    return <PlanScreen />;
+    return <PlanScreen onBackPress={() => setCurrentScreen('scanner')} />;
   }
 
   return (
@@ -195,6 +195,13 @@ export default function App() {
         </TouchableOpacity>
       </View>
 
+      {/* Scanner Status in Top Left Corner */}
+      <View style={styles.statusIndicator}>
+        {hasPermission === null && <Text style={styles.statusText}>📷 Requesting...</Text>}
+        {hasPermission === false && <Text style={[styles.statusText, {color: '#FF3B30'}]}>📷 Permission denied</Text>}
+        {hasPermission === true && <Text style={[styles.statusText, {color: '#34C759'}]}>📷 Ready to scan</Text>}
+      </View>
+
       {/* Camera Section */}
       <View style={styles.cameraSection}>
         {showCamera ? (
@@ -217,14 +224,6 @@ export default function App() {
           </View>
         ) : (
           <View style={styles.cameraPlaceholder}>
-            <View style={styles.scanFrame}>
-              <Text style={styles.cameraIcon}>📷</Text>
-              <Text style={styles.cameraText}>Camera Scanner</Text>
-              {hasPermission === null && <Text style={styles.demoText}>(Requesting permission...)</Text>}
-              {hasPermission === false && <Text style={styles.errorText}>(Permission denied)</Text>}
-              {hasPermission === true && <Text style={styles.successText}>(Ready to scan)</Text>}
-            </View>
-            
             <TouchableOpacity
               style={[styles.cameraButton, hasPermission !== true && styles.buttonDisabled]}
               onPress={startCamera}
@@ -321,6 +320,21 @@ const styles = StyleSheet.create({
     color: 'rgba(255,255,255,0.7)',
     fontSize: 12,
     fontStyle: 'italic',
+  },
+  statusIndicator: {
+    position: 'absolute',
+    top: Platform.OS === 'android' ? 50 : 40,
+    left: 5,
+    zIndex: 1000,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 12,
+  },
+  statusText: {
+    color: '#007AFF',
+    fontSize: 12,
+    fontWeight: '600',
   },
   cameraSection: {
     flex: 1,
