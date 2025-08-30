@@ -309,12 +309,12 @@ The DietIntel mobile app provides a native mobile experience for iOS and Android
 #### Upload Label Feature with Home Navigation
 *Upload Label screen with home button navigation and image capture options for OCR processing*
 
-![Android Upload Label](mobile/screenshots/barcode-scanner-updated.png)
+![Android Upload Label](mobile/screenshots/upload-label-with-home-nav.png)
 
 #### Daily Meal Plan Generation with Navigation
 *Complete meal plan interface with home navigation, daily progress tracking and detailed nutritional breakdown*
 
-![Android Meal Plan Generation](mobile/screenshots/meal-plan-generation-final.png)
+![Android Meal Plan Generation](mobile/screenshots/meal-plan-with-home-nav.png)
 
 ### Features
 
