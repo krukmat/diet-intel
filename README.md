@@ -273,6 +273,28 @@ Visit `http://localhost:3000` for the beautiful web interface featuring:
 - 📸 **OCR demo** - Upload nutrition labels for processing
 - 📱 **Responsive design** - Works perfectly on all devices
 
+### Screenshots
+
+#### Homepage with Interactive API Demos
+*Homepage featuring hero section with live barcode lookup and OCR scanning demos*
+
+![Homepage](screenshots/homepage.png)
+
+#### Meal Plans Dashboard
+*Clean dashboard interface showing meal plan cards with stats and filtering options*
+
+![Meal Plans Dashboard](screenshots/meal-plans-dashboard.png)
+
+#### Detailed Meal Plan View
+*Comprehensive meal plan breakdown with macronutrient charts and per-meal analysis*
+
+![Meal Plan Detail](screenshots/meal-plan-detail.png)
+
+#### Interactive API Documentation
+*Swagger UI providing comprehensive API testing interface*
+
+![API Documentation](screenshots/api-docs.png)
+
 ## API Documentation
 
 Visit `http://localhost:8000/docs` for interactive Swagger API documentation or `http://localhost:8000/redoc` for ReDoc format.
