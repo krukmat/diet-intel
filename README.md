@@ -362,7 +362,7 @@ The DietIntel mobile app provides a native mobile experience for iOS and Android
 #### API Documentation - New Endpoints
 *Updated Swagger documentation showing the complete set of tracking and reminder endpoints*
 
-![API Documentation New Endpoints](mobile/screenshots/api-docs-swagger-ui.png)
+![API Documentation New Endpoints](mobile/screenshots/api-docs-new-endpoints.png)
 
 ### Features
 
