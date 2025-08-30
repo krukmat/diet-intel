@@ -19,7 +19,7 @@ import { StatusBar as ExpoStatusBar } from 'expo-status-bar';
 import axios from 'axios';
 
 const { width: screenWidth } = Dimensions.get('window');
-const API_BASE_URL = 'http://localhost:8000'; // Update this to match your backend
+const API_BASE_URL = 'http://10.0.2.2:8000'; // Android emulator API URL
 
 interface OCRResult {
   source: string;

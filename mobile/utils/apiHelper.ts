@@ -24,13 +24,64 @@ interface ProductResponse {
   categories?: string;
 }
 
+interface UserProfile {
+  age: number;
+  sex: 'male' | 'female';
+  height_cm: number;
+  weight_kg: number;
+  activity_level: number;
+  goal: 'lose' | 'maintain' | 'gain';
+}
+
+interface MealItem {
+  barcode: string;
+  name: string;
+  brand?: string;
+  serving_size: string;
+  calories_per_serving: number;
+  protein_g: number;
+  fat_g: number;
+  carbs_g: number;
+}
+
+interface Meal {
+  meal_type: string;
+  target_calories: number;
+  items: MealItem[];
+  total_calories: number;
+  total_protein: number;
+  total_fat: number;
+  total_carbs: number;
+}
+
+interface DailyPlan {
+  date: string;
+  daily_calories: number;
+  daily_protein: number;
+  daily_fat: number;
+  daily_carbs: number;
+  meals: Meal[];
+}
+
+interface CustomizeRequest {
+  meal_type: string;
+  action: 'add' | 'remove' | 'replace';
+  item: MealItem;
+  replace_index?: number;
+}
+
+interface AddToPlanRequest {
+  barcode: string;
+  meal_type: 'breakfast' | 'lunch' | 'dinner';
+}
+
 class ApiHelper {
   private client: AxiosInstance;
   private config: ApiConfig;
 
   constructor(config: Partial<ApiConfig> = {}) {
     this.config = {
-      baseURL: 'http://localhost:8000', // Replace with your API base URL
+      baseURL: 'http://10.0.2.2:8000', // Android emulator API URL
       timeout: 10000,
       maxRetries: 3,
       retryDelay: 1000,
@@ -105,7 +156,7 @@ class ApiHelper {
 
   private transformError(error: AxiosError): Error & { status?: number; data?: any } {
     const transformedError = new Error(
-      error.response?.data?.detail || 
+      (error.response?.data as any)?.detail || 
       error.message || 
       'Network request failed'
     ) as Error & { status?: number; data?: any };
@@ -196,6 +247,51 @@ class ApiHelper {
     }
   }
 
+  async generateMealPlan(userProfile: UserProfile): Promise<DailyPlan> {
+    try {
+      const response = await this.client.post('/plan/generate', userProfile);
+      return response.data;
+    } catch (error) {
+      throw this.transformError(error as AxiosError);
+    }
+  }
+
+  async customizeMealPlan(customizeRequest: CustomizeRequest): Promise<DailyPlan> {
+    try {
+      const response = await this.client.put('/plan/customize', customizeRequest);
+      return response.data;
+    } catch (error) {
+      throw this.transformError(error as AxiosError);
+    }
+  }
+
+  async addProductToPlan(addRequest: AddToPlanRequest): Promise<{ success: boolean; message: string }> {
+    try {
+      const response = await this.client.post('/plan/add-product', addRequest);
+      return response.data;
+    } catch (error) {
+      throw this.transformError(error as AxiosError);
+    }
+  }
+
+  async getMealPlanConfig(): Promise<any> {
+    try {
+      const response = await this.client.get('/plan/config');
+      return response.data;
+    } catch (error) {
+      throw this.transformError(error as AxiosError);
+    }
+  }
+
+  async searchProducts(query: string): Promise<ProductResponse[]> {
+    try {
+      const response = await this.client.get(`/product/search?q=${encodeURIComponent(query)}`);
+      return response.data.products?.map((product: any) => this.transformProductResponse(product)) || [];
+    } catch (error) {
+      throw this.transformError(error as AxiosError);
+    }
+  }
+
   updateConfig(newConfig: Partial<ApiConfig>) {
     this.config = { ...this.config, ...newConfig };
     this.client.defaults.baseURL = this.config.baseURL;
@@ -209,9 +305,18 @@ class ApiHelper {
 
 export const apiHelper = new ApiHelper({
   baseURL: __DEV__ 
-    ? 'http://localhost:8000'  // Development
+    ? 'http://10.0.2.2:8000'  // Development - Android emulator
     : 'https://your-production-api.com',  // Production
 });
 
 export { ApiHelper };
-export type { ProductResponse, ApiConfig };
+export type { 
+  ProductResponse, 
+  ApiConfig, 
+  UserProfile, 
+  MealItem, 
+  Meal, 
+  DailyPlan, 
+  CustomizeRequest, 
+  AddToPlanRequest 
+};

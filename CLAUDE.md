@@ -75,3 +75,5 @@ DietIntel is a FastAPI application for nutrition tracking with product lookup, O
 - **Macro Tracking**: Complete nutritional analysis with percentage breakdowns
 - always evaluate the diagrams in the readme files to show the correct architecture on the platform
 - enable plan on. always show the plan before start execution.
+- before implement a feature or fix a bug always add a task list and make it approved.
+- in every new feature the screenshots and the explanation should be in the root readme
