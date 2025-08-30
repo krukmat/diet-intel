@@ -15,6 +15,8 @@ import { StatusBar as ExpoStatusBar } from 'expo-status-bar';
 import { BarCodeScanner } from 'expo-barcode-scanner';
 import { Camera } from 'expo-camera';
 import UploadLabel from './screens/UploadLabel';
+import PlanScreen from './screens/PlanScreen';
+import ProductDetail from './components/ProductDetail';
 
 export default function App() {
   const [manualBarcode, setManualBarcode] = useState('');
@@ -22,7 +24,15 @@ export default function App() {
   const [hasPermission, setHasPermission] = useState<boolean | null>(null);
   const [scanned, setScanned] = useState(false);
   const [showCamera, setShowCamera] = useState(false);
-  const [currentScreen, setCurrentScreen] = useState<'scanner' | 'upload'>('scanner');
+  type ScreenType = 'scanner' | 'upload' | 'plan';
+  const [currentScreen, setCurrentScreen] = useState<ScreenType>('scanner');
+  
+  // Debug logging
+  console.log('Current screen:', currentScreen);
+  
+  const isActiveScreen = (screen: ScreenType) => currentScreen === screen;
+  const [currentProduct, setCurrentProduct] = useState<any>(null);
+  const [showProductDetail, setShowProductDetail] = useState(false);
 
   useEffect(() => {
     const getBarCodeScannerPermissions = async () => {
@@ -46,15 +56,41 @@ export default function App() {
     setTimeout(() => {
       setLoading(false);
       if (barcode === '1234567890123') {
-        Alert.alert(
-          '✅ Product Found!',
-          'Coca Cola Classic 330ml\nCalories: 139 kcal\nProtein: 0g | Fat: 0g | Carbs: 37g'
-        );
+        const mockProduct = {
+          code: '1234567890123',
+          product_name: 'Coca Cola Classic',
+          brands: 'Coca-Cola',
+          serving_size: '330ml',
+          nutriments: {
+            energy_kcal_100g: 42,
+            proteins_100g: 0,
+            fat_100g: 0,
+            carbohydrates_100g: 10.6,
+            sugars_100g: 10.6,
+            salt_100g: 0,
+          },
+          image_front_url: 'https://images.openfoodfacts.org/images/products/123/456/789/0123/front_en.3.400.jpg'
+        };
+        setCurrentProduct(mockProduct);
+        setShowProductDetail(true);
       } else if (barcode === '7622210081551') {
-        Alert.alert(
-          '✅ Product Found!',
-          'Nutella 350g\nCalories: 546 kcal\nProtein: 6.3g | Fat: 31g | Carbs: 57g'
-        );
+        const mockProduct = {
+          code: '7622210081551',
+          product_name: 'Nutella',
+          brands: 'Ferrero',
+          serving_size: '15g',
+          nutriments: {
+            energy_kcal_100g: 546,
+            proteins_100g: 6.3,
+            fat_100g: 31,
+            carbohydrates_100g: 57,
+            sugars_100g: 57,
+            salt_100g: 0.107,
+          },
+          image_front_url: 'https://images.openfoodfacts.org/images/products/762/221/008/1551/front_en.3.400.jpg'
+        };
+        setCurrentProduct(mockProduct);
+        setShowProductDetail(true);
       } else {
         Alert.alert(
           '❌ Product Not Found',
@@ -94,8 +130,25 @@ export default function App() {
     setShowCamera(false);
   };
 
+  if (showProductDetail && currentProduct) {
+    return (
+      <ProductDetail 
+        product={currentProduct} 
+        onClose={() => {
+          setShowProductDetail(false);
+          setCurrentProduct(null);
+        }} 
+      />
+    );
+  }
+
   if (currentScreen === 'upload') {
     return <UploadLabel />;
+  }
+
+  if (currentScreen === 'plan') {
+    console.log('Rendering PlanScreen...');
+    return <PlanScreen />;
   }
 
   return (
@@ -112,20 +165,32 @@ export default function App() {
       {/* Navigation */}
       <View style={styles.navigationSection}>
         <TouchableOpacity 
-          style={[styles.navButton, currentScreen === 'scanner' && styles.navButtonActive]}
+          style={[styles.navButton, isActiveScreen('scanner') && styles.navButtonActive]}
           onPress={() => setCurrentScreen('scanner')}
         >
-          <Text style={[styles.navButtonText, currentScreen === 'scanner' && styles.navButtonTextActive]}>
+          <Text style={[styles.navButtonText, isActiveScreen('scanner') && styles.navButtonTextActive]}>
             📷 Barcode Scanner
           </Text>
         </TouchableOpacity>
         
         <TouchableOpacity 
-          style={[styles.navButton, currentScreen === 'upload' && styles.navButtonActive]}
+          style={[styles.navButton, isActiveScreen('upload') && styles.navButtonActive]}
           onPress={() => setCurrentScreen('upload')}
         >
-          <Text style={[styles.navButtonText, currentScreen === 'upload' && styles.navButtonTextActive]}>
+          <Text style={[styles.navButtonText, isActiveScreen('upload') && styles.navButtonTextActive]}>
             🏷️ Upload Label
+          </Text>
+        </TouchableOpacity>
+        
+        <TouchableOpacity 
+          style={[styles.navButton, isActiveScreen('plan') && styles.navButtonActive]}
+          onPress={() => {
+            console.log('Meal Plan tab pressed!');
+            setCurrentScreen('plan');
+          }}
+        >
+          <Text style={[styles.navButtonText, isActiveScreen('plan') && styles.navButtonTextActive]}>
+            🍽️ Meal Plan
           </Text>
         </TouchableOpacity>
       </View>
@@ -482,10 +547,10 @@ const styles = StyleSheet.create({
   },
   navigationSection: {
     backgroundColor: 'white',
-    paddingHorizontal: 20,
+    paddingHorizontal: 15,
     paddingVertical: 15,
     flexDirection: 'row',
-    gap: 10,
+    gap: 8,
     borderBottomWidth: 1,
     borderBottomColor: '#E0E0E0',
   },
@@ -504,9 +569,10 @@ const styles = StyleSheet.create({
     borderColor: '#007AFF',
   },
   navButtonText: {
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: '600',
     color: '#666',
+    textAlign: 'center',
   },
   navButtonTextActive: {
     color: 'white',
