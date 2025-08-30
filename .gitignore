@@ -146,3 +146,7 @@ lerna-debug.log*
 .bin/
 */node_modules/.bin/
 **/.bin/
+
+# Webapp specific exclusions
+webapp/node_modules/
+webapp/package-lock.json
