@@ -73,12 +73,12 @@ async def create_reminder(request: ReminderRequest):
         )
         
         # Store in memory (replace with database)
-        reminders_data.append(reminder.dict())
+        reminders_data.append(reminder.model_dump())
         
         # Cache user reminders
         cache_key = f"user_reminders"
         user_reminders = await cache_service.get(cache_key) or []
-        user_reminders.append(reminder.dict())
+        user_reminders.append(reminder.model_dump())
         await cache_service.set(cache_key, user_reminders, ttl_hours=24)  # 24 hours
         
         logger.info(f"Successfully created reminder {reminder_id}")

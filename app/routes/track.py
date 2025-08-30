@@ -92,12 +92,12 @@ async def track_meal(request: MealTrackingRequest):
         )
         
         # Store in memory (replace with database)
-        meal_tracking_data.append(meal_record.dict())
+        meal_tracking_data.append(meal_record.model_dump())
         
         # Cache recent meals
         cache_key = f"recent_meals_user"
         recent_meals = await cache_service.get(cache_key) or []
-        recent_meals.append(meal_record.dict())
+        recent_meals.append(meal_record.model_dump())
         # Keep only last 50 meals
         recent_meals = recent_meals[-50:]
         await cache_service.set(cache_key, recent_meals, ttl_hours=24)
@@ -145,12 +145,12 @@ async def track_weight(request: WeightTrackingRequest):
         )
         
         # Store in memory (replace with database)
-        weight_tracking_data.append(weight_record.dict())
+        weight_tracking_data.append(weight_record.model_dump())
         
         # Cache weight history
         cache_key = f"weight_history_user"
         weight_history = await cache_service.get(cache_key) or []
-        weight_history.append(weight_record.dict())
+        weight_history.append(weight_record.model_dump())
         # Keep only last 100 entries
         weight_history = sorted(weight_history, key=lambda x: x['date'])[-100:]
         await cache_service.set(cache_key, weight_history, ttl_hours=24)
