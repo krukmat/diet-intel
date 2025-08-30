@@ -23,6 +23,18 @@
       "package": "com.dietintel.mobile"
     },
     "plugins": [
+      [
+        "expo-barcode-scanner",
+        {
+          "cameraPermission": "Allow DietIntel to access camera to scan product barcodes."
+        }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow DietIntel to access camera to scan product barcodes for nutrition information."
+        }
+      ],
       "expo-splash-screen"
     ],
     "extra": {

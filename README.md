@@ -306,11 +306,14 @@ The DietIntel mobile app provides a native mobile experience for iOS and Android
 
 ### Features
 
-- **Camera Barcode Scanner**: Real-time barcode scanning using device camera
-- **Manual Barcode Entry**: Text input for manual barcode entry
-- **Demo Barcodes**: Pre-loaded test barcodes for quick testing
-- **API Integration**: Connected to DietIntel backend API
-- **Privacy Protected**: Local camera processing, no images stored
+- **Live Camera Barcode Scanner**: Real-time barcode scanning using expo-barcode-scanner
+- **Camera Permission Handling**: Smart permission requests with status indicators
+- **Manual Barcode Entry**: Text input field with validation for 13-digit barcodes
+- **Demo Barcodes**: Pre-loaded test barcodes (Coca Cola, Nutella, Not Found scenarios)
+- **Visual Feedback**: Green "Ready to scan" / Red "Permission denied" status indicators
+- **Camera Controls**: Start/Stop camera with overlay scan frame
+- **API Integration**: Connected to DietIntel backend API with mock responses
+- **Privacy Protected**: Local camera processing, no images stored or transmitted
 
 ### Setup Instructions
 
@@ -333,6 +336,18 @@ npx expo start
 ```bash
 npx expo run:android
 ```
+
+### Camera Implementation Details
+
+The mobile app includes full camera barcode scanning capabilities:
+
+- **expo-barcode-scanner**: Integrated for real-time barcode detection
+- **expo-camera**: Used for camera access and controls
+- **Permission Management**: Automatic camera permission requests with user feedback
+- **Scan Overlay**: Visual scan frame to guide barcode positioning
+- **Error Handling**: Graceful handling of permission denied and camera unavailable states
+
+**Supported Barcode Formats**: All standard formats supported by expo-barcode-scanner including UPC, EAN, Code128, QR codes, and more.
 
 ## API Documentation
 

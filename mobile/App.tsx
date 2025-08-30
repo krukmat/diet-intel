@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -12,10 +12,30 @@ import {
   Platform,
 } from 'react-native';
 import { StatusBar as ExpoStatusBar } from 'expo-status-bar';
+import { BarCodeScanner } from 'expo-barcode-scanner';
+import { Camera } from 'expo-camera';
 
 export default function App() {
   const [manualBarcode, setManualBarcode] = useState('');
   const [loading, setLoading] = useState(false);
+  const [hasPermission, setHasPermission] = useState<boolean | null>(null);
+  const [scanned, setScanned] = useState(false);
+  const [showCamera, setShowCamera] = useState(false);
+
+  useEffect(() => {
+    const getBarCodeScannerPermissions = async () => {
+      const { status } = await BarCodeScanner.requestPermissionsAsync();
+      setHasPermission(status === 'granted');
+    };
+
+    getBarCodeScannerPermissions();
+  }, []);
+
+  const handleBarCodeScanned = ({ type, data }: { type: string; data: string }) => {
+    setScanned(true);
+    setShowCamera(false);
+    processBarcode(data);
+  };
 
   const processBarcode = async (barcode: string) => {
     setLoading(true);
@@ -52,6 +72,24 @@ export default function App() {
   const resetInput = () => {
     setManualBarcode('');
     setLoading(false);
+    setScanned(false);
+  };
+
+  const startCamera = () => {
+    if (hasPermission === null) {
+      Alert.alert('Permission', 'Requesting camera permission...');
+      return;
+    }
+    if (hasPermission === false) {
+      Alert.alert('No Permission', 'No access to camera. Please enable camera permissions in your device settings.');
+      return;
+    }
+    setShowCamera(true);
+    setScanned(false);
+  };
+
+  const stopCamera = () => {
+    setShowCamera(false);
   };
 
   return (
@@ -65,24 +103,52 @@ export default function App() {
         <Text style={styles.version}>v1.0 - Android Demo</Text>
       </View>
 
-      {/* Camera Simulation */}
+      {/* Camera Section */}
       <View style={styles.cameraSection}>
-        <View style={styles.scanFrame}>
-          <Text style={styles.cameraIcon}>📷</Text>
-          <Text style={styles.cameraText}>Camera Scanner</Text>
-          <Text style={styles.demoText}>(Demo Mode)</Text>
-        </View>
-        
-        <Text style={styles.instructionText}>
-          Point camera at product barcode
-        </Text>
+        {showCamera ? (
+          <View style={styles.cameraContainer}>
+            <BarCodeScanner
+              onBarCodeScanned={scanned ? undefined : handleBarCodeScanned}
+              style={styles.camera}
+            />
+            <View style={styles.scanOverlay}>
+              <View style={styles.scanFrame}>
+                <Text style={styles.scanText}>Position barcode in frame</Text>
+              </View>
+            </View>
+            <TouchableOpacity
+              style={styles.closeCameraButton}
+              onPress={stopCamera}
+            >
+              <Text style={styles.closeCameraText}>✕ Close Camera</Text>
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <View style={styles.cameraPlaceholder}>
+            <View style={styles.scanFrame}>
+              <Text style={styles.cameraIcon}>📷</Text>
+              <Text style={styles.cameraText}>Camera Scanner</Text>
+              {hasPermission === null && <Text style={styles.demoText}>(Requesting permission...)</Text>}
+              {hasPermission === false && <Text style={styles.errorText}>(Permission denied)</Text>}
+              {hasPermission === true && <Text style={styles.successText}>(Ready to scan)</Text>}
+            </View>
+            
+            <TouchableOpacity
+              style={[styles.cameraButton, hasPermission !== true && styles.buttonDisabled]}
+              onPress={startCamera}
+              disabled={hasPermission !== true}
+            >
+              <Text style={styles.cameraButtonText}>📷 Start Camera</Text>
+            </TouchableOpacity>
 
-        <View style={styles.exampleContainer}>
-          <Text style={styles.exampleTitle}>Try these demo barcodes:</Text>
-          <Text style={styles.exampleItem}>• 1234567890123 (Coca Cola)</Text>
-          <Text style={styles.exampleItem}>• 7622210081551 (Nutella)</Text>
-          <Text style={styles.exampleItem}>• 0000000000000 (Not Found)</Text>
-        </View>
+            <View style={styles.exampleContainer}>
+              <Text style={styles.exampleTitle}>Try these demo barcodes:</Text>
+              <Text style={styles.exampleItem}>• 1234567890123 (Coca Cola)</Text>
+              <Text style={styles.exampleItem}>• 7622210081551 (Nutella)</Text>
+              <Text style={styles.exampleItem}>• 0000000000000 (Not Found)</Text>
+            </View>
+          </View>
+        )}
       </View>
 
       {/* Manual Input */}
@@ -167,10 +233,43 @@ const styles = StyleSheet.create({
   cameraSection: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.95)',
+  },
+  cameraContainer: {
+    flex: 1,
+    position: 'relative',
+  },
+  camera: {
+    flex: 1,
+  },
+  cameraPlaceholder: {
+    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 20,
     paddingVertical: 20,
+  },
+  scanOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  closeCameraButton: {
+    position: 'absolute',
+    top: 50,
+    right: 20,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    paddingHorizontal: 15,
+    paddingVertical: 8,
+    borderRadius: 20,
+  },
+  closeCameraText: {
+    color: 'white',
+    fontSize: 14,
+    fontWeight: '600',
   },
   scanFrame: {
     width: 300,
@@ -199,6 +298,47 @@ const styles = StyleSheet.create({
     fontSize: 14,
     opacity: 0.8,
     fontStyle: 'italic',
+  },
+  errorText: {
+    color: '#FF3B30',
+    fontSize: 14,
+    fontWeight: '600',
+    fontStyle: 'italic',
+  },
+  successText: {
+    color: '#34C759',
+    fontSize: 14,
+    fontWeight: '600',
+    fontStyle: 'italic',
+  },
+  scanText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
+    textAlign: 'center',
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    paddingHorizontal: 15,
+    paddingVertical: 8,
+    borderRadius: 10,
+  },
+  cameraButton: {
+    backgroundColor: '#007AFF',
+    paddingVertical: 15,
+    paddingHorizontal: 25,
+    borderRadius: 25,
+    marginTop: 20,
+    marginBottom: 20,
+    shadowColor: '#007AFF',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  cameraButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '700',
+    textAlign: 'center',
   },
   instructionText: {
     color: 'white',
