@@ -4,11 +4,29 @@ A comprehensive FastAPI application for nutrition tracking with barcode product 
 
 ## Features
 
+### **Core Product & Nutrition APIs**
 - **POST /product/by-barcode**: Lookup product information by barcode
 - **POST /product/scan-label**: OCR nutrition label scanning with image upload
 - **POST /product/scan-label-external**: OCR with external service fallback
 - **POST /plan/generate**: Generate personalized daily meal plans
-- **Redis Caching**: 24-hour cache for successful responses
+
+### **Tracking & Progress APIs** ✨ **NEW**
+- **POST /track/meal**: Log consumed meals with optional photo attachment
+- **POST /track/weight**: Record weight measurements with optional photo
+- **GET /track/weight/history**: Retrieve weight tracking history with charts
+- **GET /track/photos**: Get timeline of all meal and weigh-in photos
+
+### **Reminder & Notification APIs** ✨ **NEW**
+- **POST /reminder**: Create new meal/weigh-in notification reminders
+- **GET /reminder**: List all user reminders with scheduling details
+- **GET /reminder/{id}**: Get specific reminder by ID
+- **PUT /reminder/{id}**: Update existing reminder settings
+- **DELETE /reminder/{id}**: Delete reminder and cancel notifications
+
+### **System Features**
+- **Redis Caching**: 24-hour cache for successful responses with intelligent cache management
+- **Photo Storage**: Base64 image processing with filesystem storage and URL generation
+- **UUID Generation**: Unique identifiers for all tracking and reminder resources
 - **Local OCR**: Tesseract + OpenCV preprocessing for nutrition text extraction
 - **Confidence Scoring**: Smart confidence assessment for OCR results
 - **BMR/TDEE Calculations**: Mifflin-St Jeor equation with activity level adjustments
@@ -316,6 +334,36 @@ The DietIntel mobile app provides a native mobile experience for iOS and Android
 
 ![Android Meal Plan Generation](mobile/screenshots/meal-plan-with-home-nav.png)
 
+#### Track Screen - Progress Tracking
+*New Track screen showing today's planned meals, weigh-in functionality, and photo logs for comprehensive nutrition tracking*
+
+![Track Screen Main](mobile/screenshots/track-screen-main.png)
+
+#### Enhanced Navigation with Track Tab
+*Updated navigation bar featuring 4 tabs: Barcode Scanner, Upload Label, Meal Plan, and the new Track tab*
+
+![Navigation with Track Tab](mobile/screenshots/navigation-with-track-tab.png)
+
+#### Reminder Management Header
+*Header with reminder bell icon for quick access to meal and weigh-in reminder scheduling*
+
+![Reminder Bell Header](mobile/screenshots/reminder-bell-header.png)
+
+#### Track Screen - Live API Integration
+*Track screen now fully integrated with backend APIs, showing real weight history and photo data from the server*
+
+![Track Screen API Integration](mobile/screenshots/track-screen-with-api-data.png)
+
+#### Reminder Screen - Live API Integration  
+*Reminder management screen connected to backend API for creating, updating, and deleting notification reminders*
+
+![Reminder Screen API Integration](mobile/screenshots/reminder-screen-with-api-data.png)
+
+#### API Documentation - New Endpoints
+*Updated Swagger documentation showing the complete set of tracking and reminder endpoints*
+
+![API Documentation New Endpoints](mobile/screenshots/api-docs-swagger-ui.png)
+
 ### Features
 
 #### Barcode Scanner
@@ -348,12 +396,37 @@ The DietIntel mobile app provides a native mobile experience for iOS and Android
 - **Customization Options**: Modify meals and dietary preferences ✅
 - **Redis Caching**: Fast meal plan retrieval with 24-hour cache TTL ✅
 
+#### Track Screen - ✅ **FULLY IMPLEMENTED WITH LIVE API INTEGRATION**
+- **Today's Meals Tracking**: View all planned meals with "Mark as Eaten" functionality ✅
+- **Meal Photo Logging**: Attach photos when marking meals as consumed → `POST /track/meal` ✅  
+- **Weight Tracking**: Record daily weight with optional photo attachment → `POST /track/weight` ✅
+- **Weight History Visualization**: Live data from backend → `GET /track/weight/history` ✅
+- **Photo Timeline**: Real-time photo logs from server → `GET /track/photos` ✅
+- **Complete API Integration**: Full CRUD operations with backend persistence ✅
+- **Progress Monitoring**: Visual tracking with real server data ✅
+- **Offline Fallback**: Graceful degradation when API is unavailable ✅
+
+#### Reminder System - ✅ **FULLY IMPLEMENTED WITH LIVE API INTEGRATION**  
+- **Smart Notifications**: Schedule meal and weigh-in reminders with Expo Notifications ✅
+- **Flexible Scheduling**: Custom time and day selection for recurring reminders ✅
+- **Reminder Types**: Support for both meal reminders and weigh-in notifications ✅
+- **Local Notifications**: Device-level notification scheduling with proper permissions ✅
+- **Complete API Integration**: Full backend synchronization with all CRUD operations ✅
+  - **Create**: `POST /reminder` - Save new reminders to server ✅
+  - **Read**: `GET /reminder` - Load all reminders from server ✅  
+  - **Update**: `PUT /reminder/{id}` - Modify existing reminders ✅
+  - **Delete**: `DELETE /reminder/{id}` - Remove reminders from server ✅
+- **Permission Management**: Graceful notification permission handling with user guidance ✅
+- **Intuitive UI**: Easy-to-use time picker and day selection interface ✅
+- **Real-time Sync**: Changes immediately reflected between mobile app and backend ✅
+
 #### Navigation & User Experience
-- **Tab Navigation**: Switch between Barcode Scanner, Upload Label, and Meal Plan screens
+- **4-Tab Navigation**: Enhanced navigation with Barcode Scanner, Upload Label, Meal Plan, and Track screens
 - **Home Button Navigation**: 🏠 home button in feature screens to return to main screen
 - **Back Navigation**: Seamless navigation flow preventing users from getting trapped in screens
+- **Reminder Access**: Quick access via 🔔 bell icon in header for notification management
 - **API Integration**: Connected to DietIntel backend API with comprehensive error handling
-- **Privacy Protected**: Local processing, no images stored permanently
+- **Privacy Protected**: Local processing, with secure photo compression and permission handling
 - **Network Optimization**: Timeouts, compression, and progress feedback
 
 ### Setup Instructions
@@ -441,13 +514,30 @@ The DietIntel mobile app has been comprehensively tested and validated:
 - **Mobile Rendering**: Smooth 60fps UI updates
 - **Network Efficiency**: Optimized payloads with proper error boundaries
 
-#### Latest Test Results (August 30, 2025)
+#### Latest Test Results (August 30, 2025) - **LIVE API INTEGRATION**
 ```
 ✅ Backend API: Running successfully on localhost:8000
-✅ Redis Server: Connected and caching meal plans  
+✅ Redis Server: Connected and caching meal plans + tracking data
 ✅ Android Emulator: Pixel 7 API 33 running smoothly
 ✅ Mobile App: Plan generation working without errors
 ✅ Database: Meal plans stored with IDs and timestamps
+✅ NEW: Tracking APIs - All endpoints responding correctly
+✅ NEW: Reminder APIs - Full CRUD operations working
+✅ NEW: Mobile Integration - Live API calls confirmed
+✅ NEW: Photo Storage - Base64 image processing operational
+✅ NEW: Weight History - Chart data loading from backend
+✅ NEW: Real-time Sync - Mobile ↔ Backend data synchronization active
+```
+
+**Live API Integration Confirmed:**
+```bash
+# Backend logs showing active mobile app API calls:
+GET /track/weight/history?limit=30 → 200 OK (Cache hit)
+GET /track/photos?limit=50 → 200 OK  
+POST /track/meal → 200 OK (175.0 calories tracked)
+POST /track/weight → 200 OK (75.2 kg recorded)
+GET /reminder → 200 OK (1 reminder retrieved)
+POST /reminder → 200 OK (Breakfast reminder created)
 ```
 
 ## API Documentation
@@ -497,6 +587,79 @@ curl -X POST "http://localhost:8000/plan/generate" \
        "optional_products": ["737628064502"],
        "flexibility": true
      }'
+```
+
+### Meal Tracking
+```bash
+curl -X POST "http://localhost:8000/track/meal" \
+     -H "Content-Type: application/json" \
+     -d '{
+       "meal_name": "Breakfast",
+       "items": [
+         {
+           "barcode": "737628064502",
+           "name": "Oatmeal",
+           "serving": "50g",
+           "calories": 175
+         }
+       ],
+       "photo": "data:image/jpeg;base64,...",
+       "timestamp": "2024-01-01T08:00:00Z"
+     }'
+```
+
+### Weight Tracking
+```bash
+curl -X POST "http://localhost:8000/track/weight" \
+     -H "Content-Type: application/json" \
+     -d '{
+       "weight": 75.2,
+       "date": "2024-01-01T08:00:00Z",
+       "photo": "data:image/jpeg;base64,..."
+     }'
+```
+
+### Reminder Management
+```bash
+curl -X POST "http://localhost:8000/reminder" \
+     -H "Content-Type: application/json" \
+     -d '{
+       "type": "meal",
+       "label": "Breakfast time",
+       "time": "08:00",
+       "days": [false, true, true, true, true, true, false],
+       "enabled": true
+     }'
+```
+
+### Get Weight History
+```bash
+curl -X GET "http://localhost:8000/track/weight/history?limit=30"
+```
+
+### Get Photo Timeline
+```bash
+curl -X GET "http://localhost:8000/track/photos?limit=50"
+```
+
+### Get All Reminders
+```bash
+curl -X GET "http://localhost:8000/reminder"
+```
+
+### Update Reminder
+```bash
+curl -X PUT "http://localhost:8000/reminder/123e4567-e89b-12d3-a456-426614174000" \
+     -H "Content-Type: application/json" \
+     -d '{
+       "enabled": false,
+       "time": "07:30"
+     }'
+```
+
+### Delete Reminder
+```bash
+curl -X DELETE "http://localhost:8000/reminder/123e4567-e89b-12d3-a456-426614174000"
 ```
 
 ## Response Format
@@ -602,5 +765,117 @@ curl -X POST "http://localhost:8000/plan/generate" \
   "created_at": "2024-01-01T12:00:00.000Z",
   "flexibility_used": true,
   "optional_products_used": 2
+}
+```
+
+### Meal Tracking Response
+```json
+{
+  "id": "550e8400-e29b-41d4-a716-446655440000",
+  "meal_name": "Breakfast",
+  "items": [
+    {
+      "barcode": "123456789",
+      "name": "Oatmeal",
+      "serving": "50g",
+      "calories": 175.0,
+      "macros": {
+        "protein_g": 8,
+        "fat_g": 3,
+        "carbs_g": 30
+      }
+    }
+  ],
+  "total_calories": 175.0,
+  "photo_url": "/photos/meal_550e8400-e29b-41d4-a716-446655440000.jpg",
+  "timestamp": "2024-01-01T08:00:00Z",
+  "created_at": "2024-01-01T08:00:15.123Z"
+}
+```
+
+### Weight Tracking Response
+```json
+{
+  "id": "660e8400-e29b-41d4-a716-446655440001",
+  "weight": 75.2,
+  "date": "2024-01-01T08:00:00Z",
+  "photo_url": "/photos/weight_660e8400-e29b-41d4-a716-446655440001.jpg",
+  "created_at": "2024-01-01T08:00:30.456Z"
+}
+```
+
+### Weight History Response
+```json
+{
+  "entries": [
+    {
+      "id": "660e8400-e29b-41d4-a716-446655440001",
+      "weight": 75.2,
+      "date": "2024-01-01T08:00:00Z",
+      "photo_url": "/photos/weight_660e8400.jpg",
+      "created_at": "2024-01-01T08:00:30Z"
+    }
+  ],
+  "count": 1,
+  "date_range": {
+    "earliest": "2024-01-01T08:00:00Z",
+    "latest": "2024-01-01T08:00:00Z"
+  }
+}
+```
+
+### Photo Timeline Response
+```json
+{
+  "logs": [
+    {
+      "id": "550e8400-e29b-41d4-a716-446655440000",
+      "timestamp": "2024-01-01T08:00:15Z",
+      "photo_url": "/photos/meal_550e8400.jpg",
+      "type": "meal",
+      "description": "Breakfast - 175 kcal"
+    },
+    {
+      "id": "660e8400-e29b-41d4-a716-446655440001",
+      "timestamp": "2024-01-01T08:00:30Z",
+      "photo_url": "/photos/weight_660e8400.jpg",
+      "type": "weigh-in",
+      "description": "Weight: 75.2 kg"
+    }
+  ],
+  "count": 2
+}
+```
+
+### Reminder Response
+```json
+{
+  "id": "770e8400-e29b-41d4-a716-446655440002",
+  "type": "meal",
+  "label": "Breakfast time",
+  "time": "08:00",
+  "days": [false, true, true, true, true, true, false],
+  "enabled": true,
+  "created_at": "2024-01-01T07:30:00Z",
+  "updated_at": "2024-01-01T07:30:00Z"
+}
+```
+
+### Reminders List Response
+```json
+{
+  "reminders": [
+    {
+      "id": "770e8400-e29b-41d4-a716-446655440002",
+      "type": "meal",
+      "label": "Breakfast time",
+      "time": "08:00",
+      "days": [false, true, true, true, true, true, false],
+      "enabled": true,
+      "created_at": "2024-01-01T07:30:00Z",
+      "updated_at": "2024-01-01T07:30:00Z"
+    }
+  ],
+  "count": 1
 }
 ```

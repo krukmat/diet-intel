@@ -16,7 +16,9 @@ import { BarCodeScanner } from 'expo-barcode-scanner';
 import { Camera } from 'expo-camera';
 import UploadLabel from './screens/UploadLabel';
 import PlanScreen from './screens/PlanScreen';
+import TrackScreen from './screens/TrackScreen';
 import ProductDetail from './components/ProductDetail';
+import ReminderSnippet from './components/ReminderSnippet';
 
 export default function App() {
   const [manualBarcode, setManualBarcode] = useState('');
@@ -24,8 +26,9 @@ export default function App() {
   const [hasPermission, setHasPermission] = useState<boolean | null>(null);
   const [scanned, setScanned] = useState(false);
   const [showCamera, setShowCamera] = useState(false);
-  type ScreenType = 'scanner' | 'upload' | 'plan';
+  type ScreenType = 'scanner' | 'upload' | 'plan' | 'track';
   const [currentScreen, setCurrentScreen] = useState<ScreenType>('scanner');
+  const [showReminders, setShowReminders] = useState(false);
   
   // Debug logging
   console.log('Current screen:', currentScreen);
@@ -151,15 +154,27 @@ export default function App() {
     return <PlanScreen onBackPress={() => setCurrentScreen('scanner')} />;
   }
 
+  if (currentScreen === 'track') {
+    return <TrackScreen onBackPress={() => setCurrentScreen('scanner')} />;
+  }
+
   return (
     <SafeAreaView style={styles.container}>
       <ExpoStatusBar style="light" backgroundColor="#007AFF" />
       
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.title}>🍎 DietIntel</Text>
-        <Text style={styles.subtitle}>Nutrition Barcode Scanner</Text>
-        <Text style={styles.version}>v1.0 - Android Demo</Text>
+        <View style={styles.headerContent}>
+          <Text style={styles.title}>🍎 DietIntel</Text>
+          <Text style={styles.subtitle}>Nutrition Barcode Scanner</Text>
+          <Text style={styles.version}>v1.0 - Android Demo</Text>
+        </View>
+        <TouchableOpacity 
+          style={styles.reminderButton}
+          onPress={() => setShowReminders(true)}
+        >
+          <Text style={styles.reminderButtonText}>🔔</Text>
+        </TouchableOpacity>
       </View>
 
       {/* Navigation */}
@@ -191,6 +206,15 @@ export default function App() {
         >
           <Text style={[styles.navButtonText, isActiveScreen('plan') && styles.navButtonTextActive]}>
             🍽️ Meal Plan
+          </Text>
+        </TouchableOpacity>
+        
+        <TouchableOpacity 
+          style={[styles.navButton, isActiveScreen('track') && styles.navButtonActive]}
+          onPress={() => setCurrentScreen('track')}
+        >
+          <Text style={[styles.navButtonText, isActiveScreen('track') && styles.navButtonTextActive]}>
+            📊 Track
           </Text>
         </TouchableOpacity>
       </View>
@@ -288,6 +312,11 @@ export default function App() {
           Camera processing is local. No images stored.
         </Text>
       </View>
+
+      <ReminderSnippet 
+        visible={showReminders} 
+        onClose={() => setShowReminders(false)} 
+      />
     </SafeAreaView>
   );
 }
@@ -301,8 +330,26 @@ const styles = StyleSheet.create({
     backgroundColor: '#007AFF',
     paddingVertical: 30,
     paddingHorizontal: 20,
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
     paddingTop: Platform.OS === 'android' ? 40 : 30,
+  },
+  headerContent: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  reminderButton: {
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  reminderButtonText: {
+    color: 'white',
+    fontSize: 20,
   },
   title: {
     color: 'white',
@@ -561,17 +608,17 @@ const styles = StyleSheet.create({
   },
   navigationSection: {
     backgroundColor: 'white',
-    paddingHorizontal: 15,
+    paddingHorizontal: 10,
     paddingVertical: 15,
     flexDirection: 'row',
-    gap: 8,
+    gap: 6,
     borderBottomWidth: 1,
     borderBottomColor: '#E0E0E0',
   },
   navButton: {
     flex: 1,
-    paddingVertical: 12,
-    paddingHorizontal: 15,
+    paddingVertical: 10,
+    paddingHorizontal: 8,
     borderRadius: 10,
     alignItems: 'center',
     backgroundColor: '#F8F9FA',
@@ -583,7 +630,7 @@ const styles = StyleSheet.create({
     borderColor: '#007AFF',
   },
   navButtonText: {
-    fontSize: 12,
+    fontSize: 10,
     fontWeight: '600',
     color: '#666',
     textAlign: 'center',
