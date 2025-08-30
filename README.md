@@ -299,21 +299,45 @@ Visit `http://localhost:3000` for the beautiful web interface featuring:
 
 The DietIntel mobile app provides a native mobile experience for iOS and Android platforms, featuring barcode scanning and nutrition lookup capabilities.
 
-### Android App Screenshot
-*DietIntel mobile app running successfully on Android emulator with barcode scanner interface*
+### Mobile App Screenshots
 
-![Android Working App](mobile/screenshots/android-after-reload.png)
+#### Navigation & Barcode Scanner
+*DietIntel mobile app with tab navigation - Barcode Scanner screen active*
+
+![Android Barcode Scanner](mobile/screenshots/android-app-loaded.png)
+
+#### Upload Label Feature  
+*Upload Label screen with image capture options for OCR processing*
+
+![Android Upload Label](mobile/screenshots/dev-menu-check.png)
 
 ### Features
 
+#### Barcode Scanner
 - **Live Camera Barcode Scanner**: Real-time barcode scanning using expo-barcode-scanner
 - **Camera Permission Handling**: Smart permission requests with status indicators
 - **Manual Barcode Entry**: Text input field with validation for 13-digit barcodes
 - **Demo Barcodes**: Pre-loaded test barcodes (Coca Cola, Nutella, Not Found scenarios)
 - **Visual Feedback**: Green "Ready to scan" / Red "Permission denied" status indicators
 - **Camera Controls**: Start/Stop camera with overlay scan frame
-- **API Integration**: Connected to DietIntel backend API with mock responses
-- **Privacy Protected**: Local camera processing, no images stored or transmitted
+
+#### Upload Label (OCR) - ✅ **FULLY IMPLEMENTED**
+- **Image Capture**: Take photos or select from gallery for nutrition label scanning ✅
+- **Image Compression**: Automatic compression to optimize network usage (70% quality, max 1024px width) ✅
+- **OCR Processing**: Upload to `/product/scan-label` endpoint with progress indicator ✅
+- **Confidence Scoring**: Visual confidence percentage with color-coded indicators ✅
+- **Low Confidence Handling**: Special UI for results < 70% confidence ✅
+- **External OCR Fallback**: Button to retry with `/product/scan-label-external` service ✅
+- **Manual Correction**: Editable form for all nutrition values with validation ✅
+- **Raw Text Display**: Shows extracted OCR text for verification ✅
+- **Missing Field Highlighting**: Red indicators for null/missing nutrition data ✅
+- **Retry Functionality**: Easy retake photo, start over, and edit capabilities ✅
+
+#### General
+- **Tab Navigation**: Switch between Barcode Scanner and Upload Label screens
+- **API Integration**: Connected to DietIntel backend API with comprehensive error handling
+- **Privacy Protected**: Local processing, no images stored permanently
+- **Network Optimization**: Timeouts, compression, and progress feedback
 
 ### Setup Instructions
 
@@ -348,6 +372,34 @@ The mobile app includes full camera barcode scanning capabilities:
 - **Error Handling**: Graceful handling of permission denied and camera unavailable states
 
 **Supported Barcode Formats**: All standard formats supported by expo-barcode-scanner including UPC, EAN, Code128, QR codes, and more.
+
+### UploadLabel Feature Details
+
+The UploadLabel screen provides comprehensive OCR functionality for nutrition labels:
+
+#### Image Processing Pipeline
+1. **Image Selection**: Camera capture or gallery selection with proper permissions
+2. **Automatic Compression**: Images resized to max 1024px width, 70% JPEG quality
+3. **Upload Progress**: Real-time progress indicator during network transfer
+4. **OCR Processing**: Server-side text extraction and nutrition parsing
+
+#### OCR Response Handling
+- **High Confidence (≥70%)**: Direct display of parsed nutrition values
+- **Low Confidence (<70%)**: Warning UI with retry options
+- **Missing Fields**: Red highlighting for null nutrition values
+- **Raw Text**: Display of extracted OCR text for verification
+
+#### User Experience Features
+- **Multiple Retry Options**: Retake photo, external OCR, manual editing
+- **Form Validation**: Numeric input validation for nutrition values
+- **Visual Feedback**: Color-coded confidence indicators and status messages
+- **Error Recovery**: Comprehensive error handling with actionable suggestions
+
+#### Technical Implementation
+- **React Native Components**: Modern UI with TypeScript integration
+- **Permission Management**: Automatic camera and gallery permission requests
+- **Network Optimization**: Image compression, timeouts, and progress tracking
+- **State Management**: Clean React hooks with proper cleanup
 
 ## API Documentation
 

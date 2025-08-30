@@ -14,6 +14,7 @@ import {
 import { StatusBar as ExpoStatusBar } from 'expo-status-bar';
 import { BarCodeScanner } from 'expo-barcode-scanner';
 import { Camera } from 'expo-camera';
+import UploadLabel from './screens/UploadLabel';
 
 export default function App() {
   const [manualBarcode, setManualBarcode] = useState('');
@@ -21,6 +22,7 @@ export default function App() {
   const [hasPermission, setHasPermission] = useState<boolean | null>(null);
   const [scanned, setScanned] = useState(false);
   const [showCamera, setShowCamera] = useState(false);
+  const [currentScreen, setCurrentScreen] = useState<'scanner' | 'upload'>('scanner');
 
   useEffect(() => {
     const getBarCodeScannerPermissions = async () => {
@@ -92,6 +94,10 @@ export default function App() {
     setShowCamera(false);
   };
 
+  if (currentScreen === 'upload') {
+    return <UploadLabel />;
+  }
+
   return (
     <SafeAreaView style={styles.container}>
       <ExpoStatusBar style="light" backgroundColor="#007AFF" />
@@ -101,6 +107,27 @@ export default function App() {
         <Text style={styles.title}>🍎 DietIntel</Text>
         <Text style={styles.subtitle}>Nutrition Barcode Scanner</Text>
         <Text style={styles.version}>v1.0 - Android Demo</Text>
+      </View>
+
+      {/* Navigation */}
+      <View style={styles.navigationSection}>
+        <TouchableOpacity 
+          style={[styles.navButton, currentScreen === 'scanner' && styles.navButtonActive]}
+          onPress={() => setCurrentScreen('scanner')}
+        >
+          <Text style={[styles.navButtonText, currentScreen === 'scanner' && styles.navButtonTextActive]}>
+            📷 Barcode Scanner
+          </Text>
+        </TouchableOpacity>
+        
+        <TouchableOpacity 
+          style={[styles.navButton, currentScreen === 'upload' && styles.navButtonActive]}
+          onPress={() => setCurrentScreen('upload')}
+        >
+          <Text style={[styles.navButtonText, currentScreen === 'upload' && styles.navButtonTextActive]}>
+            🏷️ Upload Label
+          </Text>
+        </TouchableOpacity>
       </View>
 
       {/* Camera Section */}
@@ -452,5 +479,36 @@ const styles = StyleSheet.create({
     fontSize: 10,
     textAlign: 'center',
     fontStyle: 'italic',
+  },
+  navigationSection: {
+    backgroundColor: 'white',
+    paddingHorizontal: 20,
+    paddingVertical: 15,
+    flexDirection: 'row',
+    gap: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E0E0E0',
+  },
+  navButton: {
+    flex: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 15,
+    borderRadius: 10,
+    alignItems: 'center',
+    backgroundColor: '#F8F9FA',
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+  },
+  navButtonActive: {
+    backgroundColor: '#007AFF',
+    borderColor: '#007AFF',
+  },
+  navButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#666',
+  },
+  navButtonTextActive: {
+    color: 'white',
   },
 });
