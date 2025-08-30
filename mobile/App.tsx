@@ -6,27 +6,16 @@ import {
   TouchableOpacity,
   TextInput,
   ActivityIndicator,
-  StatusBar,
   Alert,
   SafeAreaView,
+  StatusBar,
   Platform,
 } from 'react-native';
 import { StatusBar as ExpoStatusBar } from 'expo-status-bar';
 
-// Mock navigation for demo purposes
-const mockNavigation = {
-  navigate: (screen: string, params?: any) => {
-    Alert.alert('Navigation', `Would navigate to ${screen}`, [
-      { text: 'OK' }
-    ]);
-  }
-};
-
-// Simplified ScanBarcode component for demo
-const ScanBarcode = () => {
+export default function App() {
   const [manualBarcode, setManualBarcode] = useState('');
   const [loading, setLoading] = useState(false);
-  const [scanned, setScanned] = useState(false);
 
   const processBarcode = async (barcode: string) => {
     setLoading(true);
@@ -35,77 +24,74 @@ const ScanBarcode = () => {
     setTimeout(() => {
       setLoading(false);
       if (barcode === '1234567890123') {
-        // Mock successful product found
         Alert.alert(
-          'Product Found!',
-          'Coca Cola Classic 330ml\nCalories: 139 kcal',
-          [
-            { text: 'View Details', onPress: () => mockNavigation.navigate('ProductDetail') }
-          ]
+          '✅ Product Found!',
+          'Coca Cola Classic 330ml\nCalories: 139 kcal\nProtein: 0g | Fat: 0g | Carbs: 37g'
+        );
+      } else if (barcode === '7622210081551') {
+        Alert.alert(
+          '✅ Product Found!',
+          'Nutella 350g\nCalories: 546 kcal\nProtein: 6.3g | Fat: 31g | Carbs: 57g'
         );
       } else {
-        // Mock product not found
         Alert.alert(
-          'Product Not Found',
-          'This product is not in our database. What would you like to do?',
-          [
-            {
-              text: 'Upload Label Photo',
-              onPress: () => mockNavigation.navigate('UploadLabel'),
-            },
-            {
-              text: 'Manual Entry',
-              onPress: () => mockNavigation.navigate('ManualEntry'),
-            },
-            {
-              text: 'Try Again',
-              style: 'cancel',
-            },
-          ]
+          '❌ Product Not Found',
+          'This product is not in our database.\n\nOptions:\n• Upload Label Photo\n• Manual Entry',
+          [{ text: 'OK' }]
         );
       }
     }, 2000);
   };
 
-  const handleManualSubmit = () => {
+  const handleSubmit = () => {
     if (manualBarcode.trim()) {
       processBarcode(manualBarcode.trim());
-      setScanned(true);
     }
   };
 
-  const resetScanner = () => {
-    setScanned(false);
-    setLoading(false);
+  const resetInput = () => {
     setManualBarcode('');
+    setLoading(false);
   };
 
   return (
     <SafeAreaView style={styles.container}>
-      <ExpoStatusBar style="light" backgroundColor="#000" />
+      <ExpoStatusBar style="light" backgroundColor="#007AFF" />
       
+      {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.title}>DietIntel</Text>
-        <Text style={styles.subtitle}>Scan Product Barcode</Text>
+        <Text style={styles.title}>🍎 DietIntel</Text>
+        <Text style={styles.subtitle}>Nutrition Barcode Scanner</Text>
+        <Text style={styles.version}>v1.0 - Android Demo</Text>
       </View>
 
-      <View style={styles.cameraPlaceholder}>
+      {/* Camera Simulation */}
+      <View style={styles.cameraSection}>
         <View style={styles.scanFrame}>
-          <Text style={styles.scanFrameText}>📷</Text>
-          <Text style={styles.scanFrameSubtext}>Camera View</Text>
+          <Text style={styles.cameraIcon}>📷</Text>
+          <Text style={styles.cameraText}>Camera Scanner</Text>
+          <Text style={styles.demoText}>(Demo Mode)</Text>
         </View>
         
         <Text style={styles.instructionText}>
-          Point your camera at a barcode
+          Point camera at product barcode
         </Text>
+
+        <View style={styles.exampleContainer}>
+          <Text style={styles.exampleTitle}>Try these demo barcodes:</Text>
+          <Text style={styles.exampleItem}>• 1234567890123 (Coca Cola)</Text>
+          <Text style={styles.exampleItem}>• 7622210081551 (Nutella)</Text>
+          <Text style={styles.exampleItem}>• 0000000000000 (Not Found)</Text>
+        </View>
       </View>
 
-      <View style={styles.manualSection}>
-        <Text style={styles.manualTitle}>Or enter barcode manually:</Text>
+      {/* Manual Input */}
+      <View style={styles.inputSection}>
+        <Text style={styles.inputTitle}>Enter Barcode Manually:</Text>
         
         <TextInput
           style={styles.input}
-          placeholder="Enter barcode number (try: 1234567890123)"
+          placeholder="13-digit barcode number"
           value={manualBarcode}
           onChangeText={setManualBarcode}
           keyboardType="numeric"
@@ -113,171 +99,218 @@ const ScanBarcode = () => {
           editable={!loading}
         />
         
-        <TouchableOpacity
-          style={[styles.button, (!manualBarcode.trim() || loading) && styles.buttonDisabled]}
-          onPress={handleManualSubmit}
-          disabled={!manualBarcode.trim() || loading}
-        >
-          {loading ? (
-            <ActivityIndicator size="small" color="white" />
-          ) : (
-            <Text style={styles.buttonText}>Look Up Product</Text>
-          )}
-        </TouchableOpacity>
+        <View style={styles.buttonRow}>
+          <TouchableOpacity
+            style={[styles.button, styles.primaryButton, (!manualBarcode.trim() || loading) && styles.buttonDisabled]}
+            onPress={handleSubmit}
+            disabled={!manualBarcode.trim() || loading}
+          >
+            {loading ? (
+              <ActivityIndicator size="small" color="white" />
+            ) : (
+              <Text style={styles.primaryButtonText}>🔍 Look Up</Text>
+            )}
+          </TouchableOpacity>
 
-        {scanned && !loading && (
           <TouchableOpacity
             style={[styles.button, styles.secondaryButton]}
-            onPress={resetScanner}
+            onPress={resetInput}
+            disabled={loading}
           >
-            <Text style={styles.secondaryButtonText}>Scan Again</Text>
+            <Text style={styles.secondaryButtonText}>🔄 Reset</Text>
           </TouchableOpacity>
-        )}
+        </View>
       </View>
 
-      <View style={styles.privacyContainer}>
-        <Text style={styles.privacyText}>
-          🔒 Your privacy is protected: Camera feed is processed locally. 
-          No images are stored or shared externally.
+      {/* Footer */}
+      <View style={styles.footer}>
+        <Text style={styles.footerText}>
+          🔒 Privacy Protected | 📡 Connected to DietIntel API
         </Text>
-      </View>
-
-      <View style={styles.demoInfo}>
-        <Text style={styles.demoInfoText}>
-          📱 Demo Mode: Try barcode "1234567890123" for success demo
+        <Text style={styles.footerSubtext}>
+          Camera processing is local. No images stored.
         </Text>
       </View>
     </SafeAreaView>
   );
-};
-
-export default function App() {
-  return <ScanBarcode />;
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#000',
-    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
   },
   header: {
     backgroundColor: '#007AFF',
-    paddingVertical: 20,
+    paddingVertical: 30,
     paddingHorizontal: 20,
     alignItems: 'center',
+    paddingTop: Platform.OS === 'android' ? 40 : 30,
   },
   title: {
     color: 'white',
-    fontSize: 28,
+    fontSize: 36,
     fontWeight: 'bold',
-    marginBottom: 5,
+    marginBottom: 8,
   },
   subtitle: {
-    color: 'rgba(255,255,255,0.8)',
-    fontSize: 16,
+    color: 'rgba(255,255,255,0.9)',
+    fontSize: 18,
+    fontWeight: '600',
+    marginBottom: 4,
   },
-  cameraPlaceholder: {
+  version: {
+    color: 'rgba(255,255,255,0.7)',
+    fontSize: 12,
+    fontStyle: 'italic',
+  },
+  cameraSection: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.8)',
+    backgroundColor: 'rgba(0,0,0,0.95)',
     justifyContent: 'center',
     alignItems: 'center',
-    paddingVertical: 40,
+    paddingHorizontal: 20,
+    paddingVertical: 20,
   },
   scanFrame: {
-    width: 250,
-    height: 150,
-    borderWidth: 2,
+    width: 300,
+    height: 200,
+    borderWidth: 3,
     borderColor: '#007AFF',
-    borderRadius: 10,
+    borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: 'rgba(0,123,255,0.1)',
-    marginBottom: 20,
+    marginBottom: 30,
+    padding: 20,
   },
-  scanFrameText: {
-    fontSize: 48,
-    marginBottom: 10,
+  cameraIcon: {
+    fontSize: 80,
+    marginBottom: 15,
   },
-  scanFrameSubtext: {
+  cameraText: {
     color: '#007AFF',
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: 20,
+    fontWeight: '700',
+    marginBottom: 5,
+  },
+  demoText: {
+    color: '#007AFF',
+    fontSize: 14,
+    opacity: 0.8,
+    fontStyle: 'italic',
   },
   instructionText: {
     color: 'white',
     fontSize: 16,
     textAlign: 'center',
-    paddingHorizontal: 20,
+    marginBottom: 25,
+    fontWeight: '500',
   },
-  manualSection: {
-    backgroundColor: 'white',
+  exampleContainer: {
+    backgroundColor: 'rgba(255,255,255,0.1)',
     padding: 20,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-  },
-  manualTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 15,
-    textAlign: 'center',
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    paddingHorizontal: 15,
-    paddingVertical: 12,
-    fontSize: 16,
-    marginBottom: 15,
-    backgroundColor: '#f9f9f9',
-  },
-  button: {
-    backgroundColor: '#007AFF',
-    paddingVertical: 15,
-    borderRadius: 8,
+    borderRadius: 15,
     alignItems: 'center',
-    marginBottom: 10,
+    maxWidth: 320,
   },
-  buttonDisabled: {
-    backgroundColor: '#ccc',
-  },
-  buttonText: {
+  exampleTitle: {
     color: 'white',
     fontSize: 16,
     fontWeight: '600',
+    marginBottom: 12,
+  },
+  exampleItem: {
+    color: '#4FC3F7',
+    fontSize: 13,
+    fontFamily: Platform.OS === 'android' ? 'monospace' : 'Courier',
+    marginVertical: 3,
+  },
+  inputSection: {
+    backgroundColor: 'white',
+    padding: 25,
+    borderTopLeftRadius: 25,
+    borderTopRightRadius: 25,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 10,
+    elevation: 10,
+  },
+  inputTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#333',
+    marginBottom: 20,
+    textAlign: 'center',
+  },
+  input: {
+    borderWidth: 2,
+    borderColor: '#E3F2FD',
+    borderRadius: 15,
+    paddingHorizontal: 20,
+    paddingVertical: 18,
+    fontSize: 16,
+    marginBottom: 20,
+    backgroundColor: '#F8F9FA',
+    fontFamily: Platform.OS === 'android' ? 'monospace' : 'Courier',
+    textAlign: 'center',
+  },
+  buttonRow: {
+    flexDirection: 'row',
+    gap: 15,
+  },
+  button: {
+    flex: 1,
+    paddingVertical: 18,
+    borderRadius: 15,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  primaryButton: {
+    backgroundColor: '#007AFF',
+    shadowColor: '#007AFF',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 6,
   },
   secondaryButton: {
     backgroundColor: 'transparent',
     borderWidth: 2,
     borderColor: '#007AFF',
   },
+  buttonDisabled: {
+    backgroundColor: '#BDC3C7',
+    shadowColor: 'transparent',
+  },
+  primaryButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '700',
+  },
   secondaryButtonText: {
     color: '#007AFF',
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: '700',
   },
-  privacyContainer: {
-    backgroundColor: 'rgba(0,0,0,0.9)',
-    paddingHorizontal: 20,
-    paddingVertical: 10,
+  footer: {
+    backgroundColor: 'rgba(0,0,0,0.95)',
+    paddingHorizontal: 25,
+    paddingVertical: 15,
+    alignItems: 'center',
   },
-  privacyText: {
-    color: 'rgba(255,255,255,0.8)',
-    fontSize: 12,
-    textAlign: 'center',
-    lineHeight: 16,
-  },
-  demoInfo: {
-    backgroundColor: '#007AFF',
-    paddingHorizontal: 20,
-    paddingVertical: 8,
-  },
-  demoInfoText: {
+  footerText: {
     color: 'white',
     fontSize: 12,
+    fontWeight: '600',
     textAlign: 'center',
-    fontWeight: '500',
+    marginBottom: 4,
+  },
+  footerSubtext: {
+    color: 'rgba(255,255,255,0.7)',
+    fontSize: 10,
+    textAlign: 'center',
+    fontStyle: 'italic',
   },
 });
