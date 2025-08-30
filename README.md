@@ -295,6 +295,45 @@ Visit `http://localhost:3000` for the beautiful web interface featuring:
 
 ![API Documentation](screenshots/api-docs.png)
 
+## Mobile App (React Native)
+
+The DietIntel mobile app provides a native mobile experience for iOS and Android platforms, featuring barcode scanning and nutrition lookup capabilities.
+
+### Android App Screenshot
+*DietIntel mobile app running successfully on Android emulator with barcode scanner interface*
+
+![Android Working App](mobile/screenshots/android-after-reload.png)
+
+### Features
+
+- **Camera Barcode Scanner**: Real-time barcode scanning using device camera
+- **Manual Barcode Entry**: Text input for manual barcode entry
+- **Demo Barcodes**: Pre-loaded test barcodes for quick testing
+- **API Integration**: Connected to DietIntel backend API
+- **Privacy Protected**: Local camera processing, no images stored
+
+### Setup Instructions
+
+1. Navigate to mobile directory:
+```bash
+cd mobile
+```
+
+2. Install dependencies:
+```bash
+npm install
+```
+
+3. Start the development server:
+```bash
+npx expo start
+```
+
+4. For Android development:
+```bash
+npx expo run:android
+```
+
 ## API Documentation
 
 Visit `http://localhost:8000/docs` for interactive Swagger API documentation or `http://localhost:8000/redoc` for ReDoc format.
