@@ -268,7 +268,7 @@ export default function App() {
       <View style={styles.statusIndicator}>
         {hasPermission === null && <Text style={styles.statusText}>📷 Requesting...</Text>}
         {hasPermission === false && <Text style={[styles.statusText, {color: '#FF3B30'}]}>📷 Permission denied</Text>}
-        {hasPermission === true && <Text style={[styles.statusText, {color: '#34C759'}]}>📷 Ready to scan</Text>}
+        {hasPermission === true && <Text style={[styles.statusText, {color: '#34C759'}]}>📷 Ready</Text>}
       </View>
 
       {/* Camera Section */}
@@ -399,6 +399,7 @@ const styles = StyleSheet.create({
   headerContent: {
     flex: 1,
     alignItems: 'center',
+    marginLeft: 20,
   },
   headerButtons: {
     flexDirection: 'row',
