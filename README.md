@@ -530,7 +530,7 @@ The mobile app now includes a comprehensive developer settings system with hidde
 
 #### Screenshots
 
-![Developer Settings Modal](mobile/screenshots/home-screen-with-navigation.png)
+![Developer Settings Modal](mobile/screenshots/developer-settings-modal.png)
 *Mobile app home screen showing the gear icon (⚙️) for developer settings access*
 
 ![API Documentation](mobile/screenshots/api-docs-new-endpoints.png)
