@@ -486,10 +486,10 @@ npm start
 
 ### Mobile Screenshots
 
-#### Track Screen - Current Mobile Interface
-*DietIntel mobile app Track screen showing the current interface with meal tracking, progress monitoring, and navigation*
+#### Home Screen with Tab Navigation
+*DietIntel mobile app home screen showing complete 4-tab navigation: Scanner, Upload Label, Meal Plan, and Track*
 
-![Track Screen - Current Interface](mobile/screenshots/track-screen-main.png)
+![Android Home Screen - 4 Tabs](mobile/screenshots/home-screen-4tabs-updated.png)
 
 #### Upload Label Feature with Navigation
 *Upload Label screen with 🏠 home button, OCR interface with camera and gallery options*
