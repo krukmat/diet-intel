@@ -22,8 +22,59 @@ import ReminderSnippet from './components/ReminderSnippet';
 import ApiConfigModal from './components/ApiConfigModal';
 import DeveloperSettingsModal from './components/DeveloperSettingsModal';
 import { developerSettingsService, DeveloperConfig, FeatureToggle } from './services/DeveloperSettings';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
+import LoginScreen from './screens/LoginScreen';
+import RegisterScreen from './screens/RegisterScreen';
+import SplashScreen from './screens/SplashScreen';
+import { LoginCredentials, RegisterData } from './types/auth';
 
+// Main App Component wrapped with AuthProvider
 export default function App() {
+  return (
+    <AuthProvider>
+      <AppContent />
+    </AuthProvider>
+  );
+}
+
+// Authentication-aware app content
+function AppContent() {
+  const { user, isLoading, isAuthenticated, login, register, logout } = useAuth();
+  const [authScreen, setAuthScreen] = useState<'login' | 'register'>('login');
+  const [showSplash, setShowSplash] = useState(true);
+
+  // If still loading authentication state, show splash
+  if (isLoading && showSplash) {
+    return <SplashScreen onLoadingComplete={() => setShowSplash(false)} />;
+  }
+
+  // If not authenticated, show auth screens
+  if (!isAuthenticated) {
+    if (authScreen === 'register') {
+      return (
+        <RegisterScreen
+          onRegister={register}
+          onNavigateToLogin={() => setAuthScreen('login')}
+          isLoading={isLoading}
+        />
+      );
+    }
+
+    return (
+      <LoginScreen
+        onLogin={login}
+        onNavigateToRegister={() => setAuthScreen('register')}
+        isLoading={isLoading}
+      />
+    );
+  }
+
+  // User is authenticated, show main app
+  return <MainApp user={user} onLogout={logout} />;
+}
+
+// Main application component (existing functionality)
+function MainApp({ user, onLogout }: { user: any; onLogout: () => void }) {
   const [manualBarcode, setManualBarcode] = useState('');
   const [loading, setLoading] = useState(false);
   const [hasPermission, setHasPermission] = useState<boolean | null>(null);
@@ -191,11 +242,17 @@ export default function App() {
       <View style={styles.header}>
         <View style={styles.headerContent}>
           <Text style={styles.title}>🍎 DietIntel</Text>
-          <Text style={styles.subtitle}>Nutrition Barcode Scanner</Text>
-          <Text style={styles.version}>v1.0 - Android Demo</Text>
+          <Text style={styles.subtitle}>Welcome, {user?.full_name || 'User'}</Text>
+          <Text style={styles.version}>v1.0 - Authenticated</Text>
         </View>
         <View style={styles.headerButtons}>
-          {developerConfig?.isDeveloperModeEnabled && (
+          <TouchableOpacity 
+            style={styles.headerActionButton}
+            onPress={onLogout}
+          >
+            <Text style={styles.headerActionButtonText}>🚪</Text>
+          </TouchableOpacity>
+          {(user?.is_developer || developerConfig?.isDeveloperModeEnabled) && (
             <TouchableOpacity 
               style={styles.headerActionButton}
               onPress={() => setShowDeveloperSettings(true)}
