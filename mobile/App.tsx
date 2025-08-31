@@ -20,6 +20,8 @@ import TrackScreen from './screens/TrackScreen';
 import ProductDetail from './components/ProductDetail';
 import ReminderSnippet from './components/ReminderSnippet';
 import ApiConfigModal from './components/ApiConfigModal';
+import DeveloperSettingsModal from './components/DeveloperSettingsModal';
+import { developerSettingsService, DeveloperConfig, FeatureToggle } from './services/DeveloperSettings';
 
 export default function App() {
   const [manualBarcode, setManualBarcode] = useState('');
@@ -31,6 +33,9 @@ export default function App() {
   const [currentScreen, setCurrentScreen] = useState<ScreenType>('scanner');
   const [showReminders, setShowReminders] = useState(false);
   const [showApiConfig, setShowApiConfig] = useState(false);
+  const [showDeveloperSettings, setShowDeveloperSettings] = useState(false);
+  const [developerConfig, setDeveloperConfig] = useState<DeveloperConfig | null>(null);
+  const [featureToggles, setFeatureToggles] = useState<FeatureToggle | null>(null);
   
   // Debug logging
   console.log('Current screen:', currentScreen);
@@ -46,6 +51,24 @@ export default function App() {
     };
 
     getBarCodeScannerPermissions();
+    
+    // Initialize developer settings
+    const initializeDeveloperSettings = async () => {
+      await developerSettingsService.initialize();
+      setDeveloperConfig(developerSettingsService.getDeveloperConfig());
+      setFeatureToggles(developerSettingsService.getFeatureToggles());
+    };
+    
+    initializeDeveloperSettings();
+    
+    // Subscribe to developer settings changes
+    const unsubscribeConfig = developerSettingsService.subscribeToConfigChanges(setDeveloperConfig);
+    const unsubscribeFeatures = developerSettingsService.subscribeToFeatureChanges(setFeatureToggles);
+    
+    return () => {
+      unsubscribeConfig();
+      unsubscribeFeatures();
+    };
   }, []);
 
   const handleBarCodeScanned = ({ type, data }: { type: string; data: string }) => {
@@ -172,61 +195,73 @@ export default function App() {
           <Text style={styles.version}>v1.0 - Android Demo</Text>
         </View>
         <View style={styles.headerButtons}>
-          <TouchableOpacity 
-            style={styles.headerActionButton}
-            onPress={() => setShowApiConfig(true)}
-          >
-            <Text style={styles.headerActionButtonText}>⚙️</Text>
-          </TouchableOpacity>
-          <TouchableOpacity 
-            style={styles.headerActionButton}
-            onPress={() => setShowReminders(true)}
-          >
-            <Text style={styles.headerActionButtonText}>🔔</Text>
-          </TouchableOpacity>
+          {developerConfig?.isDeveloperModeEnabled && (
+            <TouchableOpacity 
+              style={styles.headerActionButton}
+              onPress={() => setShowDeveloperSettings(true)}
+            >
+              <Text style={styles.headerActionButtonText}>⚙️</Text>
+            </TouchableOpacity>
+          )}
+          {featureToggles?.reminderNotifications && (
+            <TouchableOpacity 
+              style={styles.headerActionButton}
+              onPress={() => setShowReminders(true)}
+            >
+              <Text style={styles.headerActionButtonText}>🔔</Text>
+            </TouchableOpacity>
+          )}
         </View>
       </View>
 
       {/* Navigation */}
       <View style={styles.navigationSection}>
-        <TouchableOpacity 
-          style={[styles.navButton, isActiveScreen('scanner') && styles.navButtonActive]}
-          onPress={() => setCurrentScreen('scanner')}
-        >
-          <Text style={[styles.navButtonText, isActiveScreen('scanner') && styles.navButtonTextActive]}>
-            📷 Barcode Scanner
-          </Text>
-        </TouchableOpacity>
+        {featureToggles?.barcodeScanner && (
+          <TouchableOpacity 
+            style={[styles.navButton, isActiveScreen('scanner') && styles.navButtonActive]}
+            onPress={() => setCurrentScreen('scanner')}
+          >
+            <Text style={[styles.navButtonText, isActiveScreen('scanner') && styles.navButtonTextActive]}>
+              📷 Barcode Scanner
+            </Text>
+          </TouchableOpacity>
+        )}
         
-        <TouchableOpacity 
-          style={[styles.navButton, isActiveScreen('upload') && styles.navButtonActive]}
-          onPress={() => setCurrentScreen('upload')}
-        >
-          <Text style={[styles.navButtonText, isActiveScreen('upload') && styles.navButtonTextActive]}>
-            🏷️ Upload Label
-          </Text>
-        </TouchableOpacity>
+        {featureToggles?.uploadLabelFeature && (
+          <TouchableOpacity 
+            style={[styles.navButton, isActiveScreen('upload') && styles.navButtonActive]}
+            onPress={() => setCurrentScreen('upload')}
+          >
+            <Text style={[styles.navButtonText, isActiveScreen('upload') && styles.navButtonTextActive]}>
+              🏷️ Upload Label
+            </Text>
+          </TouchableOpacity>
+        )}
         
-        <TouchableOpacity 
-          style={[styles.navButton, isActiveScreen('plan') && styles.navButtonActive]}
-          onPress={() => {
-            console.log('Meal Plan tab pressed!');
-            setCurrentScreen('plan');
-          }}
-        >
-          <Text style={[styles.navButtonText, isActiveScreen('plan') && styles.navButtonTextActive]}>
-            🍽️ Meal Plan
-          </Text>
-        </TouchableOpacity>
+        {featureToggles?.mealPlanFeature && (
+          <TouchableOpacity 
+            style={[styles.navButton, isActiveScreen('plan') && styles.navButtonActive]}
+            onPress={() => {
+              console.log('Meal Plan tab pressed!');
+              setCurrentScreen('plan');
+            }}
+          >
+            <Text style={[styles.navButtonText, isActiveScreen('plan') && styles.navButtonTextActive]}>
+              🍽️ Meal Plan
+            </Text>
+          </TouchableOpacity>
+        )}
         
-        <TouchableOpacity 
-          style={[styles.navButton, isActiveScreen('track') && styles.navButtonActive]}
-          onPress={() => setCurrentScreen('track')}
-        >
-          <Text style={[styles.navButtonText, isActiveScreen('track') && styles.navButtonTextActive]}>
-            📊 Track
-          </Text>
-        </TouchableOpacity>
+        {featureToggles?.trackingFeature && (
+          <TouchableOpacity 
+            style={[styles.navButton, isActiveScreen('track') && styles.navButtonActive]}
+            onPress={() => setCurrentScreen('track')}
+          >
+            <Text style={[styles.navButtonText, isActiveScreen('track') && styles.navButtonTextActive]}>
+              📊 Track
+            </Text>
+          </TouchableOpacity>
+        )}
       </View>
 
       {/* Scanner Status in Top Left Corner */}
@@ -323,9 +358,20 @@ export default function App() {
         </Text>
       </View>
 
-      <ReminderSnippet 
-        visible={showReminders} 
-        onClose={() => setShowReminders(false)} 
+      {featureToggles?.reminderNotifications && (
+        <ReminderSnippet 
+          visible={showReminders} 
+          onClose={() => setShowReminders(false)} 
+        />
+      )}
+      
+      <DeveloperSettingsModal
+        visible={showDeveloperSettings}
+        onClose={() => setShowDeveloperSettings(false)}
+        onOpenApiConfig={() => {
+          setShowDeveloperSettings(false);
+          setShowApiConfig(true);
+        }}
       />
       
       <ApiConfigModal
