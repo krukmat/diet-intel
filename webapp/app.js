@@ -6,12 +6,18 @@ const cors = require('cors');
 const compression = require('compression');
 const cookieParser = require('cookie-parser');
 const rateLimit = require('express-rate-limit');
+const expressLayouts = require('express-ejs-layouts');
 require('dotenv').config();
 
 // Import routes
 const indexRoutes = require('./routes/index');
 const planRoutes = require('./routes/plans');
 const apiRoutes = require('./routes/api');
+const authRoutes = require('./routes/auth');
+const dashboardRoutes = require('./routes/dashboard');
+
+// Import auth middleware
+const { checkAuth } = require('./middleware/auth');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -51,10 +57,13 @@ app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'public')));
 
 // View engine setup
+app.use(expressLayouts);
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
+app.set('layout', 'layout');
 
-// Global middleware to pass API URL to templates
+// Global middleware to pass API URL and check authentication
+app.use(checkAuth);
 app.use((req, res, next) => {
   res.locals.apiUrl = process.env.DIETINTEL_API_URL || 'http://localhost:8000';
   res.locals.appName = 'DietIntel';
@@ -66,6 +75,13 @@ app.use((req, res, next) => {
 app.use('/', indexRoutes);
 app.use('/plans', planRoutes);
 app.use('/api', apiRoutes);
+app.use('/auth', authRoutes);
+app.use('/dashboard', dashboardRoutes);
+
+// Redirect /profile to /dashboard/profile for convenience
+app.get('/profile', (req, res) => {
+  res.redirect('/dashboard/profile');
+});
 
 // Health check endpoint
 app.get('/health', (req, res) => {

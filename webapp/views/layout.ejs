@@ -86,10 +86,66 @@
                         </a>
                     </div>
                 </div>
-                <div class="hidden sm:ml-6 sm:flex sm:items-center">
-                    <button class="bg-primary-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-primary-700 transition-colors">
-                        Get Started
-                    </button>
+                <div class="hidden sm:ml-6 sm:flex sm:items-center space-x-4">
+                    <% if (locals.isAuthenticated && locals.currentUser) { %>
+                        <!-- User is logged in -->
+                        <div class="flex items-center space-x-3">
+                            <span class="text-sm text-gray-700">
+                                Hello, <strong><%= currentUser.full_name.split(' ')[0] %></strong>
+                                <% if (currentUser.is_developer) { %>
+                                <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-800">
+                                    Developer
+                                </span>
+                                <% } %>
+                            </span>
+                            <div class="relative group">
+                                <button class="flex items-center space-x-2 text-gray-700 hover:text-gray-900">
+                                    <div class="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
+                                        <span class="text-white text-sm font-bold">
+                                            <%= currentUser.full_name.charAt(0).toUpperCase() %>
+                                        </span>
+                                    </div>
+                                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                                        <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" />
+                                    </svg>
+                                </button>
+                                <!-- Dropdown menu -->
+                                <div class="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-50 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200">
+                                    <a href="/dashboard" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                                        🏠 Dashboard
+                                    </a>
+                                    <a href="/profile" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                                        👤 Profile
+                                    </a>
+                                    <a href="/plans" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                                        🍽️ My Meal Plans
+                                    </a>
+                                    <% if (currentUser.is_developer) { %>
+                                    <div class="border-t border-gray-100"></div>
+                                    <a href="/developer" class="block px-4 py-2 text-sm text-purple-700 hover:bg-purple-50">
+                                        🔧 Developer Tools
+                                    </a>
+                                    <% } %>
+                                    <div class="border-t border-gray-100"></div>
+                                    <form method="POST" action="/auth/logout" class="block">
+                                        <button type="submit" class="w-full text-left px-4 py-2 text-sm text-red-700 hover:bg-red-50">
+                                            🚪 Sign Out
+                                        </button>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                    <% } else { %>
+                        <!-- User is not logged in -->
+                        <div class="flex items-center space-x-3">
+                            <a href="/auth/login" class="text-gray-700 hover:text-gray-900 px-3 py-2 text-sm font-medium">
+                                Sign In
+                            </a>
+                            <a href="/auth/register" class="bg-primary-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-primary-700 transition-colors">
+                                Get Started
+                            </a>
+                        </div>
+                    <% } %>
                 </div>
                 <!-- Mobile menu button -->
                 <div class="flex items-center sm:hidden">
