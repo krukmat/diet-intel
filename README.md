@@ -486,11 +486,19 @@ The UploadLabel screen provides comprehensive OCR functionality for nutrition la
 - **Network Optimization**: Image compression, timeouts, and progress tracking
 - **State Management**: Clean React hooks with proper cleanup
 
-### Mobile App API Configuration System - ✅ **NEW FEATURE** (August 31, 2025)
+### Mobile App Developer Settings & API Configuration System - ✅ **NEW FEATURE** (August 31, 2025)
 
-The mobile app now includes a comprehensive API configuration system for easy environment switching across development, staging, and production environments.
+The mobile app now includes a comprehensive developer settings system with hidden API configuration access, ensuring end users cannot modify API settings while giving developers full control over app features and configuration.
 
-#### Key Features
+#### **Developer Settings System**
+- 👨‍💻 **Developer Mode**: Hidden by default, enables access to advanced settings and API configuration
+- 🎛️ **Feature Toggles**: Control which features are visible to end users (Upload Label, Meal Plan, Track, etc.)
+- 🔐 **Access Control**: API configuration only visible to developers, hidden from end users
+- 📱 **Dynamic UI**: Navigation tabs and features show/hide based on developer toggles
+- ⚙️ **Advanced Settings**: Debug features, performance metrics, and beta functionality controls
+- 🔧 **Secret Authentication**: Optional secret code system for enabling developer mode
+
+#### **API Configuration Features** (Developer-Only Access)
 - **9+ Pre-configured Environments**: DEV, ANDROID_DEV, iOS_DEV, STAGING, QA, PRODUCTION, EU_PRODUCTION, US_PRODUCTION, ASIA_PRODUCTION
 - **Runtime Environment Switching**: Change API endpoints without app restart through settings UI
 - **Health Check System**: Real-time connectivity testing with response time metrics
@@ -499,13 +507,19 @@ The mobile app now includes a comprehensive API configuration system for easy en
 - **CI/CD Integration**: Environment variables support for automated deployments
 - **Comprehensive Testing**: 120+ test cases covering all API configuration scenarios
 
-#### Configuration Modal Features
-- ⚙️ **Settings Access**: Tap the gear icon in header to access API configuration
-- 🔍 **Environment Testing**: Test connectivity to any environment with response time display
-- 🔄 **Easy Switching**: One-tap environment switching with confirmation dialogs
-- 📊 **Health Status**: Visual indicators showing environment health (green/red dots)
-- 🌍 **Regional Options**: Quick access to EU, US, and Asia production servers
-- 💡 **Setup Guide**: Built-in documentation for development and production setup
+#### **Developer Settings Features**
+- ⚙️ **Settings Icon**: Tap the gear icon in header to access developer settings (only visible in developer mode)
+- 🎛️ **Feature Control**: Toggle individual app features on/off for end users
+- 🔧 **API Access**: Direct access to API configuration modal from developer settings
+- 📊 **Debug Tools**: Enable advanced logging, performance metrics, and debug features
+- 🚀 **Beta Features**: Control access to experimental functionality
+- 🔄 **Reset Options**: Reset all settings to defaults or disable developer mode
+
+#### **End User Experience**
+- **Clean Interface**: Only enabled features visible in navigation
+- **No API Access**: API configuration completely hidden from end users
+- **Simplified UI**: Streamlined experience with developer-controlled feature set
+- **Privacy Protected**: No access to debugging or configuration tools
 
 #### Technical Implementation
 - **ApiService**: Centralized service handling all API calls with dynamic base URL switching
@@ -515,15 +529,47 @@ The mobile app now includes a comprehensive API configuration system for easy en
 - **Mock Support**: Complete test coverage with mocked API responses
 
 #### Screenshots
-![API Configuration Modal](mobile/screenshots/api-config-modal.png)
-*API Configuration modal showing environment switching, health testing, and regional server options*
 
-![Environment Health Testing](mobile/screenshots/environment-health-testing.png) 
-*Real-time health check results with response times and connectivity status*
+![Developer Settings Modal](mobile/screenshots/home-screen-with-navigation.png)
+*Mobile app home screen showing the gear icon (⚙️) for developer settings access*
+
+![API Documentation](mobile/screenshots/api-docs-new-endpoints.png)
+*Complete API documentation showing all available endpoints for mobile integration*
 
 #### Usage Examples
+
+**Developer Settings Management:**
 ```typescript
-// Switch environments programmatically
+// Import developer settings service
+import { developerSettingsService } from './services/DeveloperSettings';
+
+// Initialize developer settings
+await developerSettingsService.initialize();
+
+// Check if developer mode is enabled
+const isDeveloperMode = developerSettingsService.isDeveloperModeEnabled();
+
+// Check if API configuration should be visible
+const showApiConfig = developerSettingsService.isApiConfigurationVisible();
+
+// Toggle a feature for end users
+await developerSettingsService.updateFeatureToggle('uploadLabelFeature', false);
+
+// Check if a feature is enabled
+const isUploadEnabled = developerSettingsService.isFeatureEnabled('uploadLabelFeature');
+
+// Enable developer mode (for testing)
+await developerSettingsService.enableDeveloperMode();
+
+// Subscribe to configuration changes
+const unsubscribe = developerSettingsService.subscribeToConfigChanges((config) => {
+  console.log('Developer config changed:', config);
+});
+```
+
+**API Environment Management:**
+```typescript
+// Switch environments programmatically (developer-only)
 import { apiService } from './services/ApiService';
 
 apiService.switchEnvironment('production');
@@ -546,7 +592,7 @@ EXPO_PUBLIC_API_ENVIRONMENT=production expo build:android
 EXPO_PUBLIC_API_ENVIRONMENT=staging expo build:android
 ```
 
-**This feature makes the mobile app production-ready with seamless environment management for global deployment!**
+**The Developer Settings system ensures proper separation between developer tools and end-user functionality, making the mobile app enterprise-ready with secure configuration management and feature control!**
 
 ### ✅ Testing Status & Results
 
