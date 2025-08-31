@@ -16,6 +16,15 @@ A comprehensive FastAPI application for nutrition tracking with barcode product 
 - **GET /track/weight/history**: Retrieve weight tracking history with charts
 - **GET /track/photos**: Get timeline of all meal and weigh-in photos
 
+### **Authentication & User Management APIs** ✨ **NEW** (August 31, 2025)
+- **POST /auth/register**: User registration with email/password and optional developer code
+- **POST /auth/login**: Email/password authentication with JWT tokens
+- **POST /auth/refresh**: Refresh access tokens using refresh tokens
+- **POST /auth/logout**: Session invalidation and logout
+- **GET /auth/me**: Get current user profile (protected endpoint)
+- **PUT /auth/me**: Update user profile information
+- **POST /auth/change-password**: Secure password change with current password verification
+
 ### **Reminder & Notification APIs** ✨ **NEW**
 - **POST /reminder**: Create new meal/weigh-in notification reminders
 - **GET /reminder**: List all user reminders with scheduling details
@@ -24,6 +33,11 @@ A comprehensive FastAPI application for nutrition tracking with barcode product 
 - **DELETE /reminder/{id}**: Delete reminder and cancel notifications
 
 ### **System Features**
+- **JWT Authentication**: Secure access/refresh token system with 15min/30day expiration
+- **Role-Based Access Control**: Standard, Premium, and Developer user roles
+- **Password Security**: bcrypt hashing with salt rounds for secure password storage
+- **Developer Mode**: Special developer code access for advanced mobile app features
+- **Session Management**: SQLite database with automatic session cleanup
 - **Redis Caching**: 24-hour cache for successful responses with intelligent cache management
 - **Photo Storage**: Base64 image processing with filesystem storage and URL generation
 - **UUID Generation**: Unique identifiers for all tracking and reminder resources
@@ -34,6 +48,7 @@ A comprehensive FastAPI application for nutrition tracking with barcode product 
 - **Error Handling**: Proper HTTP status codes and error messages
 - **Async Implementation**: Full async support with timeouts
 - **Comprehensive Testing**: Unit tests for all core functionality
+- **CORS Support**: Cross-origin requests enabled for web/mobile clients
 - **Logging**: Request latency, OCR processing time, and cache hit/miss metrics
 
 ## Architecture Overview
@@ -656,6 +671,45 @@ pytest
 
 ## Example Usage
 
+### Authentication
+
+#### User Registration (with Developer Code)
+```bash
+curl -X POST "http://localhost:8000/auth/register" \
+     -H "Content-Type: application/json" \
+     -d '{
+       "email": "john.doe@example.com",
+       "password": "securepassword123",
+       "full_name": "John Doe",
+       "developer_code": "DIETINTEL_DEV_2024"
+     }'
+```
+
+#### User Login
+```bash
+curl -X POST "http://localhost:8000/auth/login" \
+     -H "Content-Type: application/json" \
+     -d '{
+       "email": "john.doe@example.com",
+       "password": "securepassword123"
+     }'
+```
+
+#### Get User Profile (Protected Endpoint)
+```bash
+curl -X GET "http://localhost:8000/auth/me" \
+     -H "Authorization: Bearer YOUR_ACCESS_TOKEN"
+```
+
+#### Refresh Access Token
+```bash
+curl -X POST "http://localhost:8000/auth/refresh" \
+     -H "Content-Type: application/json" \
+     -d '{
+       "refresh_token": "YOUR_REFRESH_TOKEN"
+     }'
+```
+
 ### Barcode Lookup
 ```bash
 curl -X POST "http://localhost:8000/product/by-barcode" \
@@ -766,6 +820,33 @@ curl -X DELETE "http://localhost:8000/reminder/123e4567-e89b-12d3-a456-426614174
 ```
 
 ## Response Format
+
+### Authentication Responses
+
+#### Registration/Login Response
+```json
+{
+  "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "refresh_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "token_type": "bearer",
+  "expires_in": 900
+}
+```
+
+#### User Profile Response
+```json
+{
+  "id": "76034855-a6a6-4b85-b636-544d864e9205",
+  "email": "john.doe@example.com",
+  "full_name": "John Doe",
+  "avatar_url": null,
+  "is_developer": true,
+  "role": "developer",
+  "is_active": true,
+  "email_verified": false,
+  "created_at": "2025-08-31T12:57:38.732009"
+}
+```
 
 ### Barcode Response
 ```json
