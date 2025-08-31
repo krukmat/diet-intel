@@ -16,10 +16,9 @@ import {
 import * as ImagePicker from 'expo-image-picker';
 import * as ImageManipulator from 'expo-image-manipulator';
 import { StatusBar as ExpoStatusBar } from 'expo-status-bar';
-import axios from 'axios';
+import { apiService } from '../services/ApiService';
 
 const { width: screenWidth } = Dimensions.get('window');
-const API_BASE_URL = 'http://10.0.2.2:8000'; // Android emulator API URL
 
 interface OCRResult {
   source: string;
@@ -153,12 +152,7 @@ export default function UploadLabel({ onBackPress }: UploadLabelProps) {
         setUploadProgress(prev => Math.min(prev + 10, 90));
       }, 200);
 
-      const response = await axios.post(`${API_BASE_URL}/product/scan-label`, formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-        timeout: 30000, // 30 seconds timeout
-      });
+      const response = await apiService.scanNutritionLabel(formData);
 
       clearInterval(progressInterval);
       setUploadProgress(100);
@@ -197,12 +191,7 @@ export default function UploadLabel({ onBackPress }: UploadLabelProps) {
         name: 'nutrition_label.jpg',
       } as any);
 
-      const response = await axios.post(`${API_BASE_URL}/product/scan-label-external`, formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-        timeout: 45000, // Longer timeout for external OCR
-      });
+      const response = await apiService.scanNutritionLabelExternal(formData);
 
       setOcrResult(response.data);
       Alert.alert('External OCR Complete', 'Label processed with external OCR service.');

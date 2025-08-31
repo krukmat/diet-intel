@@ -19,9 +19,7 @@ import * as ImagePicker from 'expo-image-picker';
 import * as ImageManipulator from 'expo-image-manipulator';
 // import { LineChart } from 'react-native-chart-kit';
 // import AsyncStorage from '@react-native-async-storage/async-storage';
-import axios from 'axios';
-
-const API_BASE_URL = 'http://10.0.2.2:8000';
+import { apiService } from '../services/ApiService';
 
 interface MealItem {
   barcode: string;
@@ -427,7 +425,7 @@ export default function TrackScreen({ onBackPress }: TrackScreenProps) {
 
   const loadWeightHistory = async () => {
     try {
-      const response = await axios.get(`${API_BASE_URL}/track/weight/history?limit=30`);
+      const response = await apiService.get('/track/weight/history?limit=30');
       const apiWeightHistory = response.data.entries.map((entry: any) => ({
         date: entry.date.split('T')[0], // Convert to YYYY-MM-DD format
         weight: entry.weight,
@@ -450,7 +448,7 @@ export default function TrackScreen({ onBackPress }: TrackScreenProps) {
 
   const loadPhotoLogs = async () => {
     try {
-      const response = await axios.get(`${API_BASE_URL}/track/photos?limit=50`);
+      const response = await apiService.get('/track/photos?limit=50');
       const apiPhotoLogs = response.data.logs.map((log: any) => ({
         id: log.id,
         timestamp: log.timestamp,
@@ -474,7 +472,7 @@ export default function TrackScreen({ onBackPress }: TrackScreenProps) {
         timestamp: new Date().toISOString(),
       };
 
-      await axios.post(`${API_BASE_URL}/track/meal`, mealData);
+      await apiService.post('/track/meal', mealData);
 
       if (photo) {
         const newPhotoLog: PhotoLog = {
@@ -506,7 +504,7 @@ export default function TrackScreen({ onBackPress }: TrackScreenProps) {
         photo: photo,
       };
 
-      await axios.post(`${API_BASE_URL}/track/weight`, weightData);
+      await apiService.post('/track/weight', weightData);
 
       const newEntry: WeightEntry = {
         date: new Date().toISOString().split('T')[0],

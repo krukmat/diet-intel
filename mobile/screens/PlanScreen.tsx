@@ -13,9 +13,7 @@ import {
   Platform,
 } from 'react-native';
 import { StatusBar as ExpoStatusBar } from 'expo-status-bar';
-import axios from 'axios';
-
-const API_BASE_URL = 'http://10.0.2.2:8000';
+import { apiService } from '../services/ApiService';
 
 interface UserProfile {
   age: number;
@@ -110,7 +108,9 @@ const CustomizeModal: React.FC<CustomizeModalProps> = ({ visible, onClose, onCon
         ? `/product/by-barcode/${searchQuery.trim()}`
         : `/product/search?q=${encodeURIComponent(searchQuery.trim())}`;
         
-      const response = await axios.get(`${API_BASE_URL}${endpoint}`);
+      const response = searchType === 'barcode' 
+        ? await apiService.getProductByBarcode(searchQuery.trim())
+        : await apiService.searchProduct(searchQuery.trim());
       
       if (response.data) {
         const product = response.data;
@@ -378,7 +378,7 @@ export default function PlanScreen({ onBackPress }: PlanScreenProps) {
         flexibility: false,
       };
       
-      const response = await axios.post(`${API_BASE_URL}/plan/generate`, request);
+      const response = await apiService.generateMealPlan(request);
       setDailyPlan(response.data);
     } catch (error) {
       Alert.alert('Error', 'Failed to generate meal plan. Please try again.');
@@ -406,7 +406,7 @@ export default function PlanScreen({ onBackPress }: PlanScreenProps) {
         item: newItem,
       };
 
-      await axios.put(`${API_BASE_URL}/plan/customize`, customizeData);
+      await apiService.customizeMealPlan(customizeData);
       
       // Update local state
       const updatedPlan = { ...dailyPlan };

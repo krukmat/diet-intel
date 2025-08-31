@@ -19,6 +19,7 @@ import PlanScreen from './screens/PlanScreen';
 import TrackScreen from './screens/TrackScreen';
 import ProductDetail from './components/ProductDetail';
 import ReminderSnippet from './components/ReminderSnippet';
+import ApiConfigModal from './components/ApiConfigModal';
 
 export default function App() {
   const [manualBarcode, setManualBarcode] = useState('');
@@ -29,6 +30,7 @@ export default function App() {
   type ScreenType = 'scanner' | 'upload' | 'plan' | 'track';
   const [currentScreen, setCurrentScreen] = useState<ScreenType>('scanner');
   const [showReminders, setShowReminders] = useState(false);
+  const [showApiConfig, setShowApiConfig] = useState(false);
   
   // Debug logging
   console.log('Current screen:', currentScreen);
@@ -169,12 +171,20 @@ export default function App() {
           <Text style={styles.subtitle}>Nutrition Barcode Scanner</Text>
           <Text style={styles.version}>v1.0 - Android Demo</Text>
         </View>
-        <TouchableOpacity 
-          style={styles.reminderButton}
-          onPress={() => setShowReminders(true)}
-        >
-          <Text style={styles.reminderButtonText}>🔔</Text>
-        </TouchableOpacity>
+        <View style={styles.headerButtons}>
+          <TouchableOpacity 
+            style={styles.headerActionButton}
+            onPress={() => setShowApiConfig(true)}
+          >
+            <Text style={styles.headerActionButtonText}>⚙️</Text>
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={styles.headerActionButton}
+            onPress={() => setShowReminders(true)}
+          >
+            <Text style={styles.headerActionButtonText}>🔔</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Navigation */}
@@ -317,6 +327,11 @@ export default function App() {
         visible={showReminders} 
         onClose={() => setShowReminders(false)} 
       />
+      
+      <ApiConfigModal
+        visible={showApiConfig}
+        onClose={() => setShowApiConfig(false)}
+      />
     </SafeAreaView>
   );
 }
@@ -339,7 +354,11 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
   },
-  reminderButton: {
+  headerButtons: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  headerActionButton: {
     backgroundColor: 'rgba(255,255,255,0.2)',
     width: 40,
     height: 40,
@@ -347,9 +366,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  reminderButtonText: {
+  headerActionButtonText: {
     color: 'white',
-    fontSize: 20,
+    fontSize: 18,
   },
   title: {
     color: 'white',
