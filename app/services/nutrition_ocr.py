@@ -292,8 +292,8 @@ class NutritionTextParser:
             's': '5',  # letter s to five (in numbers)
             
             # Unit fixes
-            'cal ': 'kcal ',
-            'cals': 'kcal',
+            ' cal ': ' kcal ',
+            ' cals': ' kcal',
             'kj ': 'kj ',
             
             # Language fixes
@@ -306,7 +306,7 @@ class NutritionTextParser:
         for old, new in ocr_fixes.items():
             if old in ['o', 'i', 'l', 's']:
                 # Only replace if surrounded by digits
-                normalized = re.sub(rf'(\d){old}(\d)', rf'\1{new}\2', normalized)
+                normalized = re.sub(rf'(\d){old}(\d)', rf'\g<1>{new}\g<2>', normalized)
             else:
                 normalized = normalized.replace(old, new)
         
@@ -366,7 +366,7 @@ class NutritionTextParser:
         Check if extracted value is within reasonable ranges.
         """
         ranges = {
-            'energy_kcal': (0, 1000),   # kcal per 100g
+            'energy_kcal': (1, 1000),   # kcal per 100g (exclude 0)
             'energy_kj': (0, 4200),     # kJ per 100g
             'protein_g': (0, 100),      # g per 100g
             'fat_g': (0, 100),          # g per 100g
@@ -428,7 +428,10 @@ class NutritionTextParser:
         bonus_score = min(0.2, total_found * 0.05)  # Bonus for additional nutrients
         
         # Average pattern confidence
-        pattern_confidences = [details.get('confidence', 0.5) for details in extraction_details.values()]
+        if isinstance(extraction_details, dict):
+            pattern_confidences = [details.get('confidence', 0.5) for details in extraction_details.values()]
+        else:
+            pattern_confidences = []
         avg_pattern_confidence = sum(pattern_confidences) / len(pattern_confidences) if pattern_confidences else 0.5
         
         # Text quality indicators

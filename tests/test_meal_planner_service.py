@@ -303,21 +303,53 @@ class TestProductSelection:
     def setup_method(self):
         self.service = MealPlannerService()
         
+        from datetime import datetime
+        
         self.test_products = [
             ProductResponse(
-                barcode="low_cal", product_name="Low Cal Food", serving_size="100g",
-                nutriments=Nutriments(energy_kcal=100.0, proteins=10.0, fat=2.0,
-                                     carbohydrates=12.0, fiber=4.0, sugars=2.0, salt=0.2)
+                source="Test",
+                barcode="low_cal", 
+                name="Low Cal Food", 
+                serving_size="100g",
+                nutriments=Nutriments(
+                    energy_kcal_per_100g=100.0, 
+                    protein_g_per_100g=10.0, 
+                    fat_g_per_100g=2.0,
+                    carbs_g_per_100g=12.0, 
+                    sugars_g_per_100g=2.0, 
+                    salt_g_per_100g=0.2
+                ),
+                fetched_at=datetime.now()
             ),
             ProductResponse(
-                barcode="medium_cal", product_name="Medium Cal Food", serving_size="100g", 
-                nutriments=Nutriments(energy_kcal=250.0, proteins=20.0, fat=8.0,
-                                     carbohydrates=25.0, fiber=3.0, sugars=6.0, salt=0.5)
+                source="Test",
+                barcode="medium_cal", 
+                name="Medium Cal Food", 
+                serving_size="100g", 
+                nutriments=Nutriments(
+                    energy_kcal_per_100g=250.0, 
+                    protein_g_per_100g=20.0, 
+                    fat_g_per_100g=8.0,
+                    carbs_g_per_100g=25.0, 
+                    sugars_g_per_100g=6.0, 
+                    salt_g_per_100g=0.5
+                ),
+                fetched_at=datetime.now()
             ),
             ProductResponse(
-                barcode="high_cal", product_name="High Cal Food", serving_size="100g",
-                nutriments=Nutriments(energy_kcal=400.0, proteins=15.0, fat=25.0,
-                                     carbohydrates=30.0, fiber=2.0, sugars=10.0, salt=1.0)
+                source="Test",
+                barcode="high_cal", 
+                name="High Cal Food", 
+                serving_size="100g",
+                nutriments=Nutriments(
+                    energy_kcal_per_100g=400.0, 
+                    protein_g_per_100g=15.0, 
+                    fat_g_per_100g=25.0,
+                    carbs_g_per_100g=30.0, 
+                    sugars_g_per_100g=10.0, 
+                    salt_g_per_100g=1.0
+                ),
+                fetched_at=datetime.now()
             )
         ]
     

@@ -41,6 +41,8 @@ coverage.xml
 *.cover
 .hypothesis/
 .pytest_cache/
+coverage/
+lcov.info
 
 # Translations
 *.mo
@@ -150,3 +152,4 @@ lerna-debug.log*
 # Webapp specific exclusions
 webapp/node_modules/
 webapp/package-lock.json
+backend_test_coverage_plan.html

@@ -53,18 +53,35 @@ def expected_product_response():
     }
 
 
-@pytest.mark.asyncio
-async def test_successful_product_lookup(client, mock_openfoodfacts_response, expected_product_response):
+def test_successful_product_lookup(client, mock_openfoodfacts_response, expected_product_response):
     barcode = "1234567890123"
     
-    with patch("app.services.cache.cache_service.get", return_value=None), \
-         patch("app.services.cache.cache_service.set", return_value=True), \
-         patch("app.services.openfoodfacts.openfoodfacts_service.client") as mock_client:
+    with patch("app.services.cache.cache_service.get", new_callable=AsyncMock, return_value=None), \
+         patch("app.services.cache.cache_service.set", new_callable=AsyncMock, return_value=True), \
+         patch("app.services.openfoodfacts.openfoodfacts_service.get_product", new_callable=AsyncMock) as mock_get_product:
         
-        mock_response = AsyncMock()
-        mock_response.status_code = 200
-        mock_response.json.return_value = mock_openfoodfacts_response
-        mock_client.get.return_value = mock_response
+        from app.models.product import ProductResponse, Nutriments
+        
+        # Create proper ProductResponse object
+        product_response = ProductResponse(
+            source="OpenFoodFacts",
+            barcode=barcode,
+            name="Test Product",
+            brand="Test Brand", 
+            image_url="https://example.com/image.jpg",
+            serving_size="100g",
+            nutriments=Nutriments(
+                energy_kcal_per_100g=250.0,
+                protein_g_per_100g=10.0,
+                fat_g_per_100g=5.0,
+                carbs_g_per_100g=40.0,
+                sugars_g_per_100g=15.0,
+                salt_g_per_100g=1.2
+            ),
+            fetched_at="2024-01-01T00:00:00Z"
+        )
+        
+        mock_get_product.return_value = product_response
         
         response = client.post("/product/by-barcode", json={"barcode": barcode})
         
@@ -81,17 +98,12 @@ async def test_successful_product_lookup(client, mock_openfoodfacts_response, ex
         assert "fetched_at" in data
 
 
-@pytest.mark.asyncio
-async def test_product_not_found_404(client):
+def test_product_not_found_404(client):
     barcode = "0000000000000"
     
-    with patch("app.services.cache.cache_service.get", return_value=None), \
-         patch("app.services.openfoodfacts.openfoodfacts_service.client") as mock_client:
-        
-        mock_response = AsyncMock()
-        mock_response.status_code = 200
-        mock_response.json.return_value = {"status": 0}
-        mock_client.get.return_value = mock_response
+    with patch("app.services.cache.cache_service.get", new_callable=AsyncMock, return_value=None), \
+         patch("app.services.cache.cache_service.set", new_callable=AsyncMock, return_value=True), \
+         patch("app.services.openfoodfacts.openfoodfacts_service.get_product", new_callable=AsyncMock, return_value=None):
         
         response = client.post("/product/by-barcode", json={"barcode": barcode})
         
