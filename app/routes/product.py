@@ -11,6 +11,7 @@ from app.models.product import (
 from app.services.openfoodfacts import openfoodfacts_service
 from app.services.cache import cache_service
 from app.services.nutrition_ocr import extract_nutrients_from_image, call_external_ocr
+from app.services.database import db_service
 import httpx
 import aiofiles
 
@@ -29,6 +30,7 @@ router = APIRouter()
 )
 async def get_product_by_barcode(request: BarcodeRequest):
     barcode = request.barcode.strip()
+    start_time = datetime.now()
     
     if not barcode:
         raise HTTPException(
@@ -36,41 +38,118 @@ async def get_product_by_barcode(request: BarcodeRequest):
             detail="Barcode cannot be empty"
         )
     
-    cache_key = f"product:{barcode}"
+    # Extract user context (would be from JWT in real implementation)
+    user_id = None  # TODO: Extract from JWT when auth is implemented
+    session_id = None  # TODO: Extract from session when implemented
     
     try:
+        # Check database first
+        db_product = await db_service.get_product(barcode)
+        if db_product:
+            response_time = int((datetime.now() - start_time).total_seconds() * 1000)
+            await db_service.log_product_lookup(
+                user_id, session_id, barcode, db_product['name'], 
+                True, response_time, "Database"
+            )
+            await db_service.log_user_product_interaction(
+                user_id, session_id, barcode, "lookup", "database_hit"
+            )
+            logger.info(f"Returning database product for barcode: {barcode}")
+            
+            # Convert to ProductResponse format
+            return ProductResponse(
+                source="Database",
+                barcode=db_product['barcode'],
+                name=db_product['name'],
+                brand=db_product['brand'],
+                nutriments=Nutriments(**db_product['nutriments']),
+                serving_size=db_product['serving_size'],
+                image_url=db_product['image_url'],
+                fetched_at=datetime.now()
+            )
+        
+        # Check cache
+        cache_key = f"product:{barcode}"
         cached_product = await cache_service.get(cache_key)
         if cached_product:
+            response_time = int((datetime.now() - start_time).total_seconds() * 1000)
+            await db_service.log_product_lookup(
+                user_id, session_id, barcode, cached_product.get('name'), 
+                True, response_time, "Cache"
+            )
             logger.info(f"Returning cached product for barcode: {barcode}")
             return ProductResponse(**cached_product)
         
+        # Fetch from external API
         product = await openfoodfacts_service.get_product(barcode)
         
         if product is None:
+            response_time = int((datetime.now() - start_time).total_seconds() * 1000)
+            await db_service.log_product_lookup(
+                user_id, session_id, barcode, None, 
+                False, response_time, "OpenFoodFacts", "Product not found"
+            )
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Product with barcode {barcode} not found"
             )
         
+        # Store in database and cache
         product_dict = product.model_dump()
         await cache_service.set(cache_key, product_dict, ttl_hours=24)
         
-        logger.info(f"Successfully fetched and cached product for barcode: {barcode}")
+        # Store in database for future lookups  
+        await db_service.store_product(
+            barcode=product.barcode,
+            name=product.name,
+            brand=product.brand,
+            categories=None,  # ProductResponse doesn't include categories
+            nutriments=product_dict.get('nutriments', {}),
+            serving_size=product.serving_size,
+            image_url=product.image_url,
+            source="OpenFoodFacts"
+        )
+        
+        response_time = int((datetime.now() - start_time).total_seconds() * 1000)
+        await db_service.log_product_lookup(
+            user_id, session_id, barcode, product.name, 
+            True, response_time, "OpenFoodFacts"
+        )
+        await db_service.log_user_product_interaction(
+            user_id, session_id, barcode, "lookup", "api_fetch"
+        )
+        
+        logger.info(f"Successfully fetched, stored, and cached product for barcode: {barcode}")
         return product
         
     except httpx.TimeoutException:
+        response_time = int((datetime.now() - start_time).total_seconds() * 1000)
+        await db_service.log_product_lookup(
+            user_id, session_id, barcode, None, 
+            False, response_time, "OpenFoodFacts", "Timeout"
+        )
         logger.error(f"Timeout fetching product for barcode: {barcode}")
         raise HTTPException(
             status_code=status.HTTP_408_REQUEST_TIMEOUT,
             detail="Request timeout while fetching product data"
         )
     except httpx.RequestError as e:
+        response_time = int((datetime.now() - start_time).total_seconds() * 1000)
+        await db_service.log_product_lookup(
+            user_id, session_id, barcode, None, 
+            False, response_time, "OpenFoodFacts", f"Network error: {str(e)}"
+        )
         logger.error(f"Network error fetching product for barcode {barcode}: {e}")
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Unable to connect to product database"
         )
     except Exception as e:
+        response_time = int((datetime.now() - start_time).total_seconds() * 1000)
+        await db_service.log_product_lookup(
+            user_id, session_id, barcode, None, 
+            False, response_time, "System", f"Unexpected error: {str(e)}"
+        )
         logger.error(f"Unexpected error fetching product for barcode {barcode}: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -105,6 +184,10 @@ async def scan_nutrition_label(image: UploadFile = File(...)):
             detail="Image file too large (max 10MB)"
         )
     
+    # Extract user context
+    user_id = None  # TODO: Extract from JWT when auth is implemented
+    session_id = None  # TODO: Extract from session when implemented
+    
     temp_file_path = None
     start_time = datetime.now()
     
@@ -125,6 +208,12 @@ async def scan_nutrition_label(image: UploadFile = File(...)):
         ocr_result = extract_nutrients_from_image(temp_file_path)
         
         if not ocr_result['raw_text'].strip():
+            processing_time_ms = int((datetime.now() - start_time).total_seconds() * 1000)
+            await db_service.log_ocr_scan(
+                user_id, session_id, image.size, 0.0, processing_time_ms,
+                ocr_result.get('processing_details', {}).get('ocr_engine', 'tesseract'),
+                0, False, "No text extracted"
+            )
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="No text could be extracted from the image"
@@ -137,7 +226,16 @@ async def scan_nutrition_label(image: UploadFile = File(...)):
         raw_text = ocr_result['raw_text']
         
         processing_time = (datetime.now() - start_time).total_seconds()
+        processing_time_ms = int(processing_time * 1000)
         logger.info(f"OCR processing completed in {processing_time:.2f}s, confidence: {confidence:.2f}")
+        
+        # Log OCR analytics
+        nutrients_extracted = len([v for v in nutrition_data.values() if v is not None])
+        await db_service.log_ocr_scan(
+            user_id, session_id, image.size, confidence, processing_time_ms,
+            ocr_result.get('processing_details', {}).get('ocr_engine', 'tesseract'),
+            nutrients_extracted, True
+        )
         
         scan_timestamp = datetime.now()
         
@@ -175,6 +273,11 @@ async def scan_nutrition_label(image: UploadFile = File(...)):
     except HTTPException:
         raise
     except Exception as e:
+        processing_time_ms = int((datetime.now() - start_time).total_seconds() * 1000)
+        await db_service.log_ocr_scan(
+            user_id, session_id, image.size or 0, 0.0, processing_time_ms,
+            "tesseract", 0, False, f"Processing error: {str(e)}"
+        )
         logger.error(f"Error processing image: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -211,6 +314,10 @@ async def scan_label_with_external_ocr(image: UploadFile = File(...)):
             detail="File must be an image"
         )
     
+    # Extract user context
+    user_id = None  # TODO: Extract from JWT when auth is implemented
+    session_id = None  # TODO: Extract from session when implemented
+    
     temp_file_path = None
     start_time = datetime.now()
     
@@ -237,6 +344,11 @@ async def scan_label_with_external_ocr(image: UploadFile = File(...)):
             source = "Local OCR (fallback)"
         
         if not ocr_result['raw_text'].strip():
+            processing_time_ms = int((datetime.now() - start_time).total_seconds() * 1000)
+            await db_service.log_ocr_scan(
+                user_id, session_id, image.size, 0.0, processing_time_ms,
+                source.replace(" OCR", "").lower() + "_api", 0, False, "No text extracted"
+            )
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="No text could be extracted from the image"
@@ -249,7 +361,16 @@ async def scan_label_with_external_ocr(image: UploadFile = File(...)):
         raw_text = ocr_result['raw_text']
         
         processing_time = (datetime.now() - start_time).total_seconds()
+        processing_time_ms = int(processing_time * 1000)
         logger.info(f"External OCR processing completed in {processing_time:.2f}s, confidence: {confidence:.2f}")
+        
+        # Log OCR analytics
+        nutrients_extracted = len([v for v in nutrition_data.values() if v is not None])
+        await db_service.log_ocr_scan(
+            user_id, session_id, image.size, confidence, processing_time_ms,
+            ocr_result.get('processing_details', {}).get('ocr_engine', 'external_api'),
+            nutrients_extracted, True
+        )
         
         scan_timestamp = datetime.now()
         
@@ -284,6 +405,11 @@ async def scan_label_with_external_ocr(image: UploadFile = File(...)):
     except HTTPException:
         raise
     except Exception as e:
+        processing_time_ms = int((datetime.now() - start_time).total_seconds() * 1000)
+        await db_service.log_ocr_scan(
+            user_id, session_id, image.size or 0, 0.0, processing_time_ms,
+            "external_api", 0, False, f"Processing error: {str(e)}"
+        )
         logger.error(f"Error in external OCR processing: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

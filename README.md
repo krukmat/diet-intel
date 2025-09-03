@@ -278,6 +278,13 @@ L4 Storage: External APIs      → Latency: 100-500ms
 - **PUT /reminder/{id}** - Update reminder settings
 - **DELETE /reminder/{id}** - Delete reminder
 
+#### **Analytics APIs** *(Phase A: 100% Database Integration - September 2025)*
+- **GET /analytics/summary** - 7-day analytics overview with success rates and performance metrics
+- **GET /analytics/product-lookups** - Detailed barcode lookup statistics with response times
+- **GET /analytics/ocr-scans** - OCR performance metrics with confidence scores and processing times  
+- **GET /analytics/top-products** - Most frequently accessed products with usage counts
+- **GET /analytics/user-interactions** - User behavior tracking and interaction patterns
+
 ### Database & Caching
 
 #### **SQLite Database**
@@ -287,17 +294,24 @@ users (id, email, password_hash, full_name, avatar_url, is_developer, role, is_a
 user_sessions (id, user_id, access_token, refresh_token, expires_at, device_info, created_at)
 
 -- Product and Tracking Data  
-products (barcode, name, brand, nutriments, cached_at)
+products (barcode, name, brand, categories, nutriments, serving_size, image_url, source, last_updated, access_count)
 meal_tracking (id, user_id, meal_name, items, total_calories, photo_url, timestamp)
 weight_tracking (id, user_id, weight, date, photo_url, created_at)
 reminders (id, user_id, type, label, time, days, enabled, created_at, updated_at)
+
+-- Analytics Tables (Phase A: 100% Database Integration)
+user_product_lookups (id, user_id, session_id, barcode, product_name, success, response_time_ms, source, error_message, timestamp)
+ocr_scan_analytics (id, user_id, session_id, image_size, confidence_score, processing_time_ms, ocr_engine, nutrients_extracted, success, error_message, timestamp)
+user_product_history (id, user_id, session_id, barcode, action, context, timestamp)
 ```
 
-#### **Redis Caching**
+#### **Redis Caching & Database Integration**
+- **Hybrid Architecture**: Database → Cache → External API hierarchy for optimal performance
 - **Product Cache**: 24-hour TTL for OpenFoodFacts API responses
-- **Meal Plan Cache**: 24-hour TTL for generated meal plans
+- **Meal Plan Cache**: 24-hour TTL for generated meal plans  
 - **Session Cache**: User session data for fast authentication
-- **Cache Strategy**: Write-through caching with automatic expiration
+- **Cache Strategy**: Write-through caching with persistent database storage
+- **Analytics Tracking**: All operations logged to database for performance monitoring
 
 ### OCR & Image Processing
 
@@ -858,6 +872,76 @@ curl -X POST "http://localhost:8000/track/weight" \
      -H "Content-Type: application/json" \
      -H "Authorization: Bearer YOUR_ACCESS_TOKEN" \
      -d '{"weight": 75.2, "date": "2025-08-31T08:00:00Z"}'
+```
+
+#### **Analytics APIs** *(Phase A: 100% Database Integration)*
+
+**Analytics Summary (7-day overview)**
+```bash
+curl -X GET "http://localhost:8000/analytics/summary" \
+     -H "Content-Type: application/json"
+
+# Response: Success rates, performance metrics, top products
+{
+  "period_days": 7,
+  "product_lookups": {
+    "total": 12,
+    "successful": 10,
+    "success_rate": 0.83,
+    "avg_response_time_ms": 245.5
+  },
+  "ocr_scans": {
+    "total": 5,
+    "successful": 4,
+    "success_rate": 0.8,
+    "avg_confidence": 0.78,
+    "avg_processing_time_ms": 3250.0
+  },
+  "top_products": [
+    {"name": "Nutella", "brand": "Ferrero", "access_count": 15}
+  ]
+}
+```
+
+**Detailed OCR Analytics**
+```bash
+curl -X GET "http://localhost:8000/analytics/ocr-scans?limit=5" \
+     -H "Content-Type: application/json"
+
+# Response: Detailed OCR performance data
+{
+  "scans": [
+    {
+      "image_size": 5062,
+      "confidence_score": 0.76,
+      "processing_time_ms": 5017,
+      "ocr_engine": "tesseract",
+      "nutrients_extracted": 4,
+      "success": true,
+      "timestamp": "2025-09-03T10:55:48Z"
+    }
+  ]
+}
+```
+
+**Product Lookup Statistics**
+```bash
+curl -X GET "http://localhost:8000/analytics/product-lookups?limit=10" \
+     -H "Content-Type: application/json"
+
+# Response: Barcode lookup performance metrics
+{
+  "lookups": [
+    {
+      "barcode": "3017620422003",
+      "product_name": "Nutella",
+      "success": true,
+      "response_time_ms": 125,
+      "source": "Cache",
+      "timestamp": "2025-09-03T10:55:13Z"
+    }
+  ]
+}
 ```
 
 ### Response Formats
