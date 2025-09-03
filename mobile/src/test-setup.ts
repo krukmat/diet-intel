@@ -98,6 +98,85 @@ jest.mock('react-native/Libraries/Settings/NativeSettingsManager', () => ({
   set: jest.fn()
 }));
 
+// Enhanced React Native mocking for better component testing
+jest.mock('react-native', () => {
+  const React = require('react');
+  
+  // Create mock components that render properly
+  const mockComponent = (name: string) => {
+    const MockedComponent = React.forwardRef((props: any, ref: any) => {
+      return React.createElement('div', { 
+        ...props, 
+        'data-testid': props.testID || name.toLowerCase(),
+        ref 
+      }, props.children);
+    });
+    MockedComponent.displayName = name;
+    return MockedComponent;
+  };
+
+  return {
+    // Basic UI components
+    View: mockComponent('View'),
+    Text: mockComponent('Text'),
+    TextInput: mockComponent('TextInput'),
+    TouchableOpacity: mockComponent('TouchableOpacity'),
+    ScrollView: mockComponent('ScrollView'),
+    SafeAreaView: mockComponent('SafeAreaView'),
+    Image: mockComponent('Image'),
+    Button: mockComponent('Button'),
+    FlatList: mockComponent('FlatList'),
+    Modal: React.forwardRef((props: any, ref: any) => {
+      // Only render modal content when visible
+      if (!props.visible) return null;
+      return React.createElement('div', { 
+        ...props, 
+        'data-testid': 'modal',
+        ref 
+      }, props.children);
+    }),
+    ActivityIndicator: mockComponent('ActivityIndicator'),
+    Switch: mockComponent('Switch'),
+    Picker: mockComponent('Picker'),
+    
+    // APIs and utilities
+    Alert: {
+      alert: jest.fn()
+    },
+    Dimensions: {
+      get: jest.fn(() => ({ width: 375, height: 812 }))
+    },
+    Platform: {
+      OS: 'ios',
+      select: jest.fn((obj) => obj.ios || obj.default)
+    },
+    StyleSheet: {
+      create: jest.fn((styles) => styles),
+      flatten: jest.fn()
+    },
+    Keyboard: {
+      dismiss: jest.fn()
+    },
+    
+    // Mocked native modules
+    NativeModules: {
+      SettingsManager: {
+        settings: {},
+        get: jest.fn(),
+        set: jest.fn()
+      }
+    },
+    
+    TurboModuleRegistry: {
+      getEnforcing: jest.fn(() => ({
+        settings: {},
+        get: jest.fn(),
+        set: jest.fn()
+      }))
+    }
+  };
+});
+
 // Global React mock for component testing
 global.React = require('react');
 
