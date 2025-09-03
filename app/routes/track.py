@@ -3,7 +3,7 @@ import base64
 import os
 from datetime import datetime
 from typing import List, Optional
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, status, Request
 from fastapi.responses import JSONResponse
 
 from app.models.tracking import (
@@ -12,14 +12,14 @@ from app.models.tracking import (
     WeightHistoryResponse, PhotoLogsResponse, PhotoLogEntry
 )
 from app.services.cache import cache_service
+from app.services.database import db_service
+from app.utils.auth_context import get_session_user_id
 import logging
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
-# In-memory storage for demo purposes (replace with database in production)
-meal_tracking_data = []
-weight_tracking_data = []
+# Photo storage configuration
 photo_storage_path = "/tmp/dietintel_photos"
 
 def ensure_photo_directory():
@@ -56,53 +56,61 @@ def save_photo(photo_base64: str, prefix: str) -> str:
         return None
 
 @router.post("/meal", response_model=MealTrackingResponse)
-async def track_meal(request: MealTrackingRequest):
+async def track_meal(request: MealTrackingRequest, req: Request):
     """
     Track a consumed meal with optional photo attachment
     """
     try:
-        logger.info(f"Tracking meal: {request.meal_name} with {len(request.items)} items")
-        
-        # Generate unique ID
-        meal_id = str(uuid.uuid4())
-        
-        # Calculate total calories
-        total_calories = sum(item.calories for item in request.items)
+        # Get user context (authenticated or session-based anonymous)
+        user_id = await get_session_user_id(req)
+        logger.info(f"Tracking meal for user {user_id}: {request.meal_name} with {len(request.items)} items")
         
         # Save photo if provided
         photo_url = None
         if request.photo:
-            photo_url = save_photo(request.photo, f"meal_{meal_id}")
+            photo_url = save_photo(request.photo, f"meal_{user_id}")
         
-        # Parse timestamp
-        try:
-            timestamp = datetime.fromisoformat(request.timestamp.replace("Z", "+00:00"))
-        except ValueError:
-            timestamp = datetime.now()
+        # Store meal in database
+        meal_id = await db_service.create_meal(user_id, request, photo_url)
         
-        # Create response
+        # Get the stored meal to return proper response
+        meal_data = await db_service.get_meal_by_id(meal_id)
+        if not meal_data:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to retrieve stored meal"
+            )
+        
+        # Convert to response model
+        from app.models.tracking import MealItem
+        
         meal_record = MealTrackingResponse(
-            id=meal_id,
-            meal_name=request.meal_name,
-            items=request.items,
-            total_calories=total_calories,
-            photo_url=photo_url,
-            timestamp=timestamp,
-            created_at=datetime.now()
+            id=meal_data['id'],
+            meal_name=meal_data['meal_name'],
+            items=[
+                MealItem(
+                    barcode=item['barcode'],
+                    name=item['name'],
+                    serving=item['serving'],
+                    calories=item['calories'],
+                    macros=item['macros']
+                ) for item in meal_data['items']
+            ],
+            total_calories=meal_data['total_calories'],
+            photo_url=meal_data['photo_url'],
+            timestamp=meal_data['timestamp'],
+            created_at=meal_data['created_at']
         )
         
-        # Store in memory (replace with database)
-        meal_tracking_data.append(meal_record.model_dump())
-        
-        # Cache recent meals
-        cache_key = f"recent_meals_user"
+        # Update cache for recent meals (keep caching for performance)
+        cache_key = f"recent_meals_{user_id}"
         recent_meals = await cache_service.get(cache_key) or []
         recent_meals.append(meal_record.model_dump())
         # Keep only last 50 meals
         recent_meals = recent_meals[-50:]
         await cache_service.set(cache_key, recent_meals, ttl_hours=24)
         
-        logger.info(f"Successfully tracked meal {meal_id}: {total_calories} calories")
+        logger.info(f"Successfully tracked meal {meal_id} for user {user_id}: {meal_data['total_calories']} calories")
         
         return meal_record
     
@@ -114,48 +122,49 @@ async def track_meal(request: MealTrackingRequest):
         )
 
 @router.post("/weight", response_model=WeightTrackingResponse)
-async def track_weight(request: WeightTrackingRequest):
+async def track_weight(request: WeightTrackingRequest, req: Request):
     """
     Track a weight measurement with optional photo attachment
     """
     try:
-        logger.info(f"Tracking weight: {request.weight} kg")
-        
-        # Generate unique ID
-        weight_id = str(uuid.uuid4())
+        # Get user context (authenticated or session-based anonymous)
+        user_id = await get_session_user_id(req)
+        logger.info(f"Tracking weight for user {user_id}: {request.weight} kg")
         
         # Save photo if provided
         photo_url = None
         if request.photo:
-            photo_url = save_photo(request.photo, f"weight_{weight_id}")
+            photo_url = save_photo(request.photo, f"weight_{user_id}")
         
-        # Parse date
-        try:
-            measurement_date = datetime.fromisoformat(request.date.replace("Z", "+00:00"))
-        except ValueError:
-            measurement_date = datetime.now()
+        # Store weight entry in database
+        weight_id = await db_service.create_weight_entry(user_id, request, photo_url)
         
-        # Create response
+        # Get the stored weight entry to return proper response
+        weight_data = await db_service.get_weight_entry_by_id(weight_id)
+        if not weight_data:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to retrieve stored weight entry"
+            )
+        
+        # Convert to response model
         weight_record = WeightTrackingResponse(
-            id=weight_id,
-            weight=request.weight,
-            date=measurement_date,
-            photo_url=photo_url,
-            created_at=datetime.now()
+            id=weight_data['id'],
+            weight=weight_data['weight'],
+            date=weight_data['date'],
+            photo_url=weight_data['photo_url'],
+            created_at=weight_data['created_at']
         )
         
-        # Store in memory (replace with database)
-        weight_tracking_data.append(weight_record.model_dump())
-        
-        # Cache weight history
-        cache_key = f"weight_history_user"
+        # Cache weight history for performance
+        cache_key = f"weight_history_{user_id}"
         weight_history = await cache_service.get(cache_key) or []
         weight_history.append(weight_record.model_dump())
         # Keep only last 100 entries
         weight_history = sorted(weight_history, key=lambda x: x['date'])[-100:]
         await cache_service.set(cache_key, weight_history, ttl_hours=24)
         
-        logger.info(f"Successfully tracked weight {weight_id}: {request.weight} kg")
+        logger.info(f"Successfully tracked weight {weight_id} for user {user_id}: {request.weight} kg")
         
         return weight_record
     
@@ -167,18 +176,16 @@ async def track_weight(request: WeightTrackingRequest):
         )
 
 @router.get("/weight/history", response_model=WeightHistoryResponse)
-async def get_weight_history(limit: Optional[int] = 30):
+async def get_weight_history(req: Request, limit: Optional[int] = 30):
     """
     Get weight tracking history
     """
     try:
-        # Get from cache first
-        cache_key = f"weight_history_user"
-        weight_history = await cache_service.get(cache_key) or []
+        # Get user context (authenticated or session-based anonymous)
+        user_id = await get_session_user_id(req)
         
-        # Limit results
-        if limit:
-            weight_history = weight_history[-limit:]
+        # Get weight history from database
+        weight_history = await db_service.get_user_weight_history(user_id, limit or 30)
         
         # Convert to response models
         entries = []
@@ -186,9 +193,9 @@ async def get_weight_history(limit: Optional[int] = 30):
             entry = WeightTrackingResponse(
                 id=record['id'],
                 weight=record['weight'],
-                date=datetime.fromisoformat(record['date']) if isinstance(record['date'], str) else record['date'],
-                photo_url=record.get('photo_url'),
-                created_at=datetime.fromisoformat(record['created_at']) if isinstance(record['created_at'], str) else record['created_at']
+                date=record['date'],
+                photo_url=record['photo_url'],
+                created_at=record['created_at']
             )
             entries.append(entry)
         
@@ -215,30 +222,34 @@ async def get_weight_history(limit: Optional[int] = 30):
         )
 
 @router.get("/photos", response_model=PhotoLogsResponse)
-async def get_photo_logs(limit: Optional[int] = 50):
+async def get_photo_logs(req: Request, limit: Optional[int] = 50):
     """
     Get timeline of all food and weight photos
     """
     try:
+        # Get user context (authenticated or session-based anonymous)
+        user_id = await get_session_user_id(req)
         photo_logs = []
         
-        # Collect meal photos
-        for meal_record in meal_tracking_data:
+        # Collect meal photos from database
+        user_meals = await db_service.get_user_meals(user_id, limit or 50)
+        for meal_record in user_meals:
             if meal_record.get('photo_url'):
                 photo_logs.append(PhotoLogEntry(
                     id=meal_record['id'],
-                    timestamp=datetime.fromisoformat(meal_record['created_at']) if isinstance(meal_record['created_at'], str) else meal_record['created_at'],
+                    timestamp=meal_record['created_at'],
                     photo_url=meal_record['photo_url'],
                     type="meal",
                     description=f"{meal_record['meal_name']} - {meal_record['total_calories']:.0f} kcal"
                 ))
         
-        # Collect weight photos
-        for weight_record in weight_tracking_data:
+        # Collect weight photos from database
+        user_weights = await db_service.get_user_weight_history(user_id, limit or 50)
+        for weight_record in user_weights:
             if weight_record.get('photo_url'):
                 photo_logs.append(PhotoLogEntry(
                     id=weight_record['id'],
-                    timestamp=datetime.fromisoformat(weight_record['created_at']) if isinstance(weight_record['created_at'], str) else weight_record['created_at'],
+                    timestamp=weight_record['created_at'],
                     photo_url=weight_record['photo_url'],
                     type="weigh-in",
                     description=f"Weight: {weight_record['weight']} kg"

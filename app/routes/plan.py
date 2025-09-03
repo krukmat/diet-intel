@@ -1,5 +1,5 @@
 import logging
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, status, Request
 from app.models.meal_plan import (
     MealPlanRequest, MealPlanResponse, PlanCustomizationRequest, 
     CustomizedPlanResponse, ChangeLogEntry
@@ -8,6 +8,7 @@ from app.models.product import ErrorResponse
 from app.services.meal_planner import meal_planner
 from app.services.plan_storage import plan_storage
 from app.services.plan_customizer import plan_customizer
+from app.utils.auth_context import get_session_user_id
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -21,7 +22,7 @@ router = APIRouter()
         500: {"model": ErrorResponse, "description": "Meal planning error"}
     }
 )
-async def generate_meal_plan(request: MealPlanRequest):
+async def generate_meal_plan(request: MealPlanRequest, req: Request):
     """
     Generate a daily meal plan based on user profile and preferences.
     
@@ -76,11 +77,14 @@ async def generate_meal_plan(request: MealPlanRequest):
         if request.optional_products:
             logger.info(f"Including {len(request.optional_products)} optional products")
         
+        # Get user context
+        user_id = await get_session_user_id(req)
+        
         # Generate the meal plan
         plan = await meal_planner.generate_plan(request)
         
         # Store the plan for future customization
-        plan_id = await plan_storage.store_plan(plan)
+        plan_id = await plan_storage.store_plan(plan, user_id=user_id)
         
         # Log results
         logger.info(f"Generated meal plan {plan_id}: {plan.daily_calorie_target} kcal target, "
@@ -156,7 +160,7 @@ async def get_meal_plan_config():
         500: {"model": ErrorResponse, "description": "Customization error"}
     }
 )
-async def customize_meal_plan(plan_id: str, customization: PlanCustomizationRequest):
+async def customize_meal_plan(plan_id: str, customization: PlanCustomizationRequest, req: Request):
     """
     Customize an existing meal plan with user modifications.
     
@@ -194,6 +198,9 @@ async def customize_meal_plan(plan_id: str, customization: PlanCustomizationRequ
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="At least one customization operation must be specified"
             )
+        
+        # Get user context
+        user_id = await get_session_user_id(req)
         
         # Retrieve the existing plan
         plan = await plan_storage.get_plan(plan_id)
@@ -261,7 +268,7 @@ async def customize_meal_plan(plan_id: str, customization: PlanCustomizationRequ
         404: {"model": ErrorResponse, "description": "Plan not found"}
     }
 )
-async def get_meal_plan(plan_id: str):
+async def get_meal_plan(plan_id: str, req: Request):
     """
     Retrieve a stored meal plan by ID.
     
@@ -274,6 +281,9 @@ async def get_meal_plan(plan_id: str):
     Raises:
         HTTPException: 404 if plan not found
     """
+    # Get user context
+    user_id = await get_session_user_id(req)
+    
     plan = await plan_storage.get_plan(plan_id)
     if not plan:
         raise HTTPException(
@@ -292,7 +302,7 @@ async def get_meal_plan(plan_id: str):
         404: {"model": ErrorResponse, "description": "Plan not found"}
     }
 )
-async def delete_meal_plan(plan_id: str):
+async def delete_meal_plan(plan_id: str, req: Request):
     """
     Delete a stored meal plan.
     
@@ -305,6 +315,9 @@ async def delete_meal_plan(plan_id: str):
     Raises:
         HTTPException: 404 if plan not found
     """
+    # Get user context
+    user_id = await get_session_user_id(req)
+    
     success = await plan_storage.delete_plan(plan_id)
     if not success:
         raise HTTPException(
