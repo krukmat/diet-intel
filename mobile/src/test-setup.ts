@@ -158,6 +158,74 @@ jest.mock('react-native', () => {
       dismiss: jest.fn()
     },
     
+    // Animated API
+    Animated: {
+      Value: jest.fn(() => ({
+        setValue: jest.fn(),
+        setOffset: jest.fn(),
+        flattenOffset: jest.fn(),
+        extractOffset: jest.fn(),
+        addListener: jest.fn(),
+        removeListener: jest.fn(),
+        removeAllListeners: jest.fn(),
+        interpolate: jest.fn(() => ({
+          interpolate: jest.fn(),
+          setValue: jest.fn(),
+          setOffset: jest.fn(),
+          flattenOffset: jest.fn(),
+          extractOffset: jest.fn(),
+          addListener: jest.fn(),
+          removeListener: jest.fn(),
+          removeAllListeners: jest.fn()
+        }))
+      })),
+      timing: jest.fn(() => ({
+        start: jest.fn(),
+        stop: jest.fn(),
+        reset: jest.fn()
+      })),
+      spring: jest.fn(() => ({
+        start: jest.fn(),
+        stop: jest.fn(),
+        reset: jest.fn()
+      })),
+      decay: jest.fn(() => ({
+        start: jest.fn(),
+        stop: jest.fn(),
+        reset: jest.fn()
+      })),
+      sequence: jest.fn(() => ({
+        start: jest.fn(),
+        stop: jest.fn(),
+        reset: jest.fn()
+      })),
+      parallel: jest.fn(() => ({
+        start: jest.fn(),
+        stop: jest.fn(),
+        reset: jest.fn()
+      })),
+      stagger: jest.fn(() => ({
+        start: jest.fn(),
+        stop: jest.fn(),
+        reset: jest.fn()
+      })),
+      loop: jest.fn(() => ({
+        start: jest.fn(),
+        stop: jest.fn(),
+        reset: jest.fn()
+      })),
+      delay: jest.fn(() => ({
+        start: jest.fn(),
+        stop: jest.fn(),
+        reset: jest.fn()
+      })),
+      View: mockComponent('AnimatedView'),
+      Text: mockComponent('AnimatedText'),
+      ScrollView: mockComponent('AnimatedScrollView'),
+      Image: mockComponent('AnimatedImage'),
+      createAnimatedComponent: jest.fn((component) => component)
+    },
+    
     // Mocked native modules
     NativeModules: {
       SettingsManager: {
