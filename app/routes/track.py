@@ -160,8 +160,14 @@ async def track_weight(request: WeightTrackingRequest, req: Request):
         cache_key = f"weight_history_{user_id}"
         weight_history = await cache_service.get(cache_key) or []
         weight_history.append(weight_record.model_dump())
-        # Keep only last 100 entries
-        weight_history = sorted(weight_history, key=lambda x: x['date'])[-100:]
+        # Keep only last 100 entries - sort by date with proper datetime handling
+        def sort_key(x):
+            date_val = x['date']
+            if isinstance(date_val, str):
+                from dateutil.parser import parse
+                return parse(date_val)
+            return date_val
+        weight_history = sorted(weight_history, key=sort_key)[-100:]
         await cache_service.set(cache_key, weight_history, ttl_hours=24)
         
         logger.info(f"Successfully tracked weight {weight_id} for user {user_id}: {request.weight} kg")
