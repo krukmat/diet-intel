@@ -1,9 +1,16 @@
-import '@testing-library/jest-native/extend-expect';
+// Simplified test setup without problematic React Native imports
 
 // Mock AsyncStorage
-jest.mock('@react-native-async-storage/async-storage', () =>
-  require('@react-native-async-storage/async-storage/jest/async-storage-mock')
-);
+jest.mock('@react-native-async-storage/async-storage', () => ({
+  getItem: jest.fn(),
+  setItem: jest.fn(),
+  removeItem: jest.fn(),
+  clear: jest.fn(),
+  getAllKeys: jest.fn(),
+  multiGet: jest.fn(),
+  multiSet: jest.fn(),
+  multiRemove: jest.fn()
+}));
 
 // Mock axios
 jest.mock('axios', () => ({
@@ -26,47 +33,81 @@ jest.mock('axios', () => ({
   patch: jest.fn()
 }));
 
-// Mock expo modules
+// Mock Expo modules without importing React Native
 jest.mock('expo-status-bar', () => ({
-  StatusBar: 'StatusBar'
+  StatusBar: () => 'StatusBar'
+}));
+
+jest.mock('expo-splash-screen', () => ({
+  preventAutoHideAsync: jest.fn(),
+  hideAsync: jest.fn()
 }));
 
 jest.mock('expo-image-picker', () => ({
-  requestCameraPermissionsAsync: jest.fn(),
-  requestMediaLibraryPermissionsAsync: jest.fn(),
-  launchCameraAsync: jest.fn(),
-  launchImageLibraryAsync: jest.fn(),
+  requestCameraPermissionsAsync: jest.fn(() => Promise.resolve({ status: 'granted' })),
+  requestMediaLibraryPermissionsAsync: jest.fn(() => Promise.resolve({ status: 'granted' })),
+  launchCameraAsync: jest.fn(() => Promise.resolve({ cancelled: true })),
+  launchImageLibraryAsync: jest.fn(() => Promise.resolve({ cancelled: true })),
   MediaTypeOptions: { Images: 'Images' }
 }));
 
+jest.mock('expo-notifications', () => ({
+  setNotificationHandler: jest.fn(),
+  getPermissionsAsync: jest.fn(() => Promise.resolve({ status: 'granted' })),
+  requestPermissionsAsync: jest.fn(() => Promise.resolve({ status: 'granted' })),
+  scheduleNotificationAsync: jest.fn(),
+  cancelScheduledNotificationAsync: jest.fn(),
+  cancelAllScheduledNotificationsAsync: jest.fn(),
+  getAllScheduledNotificationsAsync: jest.fn(() => Promise.resolve([])),
+  addNotificationReceivedListener: jest.fn(() => ({ remove: jest.fn() })),
+  addNotificationResponseReceivedListener: jest.fn(() => ({ remove: jest.fn() })),
+  removeNotificationSubscription: jest.fn()
+}));
+
 jest.mock('expo-image-manipulator', () => ({
-  manipulateAsync: jest.fn(),
+  manipulateAsync: jest.fn(() => Promise.resolve({ uri: 'mock-uri' })),
   SaveFormat: { JPEG: 'JPEG' }
 }));
 
 jest.mock('expo-barcode-scanner', () => ({
-  BarCodeScanner: 'BarCodeScanner',
-  requestPermissionsAsync: jest.fn()
+  BarCodeScanner: {
+    Constants: {
+      BarCodeType: {
+        ean13: 'ean13',
+        ean8: 'ean8',
+        upc_a: 'upc_a'
+      }
+    }
+  },
+  requestPermissionsAsync: jest.fn(() => Promise.resolve({ status: 'granted' }))
 }));
 
-// Mock react-native modules
-jest.mock('react-native', () => {
-  const RN = jest.requireActual('react-native');
-  return {
-    ...RN,
-    Alert: {
-      alert: jest.fn()
-    },
-    Dimensions: {
-      get: jest.fn().mockReturnValue({ width: 375, height: 812 })
-    }
-  };
-});
+// Mock TurboModuleRegistry before React Native loads
+jest.mock('react-native/Libraries/TurboModule/TurboModuleRegistry', () => ({
+  getEnforcing: jest.fn(() => ({
+    settings: {},
+    get: jest.fn(),
+    set: jest.fn()
+  }))
+}));
 
-// Silence console logs during tests unless explicitly needed
+// Mock Settings before React Native loads
+jest.mock('react-native/Libraries/Settings/NativeSettingsManager', () => ({
+  settings: {},
+  get: jest.fn(),
+  set: jest.fn()
+}));
+
+// Global React mock for component testing
+global.React = require('react');
+
+
+// Silence console during tests
+const originalConsole = global.console;
 global.console = {
-  ...console,
+  ...originalConsole,
   log: jest.fn(),
   warn: jest.fn(),
-  error: jest.fn()
+  error: jest.fn(),
+  debug: jest.fn()
 };
