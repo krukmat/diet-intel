@@ -10,7 +10,7 @@ from app.models.product import (
 )
 from app.services.openfoodfacts import openfoodfacts_service
 from app.services.cache import cache_service
-from app.services.ocr import ocr_service, nutrition_parser, call_external_ocr
+from app.services.nutrition_ocr import extract_nutrients_from_image, call_external_ocr
 import httpx
 import aiofiles
 
@@ -121,20 +121,20 @@ async def scan_nutrition_label(image: UploadFile = File(...)):
         
         logger.info(f"Image saved to temp file: {temp_file_path}")
         
-        # Extract text using local OCR
-        raw_text = await ocr_service.extract_text(temp_file_path)
+        # Extract nutrients using enhanced OCR service
+        ocr_result = extract_nutrients_from_image(temp_file_path)
         
-        if not raw_text.strip():
+        if not ocr_result['raw_text'].strip():
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="No text could be extracted from the image"
             )
         
-        # Parse nutrition information
-        parse_result = nutrition_parser.parse_nutrition_text(raw_text)
-        nutrition_data = parse_result['nutrition_data']
-        serving_size = parse_result['serving_size']
-        confidence = parse_result['confidence']
+        # Extract parsed data
+        nutrition_data = ocr_result['parsed_nutriments']
+        serving_size = ocr_result.get('serving_size', '100g')  # Default serving size
+        confidence = ocr_result['confidence']
+        raw_text = ocr_result['raw_text']
         
         processing_time = (datetime.now() - start_time).total_seconds()
         logger.info(f"OCR processing completed in {processing_time:.2f}s, confidence: {confidence:.2f}")
@@ -225,28 +225,28 @@ async def scan_label_with_external_ocr(image: UploadFile = File(...)):
             await f.write(content)
         
         # Try external OCR first
-        external_text = await call_external_ocr(temp_file_path)
+        external_result = call_external_ocr(temp_file_path)
         
-        if external_text:
+        if external_result.get('confidence', 0) > 0:
             logger.info("Using external OCR service result")
-            raw_text = external_text
+            ocr_result = external_result
             source = "External OCR"
         else:
             logger.info("External OCR unavailable, falling back to local OCR")
-            raw_text = await ocr_service.extract_text(temp_file_path)
+            ocr_result = extract_nutrients_from_image(temp_file_path)
             source = "Local OCR (fallback)"
         
-        if not raw_text.strip():
+        if not ocr_result['raw_text'].strip():
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="No text could be extracted from the image"
             )
         
-        # Parse nutrition information
-        parse_result = nutrition_parser.parse_nutrition_text(raw_text)
-        nutrition_data = parse_result['nutrition_data']
-        serving_size = parse_result['serving_size']
-        confidence = parse_result['confidence']
+        # Extract parsed data
+        nutrition_data = ocr_result['parsed_nutriments']
+        serving_size = ocr_result.get('serving_size', '100g')  # Default serving size
+        confidence = ocr_result['confidence']
+        raw_text = ocr_result['raw_text']
         
         processing_time = (datetime.now() - start_time).total_seconds()
         logger.info(f"External OCR processing completed in {processing_time:.2f}s, confidence: {confidence:.2f}")
@@ -277,7 +277,7 @@ async def scan_label_with_external_ocr(image: UploadFile = File(...)):
                 confidence=confidence,
                 raw_text=raw_text,
                 partial_parsed=nutrition_data,
-                suggest_external_ocr=external_text is None,  # Only suggest if we haven't tried external
+                suggest_external_ocr=external_result.get('confidence', 0) == 0,  # Only suggest if external OCR wasn't used
                 scanned_at=scan_timestamp
             )
     

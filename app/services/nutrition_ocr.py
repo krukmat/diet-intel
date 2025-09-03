@@ -141,55 +141,66 @@ class NutritionTextParser:
             r'energ[ií]a.*?(\d+[.,]\d+|\d+)\s*kj',
         ],
         'protein_g': [
-            # English
+            # English - more specific patterns to avoid matching serving sizes
             r'protein[s]?.*?(\d+[.,]\d+|\d+)\s*g',
-            r'(\d+[.,]\d+|\d+)\s*g.*?protein',
+            r'protein[s]?\s*:?\s*(\d+[.,]\d+|\d+)\s*g',
+            r'(\d+[.,]\d+|\d+)\s*g\s*protein[s]?(?:\s|$)',
             
             # Spanish
             r'prote[íi]nas?.*?(\d+[.,]\d+|\d+)\s*g',
-            r'(\d+[.,]\d+|\d+)\s*g.*?prote[íi]na',
+            r'prote[íi]nas?\s*:?\s*(\d+[.,]\d+|\d+)\s*g',
+            r'(\d+[.,]\d+|\d+)\s*g\s*prote[íi]nas?(?:\s|$)',
         ],
         'fat_g': [
-            # English
+            # English - more specific patterns to avoid matching serving sizes
             r'fat[s]?.*?(\d+[.,]\d+|\d+)\s*g',
+            r'fat[s]?\s*:?\s*(\d+[.,]\d+|\d+)\s*g',
             r'lipid[s]?.*?(\d+[.,]\d+|\d+)\s*g',
-            r'(\d+[.,]\d+|\d+)\s*g.*?fat',
+            r'(\d+[.,]\d+|\d+)\s*g\s*fat[s]?(?:\s|$)',
             
             # Spanish
             r'gras[as]?.*?(\d+[.,]\d+|\d+)\s*g',
+            r'gras[as]?\s*:?\s*(\d+[.,]\d+|\d+)\s*g',
             r'l[íi]pidos?.*?(\d+[.,]\d+|\d+)\s*g',
-            r'(\d+[.,]\d+|\d+)\s*g.*?gras[as]?',
+            r'(\d+[.,]\d+|\d+)\s*g\s*gras[as]?(?:\s|$)',
         ],
         'carbs_g': [
-            # English
+            # English - more specific patterns to avoid matching serving sizes
             r'carbohydrate[s]?.*?(\d+[.,]\d+|\d+)\s*g',
+            r'carbohydrate[s]?\s*:?\s*(\d+[.,]\d+|\d+)\s*g',
             r'carbs.*?(\d+[.,]\d+|\d+)\s*g',
-            r'(\d+[.,]\d+|\d+)\s*g.*?carb',
+            r'carbs\s*:?\s*(\d+[.,]\d+|\d+)\s*g',
+            r'(\d+[.,]\d+|\d+)\s*g\s*carb[s]?(?:\s|$)',
             
             # Spanish
             r'carbohidrato[s]?.*?(\d+[.,]\d+|\d+)\s*g',
+            r'carbohidrato[s]?\s*:?\s*(\d+[.,]\d+|\d+)\s*g',
             r'hidratos?.*?(\d+[.,]\d+|\d+)\s*g',
-            r'(\d+[.,]\d+|\d+)\s*g.*?carbohidrato',
+            r'(\d+[.,]\d+|\d+)\s*g\s*carbohidrato[s]?(?:\s|$)',
         ],
         'sugars_g': [
-            # English
+            # English - more specific patterns to avoid matching serving sizes
             r'sugar[s]?.*?(\d+[.,]\d+|\d+)\s*g',
-            r'(\d+[.,]\d+|\d+)\s*g.*?sugar',
+            r'sugar[s]?\s*:?\s*(\d+[.,]\d+|\d+)\s*g',
+            r'(\d+[.,]\d+|\d+)\s*g\s*sugar[s]?(?:\s|$)',
             
             # Spanish
             r'az[úu]car[es]?.*?(\d+[.,]\d+|\d+)\s*g',
-            r'(\d+[.,]\d+|\d+)\s*g.*?az[úu]car',
+            r'az[úu]car[es]?\s*:?\s*(\d+[.,]\d+|\d+)\s*g',
+            r'(\d+[.,]\d+|\d+)\s*g\s*az[úu]car[es]?(?:\s|$)',
         ],
         'salt_g': [
-            # English
+            # English - more specific patterns to avoid matching serving sizes
             r'salt.*?(\d+[.,]\d+|\d+)\s*g',
+            r'salt\s*:?\s*(\d+[.,]\d+|\d+)\s*g',
             r'sodium.*?(\d+[.,]\d+|\d+)\s*(?:g|mg)',
-            r'(\d+[.,]\d+|\d+)\s*g.*?salt',
+            r'(\d+[.,]\d+|\d+)\s*g\s*salt(?:\s|$)',
             
             # Spanish
             r'sal.*?(\d+[.,]\d+|\d+)\s*g',
+            r'sal\s*:?\s*(\d+[.,]\d+|\d+)\s*g',
             r'sodio.*?(\d+[.,]\d+|\d+)\s*(?:g|mg)',
-            r'(\d+[.,]\d+|\d+)\s*g.*?sal',
+            r'(\d+[.,]\d+|\d+)\s*g\s*sal(?:\s|$)',
         ],
         'fiber_g': [
             # English
@@ -229,15 +240,21 @@ class NutritionTextParser:
                 # Convert units if needed
                 if nutrient == 'energy_kj':
                     # Convert kJ to kcal and store as energy_kcal
+                    # But only if we don't already have a direct kcal value with higher confidence
                     kcal_value = round(value / 4.184, 1)
-                    nutrients['energy_kcal'] = kcal_value
-                    extraction_details['energy_kcal'] = {
-                        'original_value': value,
-                        'original_unit': 'kJ',
-                        'pattern': matched_pattern,
-                        'confidence': confidence
-                    }
-                    logger.debug(f"Converted {value} kJ to {kcal_value} kcal")
+                    existing_kcal_confidence = extraction_details.get('energy_kcal', {}).get('confidence', 0)
+                    
+                    if 'energy_kcal' not in nutrients or confidence > existing_kcal_confidence:
+                        nutrients['energy_kcal'] = kcal_value
+                        extraction_details['energy_kcal'] = {
+                            'original_value': value,
+                            'original_unit': 'kJ',
+                            'pattern': matched_pattern,
+                            'confidence': confidence
+                        }
+                        logger.debug(f"Converted {value} kJ to {kcal_value} kcal")
+                    else:
+                        logger.debug(f"Kept existing kcal value instead of converting {value} kJ")
                 elif nutrient.endswith('_mg') and 'sodium' in matched_pattern.lower():
                     # Convert sodium mg to salt g (approximate: sodium_mg * 2.5 / 1000)
                     salt_g = round(value * 2.5 / 1000, 2)
@@ -305,8 +322,9 @@ class NutritionTextParser:
         # Apply fixes carefully (only in likely number contexts)
         for old, new in ocr_fixes.items():
             if old in ['o', 'i', 'l', 's']:
-                # Only replace if surrounded by digits
-                normalized = re.sub(rf'(\d){old}(\d)', rf'\g<1>{new}\g<2>', normalized)
+                # Replace if surrounded by digits OR at end of number followed by space/unit
+                normalized = re.sub(rf'(\d){old}(\d)', rf'\g<1>{new}\g<2>', normalized)  # Between digits
+                normalized = re.sub(rf'(\d){old}(\s|$|\w)', rf'\g<1>{new}\g<2>', normalized)  # At end of number
             else:
                 normalized = normalized.replace(old, new)
         

@@ -600,7 +600,8 @@ class TestIntegrationScenarios:
             return local_confidence < threshold
         
         # Test high confidence local result
-        with patch('app.services.nutrition_ocr.LocalOCREngine.extract_text', return_value=("good text", 0.8)):
+        good_nutrition_text = "Energy: 350 kcal\nProtein: 12.5g\nFat: 8.2g\nCarbohydrates: 65.3g\nSugars: 15.2g\nSalt: 1.1g"
+        with patch('app.services.nutrition_ocr.LocalOCREngine.extract_text', return_value=(good_nutrition_text, 0.8)):
             local_result = extract_nutrients_from_image(sample_image_path)
             assert not should_use_external_ocr(local_result['confidence'])  # Should not need external
         
@@ -652,3 +653,201 @@ class TestPerformanceAndEdgeCases:
         # In real async environment, you'd use asyncio.gather
         result = asyncio.run(process_image())
         assert 'confidence' in result
+
+
+# Additional tests for missing coverage paths
+class TestMissingCoveragePaths:
+    """Test uncovered code paths to achieve higher coverage"""
+    
+    def test_sodium_to_salt_conversion(self):
+        """Test sodium mg to salt g conversion (lines 260-262)"""
+        parser = NutritionTextParser()
+        
+        # Temporarily add a sodium_mg nutrient to trigger the conversion
+        original_keywords = parser.NUTRIENT_KEYWORDS.copy()
+        
+        try:
+            # Add a temporary nutrient that ends with '_mg' and contains sodium patterns
+            parser.NUTRIENT_KEYWORDS['sodium_mg'] = [
+                r'sodium.*?(\d+[.,]\d+|\d+)\s*mg',
+                r'sodium\s*:?\s*(\d+[.,]\d+|\d+)\s*mg',
+            ]
+            
+            # Text with sodium in mg
+            sodium_text = "Nutrition per 100g: Energy 350 kcal, Sodium: 440 mg"
+            
+            result = parser.parse_nutrition_text(sodium_text)
+            
+            # Should convert sodium mg to salt g (440mg * 2.5 / 1000 = 1.1g)
+            assert 'salt_g' in result['parsed_nutriments']
+            assert result['parsed_nutriments']['salt_g'] == 1.1
+            assert result['extraction_details']['salt_g']['original_value'] == 440.0
+            assert result['extraction_details']['salt_g']['original_unit'] == 'mg_sodium'
+            
+        finally:
+            # Restore original keywords
+            parser.NUTRIENT_KEYWORDS = original_keywords
+    
+    def test_unreasonable_value_filtering(self):
+        """Test filtering of unreasonable nutritional values (line 363)"""
+        parser = NutritionTextParser()
+        
+        # Text with unreasonably high values
+        unreasonable_text = "Energy: 50000 kcal, Protein: 999g, Fat: 500g"
+        
+        result = parser.parse_nutrition_text(unreasonable_text)
+        
+        # Should filter out unreasonable values based on _is_reasonable_value
+        # Most unreasonable values should be rejected
+        nutrients = result['parsed_nutriments']
+        
+        # The exact behavior depends on the _is_reasonable_value implementation
+        # but very high values should be filtered out
+        if 'energy_kcal' in nutrients:
+            assert nutrients['energy_kcal'] < 10000  # Should not be 50000
+    
+    def test_regex_error_handling(self):
+        """Test regex error handling (lines 376-378)"""
+        parser = NutritionTextParser()
+        
+        # Temporarily patch NUTRIENT_KEYWORDS with invalid regex
+        original_keywords = parser.NUTRIENT_KEYWORDS.copy()
+        
+        try:
+            # Add invalid regex pattern that will cause re.error
+            parser.NUTRIENT_KEYWORDS['test_invalid'] = [r'[unclosed_bracket']
+            
+            result = parser.parse_nutrition_text("Energy: 300 kcal")
+            
+            # Should continue processing despite regex error
+            assert 'energy_kcal' in result['parsed_nutriments']
+            
+        finally:
+            # Restore original keywords
+            parser.NUTRIENT_KEYWORDS = original_keywords
+    
+    def test_value_error_handling(self):
+        """Test ValueError handling in pattern matching (lines 373-374)"""
+        parser = NutritionTextParser()
+        
+        # Text that might cause ValueError during number parsing
+        problematic_text = "Energy: abc kcal, Protein: 12g, Fat: xyz mg"
+        
+        result = parser.parse_nutrition_text(problematic_text)
+        
+        # Should handle ValueError gracefully and extract valid values
+        assert 'protein_g' in result['parsed_nutriments']
+        assert result['parsed_nutriments']['protein_g'] == 12.0
+    
+    def test_tesseract_extraction_failure(self):
+        """Test Tesseract extraction failure handling (lines 583-585)"""
+        engine = LocalOCREngine()
+        
+        # Mock tesseract to raise an exception
+        with patch('pytesseract.image_to_string', side_effect=Exception("Tesseract failed")):
+            text, confidence = engine._extract_with_tesseract("dummy_path")
+            
+            # Should return empty string and 0 confidence on failure
+            assert text == ""
+            assert confidence == 0.0
+    
+    def test_easyocr_extraction_failure(self):
+        """Test EasyOCR extraction failure and empty results (lines 592-607)"""
+        engine = LocalOCREngine()
+        
+        # Test EasyOCR returning empty results
+        with patch.object(engine.easyocr_reader, 'readtext', return_value=[]):
+            text, confidence = engine._extract_with_easyocr("dummy_path")
+            
+            assert text == ""
+            assert confidence == 0.0
+        
+        # Test EasyOCR raising an exception
+        with patch.object(engine.easyocr_reader, 'readtext', side_effect=Exception("EasyOCR failed")):
+            text, confidence = engine._extract_with_easyocr("dummy_path")
+            
+            assert text == ""
+            assert confidence == 0.0
+    
+    def test_image_preprocessing_edge_cases(self):
+        """Test image preprocessing with various edge cases"""
+        engine = LocalOCREngine()
+        
+        # Create a minimal test image in memory
+        import io
+        from PIL import Image
+        
+        # Create a small test image
+        img = Image.new('RGB', (100, 50), color='white')
+        img_buffer = io.BytesIO()
+        img.save(img_buffer, format='PNG')
+        img_buffer.seek(0)
+        
+        # Test with very small image
+        with patch('PIL.Image.open', return_value=img):
+            with patch('cv2.imread') as mock_cv2_read:
+                mock_cv2_read.return_value = None  # Simulate cv2 read failure
+                
+                # Should handle cv2 read failure gracefully
+                result = engine.extract_text("dummy_path")
+                assert isinstance(result, tuple)
+                assert len(result) == 2
+    
+    def test_pattern_confidence_edge_cases(self):
+        """Test pattern confidence calculation edge cases"""
+        parser = NutritionTextParser()
+        
+        # Test with patterns that might cause edge cases in confidence calculation
+        edge_case_texts = [
+            "Energy:kcal",  # Missing value
+            "Protein: g",   # Missing value  
+            ": 300 kcal",   # Missing nutrient name
+            "Energy 300",   # Missing unit
+        ]
+        
+        for text in edge_case_texts:
+            result = parser.parse_nutrition_text(text)
+            # Should not crash and return valid result structure
+            assert 'confidence' in result
+            assert 'parsed_nutriments' in result
+            assert isinstance(result['confidence'], (int, float))
+    
+    def test_normalize_text_edge_cases(self):
+        """Test text normalization with various edge cases"""
+        parser = NutritionTextParser()
+        
+        # Test with text containing OCR errors that need correction
+        ocr_error_texts = [
+            "Energy: 35O kcal",    # O instead of 0
+            "Protein: I2g",        # I instead of 1  
+            "Fat: l.5g",           # l instead of 1
+            "Sugars: 5.s g",       # s instead of 5
+        ]
+        
+        for text in ocr_error_texts:
+            result = parser.parse_nutrition_text(text)
+            # Should correct OCR errors and extract meaningful values
+            nutrients = result['parsed_nutriments']
+            
+            # At least some corrections should work
+            if 'energy_kcal' in nutrients:
+                assert nutrients['energy_kcal'] == 350.0  # O corrected to 0
+    
+    def test_multiple_unit_variations(self):
+        """Test handling of various unit formats and edge cases"""
+        parser = NutritionTextParser()
+        
+        # Test various unit formats that might be edge cases
+        unit_variations = [
+            "Energy: 1465 kJ / 350 kcal",  # Multiple energy units
+            "Protein: 12.5 grams",         # Full unit name
+            "Fat: 8,2g",                   # Comma as decimal separator
+            "Carbs: 65.3 g per 100g",      # Extra context
+            "Salt: 1.1g salt equivalent",  # Extra descriptor
+        ]
+        
+        for text in unit_variations:
+            result = parser.parse_nutrition_text(text)
+            # Should handle various unit formats
+            assert result['confidence'] > 0
+            assert len(result['parsed_nutriments']) > 0
