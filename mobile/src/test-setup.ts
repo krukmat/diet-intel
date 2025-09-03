@@ -123,6 +123,7 @@ jest.mock('react-native', () => {
     TouchableOpacity: mockComponent('TouchableOpacity'),
     ScrollView: mockComponent('ScrollView'),
     SafeAreaView: mockComponent('SafeAreaView'),
+    KeyboardAvoidingView: mockComponent('KeyboardAvoidingView'),
     Image: mockComponent('Image'),
     Button: mockComponent('Button'),
     FlatList: mockComponent('FlatList'),
