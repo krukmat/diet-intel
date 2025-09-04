@@ -17,7 +17,7 @@ import { Camera } from 'expo-camera';
 import UploadLabel from './screens/UploadLabel';
 import PlanScreen from './screens/PlanScreen';
 import TrackScreen from './screens/TrackScreen';
-import RecommendationsScreen from './screens/RecommendationsScreen';
+import SmartDietScreen from './screens/SmartDietScreen';
 import ProductDetail from './components/ProductDetail';
 import ReminderSnippet from './components/ReminderSnippet';
 import ApiConfigModal from './components/ApiConfigModal';
@@ -236,8 +236,8 @@ function MainApp({ user, onLogout }: { user: any; onLogout: () => void }) {
   }
 
   if (currentScreen === 'recommendations') {
-    console.log('Rendering RecommendationsScreen...');
-    return <RecommendationsScreen onBackPress={() => setCurrentScreen('scanner')} />;
+    console.log('Rendering SmartDietScreen...');
+    return <SmartDietScreen onBackPress={() => setCurrentScreen('scanner')} />;
   }
 
   return (
@@ -334,7 +334,7 @@ function MainApp({ user, onLogout }: { user: any; onLogout: () => void }) {
           }}
         >
           <Text style={[styles.navButtonText, isActiveScreen('recommendations') && styles.navButtonTextActive]}>
-            🎯 Smart Recs
+            🧠 Smart Diet
           </Text>
         </TouchableOpacity>
       </View>

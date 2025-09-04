@@ -19,7 +19,7 @@ A comprehensive nutrition tracking platform with barcode scanning, OCR label pro
 - [Database & Caching](#database--caching) 
 - [OCR & Image Processing](#ocr--image-processing)
 - [Meal Planning Engine](#meal-planning-engine)
-- [Smart Recommendations Engine](#smart-recommendations-engine)
+- [Smart Diet Engine](#smart-diet-engine)
 - [Setup & Configuration](#backend-setup--configuration)
 - [API Documentation](#api-documentation)
 
@@ -351,7 +351,7 @@ user_product_history (id, user_id, session_id, barcode, action, context, timesta
 - **Calorie Tolerance**: ±5% strict mode, ±15% flexible mode
 - **Macro Tracking**: Complete protein/fat/carb analysis with percentages
 
-### Smart Recommendations Engine
+### Smart Diet Engine
 
 #### **Multi-Algorithm Approach**
 The Smart Recommendations system combines multiple intelligence algorithms to provide personalized food suggestions:
@@ -399,10 +399,14 @@ Each recommendation includes comprehensive scoring for transparency and trust:
 - **Seasonal Patterns**: Personal seasonal eating habits and preferences
 
 #### **API Endpoints**
-- **`POST /recommendations/generate`**: Generate personalized recommendations
-- **`POST /recommendations/feedback`**: Record user feedback for learning
-- **`GET /recommendations/metrics`**: Performance analytics and insights
-- **`GET /recommendations/user-preferences/{user_id}`**: Learned user preferences
+- **`GET /smart-diet/suggestions`**: Generate context-based Smart Diet suggestions (today, optimize, discover, insights)
+- **`POST /smart-diet/feedback`**: Record user feedback for continuous learning and improvement
+- **`GET /smart-diet/insights`**: Get comprehensive nutritional insights and analysis
+- **`POST /smart-diet/apply-optimization`**: Apply suggested meal plan optimizations
+- **`GET /smart-diet/metrics`**: Performance analytics and recommendation effectiveness
+- **`POST /recommendations/generate`**: Generate personalized recommendations (legacy compatibility)
+- **`POST /recommendations/feedback`**: Record user feedback for learning (legacy compatibility)
+- **`GET /recommendations/metrics`**: Performance analytics and insights (legacy compatibility)
 
 #### **Machine Learning Features**
 - **Feedback Loop Learning**: Algorithms improve based on user acceptance/rejection
@@ -566,17 +570,15 @@ npm start
 #### **✅ Track Screen - LIVE API INTEGRATION**
 - **Today's Meals**: View planned meals with "Mark as Eaten" functionality
 
-#### **✅ Smart Recommendations - FULLY IMPLEMENTED** 
-- **🎯 Personalized AI Suggestions**: Multi-algorithm recommendation engine with 6 recommendation types
-- **🧬 Nutritional Intelligence**: Analyzes nutritional gaps and suggests complementary foods
-- **📊 User Learning**: Adapts based on meal history, feedback, and eating patterns
-- **🎨 Rich UI Components**: Beautiful cards with confidence scores, nutritional ratings, and reasoning
-- **⚙️ Preference Management**: Dietary restrictions, cuisine preferences, excluded ingredients
-- **👍 Feedback System**: Like/dislike buttons with rating integration for continuous learning
-- **🍎 Multiple Categories**: Meal-specific, daily additions, and healthy snack recommendations
-- **📈 Nutritional Insights**: Macro distribution analysis, health benefits, and gap identification
-- **🎛️ Meal Context Switching**: Dynamic recommendations for breakfast, lunch, and dinner
-- **🔄 Real-time Generation**: Live API integration with caching and error handling
+#### **✅ Smart Diet - UNIFIED AI NUTRITION ASSISTANT (September 4, 2025)** 
+- **🧠 Context-Based Intelligence**: Unified system with "For You Today", "Optimize Plan", "Discover Foods", and "Diet Insights" modes
+- **⚡ Smart Meal Optimization**: AI-powered meal plan analysis with personalized swap suggestions and macro adjustments
+- **🎯 Multi-Algorithm Recommendations**: 6 recommendation engines (nutritional profiling, user history, collaborative filtering, seasonal trends, goal alignment)
+- **📊 Comprehensive Insights**: Real-time macro balance analysis (protein/fat/carbs), improvement areas identification, and health benefits tracking
+- **🔄 Seamless Context Switching**: Dynamic content that adapts based on user's current nutrition focus and goals
+- **🎨 Modern Interface**: Horizontal scrolling context tabs, visual macro breakdowns, confidence scoring, and interactive feedback system
+- **⚙️ Advanced Personalization**: Dietary restrictions, cuisine preferences, excluded ingredients with real-time preference learning
+- **🔧 Robust Architecture**: Backward compatibility with legacy recommendations API, intelligent fallback mechanisms, and error-resistant design
 
 #### **✅ Reminder System - LIVE API INTEGRATION**
 - **Smart Notifications**: Expo Notifications for meal/weigh-in reminders
@@ -630,26 +632,26 @@ npm start
 
 ![Track Screen Main](mobile/screenshots/track-screen-main.png)
 
-#### Enhanced Navigation with Smart Recommendations
-*Updated 5-tab navigation: Scanner, Upload, Meal Plan, Track, Smart Recs*
+#### Enhanced Navigation with Smart Diet
+*Updated 5-tab navigation: Scanner, Upload, Meal Plan, Track, Smart Diet*
 
-![Navigation with Smart Recs](mobile/screenshots/navigation-with-smart-recs-tab.png)
+![Navigation with Smart Diet](mobile/screenshots/navigation-with-smart-diet-tab.png)
 
-*Complete navigation includes: 📷 Barcode Scanner • 🏷️ Upload Label • 🍽️ Meal Plan • 📊 Track • 🎯 Smart Recs*
+*Complete navigation includes: 📷 Barcode Scanner • 🏷️ Upload Label • 🍽️ Meal Plan • 📊 Track • 🧠 Smart Diet*
 
-#### Smart Meal Recommendations - NEW FEATURE ✨ (September 2025)
-*AI-powered Smart Recommendations screen with personalized food suggestions, confidence scores, nutritional insights, and preference management*
+#### Smart Diet - UNIFIED AI NUTRITION ASSISTANT ✨ (September 4, 2025)
+*Comprehensive AI-powered nutrition assistant combining Smart Recommendations with Smart Meal Optimization into a unified context-based system*
 
-![Smart Recommendations Screen](mobile/screenshots/smart-recommendations-main.png)
+![Smart Diet Unified Feature](mobile/screenshots/smart-diet-unified-feature.png)
 
-*Key Features: 6 recommendation algorithms • Multi-factor nutritional scoring • Real-time personalization • Dietary preference filtering • Interactive feedback system • Meal context switching*
+*Key Features: Context-based intelligence (Today/Optimize/Discover/Insights) • Multi-algorithm recommendation engine • Smart meal optimization • Real-time macro analysis • Interactive feedback system • Seamless context switching*
 
-#### Smart Recommendations - AI Feature Implementation (September 4, 2025)
-*Live screenshot of the Smart Recommendations feature running in Android simulator, showing personalized Greek Yogurt recommendation with 72% confidence score and detailed nutritional analysis*
+#### Smart Diet - Complete Implementation (September 4, 2025)
+*Live screenshot showing the Smart Diet feature with Today's Insights panel, macro balance visualization, improvement areas, health benefits, and personalized Greek Yogurt suggestion with confidence scoring*
 
-![Smart Recommendations AI Feature](mobile/screenshots/smart-recommendations-ai-feature.png)
+![Smart Diet AI Feature](mobile/screenshots/smart-diet-unified-feature.png)
 
-*Implementation highlights: Real-time personalization • Confidence scoring • Macro distribution analysis (Protein 16.6%, Fat 27.4%, Carbs 52.4%) • Health benefits identification • Interactive feedback system • Goal alignment scoring (50% Goal Alignment, 80% Nutritional Quality)*
+*Implementation highlights: Context-based UI • Real-time nutritional insights • Macro distribution analysis (16.6% protein, 27.4% fat, 52.4% carbs) • Areas to improve identification (Vitamin D, Omega-3, Fiber) • Health benefits tracking • 72% confidence scoring • Optimization suggestions • Backward compatibility with legacy APIs*
 
 #### Reminder Management
 *Header with 🔔 bell icon for notification reminder access*

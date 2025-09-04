@@ -155,6 +155,35 @@ class ApiService {
     return this.get(`/recommendations/user-preferences/${userId}`);
   }
 
+  // Smart Diet endpoints
+  public async getSmartDietSuggestions(params: URLSearchParams) {
+    return this.get(`/smart-diet/suggestions?${params.toString()}`);
+  }
+
+  public async recordSmartDietFeedback(feedbackData: any) {
+    return this.post('/smart-diet/feedback', feedbackData);
+  }
+
+  public async getSmartDietInsights(userId?: string, days?: number) {
+    const params = new URLSearchParams();
+    if (userId) params.append('user_id', userId);
+    if (days) params.append('days', days.toString());
+    
+    return this.get(`/smart-diet/insights${params.toString() ? '?' + params.toString() : ''}`);
+  }
+
+  public async applySmartDietOptimization(optimizationData: any) {
+    return this.post('/smart-diet/apply-optimization', optimizationData);
+  }
+
+  public async getSmartDietMetrics(userId?: string, days?: number) {
+    const params = new URLSearchParams();
+    if (userId) params.append('user_id', userId);
+    if (days) params.append('days', days.toString());
+    
+    return this.get(`/smart-diet/metrics${params.toString() ? '?' + params.toString() : ''}`);
+  }
+
   // Health check
   public async healthCheck() {
     try {

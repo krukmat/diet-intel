@@ -7,6 +7,7 @@ from app.routes.reminder import router as reminder_router
 from app.routes.auth import router as auth_router
 from app.routes.analytics import router as analytics_router
 from app.routes.recommendations import router as recommendations_router
+from app.routes.smart_diet import router as smart_diet_router
 from logging_config import setup_logging
 
 setup_logging()
@@ -31,6 +32,7 @@ app.include_router(auth_router, prefix="/auth", tags=["authentication"])
 app.include_router(product_router, prefix="/product", tags=["products"])
 app.include_router(plan_router, prefix="/plan", tags=["meal-planning"])
 app.include_router(recommendations_router, prefix="/recommendations", tags=["smart-recommendations"])
+app.include_router(smart_diet_router, prefix="/smart-diet", tags=["smart-diet"])
 app.include_router(track_router, prefix="/track", tags=["tracking"])
 app.include_router(reminder_router, prefix="/reminder", tags=["reminders"])
 app.include_router(analytics_router, prefix="/analytics", tags=["analytics"])
