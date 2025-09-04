@@ -98,6 +98,36 @@ jest.mock('react-native/Libraries/Settings/NativeSettingsManager', () => ({
   set: jest.fn()
 }));
 
+// Mock NativeDeviceInfo before React Native loads
+jest.mock('react-native/Libraries/Utilities/NativeDeviceInfo', () => ({
+  getConstants: jest.fn(() => ({
+    Dimensions: {
+      window: { width: 375, height: 812, scale: 2, fontScale: 1 },
+      screen: { width: 375, height: 812, scale: 2, fontScale: 1 }
+    },
+    isIPhoneX_deprecated: false
+  }))
+}));
+
+// Mock Dimensions native module
+jest.mock('react-native/Libraries/Utilities/Dimensions', () => ({
+  getConstants: jest.fn(() => ({
+    window: { width: 375, height: 812, scale: 2, fontScale: 1 },
+    screen: { width: 375, height: 812, scale: 2, fontScale: 1 }
+  })),
+  get: jest.fn(() => ({ width: 375, height: 812 })),
+  addEventListener: jest.fn(),
+  removeEventListener: jest.fn()
+}));
+
+// Mock PixelRatio
+jest.mock('react-native/Libraries/Utilities/PixelRatio', () => ({
+  get: jest.fn(() => 2),
+  getFontScale: jest.fn(() => 1),
+  getPixelSizeForLayoutSize: jest.fn((size) => Math.round(size * 2)),
+  roundToNearestPixel: jest.fn((size) => Math.round(size * 2) / 2)
+}));
+
 // Enhanced React Native mocking for better component testing
 jest.mock('react-native', () => {
   const React = require('react');
