@@ -17,6 +17,7 @@ import { Camera } from 'expo-camera';
 import UploadLabel from './screens/UploadLabel';
 import PlanScreen from './screens/PlanScreen';
 import TrackScreen from './screens/TrackScreen';
+import RecommendationsScreen from './screens/RecommendationsScreen';
 import ProductDetail from './components/ProductDetail';
 import ReminderSnippet from './components/ReminderSnippet';
 import ApiConfigModal from './components/ApiConfigModal';
@@ -80,7 +81,7 @@ function MainApp({ user, onLogout }: { user: any; onLogout: () => void }) {
   const [hasPermission, setHasPermission] = useState<boolean | null>(null);
   const [scanned, setScanned] = useState(false);
   const [showCamera, setShowCamera] = useState(false);
-  type ScreenType = 'scanner' | 'upload' | 'plan' | 'track';
+  type ScreenType = 'scanner' | 'upload' | 'plan' | 'track' | 'recommendations';
   const [currentScreen, setCurrentScreen] = useState<ScreenType>('scanner');
   const [showReminders, setShowReminders] = useState(false);
   const [showApiConfig, setShowApiConfig] = useState(false);
@@ -234,6 +235,11 @@ function MainApp({ user, onLogout }: { user: any; onLogout: () => void }) {
     return <TrackScreen onBackPress={() => setCurrentScreen('scanner')} />;
   }
 
+  if (currentScreen === 'recommendations') {
+    console.log('Rendering RecommendationsScreen...');
+    return <RecommendationsScreen onBackPress={() => setCurrentScreen('scanner')} />;
+  }
+
   return (
     <SafeAreaView style={styles.container}>
       <ExpoStatusBar style="light" backgroundColor="#007AFF" />
@@ -319,6 +325,18 @@ function MainApp({ user, onLogout }: { user: any; onLogout: () => void }) {
             </Text>
           </TouchableOpacity>
         )}
+        
+        <TouchableOpacity 
+          style={[styles.navButton, isActiveScreen('recommendations') && styles.navButtonActive]}
+          onPress={() => {
+            console.log('Smart Recommendations tab pressed!');
+            setCurrentScreen('recommendations');
+          }}
+        >
+          <Text style={[styles.navButtonText, isActiveScreen('recommendations') && styles.navButtonTextActive]}>
+            🎯 Smart Recs
+          </Text>
+        </TouchableOpacity>
       </View>
 
       {/* Scanner Status in Top Left Corner */}

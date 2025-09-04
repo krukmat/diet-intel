@@ -134,6 +134,27 @@ class ApiService {
     return this.get('/plan/config');
   }
 
+  // Smart recommendations endpoints
+  public async generateSmartRecommendations(requestData: any) {
+    return this.post('/recommendations/generate', requestData);
+  }
+
+  public async recordRecommendationFeedback(feedbackData: any) {
+    return this.post('/recommendations/feedback', feedbackData);
+  }
+
+  public async getRecommendationMetrics(days?: number, userId?: string) {
+    const params = new URLSearchParams();
+    if (days) params.append('days', days.toString());
+    if (userId) params.append('user_id', userId);
+    
+    return this.get(`/recommendations/metrics${params.toString() ? '?' + params.toString() : ''}`);
+  }
+
+  public async getUserRecommendationPreferences(userId: string) {
+    return this.get(`/recommendations/user-preferences/${userId}`);
+  }
+
   // Health check
   public async healthCheck() {
     try {
