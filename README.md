@@ -644,6 +644,13 @@ npm start
 
 *Key Features: 6 recommendation algorithms • Multi-factor nutritional scoring • Real-time personalization • Dietary preference filtering • Interactive feedback system • Meal context switching*
 
+#### Smart Recommendations - AI Feature Implementation (September 4, 2025)
+*Live screenshot of the Smart Recommendations feature running in Android simulator, showing personalized Greek Yogurt recommendation with 72% confidence score and detailed nutritional analysis*
+
+![Smart Recommendations AI Feature](mobile/screenshots/smart-recommendations-ai-feature.png)
+
+*Implementation highlights: Real-time personalization • Confidence scoring • Macro distribution analysis (Protein 16.6%, Fat 27.4%, Carbs 52.4%) • Health benefits identification • Interactive feedback system • Goal alignment scoring (50% Goal Alignment, 80% Nutritional Quality)*
+
 #### Reminder Management
 *Header with 🔔 bell icon for notification reminder access*
 
