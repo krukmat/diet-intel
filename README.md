@@ -1,6 +1,6 @@
 # DietIntel
 
-A comprehensive nutrition tracking platform with barcode scanning, OCR label processing, AI-powered meal planning, and user authentication. Built with FastAPI backend, React webapp, and React Native mobile app.
+A comprehensive nutrition tracking platform with barcode scanning, OCR label processing, AI-powered meal planning, smart meal recommendations, and user authentication. Built with FastAPI backend, React webapp, and React Native mobile app.
 
 ---
 
@@ -19,6 +19,7 @@ A comprehensive nutrition tracking platform with barcode scanning, OCR label pro
 - [Database & Caching](#database--caching) 
 - [OCR & Image Processing](#ocr--image-processing)
 - [Meal Planning Engine](#meal-planning-engine)
+- [Smart Recommendations Engine](#smart-recommendations-engine)
 - [Setup & Configuration](#backend-setup--configuration)
 - [API Documentation](#api-documentation)
 
@@ -350,6 +351,66 @@ user_product_history (id, user_id, session_id, barcode, action, context, timesta
 - **Calorie Tolerance**: ±5% strict mode, ±15% flexible mode
 - **Macro Tracking**: Complete protein/fat/carb analysis with percentages
 
+### Smart Recommendations Engine
+
+#### **Multi-Algorithm Approach**
+The Smart Recommendations system combines multiple intelligence algorithms to provide personalized food suggestions:
+
+- **🧬 Nutritional Profiling**: Analyzes nutritional gaps and suggests complementary foods
+- **📊 User History Mining**: Learns from past meal choices, feedback, and eating patterns  
+- **👥 Collaborative Filtering**: Identifies similar users and popular food combinations
+- **🌱 Seasonal Trends**: Incorporates seasonal availability and trending foods
+- **🎯 Goal Alignment**: Matches recommendations to user fitness and health objectives
+- **⚡ Real-time Personalization**: Adapts based on user feedback loops and interaction data
+
+#### **Recommendation Types**
+- **`similar_nutrition`**: Items with similar nutritional profiles to user preferences
+- **`complementary_macros`**: Foods that balance current meal macro distribution
+- **`seasonal_trends`**: Seasonal and trending food items with high availability
+- **`user_history`**: Personalized based on user's meal history and logged preferences
+- **`popular_combinations`**: Foods commonly paired together by the user community
+- **`dietary_goals`**: Items specifically aligned with user's fitness and health goals
+
+#### **Scoring & Intelligence**
+Each recommendation includes comprehensive scoring for transparency and trust:
+
+```json
+{
+  "confidence_score": 0.85,
+  "nutritional_score": {
+    "overall_score": 0.78,
+    "protein_score": 0.92,
+    "fiber_score": 0.65,
+    "micronutrient_score": 0.71,
+    "calorie_density_score": 0.89
+  },
+  "preference_match": 0.76,
+  "goal_alignment": 0.82,
+  "reasons": ["high_protein", "balanced_macros", "goal_alignment"]
+}
+```
+
+#### **Personalization Factors**
+- **User Meal History**: Analysis of previously accepted/rejected recommendations
+- **Dietary Restrictions**: Vegetarian, vegan, gluten-free, allergen filtering
+- **Cuisine Preferences**: Cultural dietary patterns and flavor preferences  
+- **Nutritional Goals**: Protein targets, calorie limits, macro ratios
+- **Feedback Learning**: Continuous improvement based on user ratings and usage
+- **Seasonal Patterns**: Personal seasonal eating habits and preferences
+
+#### **API Endpoints**
+- **`POST /recommendations/generate`**: Generate personalized recommendations
+- **`POST /recommendations/feedback`**: Record user feedback for learning
+- **`GET /recommendations/metrics`**: Performance analytics and insights
+- **`GET /recommendations/user-preferences/{user_id}`**: Learned user preferences
+
+#### **Machine Learning Features**
+- **Feedback Loop Learning**: Algorithms improve based on user acceptance/rejection
+- **Confidence Scoring**: Transparent confidence metrics for each recommendation
+- **A/B Testing Framework**: Built-in system for algorithm optimization
+- **Nutritional Quality Scoring**: Multi-factor assessment of food quality
+- **Social Trends Analysis**: Integration of community eating patterns
+
 ### Backend Setup & Configuration
 
 #### **Installation**
@@ -504,11 +565,18 @@ npm start
 
 #### **✅ Track Screen - LIVE API INTEGRATION**
 - **Today's Meals**: View planned meals with "Mark as Eaten" functionality
-- **Meal Photo Logging**: Attach photos when marking meals consumed → `POST /track/meal`
-- **Weight Tracking**: Daily weight recording with photos → `POST /track/weight`
-- **Weight History**: Live charts from backend → `GET /track/weight/history`
-- **Photo Timeline**: Real-time photo logs → `GET /track/photos`
-- **Complete CRUD**: Full backend integration with data persistence
+
+#### **✅ Smart Recommendations - FULLY IMPLEMENTED** 
+- **🎯 Personalized AI Suggestions**: Multi-algorithm recommendation engine with 6 recommendation types
+- **🧬 Nutritional Intelligence**: Analyzes nutritional gaps and suggests complementary foods
+- **📊 User Learning**: Adapts based on meal history, feedback, and eating patterns
+- **🎨 Rich UI Components**: Beautiful cards with confidence scores, nutritional ratings, and reasoning
+- **⚙️ Preference Management**: Dietary restrictions, cuisine preferences, excluded ingredients
+- **👍 Feedback System**: Like/dislike buttons with rating integration for continuous learning
+- **🍎 Multiple Categories**: Meal-specific, daily additions, and healthy snack recommendations
+- **📈 Nutritional Insights**: Macro distribution analysis, health benefits, and gap identification
+- **🎛️ Meal Context Switching**: Dynamic recommendations for breakfast, lunch, and dinner
+- **🔄 Real-time Generation**: Live API integration with caching and error handling
 
 #### **✅ Reminder System - LIVE API INTEGRATION**
 - **Smart Notifications**: Expo Notifications for meal/weigh-in reminders
@@ -562,10 +630,19 @@ npm start
 
 ![Track Screen Main](mobile/screenshots/track-screen-main.png)
 
-#### Enhanced Navigation with Track Tab
-*Updated 4-tab navigation: Scanner, Upload, Meal Plan, Track*
+#### Enhanced Navigation with Smart Recommendations
+*Updated 5-tab navigation: Scanner, Upload, Meal Plan, Track, Smart Recs*
 
-![Navigation with Track](mobile/screenshots/navigation-with-track-tab.png)
+![Navigation with Smart Recs](mobile/screenshots/navigation-with-smart-recs-tab.png)
+
+*Complete navigation includes: 📷 Barcode Scanner • 🏷️ Upload Label • 🍽️ Meal Plan • 📊 Track • 🎯 Smart Recs*
+
+#### Smart Meal Recommendations - NEW FEATURE ✨ (September 2025)
+*AI-powered Smart Recommendations screen with personalized food suggestions, confidence scores, nutritional insights, and preference management*
+
+![Smart Recommendations Screen](mobile/screenshots/smart-recommendations-main.png)
+
+*Key Features: 6 recommendation algorithms • Multi-factor nutritional scoring • Real-time personalization • Dietary preference filtering • Interactive feedback system • Meal context switching*
 
 #### Reminder Management
 *Header with 🔔 bell icon for notification reminder access*
