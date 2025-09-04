@@ -78,3 +78,4 @@ DietIntel is a FastAPI application for nutrition tracking with product lookup, O
 - before implement a feature or fix a bug always add a task list and make it approved.
 - in every new feature the screenshots and the explanation should be in the root readme
 - when a new feature or fix is promoted in github, the readme should be completed with the date of push
+- only do screenshot in root screenshot folder.
