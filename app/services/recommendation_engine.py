@@ -930,7 +930,7 @@ class SmartRecommendationEngine:
             await cache_service.set(
                 cache_key,
                 response.dict(),
-                expire_seconds=self.recommendation_cache_ttl
+                ttl_hours=24  # 24 hour cache for recommendations
             )
             logger.debug(f"Cached recommendations with key: {cache_key}")
         except Exception as e:

@@ -135,6 +135,11 @@ export default function SmartDietScreen({ onBackPress }: SmartDietScreenProps) {
         params.append('excluded_ingredients', preferences.excludedIngredients.join(','));
       }
 
+      // Add required current_meal_plan_id for optimize context
+      if (selectedContext === 'optimize') {
+        params.append('current_meal_plan_id', 'demo_meal_plan_001'); // TODO: Use actual meal plan ID
+      }
+
       const response = await apiService.get(`/smart-diet/suggestions?${params.toString()}`);
       setSmartData(response.data);
     } catch (error) {
@@ -315,8 +320,8 @@ export default function SmartDietScreen({ onBackPress }: SmartDietScreenProps) {
     </View>
   );
 
-  const renderSuggestion = (suggestion: SmartSuggestion) => (
-    <View key={suggestion.id} style={styles.suggestionCard}>
+  const renderSuggestion = (suggestion: SmartSuggestion, index?: number) => (
+    <View key={`suggestion_${suggestion.id}_${index || 0}`} style={styles.suggestionCard}>
       <View style={styles.suggestionHeader}>
         <View style={styles.suggestionInfo}>
           <Text style={styles.suggestionTitle}>{suggestion.title}</Text>
@@ -350,7 +355,7 @@ export default function SmartDietScreen({ onBackPress }: SmartDietScreenProps) {
           <Text style={styles.reasonsLabel}>Why suggested:</Text>
           <View style={styles.reasonTags}>
             {suggestion.metadata.reasons.slice(0, 3).map((reason: string, index: number) => (
-              <View key={index} style={styles.reasonTag}>
+              <View key={`reason_${reason}_${index}`} style={styles.reasonTag}>
                 <Text style={styles.reasonTagText}>{reason.replace('_', ' ')}</Text>
               </View>
             ))}
@@ -387,10 +392,10 @@ export default function SmartDietScreen({ onBackPress }: SmartDietScreenProps) {
   );
 
   const renderInsights = () => {
-    if (!smartData?.insights && selectedContext !== 'insights') return null;
+    if (!smartData?.nutritional_summary && selectedContext !== 'insights') return null;
 
-    const insights = smartData?.insights;
-    if (!insights) return null;
+    const nutritionalSummary = smartData?.nutritional_summary;
+    if (!nutritionalSummary) return null;
 
     return (
       <View style={styles.insightsCard}>
@@ -399,7 +404,7 @@ export default function SmartDietScreen({ onBackPress }: SmartDietScreenProps) {
         <View style={styles.insightRow}>
           <Text style={styles.insightLabel}>Calories Today:</Text>
           <Text style={styles.insightValue}>
-            {insights.calories_today} / {insights.target_calories} kcal
+            {nutritionalSummary.total_recommended_calories} / {nutritionalSummary.total_recommended_calories} kcal
           </Text>
         </View>
 
@@ -407,31 +412,31 @@ export default function SmartDietScreen({ onBackPress }: SmartDietScreenProps) {
           <Text style={styles.insightLabel}>Macro Balance:</Text>
           <View style={styles.macroRow}>
             <Text style={styles.macroText}>
-              🥩 {insights.macro_balance.protein_percent}%
+              🥩 {nutritionalSummary.macro_distribution?.protein_percent || 0}%
             </Text>
             <Text style={styles.macroText}>
-              🥑 {insights.macro_balance.fat_percent}%
+              🥑 {nutritionalSummary.macro_distribution?.fat_percent || 0}%
             </Text>
             <Text style={styles.macroText}>
-              🍞 {insights.macro_balance.carbs_percent}%
+              🍞 {nutritionalSummary.macro_distribution?.carbs_percent || 0}%
             </Text>
           </View>
         </View>
 
-        {insights.improvement_areas.length > 0 && (
+        {nutritionalSummary.nutritional_gaps && nutritionalSummary.nutritional_gaps.length > 0 && (
           <View style={styles.improvementAreas}>
-            <Text style={styles.insightLabel}>Areas to Improve:</Text>
-            {insights.improvement_areas.map((area, index) => (
-              <Text key={index} style={styles.improvementText}>• {area}</Text>
+            <Text style={styles.insightLabel}>Nutritional Gaps:</Text>
+            {nutritionalSummary.nutritional_gaps.map((gap, index) => (
+              <Text key={`gap_${gap}_${index}`} style={styles.improvementText}>• {gap}</Text>
             ))}
           </View>
         )}
 
-        {insights.health_benefits.length > 0 && (
+        {nutritionalSummary.health_benefits && nutritionalSummary.health_benefits.length > 0 && (
           <View style={styles.healthBenefits}>
             <Text style={styles.insightLabel}>Health Benefits:</Text>
-            {insights.health_benefits.map((benefit, index) => (
-              <Text key={index} style={styles.benefitText}>• {benefit}</Text>
+            {nutritionalSummary.health_benefits.map((benefit, index) => (
+              <Text key={`benefit_${benefit}_${index}`} style={styles.benefitText}>• {benefit}</Text>
             ))}
           </View>
         )}
@@ -452,7 +457,7 @@ export default function SmartDietScreen({ onBackPress }: SmartDietScreenProps) {
           <View style={styles.optimizationSection}>
             <Text style={styles.optimizationSectionTitle}>Meal Swaps:</Text>
             {optimizations.meal_swaps.map((swap, index) => (
-              <View key={index} style={styles.swapItem}>
+              <View key={`swap_${swap.from_food}_${swap.to_food}_${index}`} style={styles.swapItem}>
                 <Text style={styles.swapText}>
                   Replace {swap.from_food} with {swap.to_food}
                 </Text>
@@ -468,7 +473,7 @@ export default function SmartDietScreen({ onBackPress }: SmartDietScreenProps) {
           <View style={styles.optimizationSection}>
             <Text style={styles.optimizationSectionTitle}>Macro Adjustments:</Text>
             {optimizations.macro_adjustments.map((adj, index) => (
-              <View key={index} style={styles.adjustmentItem}>
+              <View key={`adj_${adj.nutrient}_${adj.current}_${index}`} style={styles.adjustmentItem}>
                 <Text style={styles.adjustmentNutrient}>{adj.nutrient}:</Text>
                 <Text style={styles.adjustmentValues}>
                   {adj.current}g → {adj.target}g
@@ -500,9 +505,9 @@ export default function SmartDietScreen({ onBackPress }: SmartDietScreenProps) {
           <View style={styles.preferenceSection}>
             <Text style={styles.sectionTitle}>Dietary Restrictions</Text>
             <View style={styles.tagContainer}>
-              {availableDietaryRestrictions.map(restriction => (
+              {availableDietaryRestrictions.map((restriction, index) => (
                 <TouchableOpacity
-                  key={restriction}
+                  key={`dietary_${restriction}_${index}`}
                   style={[
                     styles.preferenceTag,
                     preferences.dietaryRestrictions.includes(restriction) && styles.preferenceTagActive
@@ -523,9 +528,9 @@ export default function SmartDietScreen({ onBackPress }: SmartDietScreenProps) {
           <View style={styles.preferenceSection}>
             <Text style={styles.sectionTitle}>Cuisine Preferences</Text>
             <View style={styles.tagContainer}>
-              {availableCuisines.map(cuisine => (
+              {availableCuisines.map((cuisine, index) => (
                 <TouchableOpacity
-                  key={cuisine}
+                  key={`cuisine_${cuisine}_${index}`}
                   style={[
                     styles.preferenceTag,
                     preferences.cuisinePreferences.includes(cuisine) && styles.preferenceTagActive
@@ -603,7 +608,9 @@ export default function SmartDietScreen({ onBackPress }: SmartDietScreenProps) {
             <Text style={styles.sectionTitle}>
               {contextConfig.emoji} {contextConfig.title}
             </Text>
-            {smartData.suggestions.map(renderSuggestion)}
+            {smartData.suggestions.map((suggestion, index) => 
+              renderSuggestion(suggestion, index)
+            )}
           </View>
         )}
 

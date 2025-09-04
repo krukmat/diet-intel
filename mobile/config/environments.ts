@@ -15,8 +15,8 @@ export const environments: Record<string, EnvironmentConfig> = {
   // Android Emulator - Special localhost mapping
   android_dev: {
     name: 'Android Development',
-    apiBaseUrl: 'http://10.0.2.2:8000',
-    description: 'Local server accessible from Android emulator'
+    apiBaseUrl: 'http://192.168.1.137:8000',
+    description: 'Local server accessible from Android emulator via host IP'
   },
   
   // iOS Simulator - Local network
