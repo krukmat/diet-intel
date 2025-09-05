@@ -1,0 +1,307 @@
+{
+  "app": {
+    "title": "🍎 DietIntel",
+    "version": "v1.0 - Autenticado"
+  },
+  "auth": {
+    "welcome": "Bienvenido, {{name}}",
+    "logout": "🚪",
+    "signIn": "Inicia sesión en tu cuenta",
+    "demoTitle": "Cuenta Demo Disponible",
+    "demoText": "Prueba la aplicación con una cuenta demo",
+    "demoButton": "Usar Cuenta Demo",
+    "email": "Correo electrónico",
+    "password": "Contraseña",
+    "login": "Iniciar Sesión",
+    "register": "Registrarse",
+    "createAccount": "Crea tu cuenta",
+    "fullName": "Nombre completo",
+    "confirmPassword": "Confirmar Contraseña",
+    "haveAccount": "¿Ya tienes una cuenta?",
+    "noAccount": "¿No tienes una cuenta?",
+    "termsText": "Al crear una cuenta, aceptas nuestros Términos de Servicio y Política de Privacidad",
+    "errors": {
+      "missingCredentials": "Por favor ingresa tanto el correo como la contraseña",
+      "invalidEmail": "Por favor ingresa una dirección de correo válida",
+      "missingName": "Por favor ingresa tu nombre completo",
+      "missingPassword": "Por favor ingresa una contraseña",
+      "passwordTooShort": "La contraseña debe tener al menos 8 caracteres",
+      "passwordMismatch": "Las contraseñas no coinciden",
+      "loginFailed": "Inicio de sesión fallido. Verifica tus credenciales e inténtalo de nuevo."
+    }
+  },
+  "navigation": {
+    "barcodeScanner": "📷 Escáner de Código",
+    "uploadLabel": "🏷️ Subir Etiqueta",
+    "mealPlan": "🍽️ Plan de Comidas",
+    "track": "📊 Seguimiento",
+    "smartDiet": "🧠 Dieta Inteligente"
+  },
+  "plan": {
+    "title": "🍽️ Plan de Comidas Diario",
+    "todaysCalories": "Plan de Hoy ({calories} kcal)",
+    "dailyProgress": "Progreso Diario",
+    "calories": "Calorías",
+    "protein": "Proteína", 
+    "fat": "Grasa",
+    "carbs": "Carbohidratos",
+    "plannedMeals": "Comidas Planificadas",
+    "generateNewPlan": "🔄 Generar Nuevo Plan",
+    "customize": "🔧 Personalizar",
+    "generating": "Generando tu plan de comidas...",
+    "failed": "Error al cargar el plan de comidas",
+    "retry": "Reintentar",
+    "meals": {
+      "Breakfast": "Desayuno",
+      "Lunch": "Almuerzo", 
+      "Dinner": "Cena",
+      "Snacks": "Meriendas"
+    },
+    "modal": {
+      "customizeTitle": "Personalizar {mealType}",
+      "search": "Buscar",
+      "manual": "Manual",
+      "barcode": "Código de Barras", 
+      "text": "Texto",
+      "searchProduct": "Buscar Producto",
+      "addManualItem": "Agregar Elemento Manual",
+      "productName": "Nombre del Producto *",
+      "productNamePlaceholder": "Ingresa el nombre del producto",
+      "brand": "Marca",
+      "brandPlaceholder": "Ingresa la marca (opcional)",
+      "servingSize": "Tamaño de Porción",
+      "servingSizePlaceholder": "ej., 100g, 1 taza",
+      "caloriesPerServing": "Calorías por porción",
+      "proteinG": "Proteína (g)",
+      "fatG": "Grasa (g)",
+      "carbsG": "Carbohidratos (g)",
+      "addItem": "Agregar Elemento"
+    }
+  },
+  "track": {
+    "title": "📊 Seguimiento de Progreso", 
+    "subtitle": "Comidas y Peso de Hoy",
+    "todaysPlannedMeals": "Comidas Planificadas de Hoy",
+    "markAsEaten": "✓ Marcar como Consumida",
+    "weightProgress": "Progreso de Peso",
+    "weighIn": "⚖️ Pesarse",
+    "currentWeight": "Peso Actual",
+    "photoLogs": "Registro Fotográfico",
+    "loading": "Cargando datos de seguimiento...",
+    "chartPlaceholder": "¡Gráfico de peso próximamente! 📈",
+    "chartSubtext": "Registra tu peso diario para ver el progreso en el tiempo",
+    "modal": {
+      "markEatenTitle": "Marcar como Consumida",
+      "addPhotoOptional": "Agregar Foto (Opcional)",
+      "removePhoto": "Quitar Foto",
+      "takePhoto": "📷 Tomar Foto",
+      "confirmEaten": "✓ Marcar como Consumida",
+      "weighInTitle": "Pesarse",
+      "weightKg": "Peso (kg)",
+      "saveWeight": "✓ Guardar Peso",
+      "invalidWeight": "Por favor ingresa un peso válido",
+      "mealMarkedEaten": "¡Comida marcada como consumida!",
+      "weightRecorded": "¡Peso registrado!",
+      "failedToTrackMeal": "Error al registrar comida. Por favor inténtalo de nuevo.",
+      "failedToRecordWeight": "Error al registrar peso. Por favor inténtalo de nuevo."
+    },
+    "photoLog": {
+      "meal": "Comida",
+      "weighIn": "Pesaje"
+    },
+    "weight": "Peso"
+  },
+  "scanner": {
+    "status": {
+      "requesting": "📷 Solicitando...",
+      "denied": "📷 Permiso denegado",
+      "ready": "📷 Listo"
+    },
+    "camera": {
+      "start": "📷 Iniciar Cámara",
+      "close": "✕ Cerrar Cámara",
+      "positionBarcode": "Posiciona el código de barras en el marco"
+    },
+    "input": {
+      "placeholder": "Número de código de barras de 13 dígitos",
+      "weightPlaceholder": "Ingresa tu peso",
+      "title": "Ingresar Código de Barras Manualmente:",
+      "lookUp": "🔍 Buscar",
+      "reset": "🔄 Restablecer"
+    },
+    "demo": {
+      "title": "Prueba estos códigos de demostración:",
+      "cocaCola": "• 1234567890123 (Coca Cola)",
+      "nutella": "• 7622210081551 (Nutella)",
+      "notFound": "• 0000000000000 (No Encontrado)"
+    },
+    "manual": {
+      "title": "Ingresa Código de Barras Manualmente:",
+      "placeholder": "Número de código de 13 dígitos",
+      "lookup": "🔍 Buscar",
+      "reset": "🔄 Reiniciar"
+    }
+  },
+  "product": {
+    "notFound": {
+      "title": "❌ Producto No Encontrado",
+      "message": "Este producto no está en nuestra base de datos.\n\nOpciones:\n• Subir Foto de Etiqueta\n• Entrada Manual"
+    }
+  },
+  "permissions": {
+    "title": "Permiso",
+    "requesting": "Solicitando permiso de cámara...",
+    "noAccess": {
+      "title": "Sin Permiso",
+      "message": "Sin acceso a la cámara. Por favor habilita los permisos de cámara en la configuración de tu dispositivo."
+    },
+    "cameraRequired": "Se requiere permiso de cámara para tomar fotos"
+  },
+  "footer": {
+    "privacy": "🔒 Privacidad Protegida | 📡 Conectado a DietIntel API",
+    "processing": "El procesamiento de cámara es local. No se almacenan imágenes."
+  },
+  "common": {
+    "ok": "Aceptar",
+    "cancel": "Cancelar",
+    "close": "Cerrar",
+    "back": "Atrás",
+    "save": "Guardar",
+    "delete": "Eliminar",
+    "edit": "Editar",
+    "add": "Agregar",
+    "remove": "Quitar",
+    "apply": "Aplicar",
+    "success": "Éxito",
+    "error": "Error",
+    "loading": "Cargando...",
+    "retry": "Reintentar"
+  },
+  "developer": {
+    "settings": "⚙️",
+    "notifications": "🔔"
+  },
+  "upload": {
+    "title": "Subir Etiqueta Nutricional",
+    "subtitle": "Toma una foto o selecciona de la galería",
+    "selectImage": "📷 Seleccionar Imagen",
+    "takePhoto": "📸 Tomar Foto",
+    "fromGallery": "🖼️ Desde Galería",
+    "processing": "Procesando...",
+    "analyzing": "Analizando etiqueta nutricional...",
+    "complete": "¡Análisis Completo!",
+    "selectedImage": "Imagen Seleccionada",
+    "scanLabel": "🔍 Escanear Etiqueta",
+    "retry": "🔄 Reintentar",
+    "processingWithProgress": "Procesando... {{progress}}%",
+    "ocrResults": "Resultados OCR",
+    "confidenceText": "({{confidence}}% confianza)",
+    "lowConfidenceWarning": "⚠️ Escaneo de baja confianza detectado",
+    "externalOcrButton": "🌐 OCR Externo",
+    "manualEditButton": "✏️ Edición Manual",
+    "rawText": "Texto Original:",
+    "nutritionFacts": "Información Nutricional (por 100g):",
+    "missing": "Faltante",
+    "startOver": "🔄 Empezar de Nuevo",
+    "manualCorrection": "Corrección Manual",
+    "editValuesBelow": "Edita los valores nutricionales a continuación",
+    "enterValue": "Ingresar valor",
+    "saveValues": "💾 Guardar Valores",
+    "cancel": "✕ Cancelar",
+    "headerTitle": "🏷️ Subir Etiqueta Nutricional",
+    "headerSubtitle": "Escanea etiquetas de productos con OCR",
+    "manualEditSource": "Edición Manual",
+    "externalOcrSuccess": "Etiqueta procesada con servicio OCR externo.",
+    "externalOcrFailed": "El procesamiento OCR externo falló. Intenta edición manual en su lugar.",
+    "errors": {
+      "pickFailed": "Error al seleccionar imagen de la galería",
+      "photoFailed": "Error al tomar foto",
+      "processingFailed": "Error al procesar imagen",
+      "uploadFailed": "Error de subida. Por favor inténtalo de nuevo.",
+      "ocrFailed": "Error en procesamiento OCR"
+    },
+    "results": {
+      "confidence": "Confianza",
+      "lowConfidence": "Confianza baja detectada",
+      "suggestions": "Intenta con mejor iluminación o imagen más clara",
+      "externalOCR": "OCR Externo Completo",
+      "externalFailed": "OCR Externo Falló"
+    },
+    "nutrients": {
+      "energy": "Energía",
+      "protein": "Proteína", 
+      "fat": "Grasa",
+      "carbs": "Carbohidratos",
+      "sugars": "Azúcares",
+      "salt": "Sal",
+      "perServing": "por porción",
+      "per100g": "por 100g"
+    },
+    "edit": {
+      "title": "Editar Valores",
+      "servingSize": "Tamaño de Porción",
+      "update": "Actualizar Valores",
+      "updated": "¡Valores nutricionales actualizados exitosamente!"
+    }
+  },
+  "smartDiet": {
+    "title": "Recomendaciones de Dieta Inteligente",
+    "contexts": {
+      "today": "Para Ti Hoy",
+      "optimize": "Optimizar Plan", 
+      "discover": "Descubrir Alimentos",
+      "insights": "Información Dietética"
+    },
+    "loading": "Generando sugerencias inteligentes...",
+    "noSuggestions": "No hay sugerencias disponibles en este momento",
+    "confidence": "confianza",
+    "whySuggested": "Por qué se sugiere:",
+    "actions": {
+      "addToPlan": "Agregar al Plan de Comidas",
+      "applyOptimization": "Aplicar Optimización"
+    },
+    "insights": {
+      "title": "📊 Información de Hoy",
+      "calories": "Calorías de Hoy:",
+      "macroBalance": "Balance de Macros:",
+      "nutritionalGaps": "Déficits Nutricionales:",
+      "healthBenefits": "Beneficios para la Salud:",
+      "protein": "🥩 Proteína",
+      "fat": "🥑 Grasa", 
+      "carbs": "🍞 Carbohidratos"
+    },
+    "optimizations": {
+      "title": "Sugerencias de Optimización",
+      "mealSwaps": "Intercambios de Comidas:",
+      "macroAdjustments": "Ajustes de Macros:",
+      "from": "De",
+      "to": "A",
+      "benefit": "Beneficio",
+      "current": "Actual",
+      "target": "Objetivo"
+    },
+    "feedback": {
+      "helpful": "👍",
+      "notHelpful": "👎",
+      "thankYou": "Gracias",
+      "message": "¡Tu comentario ayuda a mejorar nuestras sugerencias!",
+      "recorded": "Comentario registrado localmente."
+    },
+    "preferences": {
+      "title": "Preferencias Dietéticas",
+      "dietary": "Restricciones Alimentarias",
+      "cuisine": "Preferencias Culinarias",
+      "apply": "Aplicar Preferencias"
+    },
+    "alerts": {
+      "error": "Error al generar sugerencias. Por favor inténtalo de nuevo.",
+      "addSuccess": "¡{{item}} agregado a tu plan de {{meal}}!",
+      "optimizationSuccess": "¡Optimización aplicada a tu plan de comidas!",
+      "information": "Información"
+    }
+  },
+  "splash": {
+    "loading": "Cargando DietIntel...",
+    "welcome": "Bienvenido a DietIntel"
+  }
+}

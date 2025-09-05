@@ -1,0 +1,130 @@
+{
+  "app": {
+    "name": "DietIntel",
+    "description": "DietIntel - Intelligent nutrition tracking and meal planning",
+    "tagline": "Built with ❤️ for better nutrition tracking"
+  },
+  "navigation": {
+    "home": "Home",
+    "mealPlans": "Meal Plans", 
+    "apiDocs": "API Docs",
+    "about": "About",
+    "dashboard": "Dashboard",
+    "profile": "Profile",
+    "myMealPlans": "My Meal Plans",
+    "developerTools": "Developer Tools"
+  },
+  "auth": {
+    "signIn": "Sign In",
+    "getStarted": "Get Started",
+    "signOut": "Sign Out",
+    "hello": "Hello",
+    "developer": "Developer"
+  },
+  "hero": {
+    "title": "Smart Nutrition Tracking",
+    "subtitle": "Scan barcodes, read labels with OCR, and generate AI-powered meal plans tailored to your goals",
+    "generateMealPlan": "🍽️ Generate Meal Plan",
+    "viewApiDocs": "📚 View API Docs"
+  },
+  "features": {
+    "title": "Powerful Features",
+    "subtitle": "Everything you need for intelligent nutrition tracking",
+    "barcodeScanningTitle": "Barcode Scanning",
+    "ocrLabelReadingTitle": "OCR Label Reading", 
+    "mealPlanningTitle": "Meal Planning",
+    "nutritionAnalyticsTitle": "Nutrition Analytics"
+  },
+  "demo": {
+    "title": "Try It Now",
+    "subtitle": "Test our APIs directly from the browser",
+    "barcodeLookup": "🔍 Barcode Lookup",
+    "enterBarcode": "Enter Barcode",
+    "barcodePlaceholder": "e.g., 737628064502",
+    "lookupProduct": "Lookup Product",
+    "ocrLabelScanning": "📸 OCR Label Scanning",
+    "uploadNutritionLabel": "Upload Nutrition Label",
+    "scanLabel": "Scan Label",
+    "lookingUp": "🔍 Looking up product...",
+    "scanningLabel": "📸 Scanning label...",
+    "productFound": "✅ Product Found!",
+    "labelScanned": "✅ Label Scanned!",
+    "confidence": "Confidence",
+    "lowConfidence": "⚠️ Low Confidence Scan",
+    "considerExternal": "Consider using external OCR for better results.",
+    "name": "Name",
+    "brand": "Brand",
+    "calories": "Calories",
+    "protein": "Protein",
+    "fat": "Fat", 
+    "carbs": "Carbs",
+    "per100g": "/100g",
+    "error": "❌ Error",
+    "pleaseEnterBarcode": "Please enter a barcode",
+    "pleaseSelectImage": "Please select an image file"
+  },
+  "stats": {
+    "title": "System Performance",
+    "subtitle": "Real-time metrics from our API",
+    "cacheHitRate": "Cache Hit Rate",
+    "avgResponseTime": "Avg Response Time",
+    "ocrAccuracy": "OCR Accuracy",
+    "plansGenerated": "Plans Generated"
+  },
+  "cta": {
+    "title": "Ready to Get Started?",
+    "subtitle": "Create your first meal plan or explore our comprehensive API documentation",
+    "viewMealPlans": "View Meal Plans",
+    "apiDocumentation": "API Documentation"
+  },
+  "plans": {
+    "title": "Meal Plans",
+    "subtitle": "Manage your personalized nutrition plans",
+    "generateNewPlan": "➕ Generate New Plan",
+    "totalPlans": "Total Plans",
+    "active": "Active",
+    "pending": "Pending",
+    "avgCalories": "Avg Calories",
+    "searchPlaceholder": "Search meal plans...",
+    "allStatus": "All Status",
+    "completed": "Completed",
+    "sortByDate": "Sort by Date",
+    "sortByName": "Sort by Name",
+    "sortByCalories": "Sort by Calories",
+    "noPlansTitle": "No meal plans yet",
+    "noPlansDescription": "Create your first personalized meal plan to get started",
+    "generateFirstPlan": "Generate Your First Plan",
+    "dailyCalories": "Daily Calories",
+    "meals": "Meals",
+    "items": "Items",
+    "protein": "Protein",
+    "viewDetails": "View Details",
+    "created": "Created",
+    "previous": "Previous",
+    "next": "Next",
+    "duplicateConfirm": "Create a copy of this meal plan?",
+    "deleteConfirm": "Are you sure you want to delete this meal plan? This action cannot be undone.",
+    "implementationComingSoon": "Implementation coming soon"
+  },
+  "footer": {
+    "description": "Intelligent nutrition tracking with barcode scanning, OCR technology, and AI-powered meal planning.",
+    "features": "Features",
+    "barcodeScanningFeature": "Barcode Scanning",
+    "ocrLabelReadingFeature": "OCR Label Reading",
+    "mealPlanningFeature": "Meal Planning", 
+    "nutritionAnalyticsFeature": "Nutrition Analytics",
+    "api": "API",
+    "interactiveDocs": "Interactive Docs",
+    "redoc": "ReDoc",
+    "usageGuide": "Usage Guide",
+    "apiStatus": "API Status",
+    "checking": "Checking...",
+    "healthy": "🟢 Healthy",
+    "unhealthy": "🔴 Unhealthy",
+    "offline": "🔴 Offline",
+    "copyright": "© {{year}} {{appName}}. {{tagline}}"
+  },
+  "common": {
+    "na": "N/A"
+  }
+}

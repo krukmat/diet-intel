@@ -16,6 +16,7 @@ import {
 import * as ImagePicker from 'expo-image-picker';
 import * as ImageManipulator from 'expo-image-manipulator';
 import { StatusBar as ExpoStatusBar } from 'expo-status-bar';
+import { useTranslation } from 'react-i18next';
 import { apiService } from '../services/ApiService';
 
 const { width: screenWidth } = Dimensions.get('window');
@@ -44,6 +45,7 @@ interface UploadLabelProps {
 }
 
 export default function UploadLabel({ onBackPress }: UploadLabelProps) {
+  const { t } = useTranslation();
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
@@ -68,8 +70,8 @@ export default function UploadLabel({ onBackPress }: UploadLabelProps) {
     
     if (cameraStatus !== 'granted' || mediaStatus !== 'granted') {
       Alert.alert(
-        'Permissions Required',
-        'Camera and photo library permissions are required to upload nutrition labels.'
+        t('permissions.title'),
+        t('permissions.cameraRequired')
       );
     }
   };
@@ -109,7 +111,7 @@ export default function UploadLabel({ onBackPress }: UploadLabelProps) {
         setShowManualEdit(false);
       }
     } catch (error) {
-      Alert.alert('Error', 'Failed to pick image from gallery');
+      Alert.alert(t('common.error'), t('upload.errors.pickFailed'));
     }
   };
 
@@ -128,7 +130,7 @@ export default function UploadLabel({ onBackPress }: UploadLabelProps) {
         setShowManualEdit(false);
       }
     } catch (error) {
-      Alert.alert('Error', 'Failed to take photo');
+      Alert.alert(t('common.error'), t('upload.errors.photoFailed'));
     }
   };
 
@@ -160,18 +162,18 @@ export default function UploadLabel({ onBackPress }: UploadLabelProps) {
 
       if (response.data.low_confidence) {
         Alert.alert(
-          'Low Confidence OCR',
-          'The OCR scan had low confidence. You can retry with external OCR or edit the values manually.',
-          [{ text: 'OK' }]
+          t('upload.results.lowConfidence'),
+          t('upload.results.suggestions'),
+          [{ text: t('common.ok') }]
         );
       }
 
     } catch (error) {
       console.error('Upload failed:', error);
       Alert.alert(
-        'Upload Failed',
-        'Failed to process the nutrition label. Please try again.',
-        [{ text: 'OK' }]
+        t('upload.errors.uploadFailed'),
+        t('upload.errors.processingFailed'),
+        [{ text: t('common.ok') }]
       );
     } finally {
       setUploading(false);
@@ -194,10 +196,10 @@ export default function UploadLabel({ onBackPress }: UploadLabelProps) {
       const response = await apiService.scanNutritionLabelExternal(formData);
 
       setOcrResult(response.data);
-      Alert.alert('External OCR Complete', 'Label processed with external OCR service.');
+      Alert.alert(t('upload.results.externalOCR'), t('upload.externalOcrSuccess'));
     } catch (error) {
       console.error('External OCR failed:', error);
-      Alert.alert('External OCR Failed', 'External OCR processing failed. Try manual editing instead.');
+      Alert.alert(t('upload.results.externalFailed'), t('upload.externalOcrFailed'));
     } finally {
       setUploading(false);
     }
@@ -223,7 +225,7 @@ export default function UploadLabel({ onBackPress }: UploadLabelProps) {
     const updatedResult: OCRResult = {
       ...ocrResult,
       confidence: 1.0,
-      source: 'Manual Edit',
+      source: t('upload.manualEditSource'),
       low_confidence: false,
       nutriments: {
         energy_kcal_per_100g: parseFloat(manualValues.energy_kcal_per_100g) || 0,
@@ -237,7 +239,7 @@ export default function UploadLabel({ onBackPress }: UploadLabelProps) {
 
     setOcrResult(updatedResult);
     setShowManualEdit(false);
-    Alert.alert('Success', 'Nutrition values updated successfully!');
+    Alert.alert(t('common.success'), t('upload.edit.updated'));
   };
 
   const resetSession = () => {
@@ -256,16 +258,16 @@ export default function UploadLabel({ onBackPress }: UploadLabelProps) {
 
   const renderImagePicker = () => (
     <View style={styles.imagePickerSection}>
-      <Text style={styles.sectionTitle}>Upload Nutrition Label</Text>
-      <Text style={styles.subtitle}>Take a photo or select from gallery</Text>
+      <Text style={styles.sectionTitle}>{t('upload.title')}</Text>
+      <Text style={styles.subtitle}>{t('upload.subtitle')}</Text>
       
       <View style={styles.buttonRow}>
         <TouchableOpacity style={styles.primaryButton} onPress={takePhoto}>
-          <Text style={styles.primaryButtonText}>📷 Take Photo</Text>
+          <Text style={styles.primaryButtonText}>{t('upload.takePhoto')}</Text>
         </TouchableOpacity>
         
         <TouchableOpacity style={styles.secondaryButton} onPress={pickImageFromGallery}>
-          <Text style={styles.secondaryButtonText}>🖼️ From Gallery</Text>
+          <Text style={styles.secondaryButtonText}>{t('upload.fromGallery')}</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -273,7 +275,7 @@ export default function UploadLabel({ onBackPress }: UploadLabelProps) {
 
   const renderImagePreview = () => (
     <View style={styles.imagePreviewSection}>
-      <Text style={styles.sectionTitle}>Selected Image</Text>
+      <Text style={styles.sectionTitle}>{t('upload.selectedImage')}</Text>
       <Image source={{ uri: selectedImage! }} style={styles.imagePreview} />
       
       <View style={styles.buttonRow}>
@@ -285,18 +287,18 @@ export default function UploadLabel({ onBackPress }: UploadLabelProps) {
           {uploading ? (
             <ActivityIndicator size="small" color="white" />
           ) : (
-            <Text style={styles.primaryButtonText}>🔍 Scan Label</Text>
+            <Text style={styles.primaryButtonText}>{t('upload.scanLabel')}</Text>
           )}
         </TouchableOpacity>
         
         <TouchableOpacity style={styles.tertiaryButton} onPress={resetSession}>
-          <Text style={styles.tertiaryButtonText}>🔄 Retry</Text>
+          <Text style={styles.tertiaryButtonText}>{t('upload.retry')}</Text>
         </TouchableOpacity>
       </View>
       
       {uploading && (
         <View style={styles.progressContainer}>
-          <Text style={styles.progressText}>Processing... {uploadProgress}%</Text>
+          <Text style={styles.progressText}>{t('upload.processingWithProgress', { progress: uploadProgress })}</Text>
           <View style={styles.progressBar}>
             <View style={[styles.progressFill, { width: `${uploadProgress}%` }]} />
           </View>
@@ -311,18 +313,18 @@ export default function UploadLabel({ onBackPress }: UploadLabelProps) {
     return (
       <View style={styles.resultsSection}>
         <Text style={styles.sectionTitle}>
-          OCR Results 
+          {t('upload.ocrResults')} 
           <Text style={[
             styles.confidenceText, 
             { color: ocrResult.confidence >= 0.7 ? '#34C759' : '#FF3B30' }
           ]}>
-            ({Math.round(ocrResult.confidence * 100)}% confidence)
+            {t('upload.confidenceText', { confidence: Math.round(ocrResult.confidence * 100) })}
           </Text>
         </Text>
         
         {ocrResult.low_confidence && (
           <View style={styles.lowConfidenceWarning}>
-            <Text style={styles.warningText}>⚠️ Low confidence scan detected</Text>
+            <Text style={styles.warningText}>{t('upload.lowConfidenceWarning')}</Text>
             <View style={styles.buttonRow}>
               <TouchableOpacity 
                 style={styles.externalOcrButton} 
@@ -332,7 +334,7 @@ export default function UploadLabel({ onBackPress }: UploadLabelProps) {
                 {uploading ? (
                   <ActivityIndicator size="small" color="white" />
                 ) : (
-                  <Text style={styles.externalOcrButtonText}>🌐 External OCR</Text>
+                  <Text style={styles.externalOcrButtonText}>{t('upload.externalOcrButton')}</Text>
                 )}
               </TouchableOpacity>
               
@@ -340,7 +342,7 @@ export default function UploadLabel({ onBackPress }: UploadLabelProps) {
                 style={styles.manualEditButton} 
                 onPress={handleManualEdit}
               >
-                <Text style={styles.manualEditButtonText}>✏️ Manual Edit</Text>
+                <Text style={styles.manualEditButtonText}>{t('upload.manualEditButton')}</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -348,14 +350,14 @@ export default function UploadLabel({ onBackPress }: UploadLabelProps) {
 
         {ocrResult.raw_text && (
           <View style={styles.rawTextContainer}>
-            <Text style={styles.subSectionTitle}>Raw Text:</Text>
+            <Text style={styles.subSectionTitle}>{t('upload.rawText')}</Text>
             <Text style={styles.rawText}>{ocrResult.raw_text}</Text>
           </View>
         )}
 
         {ocrResult.nutriments && (
           <View style={styles.nutrimentContainer}>
-            <Text style={styles.subSectionTitle}>Nutrition Facts (per 100g):</Text>
+            <Text style={styles.subSectionTitle}>{t('upload.nutritionFacts')}</Text>
             {Object.entries(ocrResult.nutriments).map(([key, value]) => (
               <View key={key} style={styles.nutrimentRow}>
                 <Text style={styles.nutrimentLabel}>
@@ -365,7 +367,7 @@ export default function UploadLabel({ onBackPress }: UploadLabelProps) {
                   styles.nutrimentValue,
                   value === null && styles.missingValue
                 ]}>
-                  {value !== null ? value : 'Missing'}
+                  {value !== null ? value : t('upload.missing')}
                 </Text>
               </View>
             ))}
@@ -373,7 +375,7 @@ export default function UploadLabel({ onBackPress }: UploadLabelProps) {
         )}
 
         <TouchableOpacity style={styles.retryButton} onPress={resetSession}>
-          <Text style={styles.retryButtonText}>🔄 Start Over</Text>
+          <Text style={styles.retryButtonText}>{t('upload.startOver')}</Text>
         </TouchableOpacity>
       </View>
     );
@@ -384,8 +386,8 @@ export default function UploadLabel({ onBackPress }: UploadLabelProps) {
 
     return (
       <View style={styles.manualEditSection}>
-        <Text style={styles.sectionTitle}>Manual Correction</Text>
-        <Text style={styles.subtitle}>Edit the nutrition values below</Text>
+        <Text style={styles.sectionTitle}>{t('upload.manualCorrection')}</Text>
+        <Text style={styles.subtitle}>{t('upload.editValuesBelow')}</Text>
         
         {Object.entries(manualValues).map(([key, value]) => (
           <View key={key} style={styles.inputContainer}>
@@ -397,7 +399,7 @@ export default function UploadLabel({ onBackPress }: UploadLabelProps) {
               value={value}
               onChangeText={(text) => setManualValues(prev => ({ ...prev, [key]: text }))}
               keyboardType="numeric"
-              placeholder="Enter value"
+              placeholder={t('upload.enterValue')}
               placeholderTextColor="#999"
             />
           </View>
@@ -405,14 +407,14 @@ export default function UploadLabel({ onBackPress }: UploadLabelProps) {
         
         <View style={styles.buttonRow}>
           <TouchableOpacity style={styles.primaryButton} onPress={saveManualValues}>
-            <Text style={styles.primaryButtonText}>💾 Save Values</Text>
+            <Text style={styles.primaryButtonText}>{t('upload.saveValues')}</Text>
           </TouchableOpacity>
           
           <TouchableOpacity 
             style={styles.tertiaryButton} 
             onPress={() => setShowManualEdit(false)}
           >
-            <Text style={styles.tertiaryButtonText}>✕ Cancel</Text>
+            <Text style={styles.tertiaryButtonText}>{t('upload.cancel')}</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -428,8 +430,8 @@ export default function UploadLabel({ onBackPress }: UploadLabelProps) {
           <Text style={styles.backButtonText}>🏠</Text>
         </TouchableOpacity>
         <View style={styles.headerContent}>
-          <Text style={styles.title}>🏷️ Upload Nutrition Label</Text>
-          <Text style={styles.headerSubtitle}>Scan product labels with OCR</Text>
+          <Text style={styles.title}>{t('upload.headerTitle')}</Text>
+          <Text style={styles.headerSubtitle}>{t('upload.headerSubtitle')}</Text>
         </View>
         <View style={styles.headerSpacer} />
       </View>

@@ -1,0 +1,307 @@
+{
+  "app": {
+    "title": "🍎 DietIntel",
+    "version": "v1.0 - Authenticated"
+  },
+  "auth": {
+    "welcome": "Welcome, {{name}}",
+    "logout": "🚪",
+    "signIn": "Sign in to your account",
+    "demoTitle": "Demo Account Available",
+    "demoText": "Try the app with a demo account",
+    "demoButton": "Use Demo Account",
+    "email": "Email",
+    "password": "Password",
+    "login": "Sign In",
+    "register": "Sign Up",
+    "createAccount": "Create your account",
+    "fullName": "Full Name",
+    "confirmPassword": "Confirm Password",
+    "haveAccount": "Already have an account?",
+    "noAccount": "Don't have an account?",
+    "termsText": "By creating an account, you agree to our Terms of Service and Privacy Policy",
+    "errors": {
+      "missingCredentials": "Please enter both email and password",
+      "invalidEmail": "Please enter a valid email address",
+      "missingName": "Please enter your full name",
+      "missingPassword": "Please enter a password",
+      "passwordTooShort": "Password must be at least 8 characters long",
+      "passwordMismatch": "Passwords do not match",
+      "loginFailed": "Login failed. Please check your credentials and try again."
+    }
+  },
+  "navigation": {
+    "barcodeScanner": "📷 Barcode Scanner",
+    "uploadLabel": "🏷️ Upload Label",
+    "mealPlan": "🍽️ Meal Plan",
+    "track": "📊 Track",
+    "smartDiet": "🧠 Smart Diet"
+  },
+  "plan": {
+    "title": "🍽️ Daily Meal Plan",
+    "todaysCalories": "Today's Plan ({calories} kcal)",
+    "dailyProgress": "Daily Progress",
+    "calories": "Calories",
+    "protein": "Protein", 
+    "fat": "Fat",
+    "carbs": "Carbs",
+    "plannedMeals": "Planned Meals",
+    "generateNewPlan": "🔄 Generate New Plan",
+    "customize": "🔧 Customize",
+    "generating": "Generating your meal plan...",
+    "failed": "Failed to load meal plan",
+    "retry": "Retry",
+    "meals": {
+      "Breakfast": "Breakfast",
+      "Lunch": "Lunch", 
+      "Dinner": "Dinner",
+      "Snacks": "Snacks"
+    },
+    "modal": {
+      "customizeTitle": "Customize {mealType}",
+      "search": "Search",
+      "manual": "Manual",
+      "barcode": "Barcode", 
+      "text": "Text",
+      "searchProduct": "Search Product",
+      "addManualItem": "Add Manual Item",
+      "productName": "Product Name *",
+      "productNamePlaceholder": "Enter product name",
+      "brand": "Brand",
+      "brandPlaceholder": "Enter brand (optional)",
+      "servingSize": "Serving Size",
+      "servingSizePlaceholder": "e.g., 100g, 1 cup",
+      "caloriesPerServing": "Calories per serving",
+      "proteinG": "Protein (g)",
+      "fatG": "Fat (g)",
+      "carbsG": "Carbs (g)",
+      "addItem": "Add Item"
+    }
+  },
+  "track": {
+    "title": "📊 Track Progress",
+    "subtitle": "Today's Meals & Weight",
+    "todaysPlannedMeals": "Today's Planned Meals",
+    "markAsEaten": "✓ Mark as Eaten",
+    "weightProgress": "Weight Progress",
+    "weighIn": "⚖️ Weigh-in",
+    "currentWeight": "Current Weight",
+    "photoLogs": "Photo Logs",
+    "loading": "Loading tracking data...",
+    "chartPlaceholder": "Weight chart coming soon! 📈",
+    "chartSubtext": "Track your daily weigh-ins to see progress over time",
+    "modal": {
+      "markEatenTitle": "Mark as Eaten",
+      "addPhotoOptional": "Add Photo (Optional)",
+      "removePhoto": "Remove Photo",
+      "takePhoto": "📷 Take Photo",
+      "confirmEaten": "✓ Mark as Eaten",
+      "weighInTitle": "Weigh-in",
+      "weightKg": "Weight (kg)",
+      "saveWeight": "✓ Save Weight",
+      "invalidWeight": "Please enter a valid weight",
+      "mealMarkedEaten": "Meal marked as eaten!",
+      "weightRecorded": "Weight recorded!",
+      "failedToTrackMeal": "Failed to track meal. Please try again.",
+      "failedToRecordWeight": "Failed to record weight. Please try again."
+    },
+    "photoLog": {
+      "meal": "Meal",
+      "weighIn": "Weigh-in"
+    },
+    "weight": "Weight"
+  },
+  "scanner": {
+    "status": {
+      "requesting": "📷 Requesting...",
+      "denied": "📷 Permission denied",
+      "ready": "📷 Ready"
+    },
+    "camera": {
+      "start": "📷 Start Camera",
+      "close": "✕ Close Camera",
+      "positionBarcode": "Position barcode in frame"
+    },
+    "input": {
+      "placeholder": "13-digit barcode number",
+      "weightPlaceholder": "Enter your weight",
+      "title": "Enter Barcode Manually:",
+      "lookUp": "🔍 Look Up",
+      "reset": "🔄 Reset"
+    },
+    "demo": {
+      "title": "Try these demo barcodes:",
+      "cocaCola": "• 1234567890123 (Coca Cola)",
+      "nutella": "• 7622210081551 (Nutella)",
+      "notFound": "• 0000000000000 (Not Found)"
+    },
+    "manual": {
+      "title": "Enter Barcode Manually:",
+      "placeholder": "13-digit barcode number",
+      "lookup": "🔍 Look Up",
+      "reset": "🔄 Reset"
+    }
+  },
+  "product": {
+    "notFound": {
+      "title": "❌ Product Not Found",
+      "message": "This product is not in our database.\n\nOptions:\n• Upload Label Photo\n• Manual Entry"
+    }
+  },
+  "permissions": {
+    "title": "Permission",
+    "requesting": "Requesting camera permission...",
+    "noAccess": {
+      "title": "No Permission",
+      "message": "No access to camera. Please enable camera permissions in your device settings."
+    },
+    "cameraRequired": "Camera permission is required to take photos"
+  },
+  "footer": {
+    "privacy": "🔒 Privacy Protected | 📡 Connected to DietIntel API",
+    "processing": "Camera processing is local. No images stored."
+  },
+  "common": {
+    "ok": "OK",
+    "cancel": "Cancel",
+    "close": "Close",
+    "back": "Back",
+    "save": "Save",
+    "delete": "Delete",
+    "edit": "Edit",
+    "add": "Add",
+    "remove": "Remove",
+    "apply": "Apply",
+    "success": "Success",
+    "error": "Error",
+    "loading": "Loading...",
+    "retry": "Retry"
+  },
+  "developer": {
+    "settings": "⚙️",
+    "notifications": "🔔"
+  },
+  "upload": {
+    "title": "Upload Nutrition Label",
+    "subtitle": "Take a photo or select from gallery",
+    "selectImage": "📷 Select Image",
+    "takePhoto": "📸 Take Photo",
+    "fromGallery": "🖼️ From Gallery",
+    "processing": "Processing...",
+    "analyzing": "Analyzing nutrition label...",
+    "complete": "Analysis Complete!",
+    "selectedImage": "Selected Image",
+    "scanLabel": "🔍 Scan Label",
+    "retry": "🔄 Retry",
+    "processingWithProgress": "Processing... {{progress}}%",
+    "ocrResults": "OCR Results",
+    "confidenceText": "({{confidence}}% confidence)",
+    "lowConfidenceWarning": "⚠️ Low confidence scan detected",
+    "externalOcrButton": "🌐 External OCR",
+    "manualEditButton": "✏️ Manual Edit",
+    "rawText": "Raw Text:",
+    "nutritionFacts": "Nutrition Facts (per 100g):",
+    "missing": "Missing",
+    "startOver": "🔄 Start Over",
+    "manualCorrection": "Manual Correction",
+    "editValuesBelow": "Edit the nutrition values below",
+    "enterValue": "Enter value",
+    "saveValues": "💾 Save Values",
+    "cancel": "✕ Cancel",
+    "headerTitle": "🏷️ Upload Nutrition Label",
+    "headerSubtitle": "Scan product labels with OCR",
+    "manualEditSource": "Manual Edit",
+    "externalOcrSuccess": "Label processed with external OCR service.",
+    "externalOcrFailed": "External OCR processing failed. Try manual editing instead.",
+    "errors": {
+      "pickFailed": "Failed to pick image from gallery",
+      "photoFailed": "Failed to take photo",
+      "processingFailed": "Failed to process image",
+      "uploadFailed": "Upload failed. Please try again.",
+      "ocrFailed": "OCR processing failed"
+    },
+    "results": {
+      "confidence": "Confidence",
+      "lowConfidence": "Low confidence detected",
+      "suggestions": "Try better lighting or clearer image",
+      "externalOCR": "External OCR Complete",
+      "externalFailed": "External OCR Failed"
+    },
+    "nutrients": {
+      "energy": "Energy",
+      "protein": "Protein", 
+      "fat": "Fat",
+      "carbs": "Carbs",
+      "sugars": "Sugars",
+      "salt": "Salt",
+      "perServing": "per serving",
+      "per100g": "per 100g"
+    },
+    "edit": {
+      "title": "Edit Values",
+      "servingSize": "Serving Size",
+      "update": "Update Values",
+      "updated": "Nutrition values updated successfully!"
+    }
+  },
+  "smartDiet": {
+    "title": "Smart Diet Recommendations",
+    "contexts": {
+      "today": "For You Today",
+      "optimize": "Optimize Plan", 
+      "discover": "Discover Foods",
+      "insights": "Diet Insights"
+    },
+    "loading": "Generating smart suggestions...",
+    "noSuggestions": "No suggestions available at the moment",
+    "confidence": "confidence",
+    "whySuggested": "Why suggested:",
+    "actions": {
+      "addToPlan": "Add to Meal Plan",
+      "applyOptimization": "Apply Optimization"
+    },
+    "insights": {
+      "title": "📊 Today's Insights",
+      "calories": "Calories Today:",
+      "macroBalance": "Macro Balance:",
+      "nutritionalGaps": "Nutritional Gaps:",
+      "healthBenefits": "Health Benefits:",
+      "protein": "🥩 Protein",
+      "fat": "🥑 Fat", 
+      "carbs": "🍞 Carbs"
+    },
+    "optimizations": {
+      "title": "Optimization Suggestions",
+      "mealSwaps": "Meal Swaps:",
+      "macroAdjustments": "Macro Adjustments:",
+      "from": "From",
+      "to": "To",
+      "benefit": "Benefit",
+      "current": "Current",
+      "target": "Target"
+    },
+    "feedback": {
+      "helpful": "👍",
+      "notHelpful": "👎",
+      "thankYou": "Thank You",
+      "message": "Your feedback helps improve our suggestions!",
+      "recorded": "Feedback recorded locally."
+    },
+    "preferences": {
+      "title": "Diet Preferences",
+      "dietary": "Dietary Restrictions",
+      "cuisine": "Cuisine Preferences",
+      "apply": "Apply Preferences"
+    },
+    "alerts": {
+      "error": "Failed to generate suggestions. Please try again.",
+      "addSuccess": "{{item}} added to your {{meal}} plan!",
+      "optimizationSuccess": "Optimization applied to your meal plan!",
+      "information": "Information"
+    }
+  },
+  "splash": {
+    "loading": "Loading DietIntel...",
+    "welcome": "Welcome to DietIntel"
+  }
+}

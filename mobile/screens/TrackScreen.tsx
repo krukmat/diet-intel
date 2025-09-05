@@ -17,6 +17,7 @@ import {
 import { StatusBar as ExpoStatusBar } from 'expo-status-bar';
 import * as ImagePicker from 'expo-image-picker';
 import * as ImageManipulator from 'expo-image-manipulator';
+import { useTranslation } from 'react-i18next';
 // import { LineChart } from 'react-native-chart-kit';
 // import AsyncStorage from '@react-native-async-storage/async-storage';
 import { apiService } from '../services/ApiService';
@@ -80,13 +81,14 @@ const MarkMealEatenModal: React.FC<MarkMealEatenModalProps> = ({
   onConfirm,
   meal,
 }) => {
+  const { t } = useTranslation();
   const [photo, setPhoto] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   const takePhoto = async () => {
     const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
     if (!permissionResult.granted) {
-      Alert.alert('Permission required', 'Camera permission is required to take photos');
+      Alert.alert(t('permissions.title'), t('permissions.cameraRequired'));
       return;
     }
 
@@ -132,7 +134,7 @@ const MarkMealEatenModal: React.FC<MarkMealEatenModalProps> = ({
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet">
       <SafeAreaView style={styles.modalContainer}>
         <View style={styles.modalHeader}>
-          <Text style={styles.modalTitle}>Mark as Eaten</Text>
+          <Text style={styles.modalTitle}>{t('track.modal.markEatenTitle')}</Text>
           <TouchableOpacity onPress={handleClose} style={styles.closeButton}>
             <Text style={styles.closeButtonText}>✕</Text>
           </TouchableOpacity>
@@ -141,7 +143,7 @@ const MarkMealEatenModal: React.FC<MarkMealEatenModalProps> = ({
         <ScrollView style={styles.modalContent}>
           {meal && (
             <View style={styles.mealSummary}>
-              <Text style={styles.mealName}>{meal.name}</Text>
+              <Text style={styles.mealName}>{translateMealName(meal.name)}</Text>
               <Text style={styles.mealCalories}>{Math.round(meal.actual_calories)} kcal</Text>
               {meal.items.map((item, index) => (
                 <Text key={index} style={styles.mealItem}>
@@ -152,7 +154,7 @@ const MarkMealEatenModal: React.FC<MarkMealEatenModalProps> = ({
           )}
 
           <View style={styles.photoSection}>
-            <Text style={styles.sectionTitle}>Add Photo (Optional)</Text>
+            <Text style={styles.sectionTitle}>{t('track.modal.addPhotoOptional')}</Text>
             {photo ? (
               <View style={styles.photoPreview}>
                 <Image source={{ uri: photo }} style={styles.previewImage} />
@@ -160,12 +162,12 @@ const MarkMealEatenModal: React.FC<MarkMealEatenModalProps> = ({
                   style={styles.retakeButton}
                   onPress={() => setPhoto(null)}
                 >
-                  <Text style={styles.retakeButtonText}>Remove Photo</Text>
+                  <Text style={styles.retakeButtonText}>{t('track.modal.removePhoto')}</Text>
                 </TouchableOpacity>
               </View>
             ) : (
               <TouchableOpacity style={styles.photoButton} onPress={takePhoto}>
-                <Text style={styles.photoButtonText}>📷 Take Photo</Text>
+                <Text style={styles.photoButtonText}>{t('track.modal.takePhoto')}</Text>
               </TouchableOpacity>
             )}
           </View>
@@ -178,7 +180,7 @@ const MarkMealEatenModal: React.FC<MarkMealEatenModalProps> = ({
             {loading ? (
               <ActivityIndicator size="small" color="white" />
             ) : (
-              <Text style={styles.confirmButtonText}>✓ Mark as Eaten</Text>
+              <Text style={styles.confirmButtonText}>{t('track.modal.confirmEaten')}</Text>
             )}
           </TouchableOpacity>
         </ScrollView>
@@ -194,6 +196,7 @@ interface WeighInModalProps {
 }
 
 const WeighInModal: React.FC<WeighInModalProps> = ({ visible, onClose, onConfirm }) => {
+  const { t } = useTranslation();
   const [weight, setWeight] = useState('');
   const [photo, setPhoto] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -201,7 +204,7 @@ const WeighInModal: React.FC<WeighInModalProps> = ({ visible, onClose, onConfirm
   const takePhoto = async () => {
     const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
     if (!permissionResult.granted) {
-      Alert.alert('Permission required', 'Camera permission is required to take photos');
+      Alert.alert(t('permissions.title'), t('permissions.cameraRequired'));
       return;
     }
 
@@ -230,7 +233,7 @@ const WeighInModal: React.FC<WeighInModalProps> = ({ visible, onClose, onConfirm
   const handleConfirm = async () => {
     const weightNum = parseFloat(weight);
     if (!weightNum || weightNum <= 0) {
-      Alert.alert('Invalid Weight', 'Please enter a valid weight');
+      Alert.alert(t('common.error'), t('track.modal.invalidWeight'));
       return;
     }
 
@@ -255,7 +258,7 @@ const WeighInModal: React.FC<WeighInModalProps> = ({ visible, onClose, onConfirm
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet">
       <SafeAreaView style={styles.modalContainer}>
         <View style={styles.modalHeader}>
-          <Text style={styles.modalTitle}>Weigh-in</Text>
+          <Text style={styles.modalTitle}>{t('track.modal.weighInTitle')}</Text>
           <TouchableOpacity onPress={handleClose} style={styles.closeButton}>
             <Text style={styles.closeButtonText}>✕</Text>
           </TouchableOpacity>
@@ -263,18 +266,18 @@ const WeighInModal: React.FC<WeighInModalProps> = ({ visible, onClose, onConfirm
 
         <ScrollView style={styles.modalContent}>
           <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Weight (kg)</Text>
+            <Text style={styles.inputLabel}>{t('track.modal.weightKg')}</Text>
             <TextInput
               style={styles.weightInput}
               value={weight}
               onChangeText={setWeight}
-              placeholder="Enter your weight"
+              placeholder={t('scanner.input.weightPlaceholder')}
               keyboardType="numeric"
             />
           </View>
 
           <View style={styles.photoSection}>
-            <Text style={styles.sectionTitle}>Add Photo (Optional)</Text>
+            <Text style={styles.sectionTitle}>{t('track.modal.addPhotoOptional')}</Text>
             {photo ? (
               <View style={styles.photoPreview}>
                 <Image source={{ uri: photo }} style={styles.previewImage} />
@@ -282,12 +285,12 @@ const WeighInModal: React.FC<WeighInModalProps> = ({ visible, onClose, onConfirm
                   style={styles.retakeButton}
                   onPress={() => setPhoto(null)}
                 >
-                  <Text style={styles.retakeButtonText}>Remove Photo</Text>
+                  <Text style={styles.retakeButtonText}>{t('track.modal.removePhoto')}</Text>
                 </TouchableOpacity>
               </View>
             ) : (
               <TouchableOpacity style={styles.photoButton} onPress={takePhoto}>
-                <Text style={styles.photoButtonText}>📷 Take Photo</Text>
+                <Text style={styles.photoButtonText}>{t('track.modal.takePhoto')}</Text>
               </TouchableOpacity>
             )}
           </View>
@@ -300,7 +303,7 @@ const WeighInModal: React.FC<WeighInModalProps> = ({ visible, onClose, onConfirm
             {loading ? (
               <ActivityIndicator size="small" color="white" />
             ) : (
-              <Text style={styles.confirmButtonText}>✓ Save Weight</Text>
+              <Text style={styles.confirmButtonText}>{t('track.modal.saveWeight')}</Text>
             )}
           </TouchableOpacity>
         </ScrollView>
@@ -314,6 +317,13 @@ interface TrackScreenProps {
 }
 
 export default function TrackScreen({ onBackPress }: TrackScreenProps) {
+  const { t } = useTranslation();
+
+  const translateMealName = (mealName: string): string => {
+    const translationKey = `plan.meals.${mealName}`;
+    const translatedName = t(translationKey);
+    return translatedName !== translationKey ? translatedName : mealName;
+  };
   const [dailyPlan, setDailyPlan] = useState<DailyPlan | null>(null);
   const [weightHistory, setWeightHistory] = useState<WeightEntry[]>([]);
   const [photoLogs, setPhotoLogs] = useState<PhotoLog[]>([]);
@@ -347,7 +357,7 @@ export default function TrackScreen({ onBackPress }: TrackScreenProps) {
         daily_calorie_target: 2000,
         meals: [
           {
-            name: 'Breakfast',
+            name: 'Breakfast', // This will be translated in display
             target_calories: 500,
             actual_calories: 480,
             items: [
@@ -368,7 +378,7 @@ export default function TrackScreen({ onBackPress }: TrackScreenProps) {
             ]
           },
           {
-            name: 'Lunch',
+            name: 'Lunch', // This will be translated in display
             target_calories: 700,
             actual_calories: 680,
             items: [
@@ -389,7 +399,7 @@ export default function TrackScreen({ onBackPress }: TrackScreenProps) {
             ]
           },
           {
-            name: 'Dinner',
+            name: 'Dinner', // This will be translated in display
             target_calories: 800,
             actual_calories: 750,
             items: [
@@ -489,10 +499,10 @@ export default function TrackScreen({ onBackPress }: TrackScreenProps) {
         // await AsyncStorage.setItem('photo_logs', JSON.stringify(updatedPhotoLogs));
       }
 
-      Alert.alert('Success', 'Meal marked as eaten!');
+      Alert.alert(t('common.success'), t('track.modal.mealMarkedEaten'));
     } catch (error) {
       console.error('Failed to track meal:', error);
-      Alert.alert('Error', 'Failed to track meal. Please try again.');
+      Alert.alert(t('common.error'), t('track.modal.failedToTrackMeal'));
     }
   };
 
@@ -523,7 +533,7 @@ export default function TrackScreen({ onBackPress }: TrackScreenProps) {
           timestamp: new Date().toISOString(),
           photo: photo,
           type: 'weigh-in',
-          description: `Weight: ${weight} kg`,
+          description: `${t('track.weight')}: ${weight} kg`,
         };
 
         const updatedPhotoLogs = [newPhotoLog, ...photoLogs];
@@ -532,10 +542,10 @@ export default function TrackScreen({ onBackPress }: TrackScreenProps) {
         // await AsyncStorage.setItem('photo_logs', JSON.stringify(updatedPhotoLogs));
       }
 
-      Alert.alert('Success', 'Weight recorded!');
+      Alert.alert(t('common.success'), t('track.modal.weightRecorded'));
     } catch (error) {
       console.error('Failed to record weight:', error);
-      Alert.alert('Error', 'Failed to record weight. Please try again.');
+      Alert.alert(t('common.error'), t('track.modal.failedToRecordWeight'));
     }
   };
 
@@ -544,7 +554,7 @@ export default function TrackScreen({ onBackPress }: TrackScreenProps) {
       <Image source={{ uri: item.photo }} style={styles.photoThumbnail} />
       <View style={styles.photoLogInfo}>
         <Text style={styles.photoLogType}>
-          {item.type === 'meal' ? '🍽️' : '⚖️'} {item.type === 'meal' ? 'Meal' : 'Weigh-in'}
+          {item.type === 'meal' ? '🍽️' : '⚖️'} {item.type === 'meal' ? t('track.photoLog.meal') : t('track.photoLog.weighIn')}
         </Text>
         <Text style={styles.photoLogDescription}>{item.description}</Text>
         <Text style={styles.photoLogTimestamp}>
@@ -558,10 +568,10 @@ export default function TrackScreen({ onBackPress }: TrackScreenProps) {
     return (
       <View style={styles.chartPlaceholder}>
         <Text style={styles.chartPlaceholderText}>
-          📊 Weight Chart
+          {t('track.chartPlaceholder')}
         </Text>
         <Text style={styles.chartPlaceholderSubtext}>
-          Chart will be enabled after fixing native modules
+          {t('track.chartSubtext')}
         </Text>
         {weightHistory.length > 0 && (
           <View style={styles.weightDataList}>
@@ -581,7 +591,7 @@ export default function TrackScreen({ onBackPress }: TrackScreenProps) {
       <SafeAreaView style={styles.container}>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#007AFF" />
-          <Text style={styles.loadingText}>Loading tracking data...</Text>
+          <Text style={styles.loadingText}>{t('track.loading')}</Text>
         </View>
       </SafeAreaView>
     );
@@ -596,8 +606,8 @@ export default function TrackScreen({ onBackPress }: TrackScreenProps) {
           <Text style={styles.backButtonText}>🏠</Text>
         </TouchableOpacity>
         <View style={styles.headerContent}>
-          <Text style={styles.title}>📊 Track Progress</Text>
-          <Text style={styles.subtitle}>Today's Meals & Weight</Text>
+          <Text style={styles.title}>{t('track.title')}</Text>
+          <Text style={styles.subtitle}>{t('track.subtitle')}</Text>
         </View>
         <View style={styles.headerSpacer} />
       </View>
@@ -605,13 +615,13 @@ export default function TrackScreen({ onBackPress }: TrackScreenProps) {
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         {/* Today's Meals */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Today's Planned Meals</Text>
+          <Text style={styles.sectionTitle}>{t('track.todaysPlannedMeals')}</Text>
           {dailyPlan?.meals.map((meal, index) => (
             <View key={meal.name} style={styles.mealCard}>
               <View style={styles.mealHeader}>
                 <Text style={styles.mealTitle}>
                   {meal.name === 'Breakfast' ? '🌅' : 
-                   meal.name === 'Lunch' ? '🌞' : '🌙'} {meal.name}
+                   meal.name === 'Lunch' ? '🌞' : '🌙'} {translateMealName(meal.name)}
                 </Text>
                 <Text style={styles.mealCalories}>{Math.round(meal.actual_calories)} kcal</Text>
               </View>
@@ -629,7 +639,7 @@ export default function TrackScreen({ onBackPress }: TrackScreenProps) {
                 style={styles.markEatenButton}
                 onPress={() => setMarkMealModal({ visible: true, meal })}
               >
-                <Text style={styles.markEatenButtonText}>✓ Mark as Eaten</Text>
+                <Text style={styles.markEatenButtonText}>{t('track.markAsEaten')}</Text>
               </TouchableOpacity>
             </View>
           ))}
@@ -638,12 +648,12 @@ export default function TrackScreen({ onBackPress }: TrackScreenProps) {
         {/* Weight Tracking */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Weight Progress</Text>
+            <Text style={styles.sectionTitle}>{t('track.weightProgress')}</Text>
             <TouchableOpacity
               style={styles.weighInButton}
               onPress={() => setWeighInModal({ visible: true })}
             >
-              <Text style={styles.weighInButtonText}>⚖️ Weigh-in</Text>
+              <Text style={styles.weighInButtonText}>{t('track.weighIn')}</Text>
             </TouchableOpacity>
           </View>
 
@@ -651,7 +661,7 @@ export default function TrackScreen({ onBackPress }: TrackScreenProps) {
 
           {weightHistory.length > 0 && (
             <View style={styles.currentWeight}>
-              <Text style={styles.currentWeightLabel}>Current Weight</Text>
+              <Text style={styles.currentWeightLabel}>{t('track.currentWeight')}</Text>
               <Text style={styles.currentWeightValue}>
                 {weightHistory[weightHistory.length - 1].weight} kg
               </Text>
@@ -662,7 +672,7 @@ export default function TrackScreen({ onBackPress }: TrackScreenProps) {
         {/* Photo Logs */}
         {photoLogs.length > 0 && (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Photo Logs</Text>
+            <Text style={styles.sectionTitle}>{t('track.photoLogs')}</Text>
             <FlatList
               data={photoLogs.slice(0, 10)}
               renderItem={renderPhotoLog}

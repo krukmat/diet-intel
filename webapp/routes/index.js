@@ -31,20 +31,15 @@ router.get('/', (req, res) => {
   });
 });
 
-// About page
+// About page - redirect to home for now
 router.get('/about', (req, res) => {
-  res.render('about', {
-    title: 'About DietIntel',
-    description: 'Learn more about DietIntel\'s mission and technology'
-  });
+  res.redirect('/');
 });
 
-// API Documentation page
+// API Documentation page - redirect to API docs
 router.get('/docs', (req, res) => {
-  res.render('docs', {
-    title: 'API Documentation',
-    description: 'Complete API reference for DietIntel services'
-  });
+  const apiUrl = process.env.DIETINTEL_API_URL || 'http://localhost:8000';
+  res.redirect(`${apiUrl}/docs`);
 });
 
 module.exports = router;
