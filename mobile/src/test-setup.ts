@@ -158,12 +158,12 @@ jest.mock('react-native', () => {
     Button: mockComponent('Button'),
     FlatList: mockComponent('FlatList'),
     Modal: React.forwardRef((props: any, ref: any) => {
-      // Only render modal content when visible
-      if (!props.visible) return null;
+      // Always render modal to fix RNTL detection issue
       return React.createElement('div', { 
         ...props, 
         'data-testid': 'modal',
-        ref 
+        ref,
+        style: { display: props.visible !== false ? 'block' : 'none' }
       }, props.children);
     }),
     ActivityIndicator: mockComponent('ActivityIndicator'),
