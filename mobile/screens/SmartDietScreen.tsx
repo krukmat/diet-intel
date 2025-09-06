@@ -170,15 +170,16 @@ export default function SmartDietScreen({ onBackPress }: SmartDietScreenProps) {
             } : undefined
           };
 
-          // Transform recommendations to suggestions
+          // Transform recommendations to suggestions with async translations
           if (legacyResponse.data.meal_recommendations) {
-            legacyResponse.data.meal_recommendations.forEach((meal: any) => {
-              meal.recommendations.forEach((item: any, index: number) => {
+            for (const meal of legacyResponse.data.meal_recommendations) {
+              for (const [index, item] of meal.recommendations.entries()) {
+                const translatedTitle = await translateFoodName(item.name);
                 transformedData.suggestions.push({
                   id: `meal_${meal.meal_name}_${index}`,
                   suggestion_type: 'meal_recommendation',
                   category: meal.meal_name,
-                  title: translateFoodName(item.name),
+                  title: translatedTitle,
                   description: `${item.brand ? item.brand + ' - ' : ''}${Math.round(item.calories_per_serving)} kcal per ${item.serving_size}`,
                   action_text: `Add to ${meal.meal_name}`,
                   confidence_score: item.confidence_score,
@@ -195,8 +196,8 @@ export default function SmartDietScreen({ onBackPress }: SmartDietScreenProps) {
                   },
                   created_at: new Date().toISOString()
                 });
-              });
-            });
+              }
+            }
           }
 
           setSmartData(transformedData);

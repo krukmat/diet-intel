@@ -1,8 +1,9 @@
 import i18n from '../i18n/config';
+import { translationService } from '../services/translationService';
 
 /**
- * Translates food names using the global i18n system
- * Provides fallback mechanisms and smart matching for food translations
+ * Translates food names using external API with fallback to static i18n
+ * Provides backward compatibility while migrating to dynamic translation
  */
 export class FoodTranslationService {
   private static instance: FoodTranslationService;
@@ -16,11 +17,40 @@ export class FoodTranslationService {
 
   /**
    * Main translation function for food names
+   * Now uses external API with fallback to static i18n
    * @param foodName - The food name to translate
    * @param fallbackToOriginal - Whether to return original name if no translation found
-   * @returns Translated food name or original if no translation exists
+   * @returns Promise resolving to translated food name or original if no translation exists
    */
-  translateFoodName(foodName: string, fallbackToOriginal: boolean = true): string {
+  async translateFoodName(foodName: string, fallbackToOriginal: boolean = true): Promise<string> {
+    if (!foodName || typeof foodName !== 'string') {
+      return fallbackToOriginal ? (foodName || '') : '';
+    }
+
+    try {
+      // Try external API translation first
+      const apiTranslation = await translationService.translateFoodName(foodName);
+      
+      // If API translation succeeded and is different from original, use it
+      if (apiTranslation && apiTranslation !== foodName) {
+        return apiTranslation;
+      }
+      
+      // Fallback to legacy static translation method
+      return this.translateFoodNameLegacy(foodName, fallbackToOriginal);
+      
+    } catch (error) {
+      console.warn(`API translation failed for "${foodName}":`, error);
+      // Fallback to legacy static translation method
+      return this.translateFoodNameLegacy(foodName, fallbackToOriginal);
+    }
+  }
+
+  /**
+   * Legacy translation method using static i18n files
+   * Kept as fallback for offline mode or API failures
+   */
+  translateFoodNameLegacy(foodName: string, fallbackToOriginal: boolean = true): string {
     if (!foodName || typeof foodName !== 'string') {
       return fallbackToOriginal ? (foodName || '') : '';
     }
@@ -181,19 +211,40 @@ export class FoodTranslationService {
   /**
    * Batch translate multiple food names
    * @param foodNames - Array of food names to translate
-   * @returns Array of translated food names
+   * @returns Promise resolving to array of translated food names
    */
-  translateFoodNames(foodNames: string[]): string[] {
-    return foodNames.map(name => this.translateFoodName(name));
+  async translateFoodNames(foodNames: string[]): Promise<string[]> {
+    if (!foodNames || foodNames.length === 0) {
+      return [];
+    }
+
+    try {
+      // Try batch API translation first
+      const apiTranslations = await translationService.translateTexts(foodNames);
+      
+      // Convert to array format
+      return foodNames.map(name => apiTranslations[name] || name);
+      
+    } catch (error) {
+      console.warn('Batch API translation failed:', error);
+      
+      // Fallback to legacy individual translations
+      const results: string[] = [];
+      for (const name of foodNames) {
+        results.push(this.translateFoodNameLegacy(name));
+      }
+      return results;
+    }
   }
 
   /**
    * Check if a translation exists for a food name
    * @param foodName - Food name to check
-   * @returns True if translation exists
+   * @returns Promise resolving to true if translation exists
    */
-  hasTranslation(foodName: string): boolean {
-    return this.translateFoodName(foodName, false) !== '';
+  async hasTranslation(foodName: string): Promise<boolean> {
+    const translation = await this.translateFoodName(foodName, false);
+    return translation !== '' && translation !== foodName;
   }
 }
 
@@ -201,19 +252,37 @@ export class FoodTranslationService {
 export const foodTranslation = FoodTranslationService.getInstance();
 
 /**
- * Helper function for easy food name translation
+ * Helper function for easy food name translation (async - uses API)
  * @param foodName - Food name to translate
- * @returns Translated food name
+ * @returns Promise resolving to translated food name
  */
-export const translateFoodName = (foodName: string): string => {
-  return foodTranslation.translateFoodName(foodName);
+export const translateFoodName = async (foodName: string): Promise<string> => {
+  return await foodTranslation.translateFoodName(foodName);
 };
 
 /**
- * Helper function to translate multiple food names
- * @param foodNames - Array of food names
- * @returns Array of translated food names
+ * Async version of translateFoodName that waits for API translation
+ * @param foodName - Food name to translate
+ * @returns Promise resolving to translated food name
  */
-export const translateFoodNames = (foodNames: string[]): string[] => {
-  return foodTranslation.translateFoodNames(foodNames);
+export const translateFoodNameAsync = async (foodName: string): Promise<string> => {
+  return await foodTranslation.translateFoodName(foodName);
+};
+
+/**
+ * Helper function to translate multiple food names (async - uses API)
+ * @param foodNames - Array of food names
+ * @returns Promise resolving to array of translated food names
+ */
+export const translateFoodNames = async (foodNames: string[]): Promise<string[]> => {
+  return await foodTranslation.translateFoodNames(foodNames);
+};
+
+/**
+ * Async version of translateFoodNames that waits for API translation
+ * @param foodNames - Array of food names
+ * @returns Promise resolving to array of translated food names
+ */
+export const translateFoodNamesAsync = async (foodNames: string[]): Promise<string[]> => {
+  return await foodTranslation.translateFoodNames(foodNames);
 };
