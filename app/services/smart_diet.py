@@ -813,8 +813,33 @@ class SmartDietEngine:
                     "carbs_percent": round((total_carbs_cal / total_macro_calories) * 100, 1)
                 }
             
-            summary["health_benefits"] = list(benefits)
-            summary["nutritional_gaps"] = ["Vitamin D", "Omega-3", "Fiber"]  # Simplified
+            # Translate health benefits to Spanish
+            translated_benefits = []
+            for benefit in benefits:
+                try:
+                    translated_benefit = await self.translation_service.translate_text(
+                        benefit, source_lang='en', target_lang='es'
+                    )
+                    translated_benefits.append(translated_benefit or benefit)
+                except Exception as translation_error:
+                    logger.warning(f"Translation failed for health benefit '{benefit}': {translation_error}")
+                    translated_benefits.append(benefit)
+            
+            # Translate nutritional gaps to Spanish
+            nutritional_gaps_en = ["Vitamin D", "Omega-3", "Fiber"]
+            translated_gaps = []
+            for gap in nutritional_gaps_en:
+                try:
+                    translated_gap = await self.translation_service.translate_text(
+                        gap, source_lang='en', target_lang='es'
+                    )
+                    translated_gaps.append(translated_gap or gap)
+                except Exception as translation_error:
+                    logger.warning(f"Translation failed for nutritional gap '{gap}': {translation_error}")
+                    translated_gaps.append(gap)
+            
+            summary["health_benefits"] = translated_benefits
+            summary["nutritional_gaps"] = translated_gaps
             
         except Exception as e:
             logger.error(f"Error generating nutritional summary: {e}")
