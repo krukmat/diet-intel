@@ -43,6 +43,7 @@ async def get_smart_diet_suggestions(
     min_confidence: float = 0.3,
     include_optimizations: bool = True,
     include_recommendations: bool = True,
+    lang: str = "en",
     req: Request = None
 ):
     """
@@ -135,7 +136,8 @@ async def get_smart_diet_suggestions(
             max_suggestions=max_suggestions,
             min_confidence=min_confidence,
             include_optimizations=include_optimizations,
-            include_recommendations=include_recommendations
+            include_recommendations=include_recommendations,
+            lang=lang
         )
         
         # Log request context

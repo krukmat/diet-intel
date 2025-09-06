@@ -81,3 +81,4 @@ DietIntel is a FastAPI application for nutrition tracking with product lookup, O
 - only do screenshot in root screenshot folder.
 - do not be lazy in analysis
 - only run simulator in Android
+- when it's clear what to do every change related to a fix should be approved

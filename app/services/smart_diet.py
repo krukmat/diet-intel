@@ -701,22 +701,27 @@ class SmartDietEngine:
             insight_suggestions = []
             for insight in insight_suggestions_en:
                 try:
-                    translated_title = await self.translation_service.translate_text(
-                        insight["title"], source_lang='en', target_lang='es'
-                    )
-                    translated_description = await self.translation_service.translate_text(
-                        insight["description"], source_lang='en', target_lang='es'
-                    )
-                    translated_reasoning = await self.translation_service.translate_text(
-                        insight["reasoning"], source_lang='en', target_lang='es'
-                    )
-                    
-                    insight_suggestions.append({
-                        "title": translated_title or insight["title"],
-                        "description": translated_description or insight["description"],
-                        "reasoning": translated_reasoning or insight["reasoning"],
-                        "category": insight["category"]
-                    })
+                    if request.lang == 'en':
+                        # No translation needed for English - use original
+                        insight_suggestions.append(insight)
+                    else:
+                        # Translate to target language
+                        translated_title = await self.translation_service.translate_text(
+                            insight["title"], source_lang='en', target_lang=request.lang
+                        )
+                        translated_description = await self.translation_service.translate_text(
+                            insight["description"], source_lang='en', target_lang=request.lang
+                        )
+                        translated_reasoning = await self.translation_service.translate_text(
+                            insight["reasoning"], source_lang='en', target_lang=request.lang
+                        )
+                        
+                        insight_suggestions.append({
+                            "title": translated_title or insight["title"],
+                            "description": translated_description or insight["description"],
+                            "reasoning": translated_reasoning or insight["reasoning"],
+                            "category": insight["category"]
+                        })
                 except Exception as translation_error:
                     logger.warning(f"Translation failed for insight, using English: {translation_error}")
                     # Fallback to English if translation fails
@@ -813,30 +818,38 @@ class SmartDietEngine:
                     "carbs_percent": round((total_carbs_cal / total_macro_calories) * 100, 1)
                 }
             
-            # Translate health benefits to Spanish
+            # Translate health benefits based on request language
             translated_benefits = []
             for benefit in benefits:
-                try:
-                    translated_benefit = await self.translation_service.translate_text(
-                        benefit, source_lang='en', target_lang='es'
-                    )
-                    translated_benefits.append(translated_benefit or benefit)
-                except Exception as translation_error:
-                    logger.warning(f"Translation failed for health benefit '{benefit}': {translation_error}")
+                if request.lang == 'en':
+                    # No translation needed for English
                     translated_benefits.append(benefit)
+                else:
+                    try:
+                        translated_benefit = await self.translation_service.translate_text(
+                            benefit, source_lang='en', target_lang=request.lang
+                        )
+                        translated_benefits.append(translated_benefit or benefit)
+                    except Exception as translation_error:
+                        logger.warning(f"Translation failed for health benefit '{benefit}': {translation_error}")
+                        translated_benefits.append(benefit)
             
-            # Translate nutritional gaps to Spanish
+            # Translate nutritional gaps based on request language
             nutritional_gaps_en = ["Vitamin D", "Omega-3", "Fiber"]
             translated_gaps = []
             for gap in nutritional_gaps_en:
-                try:
-                    translated_gap = await self.translation_service.translate_text(
-                        gap, source_lang='en', target_lang='es'
-                    )
-                    translated_gaps.append(translated_gap or gap)
-                except Exception as translation_error:
-                    logger.warning(f"Translation failed for nutritional gap '{gap}': {translation_error}")
+                if request.lang == 'en':
+                    # No translation needed for English
                     translated_gaps.append(gap)
+                else:
+                    try:
+                        translated_gap = await self.translation_service.translate_text(
+                            gap, source_lang='en', target_lang=request.lang
+                        )
+                        translated_gaps.append(translated_gap or gap)
+                    except Exception as translation_error:
+                        logger.warning(f"Translation failed for nutritional gap '{gap}': {translation_error}")
+                        translated_gaps.append(gap)
             
             summary["health_benefits"] = translated_benefits
             summary["nutritional_gaps"] = translated_gaps

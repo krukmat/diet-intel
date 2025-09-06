@@ -120,6 +120,9 @@ class SmartDietRequest(BaseModel):
     include_optimizations: bool = Field(True, description="Include optimization suggestions")
     include_recommendations: bool = Field(True, description="Include discovery recommendations")
     
+    # Localization
+    lang: str = Field("en", description="Target language for translations (en, es, fr, etc.)")
+    
     # Time and freshness
     requested_at: datetime = Field(default_factory=datetime.now, description="Request timestamp")
 

@@ -15,7 +15,7 @@ import {
 import { StatusBar as ExpoStatusBar } from 'expo-status-bar';
 import { useTranslation } from 'react-i18next';
 import { apiService } from '../services/ApiService';
-import { translateFoodNameSync } from '../utils/foodTranslation';
+import { translateFoodNameSync, translateFoodName } from '../utils/foodTranslation';
 
 interface SmartSuggestion {
   id: string;
@@ -86,7 +86,7 @@ const CONTEXT_CONFIG = {
 };
 
 export default function SmartDietScreen({ onBackPress }: SmartDietScreenProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [smartData, setSmartData] = useState<SmartDietResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [selectedContext, setSelectedContext] = useState<ContextType>('today');
@@ -118,6 +118,7 @@ export default function SmartDietScreen({ onBackPress }: SmartDietScreenProps) {
         context: selectedContext,
         max_suggestions: preferences.maxSuggestions.toString(),
         include_history: preferences.includeHistory.toString(),
+        lang: i18n.language,
       });
 
       if (preferences.dietaryRestrictions.length > 0) {
