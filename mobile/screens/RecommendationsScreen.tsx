@@ -14,7 +14,7 @@ import {
 } from 'react-native';
 import { StatusBar as ExpoStatusBar } from 'expo-status-bar';
 import { apiService } from '../services/ApiService';
-import { translateFoodName } from '../utils/foodTranslation';
+import { translateFoodNameSync } from '../utils/foodTranslation';
 
 interface NutritionalScore {
   overall_score: number;
@@ -132,13 +132,13 @@ export default function RecommendationsScreen({ onBackPress }: RecommendationsSc
       // TODO: Integrate with meal plan customization
       Alert.alert(
         'Add to Meal Plan', 
-        `Would you like to add ${translateFoodName(item.name)} to your ${mealType}?`,
+        `Would you like to add ${translateFoodNameSync(item.name)} to your ${mealType}?`,
         [
           { text: 'Cancel', style: 'cancel' },
           { 
             text: 'Add', 
             onPress: () => {
-              Alert.alert('Success', `${translateFoodName(item.name)} added to your ${mealType} plan!`);
+              Alert.alert('Success', `${translateFoodNameSync(item.name)} added to your ${mealType} plan!`);
               // TODO: Actually add to meal plan via API
             }
           }
@@ -190,7 +190,7 @@ export default function RecommendationsScreen({ onBackPress }: RecommendationsSc
     <View key={item.barcode} style={styles.recommendationCard}>
       <View style={styles.recommendationHeader}>
         <View style={styles.itemInfo}>
-          <Text style={styles.itemName}>{translateFoodName(item.name)}</Text>
+          <Text style={styles.itemName}>{translateFoodNameSync(item.name)}</Text>
           {item.brand && <Text style={styles.itemBrand}>{item.brand}</Text>}
         </View>
         <View style={styles.scoreContainer}>

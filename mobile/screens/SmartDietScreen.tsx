@@ -15,7 +15,7 @@ import {
 import { StatusBar as ExpoStatusBar } from 'expo-status-bar';
 import { useTranslation } from 'react-i18next';
 import { apiService } from '../services/ApiService';
-import { translateFoodName } from '../utils/foodTranslation';
+import { translateFoodNameSync } from '../utils/foodTranslation';
 
 interface SmartSuggestion {
   id: string;
@@ -320,7 +320,7 @@ export default function SmartDietScreen({ onBackPress }: SmartDietScreenProps) {
     <View key={`suggestion_${suggestion.id}_${index || 0}`} style={styles.suggestionCard}>
       <View style={styles.suggestionHeader}>
         <View style={styles.suggestionInfo}>
-          <Text style={styles.suggestionTitle}>{suggestion.title}</Text>
+          <Text style={styles.suggestionTitle}>{translateFoodNameSync(suggestion.title)}</Text>
           <Text style={styles.suggestionCategory}>
             {suggestion.category.replace('_', ' ').toUpperCase()}
           </Text>
@@ -333,7 +333,7 @@ export default function SmartDietScreen({ onBackPress }: SmartDietScreenProps) {
         </View>
       </View>
 
-      <Text style={styles.suggestionDescription}>{suggestion.description}</Text>
+      <Text style={styles.suggestionDescription}>{translateFoodNameSync(suggestion.description)}</Text>
 
       {suggestion.metadata?.nutrition && (
         <View style={styles.nutritionInfo}>

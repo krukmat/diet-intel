@@ -24,6 +24,7 @@ from app.services.cache import cache_service
 from app.services.plan_storage import plan_storage
 from app.services.product_discovery import product_discovery_service
 from app.services.database import db_service
+from app.services.translation_service import get_translation_service
 
 logger = logging.getLogger(__name__)
 
@@ -473,6 +474,9 @@ class SmartDietEngine:
         # Add optimization capabilities
         self.optimization_engine = OptimizationEngine()
         
+        # Translation service for internationalization
+        self.translation_service = get_translation_service(cache_service)
+        
         # Cross-intelligence learning
         self.suggestion_history: List[SmartSuggestion] = []
         self.feedback_history: List[SuggestionFeedback] = []
@@ -677,7 +681,8 @@ class SmartDietEngine:
         
         try:
             # Generate sample insights (would be more sophisticated in production)
-            insight_suggestions = [
+            # First get the English versions
+            insight_suggestions_en = [
                 {
                     "title": "Protein Intake Analysis",
                     "description": "Your protein intake is 15% below recommended levels this week",
@@ -691,6 +696,31 @@ class SmartDietEngine:
                     "category": SuggestionCategory.NUTRITIONAL_GAP
                 }
             ]
+            
+            # Translate to Spanish (or other languages in future)
+            insight_suggestions = []
+            for insight in insight_suggestions_en:
+                try:
+                    translated_title = await self.translation_service.translate_text(
+                        insight["title"], source_lang='en', target_lang='es'
+                    )
+                    translated_description = await self.translation_service.translate_text(
+                        insight["description"], source_lang='en', target_lang='es'
+                    )
+                    translated_reasoning = await self.translation_service.translate_text(
+                        insight["reasoning"], source_lang='en', target_lang='es'
+                    )
+                    
+                    insight_suggestions.append({
+                        "title": translated_title or insight["title"],
+                        "description": translated_description or insight["description"],
+                        "reasoning": translated_reasoning or insight["reasoning"],
+                        "category": insight["category"]
+                    })
+                except Exception as translation_error:
+                    logger.warning(f"Translation failed for insight, using English: {translation_error}")
+                    # Fallback to English if translation fails
+                    insight_suggestions.append(insight)
             
             for idx, insight_data in enumerate(insight_suggestions):
                 suggestion = SmartSuggestion(

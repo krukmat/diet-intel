@@ -286,3 +286,13 @@ export const translateFoodNames = async (foodNames: string[]): Promise<string[]>
 export const translateFoodNamesAsync = async (foodNames: string[]): Promise<string[]> => {
   return await foodTranslation.translateFoodNames(foodNames);
 };
+
+/**
+ * Synchronous helper function for food name translation (legacy static only)
+ * This is for React components that need immediate rendering
+ * @param foodName - Food name to translate
+ * @returns Translated food name (synchronous)
+ */
+export const translateFoodNameSync = (foodName: string): string => {
+  return foodTranslation.translateFoodNameLegacy(foodName);
+};
