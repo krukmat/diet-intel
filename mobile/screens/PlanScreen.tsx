@@ -351,6 +351,14 @@ export default function PlanScreen({ onBackPress }: PlanScreenProps) {
     // If translation doesn't exist, fall back to original name
     return translatedName !== translationKey ? translatedName : mealName;
   };
+
+  // Helper function to translate food names
+  const translateFoodName = (foodName: string): string => {
+    const translationKey = `plan.foods.${foodName}`;
+    const translatedName = t(translationKey);
+    // If translation doesn't exist, fall back to original name
+    return translatedName !== translationKey ? translatedName : foodName;
+  };
   
   const [customizeModal, setCustomizeModal] = useState({
     visible: false,
@@ -470,7 +478,7 @@ export default function PlanScreen({ onBackPress }: PlanScreenProps) {
       {meal.items.map((item, itemIndex) => (
         <View key={itemIndex} style={styles.mealItem}>
           <View style={styles.itemInfo}>
-            <Text style={styles.itemName}>{item.name}</Text>
+            <Text style={styles.itemName}>{translateFoodName(item.name)}</Text>
             <Text style={styles.itemServing}>{item.serving} • {Math.round(item.calories)} kcal</Text>
             <Text style={styles.macroText}>P: {Math.round(item.macros.protein_g)}g F: {Math.round(item.macros.fat_g)}g C: {Math.round(item.macros.carbs_g)}g</Text>
           </View>
@@ -520,7 +528,7 @@ export default function PlanScreen({ onBackPress }: PlanScreenProps) {
         </TouchableOpacity>
         <View style={styles.headerContent}>
           <Text style={styles.title}>{t('plan.title')}</Text>
-          <Text style={styles.subtitle}>{t('plan.todaysCalories', { calories: dailyPlan.daily_calorie_target })}</Text>
+          <Text style={styles.subtitle}>{t('plan.todaysCalories', { calories: Math.round(dailyPlan.daily_calorie_target) })}</Text>
         </View>
         <View style={styles.headerSpacer} />
       </View>

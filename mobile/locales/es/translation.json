@@ -39,7 +39,7 @@
   },
   "plan": {
     "title": "🍽️ Plan de Comidas Diario",
-    "todaysCalories": "Plan de Hoy ({calories} kcal)",
+    "todaysCalories": "Plan de Hoy ({{calories}} kcal)",
     "dailyProgress": "Progreso Diario",
     "calories": "Calorías",
     "protein": "Proteína", 
@@ -56,6 +56,28 @@
       "Lunch": "Almuerzo", 
       "Dinner": "Cena",
       "Snacks": "Meriendas"
+    },
+    "foods": {
+      "Oatmeal": "Avena",
+      "Chicken Breast": "Pechuga de Pollo",
+      "Almonds": "Almendras",
+      "Banana": "Plátano",
+      "Brown Rice": "Arroz Integral",
+      "Salmon": "Salmón",
+      "Eggs": "Huevos",
+      "Greek Yogurt": "Yogur Griego",
+      "Spinach": "Espinaca",
+      "Broccoli": "Brócoli",
+      "Sweet Potato": "Batata",
+      "Quinoa": "Quinua",
+      "Avocado": "Aguacate",
+      "Olive Oil": "Aceite de Oliva",
+      "Tuna": "Atún",
+      "Lentils": "Lentejas",
+      "Beans": "Frijoles",
+      "Nuts": "Nueces",
+      "Cheese": "Queso",
+      "Milk": "Leche"
     },
     "modal": {
       "customizeTitle": "Personalizar {mealType}",

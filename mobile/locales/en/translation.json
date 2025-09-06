@@ -39,7 +39,7 @@
   },
   "plan": {
     "title": "🍽️ Daily Meal Plan",
-    "todaysCalories": "Today's Plan ({calories} kcal)",
+    "todaysCalories": "Today's Plan ({{calories}} kcal)",
     "dailyProgress": "Daily Progress",
     "calories": "Calories",
     "protein": "Protein", 
