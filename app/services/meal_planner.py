@@ -8,6 +8,7 @@ from app.models.meal_plan import (
 from app.models.product import ProductResponse, Nutriments
 from app.services.nutrition_calculator import nutrition_calculator
 from app.services.cache import cache_service
+from app.services.product_discovery import product_discovery_service
 
 logger = logging.getLogger(__name__)
 
@@ -126,114 +127,52 @@ class MealPlannerService:
                     except Exception as e:
                         logger.warning(f"Failed to load optional product {barcode}: {e}")
         
-        # TODO: Load more products from cached database
-        # For now, we'll work with just optional products and some mock data
-        # In a real implementation, you'd query Redis for all cached products
-        # or maintain a product database
-        
-        # Add some mock products for demonstration if we have few products
-        if len(products) < 10:
-            products.extend(await self._get_mock_products())
+        # Use the new product discovery service for intelligent meal planning products
+        try:
+            # Get additional products through discovery service
+            discovered_products = await product_discovery_service.discover_products_for_meal_planning(
+                user_id=None,  # Could be enhanced with user context
+                dietary_restrictions=None,  # Could be enhanced with user preferences
+                optional_products=optional_products,
+                max_products=30  # Good balance for meal planning
+            )
+            
+            # Merge with optional products, avoiding duplicates
+            existing_barcodes = {p.barcode for p in products}
+            for product in discovered_products:
+                if product.barcode not in existing_barcodes:
+                    products.append(product)
+            
+        except Exception as e:
+            logger.error(f"Error with product discovery service: {e}")
+            # Fallback to emergency products if discovery fails
+            if len(products) < 5:
+                emergency_products = await product_discovery_service._get_emergency_fallback_products()
+                existing_barcodes = {p.barcode for p in products}
+                for product in emergency_products:
+                    if product.barcode not in existing_barcodes:
+                        products.append(product)
         
         logger.info(f"Loaded {len(products)} products for meal planning")
         return products
     
-    async def _get_mock_products(self) -> List[ProductResponse]:
-        """
-        Generate mock products for demonstration.
-        In production, this would be replaced with actual product database queries.
-        """
-        from datetime import datetime
+    async def _log_meal_product_usage(self, user_id: Optional[str], barcode: str, meal_name: str):
+        """Log product usage in meal planning for learning."""
+        if not user_id:
+            return
         
-        mock_products = [
-            ProductResponse(
-                source="Mock Data",
-                barcode="000000000001", 
-                name="Oatmeal",
-                brand="Generic",
-                image_url=None,
-                serving_size="50g",
-                nutriments=Nutriments(
-                    energy_kcal_per_100g=389.0,
-                    protein_g_per_100g=16.9,
-                    fat_g_per_100g=6.9,
-                    carbs_g_per_100g=66.3,
-                    sugars_g_per_100g=1.4,
-                    salt_g_per_100g=0.0
-                ),
-                fetched_at=datetime.now()
-            ),
-            ProductResponse(
-                source="Mock Data",
-                barcode="000000000002",
-                name="Chicken Breast",
-                brand="Generic", 
-                image_url=None,
-                serving_size="150g",
-                nutriments=Nutriments(
-                    energy_kcal_per_100g=165.0,
-                    protein_g_per_100g=31.0,
-                    fat_g_per_100g=3.6,
-                    carbs_g_per_100g=0.0,
-                    sugars_g_per_100g=0.0,
-                    salt_g_per_100g=0.1
-                ),
-                fetched_at=datetime.now()
-            ),
-            ProductResponse(
-                source="Mock Data", 
-                barcode="000000000003",
-                name="Brown Rice",
-                brand="Generic",
-                image_url=None,
-                serving_size="100g",
-                nutriments=Nutriments(
-                    energy_kcal_per_100g=362.0,
-                    protein_g_per_100g=7.9,
-                    fat_g_per_100g=2.9,
-                    carbs_g_per_100g=72.9,
-                    sugars_g_per_100g=0.7,
-                    salt_g_per_100g=0.0
-                ),
-                fetched_at=datetime.now()
-            ),
-            ProductResponse(
-                source="Mock Data",
-                barcode="000000000004", 
-                name="Banana",
-                brand="Generic",
-                image_url=None,
-                serving_size="120g",
-                nutriments=Nutriments(
-                    energy_kcal_per_100g=89.0,
-                    protein_g_per_100g=1.1,
-                    fat_g_per_100g=0.3,
-                    carbs_g_per_100g=22.8,
-                    sugars_g_per_100g=12.2,
-                    salt_g_per_100g=0.0
-                ),
-                fetched_at=datetime.now()
-            ),
-            ProductResponse(
-                source="Mock Data",
-                barcode="000000000005",
-                name="Almonds", 
-                brand="Generic",
-                image_url=None,
-                serving_size="30g",
-                nutriments=Nutriments(
-                    energy_kcal_per_100g=579.0,
-                    protein_g_per_100g=21.2,
-                    fat_g_per_100g=49.9,
-                    carbs_g_per_100g=21.6,
-                    sugars_g_per_100g=4.4,
-                    salt_g_per_100g=0.0
-                ),
-                fetched_at=datetime.now()
+        try:
+            from app.services.database import db_service
+            await db_service.log_user_product_interaction(
+                user_id=user_id,
+                session_id=None,  # Could be enhanced with session tracking
+                barcode=barcode,
+                action="used_in_meal_plan",
+                context=f"meal_planning:{meal_name}"
             )
-        ]
-        
-        return mock_products
+            logger.debug(f"Logged meal product usage: {user_id} used {barcode} in {meal_name}")
+        except Exception as e:
+            logger.warning(f"Failed to log meal product usage: {e}")
     
     async def _build_meal(self, meal_name: str, target_calories: float, 
                          available_products: List[ProductResponse],

@@ -22,6 +22,8 @@ from app.models.product import ProductResponse
 from app.models.meal_plan import MealPlanResponse
 from app.services.cache import cache_service
 from app.services.plan_storage import plan_storage
+from app.services.product_discovery import product_discovery_service
+from app.services.database import db_service
 
 logger = logging.getLogger(__name__)
 
@@ -93,56 +95,14 @@ class OptimizationEngine:
         ]
     
     def _initialize_swap_database(self) -> Dict[str, List[Dict]]:
-        """Initialize food swap database"""
+        """Initialize basic food categories for dynamic swap generation"""
+        # This now serves as a category mapping for intelligent swap discovery
         return {
-            "white_rice": [
-                {
-                    "name": "Quinoa",
-                    "barcode": "SWAP_QUINOA",
-                    "benefits": {"protein_g": 6, "fiber_g": 3, "calories": 10},
-                    "confidence": 0.85,
-                    "reasoning": "Complete protein source with higher fiber content"
-                },
-                {
-                    "name": "Cauliflower Rice",
-                    "barcode": "SWAP_CAULIFLOWER",
-                    "benefits": {"calories": -150, "carbs_g": -30, "fiber_g": 2},
-                    "confidence": 0.75,
-                    "reasoning": "Low-carb alternative with fewer calories"
-                }
-            ],
-            "chicken_breast": [
-                {
-                    "name": "Salmon",
-                    "barcode": "SWAP_SALMON",
-                    "benefits": {"omega3_g": 2, "calories": 50, "heart_health": True},
-                    "confidence": 0.80,
-                    "reasoning": "Provides healthy omega-3 fatty acids for heart health"
-                },
-                {
-                    "name": "Tofu",
-                    "barcode": "SWAP_TOFU",
-                    "benefits": {"calories": -80, "plant_protein": True, "isoflavones": True},
-                    "confidence": 0.70,
-                    "reasoning": "Plant-based protein with beneficial isoflavones"
-                }
-            ],
-            "whole_milk": [
-                {
-                    "name": "Almond Milk",
-                    "barcode": "SWAP_ALMOND_MILK", 
-                    "benefits": {"calories": -110, "vitamin_e": True},
-                    "confidence": 0.75,
-                    "reasoning": "Lower calories with vitamin E benefits"
-                },
-                {
-                    "name": "Oat Milk",
-                    "barcode": "SWAP_OAT_MILK",
-                    "benefits": {"fiber_g": 2, "beta_glucan": True},
-                    "confidence": 0.80,
-                    "reasoning": "Contains heart-healthy beta-glucan fiber"
-                }
-            ]
+            "grain_products": ["rice", "bread", "pasta", "oats", "quinoa", "barley"],
+            "protein_sources": ["chicken", "beef", "fish", "tofu", "beans", "eggs"],
+            "dairy_products": ["milk", "cheese", "yogurt", "butter", "cream"],
+            "vegetables": ["spinach", "broccoli", "carrots", "tomatoes", "onions"],
+            "fruits": ["apple", "banana", "orange", "berries", "grapes"]
         }
     
     async def analyze_meal_plan(
@@ -334,35 +294,139 @@ class OptimizationEngine:
         return None
     
     async def _generate_swap_suggestions(self, meal, goals: Dict) -> List[OptimizationSuggestion]:
-        """Generate food swap suggestions for meal"""
+        """Generate intelligent food swap suggestions using real product database"""
         suggestions = []
         
         try:
             for item in meal.items:
                 item_name = item.name.lower() if item.name else ""
                 
-                # Check if item matches any swap patterns
-                for food_key, swaps in self.food_swap_database.items():
-                    if food_key.replace("_", " ") in item_name:
-                        for swap in swaps:
-                            suggestion = await self._create_swap_suggestion(
-                                item, swap, food_key
-                            )
-                            if suggestion:
-                                suggestions.append(suggestion)
+                # Determine item category
+                item_category = self._categorize_food_item(item_name)
+                if not item_category:
+                    continue
+                
+                # Find better alternatives in the same category from database
+                alternatives = await self._find_healthier_alternatives(
+                    item, item_category, goals
+                )
+                
+                for alternative in alternatives:
+                    suggestion = await self._create_intelligent_swap_suggestion(
+                        item, alternative, item_category
+                    )
+                    if suggestion:
+                        suggestions.append(suggestion)
         
         except Exception as e:
-            logger.error(f"Error generating swap suggestions: {e}")
+            logger.error(f"Error generating intelligent swap suggestions: {e}")
         
         return suggestions
     
-    async def _create_swap_suggestion(
+    def _categorize_food_item(self, item_name: str) -> Optional[str]:
+        """Categorize a food item based on its name"""
+        for category, keywords in self.food_swap_database.items():
+            for keyword in keywords:
+                if keyword in item_name:
+                    return category
+        return None
+    
+    async def _find_healthier_alternatives(
         self, 
         current_item, 
-        swap_data: Dict,
-        food_key: str
+        category: str, 
+        goals: Dict
+    ) -> List[Dict]:
+        """Find healthier alternatives from database"""
+        try:
+            alternatives = []
+            
+            # Get current item's nutritional profile
+            current_calories = getattr(current_item.macros, 'calories', 0)
+            current_protein = getattr(current_item.macros, 'protein_g', 0)
+            current_fat = getattr(current_item.macros, 'fat_g', 0)
+            
+            # Search database for similar products in same category
+            with db_service.get_connection() as conn:
+                cursor = conn.cursor()
+                
+                # Build search query based on category
+                category_keywords = self.food_swap_database.get(category, [])
+                keyword_conditions = []
+                params = []
+                
+                for keyword in category_keywords:
+                    keyword_conditions.append("(LOWER(name) LIKE ? OR LOWER(categories) LIKE ?)")
+                    params.extend([f"%{keyword}%", f"%{keyword}%"])
+                
+                if not keyword_conditions:
+                    return alternatives
+                
+                where_clause = f"WHERE {' OR '.join(keyword_conditions)}"
+                params.append(10)  # Limit results
+                
+                cursor.execute(f"""
+                    SELECT * FROM products p
+                    {where_clause}
+                    AND json_extract(p.nutriments, '$.energy_kcal_per_100g') IS NOT NULL
+                    ORDER BY p.access_count DESC
+                    LIMIT ?
+                """, params)
+                
+                rows = cursor.fetchall()
+                
+                for row in rows:
+                    try:
+                        import json
+                        nutriments = json.loads(row['nutriments'])
+                        
+                        # Calculate improvement potential
+                        alt_calories = nutriments.get('energy_kcal_per_100g', 0) or 0
+                        alt_protein = nutriments.get('protein_g_per_100g', 0) or 0
+                        alt_fat = nutriments.get('fat_g_per_100g', 0) or 0
+                        
+                        # Determine if this is a better alternative
+                        improvements = {}
+                        reasoning_parts = []
+                        
+                        if alt_calories < current_calories * 0.8:  # 20% fewer calories
+                            improvements['calories'] = current_calories - alt_calories
+                            reasoning_parts.append("lower calorie option")
+                        
+                        if alt_protein > current_protein * 1.2:  # 20% more protein
+                            improvements['protein_g'] = alt_protein - current_protein
+                            reasoning_parts.append("higher protein content")
+                        
+                        if alt_fat < current_fat * 0.7:  # 30% less fat
+                            improvements['fat_g'] = current_fat - alt_fat
+                            reasoning_parts.append("reduced fat")
+                        
+                        # Only suggest if there are meaningful improvements
+                        if improvements:
+                            alternatives.append({
+                                "name": row['name'],
+                                "barcode": row['barcode'],
+                                "benefits": improvements,
+                                "confidence": min(0.9, 0.6 + len(improvements) * 0.1),
+                                "reasoning": f"Better choice with {', '.join(reasoning_parts)}"
+                            })
+                    
+                    except Exception as e:
+                        logger.warning(f"Error processing alternative {row.get('barcode')}: {e}")
+            
+            return alternatives[:3]  # Return top 3 alternatives
+            
+        except Exception as e:
+            logger.error(f"Error finding healthier alternatives: {e}")
+            return []
+    
+    async def _create_intelligent_swap_suggestion(
+        self, 
+        current_item, 
+        alternative: Dict,
+        category: str
     ) -> Optional[OptimizationSuggestion]:
-        """Create a food swap suggestion"""
+        """Create an intelligent swap suggestion based on database analysis"""
         try:
             suggestion_id = str(uuid.uuid4())
             
@@ -370,27 +434,28 @@ class OptimizationEngine:
                 id=suggestion_id,
                 suggestion_type=SuggestionType.OPTIMIZATION,
                 category=SuggestionCategory.FOOD_SWAP,
-                optimization_type="swap",
-                title=f"Swap {current_item.name} for {swap_data['name']}",
-                description=f"Replace with {swap_data['name']} for better nutrition",
-                reasoning=swap_data.get("reasoning", "Improves nutritional profile"),
+                optimization_type="intelligent_swap",
+                title=f"Swap {current_item.name} for {alternative['name']}",
+                description=f"Replace with {alternative['name']} for better nutrition",
+                reasoning=alternative.get("reasoning", "Improves nutritional profile based on database analysis"),
                 current_item={
                     "name": current_item.name,
                     "barcode": getattr(current_item, 'barcode', ''),
                     "calories": getattr(current_item.macros, 'calories', 0)
                 },
                 suggested_item={
-                    "name": swap_data["name"],
-                    "barcode": swap_data["barcode"]
+                    "name": alternative["name"],
+                    "barcode": alternative["barcode"],
+                    "source": "Database Analysis"
                 },
-                nutritional_benefit=swap_data.get("benefits", {}),
-                target_improvement=swap_data.get("benefits", {}),
-                confidence_score=swap_data.get("confidence", 0.75),
+                nutritional_benefit=alternative.get("benefits", {}),
+                target_improvement=alternative.get("benefits", {}),
+                confidence_score=alternative.get("confidence", 0.75),
                 planning_context=SmartDietContext.OPTIMIZE
             )
         
         except Exception as e:
-            logger.error(f"Error creating swap suggestion: {e}")
+            logger.error(f"Error creating intelligent swap suggestion: {e}")
         
         return None
 

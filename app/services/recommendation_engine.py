@@ -15,6 +15,7 @@ from app.models.product import ProductResponse, Nutriments
 from app.models.meal_plan import MealPlanResponse
 from app.services.cache import cache_service
 from app.services.plan_storage import plan_storage
+from app.services.product_discovery import product_discovery_service
 
 logger = logging.getLogger(__name__)
 
@@ -554,113 +555,43 @@ class SmartRecommendationEngine:
         return rec_type, reasons
     
     async def _load_available_products(self, request: SmartRecommendationRequest) -> List[ProductResponse]:
-        """Load available products for recommendations."""
-        products = []
+        """Load available products for recommendations using intelligent discovery."""
+        logger.info(f"Loading products for user {request.user_id} with dynamic discovery")
         
-        # For now, use the same mock products as the meal planner
-        # In production, this would query a comprehensive product database
-        products.extend(await self._get_mock_recommendation_products())
-        
-        # TODO: Add database query for cached products
-        # TODO: Add external API calls for fresh product data
-        # TODO: Add user-specific product preferences
-        
-        logger.info(f"Loaded {len(products)} products for recommendations")
-        return products
+        try:
+            # Use the new product discovery service for intelligent product sourcing
+            products = await product_discovery_service.discover_products_for_recommendations(
+                user_id=request.user_id,
+                dietary_restrictions=request.dietary_restrictions,
+                cuisine_preferences=request.cuisine_preferences,
+                max_products=50  # Get more products for better recommendation diversity
+            )
+            
+            logger.info(f"Loaded {len(products)} products for recommendations via dynamic discovery")
+            return products
+            
+        except Exception as e:
+            logger.error(f"Error loading products with discovery service: {e}")
+            # Fallback to emergency products if discovery fails
+            return await product_discovery_service._get_emergency_fallback_products()
     
-    async def _get_mock_recommendation_products(self) -> List[ProductResponse]:
-        """Get mock products for recommendation demonstration."""
-        from datetime import datetime
-        from app.models.product import Nutriments
+    async def _log_user_product_interaction(self, user_id: Optional[str], barcode: str, action: str):
+        """Log user interaction with recommended product for learning."""
+        if not user_id:
+            return
         
-        mock_products = [
-            # Protein-rich options
-            ProductResponse(
-                source="Mock Data",
-                barcode="REC000001",
-                name="Greek Yogurt",
-                brand="Healthy Choice",
-                serving_size="170g",
-                nutriments=Nutriments(
-                    energy_kcal_per_100g=97.0,
-                    protein_g_per_100g=10.0,
-                    fat_g_per_100g=0.4,
-                    carbs_g_per_100g=3.6,
-                    sugars_g_per_100g=3.6,
-                    salt_g_per_100g=0.1
-                ),
-                fetched_at=datetime.now()
-            ),
-            ProductResponse(
-                source="Mock Data",
-                barcode="REC000002",
-                name="Quinoa",
-                brand="Ancient Grains",
-                serving_size="100g",
-                nutriments=Nutriments(
-                    energy_kcal_per_100g=368.0,
-                    protein_g_per_100g=14.1,
-                    fat_g_per_100g=6.1,
-                    carbs_g_per_100g=64.2,
-                    sugars_g_per_100g=1.6,
-                    salt_g_per_100g=0.0
-                ),
-                fetched_at=datetime.now()
-            ),
-            # Low-calorie options
-            ProductResponse(
-                source="Mock Data",
-                barcode="REC000003",
-                name="Baby Spinach",
-                brand="Fresh Greens",
-                serving_size="100g",
-                nutriments=Nutriments(
-                    energy_kcal_per_100g=23.0,
-                    protein_g_per_100g=2.9,
-                    fat_g_per_100g=0.4,
-                    carbs_g_per_100g=3.6,
-                    sugars_g_per_100g=0.4,
-                    salt_g_per_100g=0.1
-                ),
-                fetched_at=datetime.now()
-            ),
-            # Healthy fats
-            ProductResponse(
-                source="Mock Data",
-                barcode="REC000004",
-                name="Avocado",
-                brand="Nature's Best",
-                serving_size="150g",
-                nutriments=Nutriments(
-                    energy_kcal_per_100g=160.0,
-                    protein_g_per_100g=2.0,
-                    fat_g_per_100g=14.7,
-                    carbs_g_per_100g=8.5,
-                    sugars_g_per_100g=0.7,
-                    salt_g_per_100g=0.0
-                ),
-                fetched_at=datetime.now()
-            ),
-            # Complex carbs
-            ProductResponse(
-                source="Mock Data",
-                barcode="REC000005",
-                name="Sweet Potato",
-                brand="Farm Fresh",
-                serving_size="200g",
-                nutriments=Nutriments(
-                    energy_kcal_per_100g=86.0,
-                    protein_g_per_100g=1.6,
-                    fat_g_per_100g=0.1,
-                    carbs_g_per_100g=20.1,
-                    sugars_g_per_100g=4.2,
-                    salt_g_per_100g=0.0
-                ),
-                fetched_at=datetime.now()
-            ),
-        ]
-        
-        return mock_products
+        try:
+            from app.services.database import db_service
+            await db_service.log_user_product_interaction(
+                user_id=user_id,
+                session_id=None,  # Could be enhanced with session tracking
+                barcode=barcode,
+                action=action,
+                context="smart_recommendation"
+            )
+            logger.debug(f"Logged product interaction: {user_id} {action} {barcode}")
+        except Exception as e:
+            logger.warning(f"Failed to log product interaction: {e}")
     
     # Additional helper methods would continue here...
     
@@ -929,8 +860,7 @@ class SmartRecommendationEngine:
         try:
             await cache_service.set(
                 cache_key,
-                response.dict(),
-                ttl_hours=24  # 24 hour cache for recommendations
+                response.dict()
             )
             logger.debug(f"Cached recommendations with key: {cache_key}")
         except Exception as e:
