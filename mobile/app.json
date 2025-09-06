@@ -48,7 +48,8 @@
           "photosPermission": "Allow DietIntel to access your photo library to save and retrieve nutrition label images."
         }
       ],
-      "expo-splash-screen"
+      "expo-splash-screen",
+      "expo-localization"
     ],
     "extra": {
       "eas": {

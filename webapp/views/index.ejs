@@ -3,17 +3,17 @@
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24">
         <div class="text-center">
             <h1 class="text-4xl md:text-6xl font-bold mb-6">
-                Smart Nutrition Tracking
+                <%= t('hero.title') %>
             </h1>
             <p class="text-xl md:text-2xl mb-8 text-blue-100 max-w-3xl mx-auto">
-                Scan barcodes, read labels with OCR, and generate AI-powered meal plans tailored to your goals
+                <%= t('hero.subtitle') %>
             </p>
             <div class="flex flex-col sm:flex-row gap-4 justify-center">
                 <a href="/plans/new" class="bg-white text-blue-600 px-8 py-3 rounded-lg font-semibold hover:bg-blue-50 transition-colors">
-                    🍽️ Generate Meal Plan
+                    <%= t('hero.generateMealPlan') %>
                 </a>
                 <a href="/docs" class="border-2 border-white text-white px-8 py-3 rounded-lg font-semibold hover:bg-white hover:text-blue-600 transition-colors">
-                    📚 View API Docs
+                    <%= t('hero.viewApiDocs') %>
                 </a>
             </div>
         </div>
@@ -24,8 +24,8 @@
 <div class="py-16 bg-white">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="text-center mb-16">
-            <h2 class="text-3xl font-bold text-gray-900 mb-4">Powerful Features</h2>
-            <p class="text-xl text-gray-600">Everything you need for intelligent nutrition tracking</p>
+            <h2 class="text-3xl font-bold text-gray-900 mb-4"><%= t('features.title') %></h2>
+            <p class="text-xl text-gray-600"><%= t('features.subtitle') %></p>
         </div>
 
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">

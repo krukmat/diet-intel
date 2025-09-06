@@ -13,6 +13,7 @@ import {
   Platform,
 } from 'react-native';
 import { StatusBar as ExpoStatusBar } from 'expo-status-bar';
+import { useTranslation } from 'react-i18next';
 import { apiService } from '../services/ApiService';
 
 interface UserProfile {
@@ -82,9 +83,11 @@ interface CustomizeModalProps {
   onClose: () => void;
   onConfirm: (newItem: MealItem) => void;
   mealType: string;
+  translateMealName: (mealName: string) => string;
 }
 
-const CustomizeModal: React.FC<CustomizeModalProps> = ({ visible, onClose, onConfirm, mealType }) => {
+const CustomizeModal: React.FC<CustomizeModalProps> = ({ visible, onClose, onConfirm, mealType, translateMealName }) => {
+  const { t } = useTranslation();
   const [searchQuery, setSearchQuery] = useState('');
   const [searchType, setSearchType] = useState<'barcode' | 'text'>('barcode');
   const [loading, setLoading] = useState(false);
@@ -117,18 +120,19 @@ const CustomizeModal: React.FC<CustomizeModalProps> = ({ visible, onClose, onCon
         const newItem: MealItem = {
           barcode: product.code || `manual_${Date.now()}`,
           name: product.product_name || product.name || 'Unknown Product',
-          brand: product.brands || product.brand || '',
-          serving_size: product.serving_size || '100g',
-          calories_per_serving: product.nutriments?.energy_kcal_100g || 0,
-          protein_g: product.nutriments?.proteins_100g || 0,
-          fat_g: product.nutriments?.fat_100g || 0,
-          carbs_g: product.nutriments?.carbohydrates_100g || 0,
+          serving: product.serving_size || '100g',
+          calories: product.nutriments?.energy_kcal_100g || 0,
+          macros: {
+            protein_g: product.nutriments?.proteins_100g || 0,
+            fat_g: product.nutriments?.fat_100g || 0,
+            carbs_g: product.nutriments?.carbohydrates_100g || 0,
+          },
         };
         onConfirm(newItem);
         resetModal();
       }
     } catch (error) {
-      Alert.alert('Search Failed', 'Could not find product. Try manual entry instead.');
+      Alert.alert(t('common.error'), 'Could not find product. Try manual entry instead.');
     } finally {
       setLoading(false);
     }
@@ -136,19 +140,20 @@ const CustomizeModal: React.FC<CustomizeModalProps> = ({ visible, onClose, onCon
 
   const handleManualAdd = () => {
     if (!manualItem.name.trim()) {
-      Alert.alert('Missing Name', 'Please enter a product name');
+      Alert.alert(t('common.error'), 'Please enter a product name');
       return;
     }
 
     const newItem: MealItem = {
       barcode: `manual_${Date.now()}`,
       name: manualItem.name,
-      brand: manualItem.brand || '',
-      serving_size: manualItem.serving_size || '100g',
-      calories_per_serving: parseFloat(manualItem.calories_per_serving) || 0,
-      protein_g: parseFloat(manualItem.protein_g) || 0,
-      fat_g: parseFloat(manualItem.fat_g) || 0,
-      carbs_g: parseFloat(manualItem.carbs_g) || 0,
+      serving: manualItem.serving_size || '100g',
+      calories: parseFloat(manualItem.calories_per_serving) || 0,
+      macros: {
+        protein_g: parseFloat(manualItem.protein_g) || 0,
+        fat_g: parseFloat(manualItem.fat_g) || 0,
+        carbs_g: parseFloat(manualItem.carbs_g) || 0,
+      },
     };
 
     onConfirm(newItem);
@@ -174,7 +179,7 @@ const CustomizeModal: React.FC<CustomizeModalProps> = ({ visible, onClose, onCon
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet">
       <SafeAreaView style={styles.modalContainer}>
         <View style={styles.modalHeader}>
-          <Text style={styles.modalTitle}>Customize {mealType}</Text>
+          <Text style={styles.modalTitle}>{t('plan.customize')} {translateMealName(mealType)}</Text>
           <TouchableOpacity onPress={resetModal} style={styles.closeButton}>
             <Text style={styles.closeButtonText}>✕</Text>
           </TouchableOpacity>
@@ -186,7 +191,7 @@ const CustomizeModal: React.FC<CustomizeModalProps> = ({ visible, onClose, onCon
             onPress={() => setMode('search')}
           >
             <Text style={[styles.modeButtonText, mode === 'search' && styles.modeButtonTextActive]}>
-              🔍 Search
+              🔍 {t('plan.modal.search')}
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
@@ -194,7 +199,7 @@ const CustomizeModal: React.FC<CustomizeModalProps> = ({ visible, onClose, onCon
             onPress={() => setMode('manual')}
           >
             <Text style={[styles.modeButtonText, mode === 'manual' && styles.modeButtonTextActive]}>
-              ✏️ Manual
+              ✏️ {t('plan.modal.manual')}
             </Text>
           </TouchableOpacity>
         </View>
@@ -207,19 +212,19 @@ const CustomizeModal: React.FC<CustomizeModalProps> = ({ visible, onClose, onCon
                   style={[styles.searchTypeButton, searchType === 'barcode' && styles.searchTypeButtonActive]}
                   onPress={() => setSearchType('barcode')}
                 >
-                  <Text style={styles.searchTypeButtonText}>Barcode</Text>
+                  <Text style={styles.searchTypeButtonText}>{t('plan.modal.barcode')}</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={[styles.searchTypeButton, searchType === 'text' && styles.searchTypeButtonActive]}
                   onPress={() => setSearchType('text')}
                 >
-                  <Text style={styles.searchTypeButtonText}>Text</Text>
+                  <Text style={styles.searchTypeButtonText}>{t('plan.modal.text')}</Text>
                 </TouchableOpacity>
               </View>
 
               <TextInput
                 style={styles.searchInput}
-                placeholder={searchType === 'barcode' ? 'Enter barcode...' : 'Enter product name...'}
+                placeholder={searchType === 'barcode' ? t('scanner.manual.placeholder') : t('plan.modal.searchProduct')}
                 value={searchQuery}
                 onChangeText={setSearchQuery}
                 keyboardType={searchType === 'barcode' ? 'numeric' : 'default'}
@@ -233,46 +238,46 @@ const CustomizeModal: React.FC<CustomizeModalProps> = ({ visible, onClose, onCon
                 {loading ? (
                   <ActivityIndicator size="small" color="white" />
                 ) : (
-                  <Text style={styles.actionButtonText}>Search Product</Text>
+                  <Text style={styles.actionButtonText}>{t('plan.modal.searchProduct')}</Text>
                 )}
               </TouchableOpacity>
             </View>
           ) : (
             <View>
-              <Text style={styles.sectionTitle}>Add Manual Item</Text>
+              <Text style={styles.sectionTitle}>{t('plan.modal.addManualItem')}</Text>
               
               <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Product Name *</Text>
+                <Text style={styles.inputLabel}>{t('plan.modal.productName')}</Text>
                 <TextInput
                   style={styles.textInput}
                   value={manualItem.name}
                   onChangeText={(text) => setManualItem(prev => ({ ...prev, name: text }))}
-                  placeholder="Enter product name"
+                  placeholder={t('plan.modal.productNamePlaceholder')}
                 />
               </View>
 
               <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Brand</Text>
+                <Text style={styles.inputLabel}>{t('plan.modal.brand')}</Text>
                 <TextInput
                   style={styles.textInput}
                   value={manualItem.brand}
                   onChangeText={(text) => setManualItem(prev => ({ ...prev, brand: text }))}
-                  placeholder="Enter brand (optional)"
+                  placeholder={t('plan.modal.brandPlaceholder')}
                 />
               </View>
 
               <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Serving Size</Text>
+                <Text style={styles.inputLabel}>{t('plan.modal.servingSize')}</Text>
                 <TextInput
                   style={styles.textInput}
                   value={manualItem.serving_size}
                   onChangeText={(text) => setManualItem(prev => ({ ...prev, serving_size: text }))}
-                  placeholder="e.g., 100g, 1 cup"
+                  placeholder={t('plan.modal.servingSizePlaceholder')}
                 />
               </View>
 
               <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Calories per serving</Text>
+                <Text style={styles.inputLabel}>{t('plan.modal.caloriesPerServing')}</Text>
                 <TextInput
                   style={styles.textInput}
                   value={manualItem.calories_per_serving}
@@ -284,7 +289,7 @@ const CustomizeModal: React.FC<CustomizeModalProps> = ({ visible, onClose, onCon
 
               <View style={styles.macroRow}>
                 <View style={styles.macroInput}>
-                  <Text style={styles.inputLabel}>Protein (g)</Text>
+                  <Text style={styles.inputLabel}>{t('plan.modal.proteinG')}</Text>
                   <TextInput
                     style={styles.textInput}
                     value={manualItem.protein_g}
@@ -294,7 +299,7 @@ const CustomizeModal: React.FC<CustomizeModalProps> = ({ visible, onClose, onCon
                   />
                 </View>
                 <View style={styles.macroInput}>
-                  <Text style={styles.inputLabel}>Fat (g)</Text>
+                  <Text style={styles.inputLabel}>{t('plan.modal.fatG')}</Text>
                   <TextInput
                     style={styles.textInput}
                     value={manualItem.fat_g}
@@ -304,7 +309,7 @@ const CustomizeModal: React.FC<CustomizeModalProps> = ({ visible, onClose, onCon
                   />
                 </View>
                 <View style={styles.macroInput}>
-                  <Text style={styles.inputLabel}>Carbs (g)</Text>
+                  <Text style={styles.inputLabel}>{t('plan.modal.carbsG')}</Text>
                   <TextInput
                     style={styles.textInput}
                     value={manualItem.carbs_g}
@@ -320,7 +325,7 @@ const CustomizeModal: React.FC<CustomizeModalProps> = ({ visible, onClose, onCon
                 onPress={handleManualAdd}
                 disabled={!manualItem.name.trim()}
               >
-                <Text style={styles.actionButtonText}>Add Item</Text>
+                <Text style={styles.actionButtonText}>{t('plan.modal.addItem')}</Text>
               </TouchableOpacity>
             </View>
           )}
@@ -335,8 +340,18 @@ interface PlanScreenProps {
 }
 
 export default function PlanScreen({ onBackPress }: PlanScreenProps) {
+  const { t } = useTranslation();
   const [dailyPlan, setDailyPlan] = useState<DailyPlan | null>(null);
   const [loading, setLoading] = useState(false);
+  
+  // Helper function to translate meal names
+  const translateMealName = (mealName: string): string => {
+    const translationKey = `plan.meals.${mealName}`;
+    const translatedName = t(translationKey);
+    // If translation doesn't exist, fall back to original name
+    return translatedName !== translationKey ? translatedName : mealName;
+  };
+  
   const [customizeModal, setCustomizeModal] = useState({
     visible: false,
     mealType: '',
@@ -381,7 +396,7 @@ export default function PlanScreen({ onBackPress }: PlanScreenProps) {
       const response = await apiService.generateMealPlan(request);
       setDailyPlan(response.data);
     } catch (error) {
-      Alert.alert('Error', 'Failed to generate meal plan. Please try again.');
+      Alert.alert(t('common.error'), 'Failed to generate meal plan. Please try again.');
       console.error('Plan generation failed:', error);
     } finally {
       setLoading(false);
@@ -414,15 +429,12 @@ export default function PlanScreen({ onBackPress }: PlanScreenProps) {
       meal.items.push(newItem);
       
       // Recalculate totals
-      meal.total_calories = meal.items.reduce((sum, item) => sum + item.calories_per_serving, 0);
-      meal.total_protein = meal.items.reduce((sum, item) => sum + item.protein_g, 0);
-      meal.total_fat = meal.items.reduce((sum, item) => sum + item.fat_g, 0);
-      meal.total_carbs = meal.items.reduce((sum, item) => sum + item.carbs_g, 0);
+      meal.actual_calories = meal.items.reduce((sum, item) => sum + item.calories, 0);
       
       setDailyPlan(updatedPlan);
-      Alert.alert('Success', 'Item added to meal plan!');
+      Alert.alert(t('common.success'), 'Item added to meal plan!');
     } catch (error) {
-      Alert.alert('Error', 'Failed to customize meal plan.');
+      Alert.alert(t('common.error'), 'Failed to customize meal plan.');
     }
   };
 
@@ -450,7 +462,7 @@ export default function PlanScreen({ onBackPress }: PlanScreenProps) {
       <View style={styles.mealHeader}>
         <Text style={styles.mealTitle}>
           {meal.name === 'Breakfast' ? '🌅' : 
-           meal.name === 'Lunch' ? '🌞' : '🌙'} {meal.name}
+           meal.name === 'Lunch' ? '🌞' : '🌙'} {translateMealName(meal.name)}
         </Text>
         <Text style={styles.mealCalories}>{Math.round(meal.actual_calories)} kcal</Text>
       </View>
@@ -469,7 +481,7 @@ export default function PlanScreen({ onBackPress }: PlanScreenProps) {
         style={styles.customizeButton}
         onPress={() => handleCustomize(index, meal.name)}
       >
-        <Text style={styles.customizeButtonText}>🔧 Customize</Text>
+        <Text style={styles.customizeButtonText}>{t('plan.customize')}</Text>
       </TouchableOpacity>
     </View>
   );
@@ -479,7 +491,7 @@ export default function PlanScreen({ onBackPress }: PlanScreenProps) {
       <SafeAreaView style={styles.container}>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#007AFF" />
-          <Text style={styles.loadingText}>Generating your meal plan...</Text>
+          <Text style={styles.loadingText}>{t('plan.generating')}</Text>
         </View>
       </SafeAreaView>
     );
@@ -489,9 +501,9 @@ export default function PlanScreen({ onBackPress }: PlanScreenProps) {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.errorContainer}>
-          <Text style={styles.errorText}>Failed to load meal plan</Text>
+          <Text style={styles.errorText}>{t('plan.failed')}</Text>
           <TouchableOpacity style={styles.retryButton} onPress={generatePlan}>
-            <Text style={styles.retryButtonText}>Retry</Text>
+            <Text style={styles.retryButtonText}>{t('plan.retry')}</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
@@ -507,8 +519,8 @@ export default function PlanScreen({ onBackPress }: PlanScreenProps) {
           <Text style={styles.backButtonText}>🏠</Text>
         </TouchableOpacity>
         <View style={styles.headerContent}>
-          <Text style={styles.title}>🍽️ Daily Meal Plan</Text>
-          <Text style={styles.subtitle}>Today's Plan ({dailyPlan.daily_calorie_target} kcal)</Text>
+          <Text style={styles.title}>{t('plan.title')}</Text>
+          <Text style={styles.subtitle}>{t('plan.todaysCalories', { calories: dailyPlan.daily_calorie_target })}</Text>
         </View>
         <View style={styles.headerSpacer} />
       </View>
@@ -516,37 +528,37 @@ export default function PlanScreen({ onBackPress }: PlanScreenProps) {
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         {/* Daily Progress */}
         <View style={styles.progressSection}>
-          <Text style={styles.sectionTitle}>Daily Progress</Text>
+          <Text style={styles.sectionTitle}>{t('plan.dailyProgress')}</Text>
           
           <View style={styles.progressItem}>
-            <Text style={styles.progressLabel}>Calories</Text>
+            <Text style={styles.progressLabel}>{t('plan.calories')}</Text>
             {renderProgressBar(consumed.calories, dailyPlan.metrics.total_calories, '#FF6B6B')}
           </View>
           
           <View style={styles.progressItem}>
-            <Text style={styles.progressLabel}>Protein</Text>
+            <Text style={styles.progressLabel}>{t('plan.protein')}</Text>
             {renderProgressBar(consumed.protein, dailyPlan.metrics.protein_g, '#4ECDC4')}
           </View>
           
           <View style={styles.progressItem}>
-            <Text style={styles.progressLabel}>Fat</Text>
+            <Text style={styles.progressLabel}>{t('plan.fat')}</Text>
             {renderProgressBar(consumed.fat, dailyPlan.metrics.fat_g, '#45B7D1')}
           </View>
           
           <View style={styles.progressItem}>
-            <Text style={styles.progressLabel}>Carbs</Text>
+            <Text style={styles.progressLabel}>{t('plan.carbs')}</Text>
             {renderProgressBar(consumed.carbs, dailyPlan.metrics.carbs_g, '#F9CA24')}
           </View>
         </View>
 
         {/* Meals */}
         <View style={styles.mealsSection}>
-          <Text style={styles.sectionTitle}>Planned Meals</Text>
+          <Text style={styles.sectionTitle}>{t('plan.plannedMeals')}</Text>
           {dailyPlan.meals.map(renderMeal)}
         </View>
 
         <TouchableOpacity style={styles.regenerateButton} onPress={generatePlan}>
-          <Text style={styles.regenerateButtonText}>🔄 Generate New Plan</Text>
+          <Text style={styles.regenerateButtonText}>{t('plan.generateNewPlan')}</Text>
         </TouchableOpacity>
       </ScrollView>
 
@@ -555,6 +567,7 @@ export default function PlanScreen({ onBackPress }: PlanScreenProps) {
         onClose={() => setCustomizeModal(prev => ({ ...prev, visible: false }))}
         onConfirm={handleCustomizeConfirm}
         mealType={customizeModal.mealType}
+        translateMealName={translateMealName}
       />
     </SafeAreaView>
   );

@@ -4,11 +4,11 @@
     <!-- Header -->
     <div class="flex items-center justify-between mb-8">
         <div>
-            <h1 class="text-3xl font-bold text-gray-900">Meal Plans</h1>
-            <p class="mt-2 text-gray-600">Manage your personalized nutrition plans</p>
+            <h1 class="text-3xl font-bold text-gray-900"><%= t('plans.title') %></h1>
+            <p class="mt-2 text-gray-600"><%= t('plans.subtitle') %></p>
         </div>
         <a href="/plans/new" class="bg-blue-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-blue-700 transition-colors">
-            ➕ Generate New Plan
+            <%= t('plans.generateNewPlan') %>
         </a>
     </div>
 
@@ -20,7 +20,7 @@
                     <span class="text-2xl">📊</span>
                 </div>
                 <div class="ml-4">
-                    <p class="text-sm font-medium text-gray-600">Total Plans</p>
+                    <p class="text-sm font-medium text-gray-600"><%= t('plans.totalPlans') %></p>
                     <p class="text-2xl font-bold text-gray-900"><%= plans.length %></p>
                 </div>
             </div>
@@ -32,7 +32,7 @@
                     <span class="text-2xl">✅</span>
                 </div>
                 <div class="ml-4">
-                    <p class="text-sm font-medium text-gray-600">Active</p>
+                    <p class="text-sm font-medium text-gray-600"><%= t('plans.active') %></p>
                     <p class="text-2xl font-bold text-gray-900">
                         <%= plans.filter(p => p.status === 'active').length %>
                     </p>
@@ -46,7 +46,7 @@
                     <span class="text-2xl">⏳</span>
                 </div>
                 <div class="ml-4">
-                    <p class="text-sm font-medium text-gray-600">Pending</p>
+                    <p class="text-sm font-medium text-gray-600"><%= t('plans.pending') %></p>
                     <p class="text-2xl font-bold text-gray-900">
                         <%= plans.filter(p => p.status === 'pending').length %>
                     </p>
@@ -60,7 +60,7 @@
                     <span class="text-2xl">🎯</span>
                 </div>
                 <div class="ml-4">
-                    <p class="text-sm font-medium text-gray-600">Avg Calories</p>
+                    <p class="text-sm font-medium text-gray-600"><%= t('plans.avgCalories') %></p>
                     <p class="text-2xl font-bold text-gray-900">
                         <%= Math.round(plans.reduce((sum, p) => sum + p.target_calories, 0) / plans.length) %>
                     </p>
@@ -73,22 +73,22 @@
     <div class="bg-white rounded-lg shadow mb-6 p-4">
         <div class="flex flex-col sm:flex-row gap-4">
             <div class="flex-1">
-                <input type="text" placeholder="Search meal plans..." 
+                <input type="text" placeholder="<%= t('plans.searchPlaceholder') %>" 
                        class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                        onkeyup="filterPlans()">
             </div>
             <select class="px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                     onchange="filterPlans()">
-                <option value="">All Status</option>
-                <option value="active">Active</option>
-                <option value="pending">Pending</option>
-                <option value="completed">Completed</option>
+                <option value=""><%= t('plans.allStatus') %></option>
+                <option value="active"><%= t('plans.active') %></option>
+                <option value="pending"><%= t('plans.pending') %></option>
+                <option value="completed"><%= t('plans.completed') %></option>
             </select>
             <select class="px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                     onchange="sortPlans()">
-                <option value="date">Sort by Date</option>
-                <option value="name">Sort by Name</option>
-                <option value="calories">Sort by Calories</option>
+                <option value="date"><%= t('plans.sortByDate') %></option>
+                <option value="name"><%= t('plans.sortByName') %></option>
+                <option value="calories"><%= t('plans.sortByCalories') %></option>
             </select>
         </div>
     </div>
@@ -99,10 +99,10 @@
         <!-- Empty State -->
         <div class="col-span-full text-center py-12">
             <div class="text-6xl mb-4">🍽️</div>
-            <h3 class="text-xl font-semibold text-gray-900 mb-2">No meal plans yet</h3>
-            <p class="text-gray-600 mb-6">Create your first personalized meal plan to get started</p>
+            <h3 class="text-xl font-semibold text-gray-900 mb-2"><%= t('plans.noPlansTitle') %></h3>
+            <p class="text-gray-600 mb-6"><%= t('plans.noPlansDescription') %></p>
             <a href="/plans/new" class="bg-blue-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-blue-700 transition-colors">
-                Generate Your First Plan
+                <%= t('plans.generateFirstPlan') %>
             </a>
         </div>
         <% } else { %>
@@ -129,9 +129,9 @@
                             <% if (plan.status === 'active') { %>bg-green-100 text-green-800
                             <% } else if (plan.status === 'pending') { %>bg-yellow-100 text-yellow-800
                             <% } else { %>bg-gray-100 text-gray-800<% } %>">
-                            <% if (plan.status === 'active') { %>✅ Active
-                            <% } else if (plan.status === 'pending') { %>⏳ Pending
-                            <% } else { %>📁 Completed<% } %>
+                            <% if (plan.status === 'active') { %>✅ <%= t('plans.active') %>
+                            <% } else if (plan.status === 'pending') { %>⏳ <%= t('plans.pending') %>
+                            <% } else { %>📁 <%= t('plans.completed') %><% } %>
                         </span>
                     </div>
                 </div>
@@ -139,7 +139,7 @@
                 <!-- Calories Info -->
                 <div class="mb-4">
                     <div class="flex items-center justify-between text-sm text-gray-600 mb-2">
-                        <span>Daily Calories</span>
+                        <span><%= t('plans.dailyCalories') %></span>
                         <span class="font-medium"><%= Math.round(plan.target_calories) %> kcal</span>
                     </div>
                     <div class="w-full bg-gray-200 rounded-full h-2">
@@ -152,15 +152,15 @@
                 <div class="grid grid-cols-3 gap-4 mb-6 text-center">
                     <div>
                         <div class="text-lg font-semibold text-gray-900">4</div>
-                        <div class="text-xs text-gray-600">Meals</div>
+                        <div class="text-xs text-gray-600"><%= t('plans.meals') %></div>
                     </div>
                     <div>
                         <div class="text-lg font-semibold text-gray-900">-</div>
-                        <div class="text-xs text-gray-600">Items</div>
+                        <div class="text-xs text-gray-600"><%= t('plans.items') %></div>
                     </div>
                     <div>
                         <div class="text-lg font-semibold text-gray-900">-</div>
-                        <div class="text-xs text-gray-600">Protein</div>
+                        <div class="text-xs text-gray-600"><%= t('plans.protein') %></div>
                     </div>
                 </div>
 
@@ -168,7 +168,7 @@
                 <div class="flex space-x-2">
                     <a href="/plans/<%= plan.id %>" 
                        class="flex-1 bg-blue-600 text-white text-center py-2 px-4 rounded-md text-sm font-medium hover:bg-blue-700 transition-colors">
-                        View Details
+                        <%= t('plans.viewDetails') %>
                     </a>
                     <button onclick="duplicatePlan('<%= plan.id %>')" 
                             class="bg-gray-100 text-gray-700 py-2 px-4 rounded-md text-sm font-medium hover:bg-gray-200 transition-colors">
@@ -183,7 +183,7 @@
                 <!-- Created Date -->
                 <div class="mt-4 pt-4 border-t border-gray-100">
                     <p class="text-xs text-gray-500">
-                        Created <%= new Date(plan.created_at).toLocaleDateString() %>
+                        <%= t('plans.created') %> <%= new Date(plan.created_at).toLocaleDateString() %>
                     </p>
                 </div>
             </div>
@@ -197,7 +197,7 @@
     <div class="mt-8 flex justify-center">
         <nav class="relative z-0 inline-flex rounded-md shadow-sm -space-x-px">
             <button class="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
-                Previous
+                <%= t('plans.previous') %>
             </button>
             <button class="bg-blue-50 border-blue-500 text-blue-600 relative inline-flex items-center px-4 py-2 border text-sm font-medium">
                 1
@@ -209,7 +209,7 @@
                 3
             </button>
             <button class="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
-                Next
+                <%= t('plans.next') %>
             </button>
         </nav>
     </div>
@@ -217,6 +217,13 @@
 </div>
 
 <script>
+// Translation variables for JavaScript
+const translations = {
+    duplicateConfirm: '<%= t("plans.duplicateConfirm") %>',
+    deleteConfirm: '<%= t("plans.deleteConfirm") %>',
+    implementationComingSoon: '<%= t("plans.implementationComingSoon") %>'
+};
+
 // Filter plans functionality
 function filterPlans() {
     const searchTerm = document.querySelector('input[type="text"]').value.toLowerCase();
@@ -261,15 +268,15 @@ function sortPlans() {
 
 // Plan actions
 function duplicatePlan(planId) {
-    if (confirm('Create a copy of this meal plan?')) {
-        alert(`Duplicating plan ${planId} - Implementation coming soon`);
+    if (confirm(translations.duplicateConfirm)) {
+        alert(`Duplicating plan ${planId} - ${translations.implementationComingSoon}`);
         // Implementation would call API to duplicate the plan
     }
 }
 
 function deletePlan(planId) {
-    if (confirm('Are you sure you want to delete this meal plan? This action cannot be undone.')) {
-        alert(`Deleting plan ${planId} - Implementation coming soon`);
+    if (confirm(translations.deleteConfirm)) {
+        alert(`Deleting plan ${planId} - ${translations.implementationComingSoon}`);
         // Implementation would call API to delete the plan
     }
 }

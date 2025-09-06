@@ -14,6 +14,7 @@ import {
 import { StatusBar as ExpoStatusBar } from 'expo-status-bar';
 import { BarCodeScanner } from 'expo-barcode-scanner';
 import { Camera } from 'expo-camera';
+import { useTranslation } from 'react-i18next';
 import UploadLabel from './screens/UploadLabel';
 import PlanScreen from './screens/PlanScreen';
 import TrackScreen from './screens/TrackScreen';
@@ -22,12 +23,14 @@ import ProductDetail from './components/ProductDetail';
 import ReminderSnippet from './components/ReminderSnippet';
 import ApiConfigModal from './components/ApiConfigModal';
 import DeveloperSettingsModal from './components/DeveloperSettingsModal';
+import LanguageSwitcher, { LanguageToggle } from './components/LanguageSwitcher';
 import { developerSettingsService, DeveloperConfig, FeatureToggle } from './services/DeveloperSettings';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import LoginScreen from './screens/LoginScreen';
 import RegisterScreen from './screens/RegisterScreen';
 import SplashScreen from './screens/SplashScreen';
 import { LoginCredentials, RegisterData } from './types/auth';
+import './i18n/config';
 
 // Main App Component wrapped with AuthProvider
 export default function App() {
@@ -76,6 +79,7 @@ function AppContent() {
 
 // Main application component (existing functionality)
 function MainApp({ user, onLogout }: { user: any; onLogout: () => void }) {
+  const { t } = useTranslation();
   const [manualBarcode, setManualBarcode] = useState('');
   const [loading, setLoading] = useState(false);
   const [hasPermission, setHasPermission] = useState<boolean | null>(null);
@@ -86,6 +90,7 @@ function MainApp({ user, onLogout }: { user: any; onLogout: () => void }) {
   const [showReminders, setShowReminders] = useState(false);
   const [showApiConfig, setShowApiConfig] = useState(false);
   const [showDeveloperSettings, setShowDeveloperSettings] = useState(false);
+  const [showLanguageSwitcher, setShowLanguageSwitcher] = useState(false);
   const [developerConfig, setDeveloperConfig] = useState<DeveloperConfig | null>(null);
   const [featureToggles, setFeatureToggles] = useState<FeatureToggle | null>(null);
   
@@ -173,9 +178,9 @@ function MainApp({ user, onLogout }: { user: any; onLogout: () => void }) {
         setShowProductDetail(true);
       } else {
         Alert.alert(
-          '❌ Product Not Found',
-          'This product is not in our database.\n\nOptions:\n• Upload Label Photo\n• Manual Entry',
-          [{ text: 'OK' }]
+          t('product.notFound.title'),
+          t('product.notFound.message'),
+          [{ text: t('common.ok') }]
         );
       }
     }, 2000);
@@ -195,11 +200,11 @@ function MainApp({ user, onLogout }: { user: any; onLogout: () => void }) {
 
   const startCamera = () => {
     if (hasPermission === null) {
-      Alert.alert('Permission', 'Requesting camera permission...');
+      Alert.alert(t('permissions.title'), t('permissions.requesting'));
       return;
     }
     if (hasPermission === false) {
-      Alert.alert('No Permission', 'No access to camera. Please enable camera permissions in your device settings.');
+      Alert.alert(t('permissions.noAccess.title'), t('permissions.noAccess.message'));
       return;
     }
     setShowCamera(true);
@@ -247,23 +252,24 @@ function MainApp({ user, onLogout }: { user: any; onLogout: () => void }) {
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerContent}>
-          <Text style={styles.title}>🍎 DietIntel</Text>
-          <Text style={styles.subtitle}>Welcome, {user?.full_name || 'User'}</Text>
-          <Text style={styles.version}>v1.0 - Authenticated</Text>
+          <Text style={styles.title}>{t('app.title')}</Text>
+          <Text style={styles.subtitle}>{t('auth.welcome', { name: user?.full_name || 'User' })}</Text>
+          <Text style={styles.version}>{t('app.version')}</Text>
         </View>
         <View style={styles.headerButtons}>
+          <LanguageToggle onPress={() => setShowLanguageSwitcher(true)} />
           <TouchableOpacity 
             style={styles.headerActionButton}
             onPress={onLogout}
           >
-            <Text style={styles.headerActionButtonText}>🚪</Text>
+            <Text style={styles.headerActionButtonText}>{t('auth.logout')}</Text>
           </TouchableOpacity>
           {(user?.is_developer || developerConfig?.isDeveloperModeEnabled) && (
             <TouchableOpacity 
               style={styles.headerActionButton}
               onPress={() => setShowDeveloperSettings(true)}
             >
-              <Text style={styles.headerActionButtonText}>⚙️</Text>
+              <Text style={styles.headerActionButtonText}>{t('developer.settings')}</Text>
             </TouchableOpacity>
           )}
           {featureToggles?.reminderNotifications && (
@@ -271,7 +277,7 @@ function MainApp({ user, onLogout }: { user: any; onLogout: () => void }) {
               style={styles.headerActionButton}
               onPress={() => setShowReminders(true)}
             >
-              <Text style={styles.headerActionButtonText}>🔔</Text>
+              <Text style={styles.headerActionButtonText}>{t('developer.notifications')}</Text>
             </TouchableOpacity>
           )}
         </View>
@@ -285,7 +291,7 @@ function MainApp({ user, onLogout }: { user: any; onLogout: () => void }) {
             onPress={() => setCurrentScreen('scanner')}
           >
             <Text style={[styles.navButtonText, isActiveScreen('scanner') && styles.navButtonTextActive]}>
-              📷 Barcode Scanner
+              {t('navigation.barcodeScanner')}
             </Text>
           </TouchableOpacity>
         )}
@@ -296,7 +302,7 @@ function MainApp({ user, onLogout }: { user: any; onLogout: () => void }) {
             onPress={() => setCurrentScreen('upload')}
           >
             <Text style={[styles.navButtonText, isActiveScreen('upload') && styles.navButtonTextActive]}>
-              🏷️ Upload Label
+              {t('navigation.uploadLabel')}
             </Text>
           </TouchableOpacity>
         )}
@@ -310,7 +316,7 @@ function MainApp({ user, onLogout }: { user: any; onLogout: () => void }) {
             }}
           >
             <Text style={[styles.navButtonText, isActiveScreen('plan') && styles.navButtonTextActive]}>
-              🍽️ Meal Plan
+              {t('navigation.mealPlan')}
             </Text>
           </TouchableOpacity>
         )}
@@ -321,7 +327,7 @@ function MainApp({ user, onLogout }: { user: any; onLogout: () => void }) {
             onPress={() => setCurrentScreen('track')}
           >
             <Text style={[styles.navButtonText, isActiveScreen('track') && styles.navButtonTextActive]}>
-              📊 Track
+              {t('navigation.track')}
             </Text>
           </TouchableOpacity>
         )}
@@ -334,7 +340,7 @@ function MainApp({ user, onLogout }: { user: any; onLogout: () => void }) {
           }}
         >
           <Text style={[styles.navButtonText, isActiveScreen('recommendations') && styles.navButtonTextActive]}>
-            🧠 Smart Diet
+            {t('navigation.smartDiet')}
           </Text>
         </TouchableOpacity>
       </View>
@@ -388,11 +394,11 @@ function MainApp({ user, onLogout }: { user: any; onLogout: () => void }) {
 
       {/* Manual Input */}
       <View style={styles.inputSection}>
-        <Text style={styles.inputTitle}>Enter Barcode Manually:</Text>
+        <Text style={styles.inputTitle}>{t('scanner.input.title')}</Text>
         
         <TextInput
           style={styles.input}
-          placeholder="13-digit barcode number"
+          placeholder={t('scanner.input.placeholder')}
           value={manualBarcode}
           onChangeText={setManualBarcode}
           keyboardType="numeric"
@@ -409,7 +415,7 @@ function MainApp({ user, onLogout }: { user: any; onLogout: () => void }) {
             {loading ? (
               <ActivityIndicator size="small" color="white" />
             ) : (
-              <Text style={styles.primaryButtonText}>🔍 Look Up</Text>
+              <Text style={styles.primaryButtonText}>{t('scanner.input.lookUp')}</Text>
             )}
           </TouchableOpacity>
 
@@ -418,7 +424,7 @@ function MainApp({ user, onLogout }: { user: any; onLogout: () => void }) {
             onPress={resetInput}
             disabled={loading}
           >
-            <Text style={styles.secondaryButtonText}>🔄 Reset</Text>
+            <Text style={styles.secondaryButtonText}>{t('scanner.input.reset')}</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -452,6 +458,11 @@ function MainApp({ user, onLogout }: { user: any; onLogout: () => void }) {
       <ApiConfigModal
         visible={showApiConfig}
         onClose={() => setShowApiConfig(false)}
+      />
+      
+      <LanguageSwitcher
+        visible={showLanguageSwitcher}
+        onClose={() => setShowLanguageSwitcher(false)}
       />
     </SafeAreaView>
   );

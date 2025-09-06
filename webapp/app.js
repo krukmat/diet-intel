@@ -7,6 +7,8 @@ const compression = require('compression');
 const cookieParser = require('cookie-parser');
 const rateLimit = require('express-rate-limit');
 const expressLayouts = require('express-ejs-layouts');
+const i18next = require('./i18n');
+const middleware = require('i18next-http-middleware');
 require('dotenv').config();
 
 // Import routes
@@ -15,6 +17,7 @@ const planRoutes = require('./routes/plans');
 const apiRoutes = require('./routes/api');
 const authRoutes = require('./routes/auth');
 const dashboardRoutes = require('./routes/dashboard');
+const languageRoutes = require('./routes/language');
 
 // Import auth middleware
 const { checkAuth } = require('./middleware/auth');
@@ -53,6 +56,9 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(cookieParser());
 
+// i18next middleware
+app.use(middleware.handle(i18next));
+
 // Static files
 app.use(express.static(path.join(__dirname, 'public')));
 
@@ -68,6 +74,9 @@ app.use((req, res, next) => {
   res.locals.apiUrl = process.env.DIETINTEL_API_URL || 'http://localhost:8000';
   res.locals.appName = 'DietIntel';
   res.locals.currentYear = new Date().getFullYear();
+  res.locals.t = req.t; // Make translation function available to templates
+  res.locals.i18n = req.i18n; // Make i18n object available to templates
+  res.locals.req = req; // Make request object available to templates
   next();
 });
 
@@ -77,6 +86,7 @@ app.use('/plans', planRoutes);
 app.use('/api', apiRoutes);
 app.use('/auth', authRoutes);
 app.use('/dashboard', dashboardRoutes);
+app.use('/language', languageRoutes);
 
 // Redirect /profile to /dashboard/profile for convenience
 app.get('/profile', (req, res) => {

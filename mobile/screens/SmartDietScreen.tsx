@@ -13,6 +13,7 @@ import {
   FlatList,
 } from 'react-native';
 import { StatusBar as ExpoStatusBar } from 'expo-status-bar';
+import { useTranslation } from 'react-i18next';
 import { apiService } from '../services/ApiService';
 
 interface SmartSuggestion {
@@ -70,28 +71,21 @@ type ContextType = 'today' | 'optimize' | 'discover' | 'insights';
 
 const CONTEXT_CONFIG = {
   today: {
-    title: '🌟 For You Today',
-    subtitle: 'Personalized daily suggestions',
     emoji: '🌟'
   },
   optimize: {
-    title: '⚡ Optimize Plan',
-    subtitle: 'Improve your current meals',
     emoji: '⚡'
   },
   discover: {
-    title: '🔍 Discover Foods',
-    subtitle: 'Find new healthy options',
     emoji: '🔍'
   },
   insights: {
-    title: '📊 Diet Insights',
-    subtitle: 'Understand your nutrition',
     emoji: '📊'
   }
 };
 
 export default function SmartDietScreen({ onBackPress }: SmartDietScreenProps) {
+  const { t } = useTranslation();
   const [smartData, setSmartData] = useState<SmartDietResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [selectedContext, setSelectedContext] = useState<ContextType>('today');
@@ -211,7 +205,7 @@ export default function SmartDietScreen({ onBackPress }: SmartDietScreenProps) {
         }
       }
 
-      Alert.alert('Error', 'Failed to generate suggestions. Please try again.');
+      Alert.alert(t('common.error'), t('smartDiet.alerts.error'));
       console.error('Smart Diet generation failed:', error);
     } finally {
       setLoading(false);
@@ -222,14 +216,14 @@ export default function SmartDietScreen({ onBackPress }: SmartDietScreenProps) {
     try {
       if (suggestion.suggestion_type === 'meal_recommendation') {
         Alert.alert(
-          'Add to Meal Plan',
+          t('smartDiet.actions.addToPlan'),
           `Would you like to add ${suggestion.title} to your ${suggestion.category}?`,
           [
-            { text: 'Cancel', style: 'cancel' },
+            { text: t('common.cancel'), style: 'cancel' },
             {
-              text: 'Add',
+              text: t('common.add'),
               onPress: () => {
-                Alert.alert('Success', `${suggestion.title} added to your ${suggestion.category} plan!`);
+                Alert.alert(t('common.success'), t('smartDiet.alerts.addSuccess', { item: suggestion.title, meal: suggestion.category }));
                 // TODO: Integrate with meal plan API
               }
             }
@@ -237,24 +231,24 @@ export default function SmartDietScreen({ onBackPress }: SmartDietScreenProps) {
         );
       } else if (suggestion.suggestion_type === 'optimization') {
         Alert.alert(
-          'Apply Optimization',
+          t('smartDiet.actions.applyOptimization'),
           `${suggestion.description}\n\nWould you like to apply this optimization?`,
           [
-            { text: 'Cancel', style: 'cancel' },
+            { text: t('common.cancel'), style: 'cancel' },
             {
-              text: 'Apply',
+              text: t('common.apply'),
               onPress: () => {
-                Alert.alert('Success', 'Optimization applied to your meal plan!');
+                Alert.alert(t('common.success'), t('smartDiet.alerts.optimizationSuccess'));
                 // TODO: Apply optimization via API
               }
             }
           ]
         );
       } else {
-        Alert.alert('Information', suggestion.description);
+        Alert.alert(t('smartDiet.alerts.information'), suggestion.description);
       }
     } catch (error) {
-      Alert.alert('Error', 'Failed to process suggestion.');
+      Alert.alert(t('common.error'), 'Failed to process suggestion.');
     }
   };
 
@@ -268,10 +262,10 @@ export default function SmartDietScreen({ onBackPress }: SmartDietScreenProps) {
       };
 
       await apiService.post('/smart-diet/feedback', feedbackData);
-      Alert.alert('Thank You', 'Your feedback helps improve our suggestions!');
+      Alert.alert(t('smartDiet.feedback.thankYou'), t('smartDiet.feedback.message'));
     } catch (error) {
       console.error('Failed to record feedback:', error);
-      Alert.alert('Note', 'Feedback recorded locally.');
+      Alert.alert('Note', t('smartDiet.feedback.recorded'));
     }
   };
 
@@ -312,7 +306,7 @@ export default function SmartDietScreen({ onBackPress }: SmartDietScreenProps) {
               styles.contextButtonText,
               selectedContext === context && styles.contextButtonTextActive
             ]}>
-              {CONTEXT_CONFIG[context].title.split(' ').slice(1).join(' ')}
+              {t(`smartDiet.contexts.${context}`)}
             </Text>
           </TouchableOpacity>
         ))}
@@ -333,7 +327,7 @@ export default function SmartDietScreen({ onBackPress }: SmartDietScreenProps) {
           <Text style={styles.confidenceScore}>
             {Math.round(suggestion.confidence_score * 100)}%
           </Text>
-          <Text style={styles.confidenceLabel}>confidence</Text>
+          <Text style={styles.confidenceLabel}>{t('smartDiet.confidence')}</Text>
         </View>
       </View>
 
@@ -352,7 +346,7 @@ export default function SmartDietScreen({ onBackPress }: SmartDietScreenProps) {
 
       {suggestion.metadata?.reasons && (
         <View style={styles.reasonsContainer}>
-          <Text style={styles.reasonsLabel}>Why suggested:</Text>
+          <Text style={styles.reasonsLabel}>{t('smartDiet.whySuggested')}</Text>
           <View style={styles.reasonTags}>
             {suggestion.metadata.reasons.slice(0, 3).map((reason: string, index: number) => (
               <View key={`reason_${reason}_${index}`} style={styles.reasonTag}>
@@ -378,13 +372,13 @@ export default function SmartDietScreen({ onBackPress }: SmartDietScreenProps) {
             style={styles.feedbackButton}
             onPress={() => handleProvideFeedback(suggestion, true)}
           >
-            <Text style={styles.feedbackButtonText}>👍</Text>
+            <Text style={styles.feedbackButtonText}>{t('smartDiet.feedback.helpful')}</Text>
           </TouchableOpacity>
           <TouchableOpacity 
             style={styles.feedbackButton}
             onPress={() => handleProvideFeedback(suggestion, false)}
           >
-            <Text style={styles.feedbackButtonText}>👎</Text>
+            <Text style={styles.feedbackButtonText}>{t('smartDiet.feedback.notHelpful')}</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -399,17 +393,17 @@ export default function SmartDietScreen({ onBackPress }: SmartDietScreenProps) {
 
     return (
       <View style={styles.insightsCard}>
-        <Text style={styles.insightsTitle}>📊 Today's Insights</Text>
+        <Text style={styles.insightsTitle}>{t('smartDiet.insights.title')}</Text>
         
         <View style={styles.insightRow}>
-          <Text style={styles.insightLabel}>Calories Today:</Text>
+          <Text style={styles.insightLabel}>{t('smartDiet.insights.calories')}</Text>
           <Text style={styles.insightValue}>
             {nutritionalSummary.total_recommended_calories} / {nutritionalSummary.total_recommended_calories} kcal
           </Text>
         </View>
 
         <View style={styles.macroDistribution}>
-          <Text style={styles.insightLabel}>Macro Balance:</Text>
+          <Text style={styles.insightLabel}>{t('smartDiet.insights.macroBalance')}</Text>
           <View style={styles.macroRow}>
             <Text style={styles.macroText}>
               🥩 {nutritionalSummary.macro_distribution?.protein_percent || 0}%
@@ -425,7 +419,7 @@ export default function SmartDietScreen({ onBackPress }: SmartDietScreenProps) {
 
         {nutritionalSummary.nutritional_gaps && nutritionalSummary.nutritional_gaps.length > 0 && (
           <View style={styles.improvementAreas}>
-            <Text style={styles.insightLabel}>Nutritional Gaps:</Text>
+            <Text style={styles.insightLabel}>{t('smartDiet.insights.nutritionalGaps')}</Text>
             {nutritionalSummary.nutritional_gaps.map((gap, index) => (
               <Text key={`gap_${gap}_${index}`} style={styles.improvementText}>• {gap}</Text>
             ))}
@@ -434,7 +428,7 @@ export default function SmartDietScreen({ onBackPress }: SmartDietScreenProps) {
 
         {nutritionalSummary.health_benefits && nutritionalSummary.health_benefits.length > 0 && (
           <View style={styles.healthBenefits}>
-            <Text style={styles.insightLabel}>Health Benefits:</Text>
+            <Text style={styles.insightLabel}>{t('smartDiet.insights.healthBenefits')}</Text>
             {nutritionalSummary.health_benefits.map((benefit, index) => (
               <Text key={`benefit_${benefit}_${index}`} style={styles.benefitText}>• {benefit}</Text>
             ))}
@@ -495,7 +489,7 @@ export default function SmartDietScreen({ onBackPress }: SmartDietScreenProps) {
     >
       <SafeAreaView style={styles.modalContainer}>
         <View style={styles.modalHeader}>
-          <Text style={styles.modalTitle}>Smart Diet Preferences</Text>
+          <Text style={styles.modalTitle}>{t('smartDiet.preferences.title')}</Text>
           <TouchableOpacity onPress={() => setPreferencesModal(false)}>
             <Text style={styles.closeButton}>✕</Text>
           </TouchableOpacity>
@@ -555,7 +549,7 @@ export default function SmartDietScreen({ onBackPress }: SmartDietScreenProps) {
               generateSmartSuggestions();
             }}
           >
-            <Text style={styles.applyButtonText}>Apply Preferences</Text>
+            <Text style={styles.applyButtonText}>{t('smartDiet.preferences.apply')}</Text>
           </TouchableOpacity>
         </ScrollView>
       </SafeAreaView>
@@ -568,7 +562,7 @@ export default function SmartDietScreen({ onBackPress }: SmartDietScreenProps) {
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#007AFF" />
           <Text style={styles.loadingText}>
-            Generating {CONTEXT_CONFIG[selectedContext].title.toLowerCase()}...
+            {t('smartDiet.loading')}
           </Text>
         </View>
       </SafeAreaView>
@@ -586,8 +580,8 @@ export default function SmartDietScreen({ onBackPress }: SmartDietScreenProps) {
           <Text style={styles.backButtonText}>🏠</Text>
         </TouchableOpacity>
         <View style={styles.headerContent}>
-          <Text style={styles.title}>{contextConfig.emoji} Smart Diet</Text>
-          <Text style={styles.subtitle}>{contextConfig.subtitle}</Text>
+          <Text style={styles.title}>{contextConfig.emoji} {t('smartDiet.title')}</Text>
+          <Text style={styles.subtitle}>{t(`smartDiet.contexts.${selectedContext}`)}</Text>
         </View>
         <TouchableOpacity 
           style={styles.preferencesButton} 
@@ -617,7 +611,7 @@ export default function SmartDietScreen({ onBackPress }: SmartDietScreenProps) {
         {(!smartData || smartData.suggestions.length === 0) && !loading && (
           <View style={styles.emptyState}>
             <Text style={styles.emptyStateEmoji}>🤔</Text>
-            <Text style={styles.emptyStateTitle}>No suggestions available</Text>
+            <Text style={styles.emptyStateTitle}>{t('smartDiet.noSuggestions')}</Text>
             <Text style={styles.emptyStateText}>
               Try adjusting your preferences or switching to a different context.
             </Text>
