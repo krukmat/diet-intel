@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { StatusBar as ExpoStatusBar } from 'expo-status-bar';
 import axios from 'axios';
+import { translateFoodName } from '../utils/foodTranslation';
 
 const API_BASE_URL = 'http://10.0.2.2:8000';
 
@@ -104,7 +105,7 @@ export default function ProductDetail({ product, onClose, showAddToPlan = true }
 
       Alert.alert(
         'Success!',
-        `${normalizedProduct.name} has been added to your meal plan.`,
+        `${translateFoodName(normalizedProduct.name)} has been added to your meal plan.`,
         [{ text: 'OK' }]
       );
     } catch (error) {
@@ -176,7 +177,7 @@ export default function ProductDetail({ product, onClose, showAddToPlan = true }
 
         {/* Basic Info */}
         <View style={styles.infoSection}>
-          <Text style={styles.productName}>{normalizedProduct.name}</Text>
+          <Text style={styles.productName}>{translateFoodName(normalizedProduct.name)}</Text>
           {normalizedProduct.brand && (
             <Text style={styles.brandName}>{normalizedProduct.brand}</Text>
           )}

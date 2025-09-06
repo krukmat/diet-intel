@@ -15,6 +15,7 @@ import {
 import { StatusBar as ExpoStatusBar } from 'expo-status-bar';
 import { useTranslation } from 'react-i18next';
 import { apiService } from '../services/ApiService';
+import { translateFoodName } from '../utils/foodTranslation';
 
 interface SmartSuggestion {
   id: string;
@@ -177,7 +178,7 @@ export default function SmartDietScreen({ onBackPress }: SmartDietScreenProps) {
                   id: `meal_${meal.meal_name}_${index}`,
                   suggestion_type: 'meal_recommendation',
                   category: meal.meal_name,
-                  title: item.name,
+                  title: translateFoodName(item.name),
                   description: `${item.brand ? item.brand + ' - ' : ''}${Math.round(item.calories_per_serving)} kcal per ${item.serving_size}`,
                   action_text: `Add to ${meal.meal_name}`,
                   confidence_score: item.confidence_score,

@@ -15,6 +15,7 @@ import {
 import { StatusBar as ExpoStatusBar } from 'expo-status-bar';
 import { useTranslation } from 'react-i18next';
 import { apiService } from '../services/ApiService';
+import { translateFoodName } from '../utils/foodTranslation';
 
 interface UserProfile {
   age: number;
@@ -352,13 +353,6 @@ export default function PlanScreen({ onBackPress }: PlanScreenProps) {
     return translatedName !== translationKey ? translatedName : mealName;
   };
 
-  // Helper function to translate food names
-  const translateFoodName = (foodName: string): string => {
-    const translationKey = `plan.foods.${foodName}`;
-    const translatedName = t(translationKey);
-    // If translation doesn't exist, fall back to original name
-    return translatedName !== translationKey ? translatedName : foodName;
-  };
   
   const [customizeModal, setCustomizeModal] = useState({
     visible: false,
