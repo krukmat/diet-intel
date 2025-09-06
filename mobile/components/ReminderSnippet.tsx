@@ -13,7 +13,7 @@ import {
   Switch,
 } from 'react-native';
 import * as Notifications from 'expo-notifications';
-// import AsyncStorage from '@react-native-async-storage/async-storage';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
 
 const API_BASE_URL = 'http://10.0.2.2:8000';
@@ -312,8 +312,7 @@ export default function ReminderSnippet({ visible, onClose }: ReminderSnippetPro
 
   const saveReminders = async (newReminders: Reminder[]) => {
     try {
-      // TODO: Re-enable AsyncStorage after fixing native module
-      // await AsyncStorage.setItem('reminders', JSON.stringify(newReminders));
+      await AsyncStorage.setItem('reminders', JSON.stringify(newReminders));
       setReminders(newReminders);
     } catch (error) {
       console.error('Failed to save reminders:', error);

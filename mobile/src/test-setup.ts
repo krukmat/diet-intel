@@ -82,6 +82,40 @@ jest.mock('expo-barcode-scanner', () => ({
   requestPermissionsAsync: jest.fn(() => Promise.resolve({ status: 'granted' }))
 }));
 
+jest.mock('expo-localization', () => ({
+  locale: 'en-US',
+  locales: ['en-US'],
+  timezone: 'America/New_York',
+  isoCurrencyCodes: ['USD'],
+  region: 'US',
+  isRTL: false,
+  getLocales: jest.fn(() => [
+    {
+      languageCode: 'en',
+      languageTag: 'en-US',
+      regionCode: 'US',
+      currencyCode: 'USD',
+      currencySymbol: '$',
+      decimalSeparator: '.',
+      digitGroupingSeparator: ','
+    }
+  ])
+}));
+
+jest.mock('react-i18next', () => ({
+  useTranslation: jest.fn(() => ({
+    t: jest.fn((key) => key),
+    i18n: {
+      language: 'en',
+      changeLanguage: jest.fn(() => Promise.resolve())
+    }
+  })),
+  initReactI18next: {
+    type: '3rdParty',
+    init: jest.fn()
+  }
+}));
+
 // Mock TurboModuleRegistry before React Native loads
 jest.mock('react-native/Libraries/TurboModule/TurboModuleRegistry', () => ({
   getEnforcing: jest.fn(() => ({

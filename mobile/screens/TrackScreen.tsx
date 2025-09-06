@@ -20,7 +20,7 @@ import * as ImageManipulator from 'expo-image-manipulator';
 import { useTranslation } from 'react-i18next';
 import { translateFoodName } from '../utils/foodTranslation';
 // import { LineChart } from 'react-native-chart-kit';
-// import AsyncStorage from '@react-native-async-storage/async-storage';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { apiService } from '../services/ApiService';
 
 interface MealItem {
@@ -496,8 +496,7 @@ export default function TrackScreen({ onBackPress }: TrackScreenProps) {
 
         const updatedPhotoLogs = [newPhotoLog, ...photoLogs];
         setPhotoLogs(updatedPhotoLogs);
-        // TODO: Re-enable AsyncStorage after fixing native module
-        // await AsyncStorage.setItem('photo_logs', JSON.stringify(updatedPhotoLogs));
+        await AsyncStorage.setItem('photo_logs', JSON.stringify(updatedPhotoLogs));
       }
 
       Alert.alert(t('common.success'), t('track.modal.mealMarkedEaten'));
@@ -525,8 +524,7 @@ export default function TrackScreen({ onBackPress }: TrackScreenProps) {
 
       const updatedHistory = [...weightHistory, newEntry].slice(-10); // Keep last 10 entries
       setWeightHistory(updatedHistory);
-      // TODO: Re-enable AsyncStorage after fixing native module
-      // await AsyncStorage.setItem('weight_history', JSON.stringify(updatedHistory));
+      await AsyncStorage.setItem('weight_history', JSON.stringify(updatedHistory));
 
       if (photo) {
         const newPhotoLog: PhotoLog = {
@@ -539,8 +537,7 @@ export default function TrackScreen({ onBackPress }: TrackScreenProps) {
 
         const updatedPhotoLogs = [newPhotoLog, ...photoLogs];
         setPhotoLogs(updatedPhotoLogs);
-        // TODO: Re-enable AsyncStorage after fixing native module
-        // await AsyncStorage.setItem('photo_logs', JSON.stringify(updatedPhotoLogs));
+        await AsyncStorage.setItem('photo_logs', JSON.stringify(updatedPhotoLogs));
       }
 
       Alert.alert(t('common.success'), t('track.modal.weightRecorded'));

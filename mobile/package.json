@@ -9,7 +9,11 @@
     "web": "expo start --web",
     "test": "jest",
     "test:watch": "jest --watch",
-    "test:coverage": "jest --coverage"
+    "test:coverage": "jest --coverage",
+    "test:e2e": "jest --testPathPattern=e2e",
+    "test:asyncstorage": "jest --testPathPattern=AsyncStorage.unit.e2e.test.tsx",
+    "test:asyncstorage:verbose": "jest --testPathPattern=AsyncStorage.unit.e2e.test.tsx --verbose",
+    "test:asyncstorage:full": "jest --testPathPattern=AsyncStorage.persistence.e2e.test.tsx --verbose"
   },
   "dependencies": {
     "@expo/webpack-config": "^19.0.0",

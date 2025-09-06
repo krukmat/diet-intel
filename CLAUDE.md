@@ -82,3 +82,4 @@ DietIntel is a FastAPI application for nutrition tracking with product lookup, O
 - do not be lazy in analysis
 - only run simulator in Android
 - when it's clear what to do every change related to a fix should be approved
+- for every fix done, do the manual steps to test it. use the file manual-user-tests.md. the file should be added in the gitignore.
