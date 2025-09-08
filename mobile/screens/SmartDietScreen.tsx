@@ -16,6 +16,7 @@ import { StatusBar as ExpoStatusBar } from 'expo-status-bar';
 import { useTranslation } from 'react-i18next';
 import { apiService } from '../services/ApiService';
 import { translateFoodNameSync, translateFoodName } from '../utils/foodTranslation';
+import { getCurrentMealPlanId } from '../utils/mealPlanUtils';
 
 interface SmartSuggestion {
   id: string;
@@ -133,7 +134,13 @@ export default function SmartDietScreen({ onBackPress }: SmartDietScreenProps) {
 
       // Add required current_meal_plan_id for optimize context
       if (selectedContext === 'optimize') {
-        params.append('current_meal_plan_id', 'demo_meal_plan_001'); // TODO: Use actual meal plan ID
+        const currentPlanId = await getCurrentMealPlanId();
+        if (currentPlanId) {
+          params.append('current_meal_plan_id', currentPlanId);
+        } else {
+          // If no meal plan ID is available, show a helpful message
+          throw new Error('No meal plan found. Please generate a meal plan first from the Plan tab.');
+        }
       }
 
       const response = await apiService.get(`/smart-diet/suggestions?${params.toString()}`);

@@ -16,6 +16,7 @@ import { StatusBar as ExpoStatusBar } from 'expo-status-bar';
 import { useTranslation } from 'react-i18next';
 import { apiService } from '../services/ApiService';
 import { translateFoodName } from '../utils/foodTranslation';
+import { storeCurrentMealPlanId } from '../utils/mealPlanUtils';
 
 interface UserProfile {
   age: number;
@@ -397,6 +398,16 @@ export default function PlanScreen({ onBackPress }: PlanScreenProps) {
       
       const response = await apiService.generateMealPlan(request);
       setDailyPlan(response.data);
+      
+      // Store the plan ID for use in Smart Diet optimization
+      if (response.data && response.data.plan_id) {
+        try {
+          await storeCurrentMealPlanId(response.data.plan_id);
+          console.log('Stored meal plan ID:', response.data.plan_id);
+        } catch (error) {
+          console.error('Failed to store meal plan ID:', error);
+        }
+      }
     } catch (error) {
       Alert.alert(t('common.error'), 'Failed to generate meal plan. Please try again.');
       console.error('Plan generation failed:', error);

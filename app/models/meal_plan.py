@@ -93,6 +93,7 @@ class MealPlanResponse(BaseModel):
     metrics: DailyMacros = Field(..., description="Daily nutritional metrics")
     
     # Metadata
+    plan_id: Optional[str] = Field(None, description="Unique plan identifier for storage and retrieval")
     created_at: datetime = Field(default_factory=datetime.now, description="Plan generation timestamp")
     flexibility_used: bool = Field(..., description="Whether flexibility was applied")
     optional_products_used: int = Field(default=0, description="Number of optional products included")

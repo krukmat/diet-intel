@@ -80,6 +80,13 @@
 - **Fallback System**: Robust fallback to English if translation services are unavailable
 - **Cached Performance**: Translation results cached for 7 days for optimal performance
 
+#### 🔗 **Meal Plan Integration** *(New - September 7, 2025)*
+- **Dynamic Plan ID Retrieval**: Smart Diet optimization now uses actual meal plan IDs instead of hardcoded values
+- **Persistent Plan Storage**: Meal plan IDs stored in AsyncStorage and persist across app restarts
+- **Seamless Optimization**: Generate meal plan in Plan tab → Use optimization in Smart Diet tab automatically
+- **Error Handling**: Graceful handling when no meal plan exists with helpful user guidance
+- **Backend Integration**: Full plan_id field support in MealPlanResponse model with UUID generation
+
 ### Intelligence Algorithms
 
 ```
