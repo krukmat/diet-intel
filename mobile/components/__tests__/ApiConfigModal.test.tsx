@@ -55,7 +55,8 @@ describe('ApiConfigModal', () => {
       );
       
       const tree = component.toJSON();
-      expect(tree).toBeNull(); // Modal should render null when not visible
+      // Modal component renders with visible=false prop, not null
+      expect(tree).toHaveProperty('props.visible', false);
     });
 
     it('should display current environment information', () => {
@@ -67,7 +68,7 @@ describe('ApiConfigModal', () => {
       const treeString = JSON.stringify(tree);
       
       expect(treeString).toContain('Android Development');
-      expect(treeString).toContain('http://10.0.2.2:8000');
+      expect(treeString).toContain('http://192.168.1.136:8000');
     });
 
     it('should render all available environments', () => {

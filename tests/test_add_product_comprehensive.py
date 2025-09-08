@@ -320,7 +320,7 @@ class TestAddProductErrors:
             "meal_type": "lunch"
         }
         
-        with patch('app.services.db_service.get_user_meal_plans', new_callable=AsyncMock) as mock_get_plans, \
+        with patch('app.services.database.db_service.get_user_meal_plans', new_callable=AsyncMock) as mock_get_plans, \
              patch('app.services.openfoodfacts.openfoodfacts_service.get_product', new_callable=AsyncMock) as mock_get_product:
             
             mock_get_plans.return_value = [{"id": "test-plan-123", "plan_data": sample_meal_plan.model_dump()}]
@@ -343,7 +343,7 @@ class TestAddProductErrors:
             "meal_type": "lunch"
         }
         
-        with patch('app.services.db_service.get_user_meal_plans', new_callable=AsyncMock) as mock_get_plans, \
+        with patch('app.services.database.db_service.get_user_meal_plans', new_callable=AsyncMock) as mock_get_plans, \
              patch('app.services.openfoodfacts.openfoodfacts_service.get_product', new_callable=AsyncMock) as mock_get_product:
             
             mock_get_plans.return_value = [{"id": "test-plan-123", "plan_data": sample_meal_plan.model_dump()}]
@@ -363,7 +363,7 @@ class TestAddProductErrors:
             "meal_type": "lunch"
         }
         
-        with patch('app.services.db_service.get_user_meal_plans', new_callable=AsyncMock) as mock_get_plans, \
+        with patch('app.services.database.db_service.get_user_meal_plans', new_callable=AsyncMock) as mock_get_plans, \
              patch('app.services.openfoodfacts.openfoodfacts_service.get_product', new_callable=AsyncMock) as mock_get_product, \
              patch('app.services.plan_customizer.plan_customizer.customize_plan', new_callable=AsyncMock) as mock_customize:
             

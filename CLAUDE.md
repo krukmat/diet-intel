@@ -83,3 +83,4 @@ DietIntel is a FastAPI application for nutrition tracking with product lookup, O
 - only run simulator in Android
 - when it's clear what to do every change related to a fix should be approved
 - for every fix done, do the manual steps to test it. use the file manual-user-tests.md. the file should be added in the gitignore.
+- all reports and plan should be save at root plan/ folder. do not create folders for this purpose. all folder creation should be authorize. db files should be pushed to git when needed
