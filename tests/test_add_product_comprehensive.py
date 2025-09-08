@@ -42,14 +42,12 @@ def sample_product_data():
         image_url="https://example.com/yogurt.jpg",
         serving_size="150g",
         nutriments=Nutriments(
-            energy_kcal_100g=100,
-            proteins_100g=10.0,
-            fat_100g=3.5,
-            carbohydrates_100g=8.0,
-            sugars_100g=6.0,
-            salt_100g=0.1,
-            fiber_100g=0.0,
-            sodium_100g=40.0
+            energy_kcal_per_100g=100,
+            protein_g_per_100g=10.0,
+            fat_g_per_100g=3.5,
+            carbs_g_per_100g=8.0,
+            sugars_g_per_100g=6.0,
+            salt_g_per_100g=0.1
         ),
         fetched_at=datetime.now()
     )
@@ -522,12 +520,12 @@ class TestAddProductIntegration:
             "brands": "TestBrand",
             "serving_size": "100g",
             "nutriments": {
-                "energy_kcal_100g": 250,    # 250 kcal per 100g
-                "proteins_100g": 20.0,      # 20g protein per 100g
-                "fat_100g": 15.0,           # 15g fat per 100g
-                "carbohydrates_100g": 10.0, # 10g carbs per 100g
-                "sugars_100g": 5.0,         # 5g sugars per 100g
-                "salt_100g": 0.5            # 0.5g salt per 100g
+                "energy_kcal_per_100g": 250,    # 250 kcal per 100g
+                "protein_g_per_100g": 20.0,      # 20g protein per 100g
+                "fat_g_per_100g": 15.0,           # 15g fat per 100g
+                "carbs_g_per_100g": 10.0, # 10g carbs per 100g
+                "sugars_g_per_100g": 5.0,         # 5g sugars per 100g
+                "salt_g_per_100g": 0.5            # 0.5g salt per 100g
             }
         }
         
@@ -573,17 +571,17 @@ class TestAddProductIntegration:
         products = [
             {
                 "barcode": "product1",
-                "data": {"code": "product1", "product_name": "Product 1", "nutriments": {"energy_kcal_100g": 100}},
+                "data": {"code": "product1", "product_name": "Product 1", "nutriments": {"energy_kcal_per_100g": 100}},
                 "meal": "breakfast"
             },
             {
                 "barcode": "product2", 
-                "data": {"code": "product2", "product_name": "Product 2", "nutriments": {"energy_kcal_100g": 200}},
+                "data": {"code": "product2", "product_name": "Product 2", "nutriments": {"energy_kcal_per_100g": 200}},
                 "meal": "lunch"
             },
             {
                 "barcode": "product3",
-                "data": {"code": "product3", "product_name": "Product 3", "nutriments": {"energy_kcal_100g": 300}},
+                "data": {"code": "product3", "product_name": "Product 3", "nutriments": {"energy_kcal_per_100g": 300}},
                 "meal": "dinner"
             }
         ]

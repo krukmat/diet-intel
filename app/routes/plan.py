@@ -420,21 +420,27 @@ async def add_product_to_plan(request: AddProductRequest, req: Request):
         serving_size = request.serving_size if request.serving_size else "100g"
         
         # Extract nutritional data - handle potential missing data
-        nutriments = product.nutriments if hasattr(product, 'nutriments') else {}
-        calories_per_100g = float(nutriments.get('energy-kcal_100g', 0))
+        nutriments = product.nutriments if hasattr(product, 'nutriments') else None
+        if nutriments:
+            calories_per_100g = float(nutriments.energy_kcal_per_100g or 0)
+            protein_g = float(nutriments.protein_g_per_100g or 0)
+            fat_g = float(nutriments.fat_g_per_100g or 0)
+            carbs_g = float(nutriments.carbs_g_per_100g or 0)
+            sugars_g = float(nutriments.sugars_g_per_100g or 0)
+            salt_g = float(nutriments.salt_g_per_100g or 0)
+        else:
+            calories_per_100g = protein_g = fat_g = carbs_g = sugars_g = salt_g = 0.0
         
         # Convert to ManualAddition format
         manual_item = ManualAddition(
-            name=product.product_name,
-            brand=getattr(product, 'brand', 'Unknown'),
-            serving_size=serving_size,
-            calories_per_serving=calories_per_100g,  # Simplified - assumes 100g serving
-            protein_g=float(nutriments.get('proteins_100g', 0)),
-            fat_g=float(nutriments.get('fat_100g', 0)),
-            carbs_g=float(nutriments.get('carbohydrates_100g', 0)),
-            sugars_g=float(nutriments.get('sugars_100g', 0)),
-            salt_g=float(nutriments.get('salt_100g', 0)),
-            meal_type=meal_type
+            name=getattr(product, 'name', None) or getattr(product, 'product_name', 'Unknown Product'),
+            calories=calories_per_100g,  # Corrected field name
+            protein_g=protein_g,
+            fat_g=fat_g,
+            carbs_g=carbs_g,
+            sugars_g=sugars_g,
+            salt_g=salt_g,
+            serving=serving_size
         )
         
         # Get the current plan
@@ -444,7 +450,7 @@ async def add_product_to_plan(request: AddProductRequest, req: Request):
                 success=False,
                 message="Meal plan no longer exists. Please generate a new plan.",
                 meal_type=meal_type,
-                product_name=product.product_name,
+                product_name=product.name,
                 calories_added=None
             )
         
@@ -462,7 +468,7 @@ async def add_product_to_plan(request: AddProductRequest, req: Request):
                 success=False,
                 message="Failed to save changes to meal plan.",
                 meal_type=meal_type,
-                product_name=product.product_name,
+                product_name=product.name,
                 calories_added=None
             )
         
@@ -473,12 +479,12 @@ async def add_product_to_plan(request: AddProductRequest, req: Request):
         )
         
         if addition_successful:
-            logger.info(f"Successfully added {product.product_name} to {meal_type} for user {user_id}")
+            logger.info(f"Successfully added {product.name} to {meal_type} for user {user_id}")
             return AddProductResponse(
                 success=True,
-                message=f"{product.product_name} has been added to your {meal_type} meal plan!",
+                message=f"{product.name} has been added to your {meal_type} meal plan!",
                 meal_type=meal_type,
-                product_name=product.product_name,
+                product_name=product.name,
                 calories_added=calories_per_100g
             )
         else:
@@ -491,9 +497,9 @@ async def add_product_to_plan(request: AddProductRequest, req: Request):
             
             return AddProductResponse(
                 success=False,
-                message=f"Could not add {product.product_name}: {error_msg}",
+                message=f"Could not add {product.name}: {error_msg}",
                 meal_type=meal_type,
-                product_name=product.product_name,
+                product_name=product.name,
                 calories_added=None
             )
         

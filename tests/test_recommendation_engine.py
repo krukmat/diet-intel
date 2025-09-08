@@ -26,13 +26,12 @@ class TestSmartRecommendationEngine:
             code="1234567890123",
             product_name="Greek Yogurt",
             nutriments=Nutriments(
-                energy_kcal_100g=59,
-                proteins_100g=10,
-                fat_100g=0,
-                carbohydrates_100g=4,
-                sugars_100g=4,
-                salt_100g=0.1,
-                fiber_100g=0
+                energy_kcal_per_100g=59,
+                protein_g_per_100g=10,
+                fat_g_per_100g=0,
+                carbs_g_per_100g=4,
+                sugars_g_per_100g=4,
+                salt_g_per_100g=0.1
             ),
             brands="TestBrand",
             categories="Dairy products",
@@ -80,13 +79,12 @@ class TestSmartRecommendationEngine:
                 code="1234567890123",
                 product_name="Greek Yogurt",
                 nutriments=Nutriments(
-                    energy_kcal_100g=59,
-                    proteins_100g=10,
-                    fat_100g=0,
-                    carbohydrates_100g=4,
-                    sugars_100g=4,
-                    salt_100g=0.1,
-                    fiber_100g=0
+                    energy_kcal_per_100g=59,
+                    protein_g_per_100g=10,
+                    fat_g_per_100g=0,
+                    carbs_g_per_100g=4,
+                    sugars_g_per_100g=4,
+                    salt_g_per_100g=0.1
                 ),
                 brands="TestBrand",
                 categories="Dairy products",
@@ -226,13 +224,12 @@ class TestSmartRecommendationEngine:
                 code="1234567890123",
                 product_name="Test Product",
                 nutriments=Nutriments(
-                    energy_kcal_100g=100,
-                    proteins_100g=15,
-                    fat_100g=5,
-                    carbohydrates_100g=10,
-                    sugars_100g=5,
-                    salt_100g=0.1,
-                    fiber_100g=2
+                    energy_kcal_per_100g=100,
+                    protein_g_per_100g=15,
+                    fat_g_per_100g=5,
+                    carbs_g_per_100g=10,
+                    sugars_g_per_100g=5,
+                    salt_g_per_100g=0.1
                 ),
                 brands="TestBrand",
                 categories="Test Category", 
