@@ -80,12 +80,15 @@
 - **Fallback System**: Robust fallback to English if translation services are unavailable
 - **Cached Performance**: Translation results cached for 7 days for optimal performance
 
-#### 🔗 **Meal Plan Integration** *(New - September 7, 2025)*
-- **Dynamic Plan ID Retrieval**: Smart Diet optimization now uses actual meal plan IDs instead of hardcoded values
-- **Persistent Plan Storage**: Meal plan IDs stored in AsyncStorage and persist across app restarts
-- **Seamless Optimization**: Generate meal plan in Plan tab → Use optimization in Smart Diet tab automatically
-- **Error Handling**: Graceful handling when no meal plan exists with helpful user guidance
-- **Backend Integration**: Full plan_id field support in MealPlanResponse model with UUID generation
+#### 🔗 **Smart Diet to Meal Plan Integration** *(New - September 8, 2025)*
+- **One-Tap Product Addition**: Smart Diet recommendations can now be directly added to your meal plan with a single tap
+- **Intelligent Meal Selection**: Automatically assigns products to appropriate meals (breakfast/lunch/dinner) based on recommendation context
+- **Barcode Extraction**: Advanced metadata processing extracts product barcodes from AI suggestions for seamless integration
+- **Real-Time API Integration**: POST `/plan/add-product` endpoint enables instant meal plan updates from Smart Diet interface
+- **Complete Error Handling**: Graceful handling of missing meal plans, product lookup failures, and API errors
+- **Visual Feedback**: Success/error alerts with product names, calories added, and target meal information
+- **ProductDetail Enhancement**: Barcode scanner and manual product additions also integrated with new meal plan API
+- **Comprehensive Testing**: 17 test cases covering success scenarios, error handling, validation, and integration workflows
 
 ### Intelligence Algorithms
 
@@ -409,6 +412,7 @@ L4 Storage: External APIs      → Latency: 100-500ms
 
 #### **Meal Planning APIs**
 - **POST /plan/generate** - Generate personalized daily meal plans
+- **POST /plan/add-product** - Add product to existing meal plan by barcode *(New - September 8, 2025)*
 - **GET /plan/config** - Get meal planning configuration
 
 #### **Reminder & Notification APIs**
@@ -1177,6 +1181,17 @@ curl -X POST "http://localhost:8000/plan/generate" \
          "prefers": ["organic"]
        }
      }'
+
+#### **Add Product to Meal Plan**
+```bash
+curl -X POST "http://localhost:8000/plan/add-product" \
+     -H "Content-Type: application/json" \
+     -H "Authorization: Bearer YOUR_ACCESS_TOKEN" \
+     -d '{
+       "barcode": "1234567890123",
+       "meal_type": "lunch",
+       "serving_size": "150g"
+     }'
 ```
 
 #### **Tracking APIs**
@@ -1375,6 +1390,17 @@ curl -X GET "http://localhost:8000/analytics/product-lookups?limit=10" \
 }
 ```
 
+#### **Add Product to Plan Response**
+```json
+{
+  "success": true,
+  "message": "Greek Yogurt has been successfully added to your lunch meal plan.",
+  "meal_type": "lunch",
+  "product_name": "Greek Yogurt",
+  "calories_added": 150.0
+}
+```
+
 ---
 
 ## 🚀 Platform Status
@@ -1393,5 +1419,5 @@ curl -X GET "http://localhost:8000/analytics/product-lookups?limit=10" \
 
 ---
 
-*Last Updated: September 6, 2025*  
-*DietIntel Platform v1.0 - Complete Nutrition Tracking Solution with Multilingual AI Support*
+*Last Updated: September 8, 2025*  
+*DietIntel Platform v1.1 - Complete Nutrition Tracking Solution with Smart Diet to Meal Plan Integration*

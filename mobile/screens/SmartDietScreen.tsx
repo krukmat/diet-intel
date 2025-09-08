@@ -17,6 +17,8 @@ import { useTranslation } from 'react-i18next';
 import { apiService } from '../services/ApiService';
 import { translateFoodNameSync, translateFoodName } from '../utils/foodTranslation';
 import { getCurrentMealPlanId } from '../utils/mealPlanUtils';
+import axios from 'axios';
+import { API_BASE_URL } from '../config/environment';
 
 interface SmartSuggestion {
   id: string;
@@ -222,6 +224,64 @@ export default function SmartDietScreen({ onBackPress }: SmartDietScreenProps) {
     }
   };
 
+  const addRecommendationToPlan = async (suggestion: SmartSuggestion) => {
+    try {
+      // Extract barcode from metadata (Smart Diet suggestions include barcode info)
+      const barcode = suggestion.metadata?.suggested_item?.barcode || 
+                    suggestion.metadata?.barcode ||
+                    suggestion.metadata?.product?.barcode;
+      
+      if (!barcode) {
+        Alert.alert(
+          'Cannot Add to Plan',
+          'This recommendation cannot be added to your meal plan (no barcode information available).',
+          [{ text: 'OK' }]
+        );
+        return;
+      }
+      
+      // Determine meal type from category or default to appropriate meal
+      let mealType = 'lunch'; // default
+      if (suggestion.category) {
+        const cat = suggestion.category.toLowerCase();
+        if (cat.includes('breakfast')) mealType = 'breakfast';
+        else if (cat.includes('dinner')) mealType = 'dinner';
+        else if (cat.includes('lunch')) mealType = 'lunch';
+      }
+      
+      const response = await axios.post(`${API_BASE_URL}/plan/add-product`, {
+        barcode: barcode,
+        meal_type: mealType,
+      });
+      
+      const result = response.data;
+      if (result.success) {
+        Alert.alert(
+          'Added to Plan!',
+          result.message,
+          [{ text: 'OK' }]
+        );
+      } else {
+        Alert.alert(
+          'Could not add to plan',
+          result.message || 'Failed to add recommendation to meal plan.',
+          [{ text: 'OK' }]
+        );
+      }
+    } catch (error) {
+      console.error('Add recommendation to plan failed:', error);
+      
+      let errorMessage = 'Failed to add recommendation to meal plan. Please try again.';
+      if (error.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      } else if (error.response?.data?.detail) {
+        errorMessage = error.response.data.detail;
+      }
+      
+      Alert.alert('Error', errorMessage, [{ text: 'OK' }]);
+    }
+  };
+
   const handleSuggestionAction = async (suggestion: SmartSuggestion) => {
     try {
       if (suggestion.suggestion_type === 'meal_recommendation') {
@@ -232,10 +292,7 @@ export default function SmartDietScreen({ onBackPress }: SmartDietScreenProps) {
             { text: t('common.cancel'), style: 'cancel' },
             {
               text: t('common.add'),
-              onPress: () => {
-                Alert.alert(t('common.success'), t('smartDiet.alerts.addSuccess', { item: suggestion.title, meal: suggestion.category }));
-                // TODO: Integrate with meal plan API
-              }
+              onPress: () => addRecommendationToPlan(suggestion)
             }
           ]
         );
@@ -248,8 +305,14 @@ export default function SmartDietScreen({ onBackPress }: SmartDietScreenProps) {
             {
               text: t('common.apply'),
               onPress: () => {
-                Alert.alert(t('common.success'), t('smartDiet.alerts.optimizationSuccess'));
-                // TODO: Apply optimization via API
+                // Check if optimization has actionable barcode data
+                if (suggestion.metadata?.suggested_item?.barcode || 
+                    suggestion.metadata?.barcode ||
+                    suggestion.metadata?.product?.barcode) {
+                  addRecommendationToPlan(suggestion);
+                } else {
+                  Alert.alert(t('common.success'), t('smartDiet.alerts.optimizationSuccess'));
+                }
               }
             }
           ]

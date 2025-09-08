@@ -103,18 +103,33 @@ export default function ProductDetail({ product, onClose, showAddToPlan = true }
         meal_type: 'lunch', // Default to lunch, could be made selectable
       });
 
-      Alert.alert(
-        'Success!',
-        `${translateFoodName(normalizedProduct.name)} has been added to your meal plan.`,
-        [{ text: 'OK' }]
-      );
+      // Handle the new API response structure
+      const result = response.data;
+      if (result.success) {
+        Alert.alert(
+          'Success!',
+          result.message || `${translateFoodName(normalizedProduct.name)} has been added to your meal plan.`,
+          [{ text: 'OK' }]
+        );
+      } else {
+        Alert.alert(
+          'Could not add to plan',
+          result.message || 'Failed to add product to meal plan. Please try again.',
+          [{ text: 'OK' }]
+        );
+      }
     } catch (error) {
       console.error('Add to plan failed:', error);
-      Alert.alert(
-        'Error',
-        'Failed to add product to meal plan. Please try again.',
-        [{ text: 'OK' }]
-      );
+      
+      // Handle different error scenarios
+      let errorMessage = 'Failed to add product to meal plan. Please try again.';
+      if (error.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      } else if (error.response?.data?.detail) {
+        errorMessage = error.response.data.detail;
+      }
+      
+      Alert.alert('Error', errorMessage, [{ text: 'OK' }]);
     } finally {
       setAddingToPlan(false);
     }

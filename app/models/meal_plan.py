@@ -178,3 +178,17 @@ class MealPlanConfig(BaseModel):
         "maintain": 0,
         "gain_weight": 300
     })
+
+
+class AddProductRequest(BaseModel):
+    barcode: str = Field(..., description="Product barcode to add to meal plan")
+    meal_type: Optional[str] = Field("lunch", description="Target meal (breakfast, lunch, dinner)")
+    serving_size: Optional[str] = Field(None, description="Custom serving size (e.g., '150g', '1 cup')")
+
+
+class AddProductResponse(BaseModel):
+    success: bool = Field(..., description="Whether the product was added successfully")
+    message: str = Field(..., description="Human-readable result message")
+    meal_type: Optional[str] = Field(None, description="Meal the product was added to")
+    product_name: Optional[str] = Field(None, description="Name of the added product")
+    calories_added: Optional[float] = Field(None, description="Calories added to the meal plan")
