@@ -1,5 +1,6 @@
 import json
 import logging
+import asyncio
 from typing import Optional, Union
 import redis.asyncio as redis
 from datetime import datetime, timedelta
@@ -15,6 +16,15 @@ class CacheService:
     async def get_redis(self) -> redis.Redis:
         if self._redis is None:
             self._redis = redis.from_url(self.redis_url, decode_responses=True)
+        else:
+            # Check if the existing connection is still valid for this event loop
+            try:
+                # Test if connection is still valid
+                await asyncio.wait_for(self._redis.ping(), timeout=0.1)
+            except (Exception, asyncio.TimeoutError):
+                # Connection is invalid, create a new one
+                logger.debug("Redis connection invalid, creating new one")
+                self._redis = redis.from_url(self.redis_url, decode_responses=True)
         return self._redis
     
     async def ping(self) -> bool:

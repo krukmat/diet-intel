@@ -381,7 +381,7 @@ class BarcodeAPIClient:
                 
                 # Parse JSON response
                 try:
-                    data = response.json()
+                    data = await response.json()
                 except json.JSONDecodeError as e:
                     raise OpenFoodFactsAPIError(f"Invalid JSON response from OFF API: {e}")
                 

@@ -104,7 +104,9 @@ async def track_meal(request: MealTrackingRequest, req: Request):
         
         # Update cache for recent meals (keep caching for performance)
         cache_key = f"recent_meals_{user_id}"
-        recent_meals = await cache_service.get(cache_key) or []
+        cached_meals = await cache_service.get(cache_key)
+        # Ensure recent_meals is always a list
+        recent_meals = cached_meals if isinstance(cached_meals, list) else []
         recent_meals.append(meal_record.model_dump())
         # Keep only last 50 meals
         recent_meals = recent_meals[-50:]
@@ -161,7 +163,9 @@ async def track_weight(request: WeightTrackingRequest, req: Request):
         
         # Cache weight history for performance
         cache_key = f"weight_history_{user_id}"
-        weight_history = await cache_service.get(cache_key) or []
+        cached_history = await cache_service.get(cache_key)
+        # Ensure weight_history is always a list
+        weight_history = cached_history if isinstance(cached_history, list) else []
         weight_history.append(weight_record.model_dump())
         # Keep only last 100 entries - sort by date with proper datetime handling
         def sort_key(x):

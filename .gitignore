@@ -159,3 +159,6 @@ reports/
 mobile/TODO-PRIORITY-REPORT.md
 ASYNCSTORAGE-FIX-TEST-REPORT.md
 MEAL-PLAN-ID-MANUAL-TESTS.md
+dietintel.db-shm
+.gitignore
+dietintel.db-wal
