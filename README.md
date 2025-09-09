@@ -25,6 +25,7 @@
 
 ### 🖥️ [Backend API](#backend-api)
 - [Authentication System](#authentication-system)
+- [API Response Standardization](#api-response-standardization) ⭐
 - [Core APIs](#core-apis)
 - [Database & Caching](#database--caching) 
 - [OCR & Image Processing](#ocr--image-processing)
@@ -405,6 +406,36 @@ L4 Storage: External APIs      → Latency: 100-500ms
 - **GET /auth/me** - Get user profile (protected)
 - **PUT /auth/me** - Update user profile
 - **POST /auth/change-password** - Secure password change
+
+### API Response Standardization
+
+**🛡️ Comprehensive error handling and response consistency across all endpoints**
+
+#### **Features** 
+- **HTTP Status Code Accuracy**: Proper status codes (400, 404, 422, 500) for different error types
+- **Consistent Error Formats**: Standardized error response structure across all routes
+- **Input Validation**: Enhanced Pydantic model validation with detailed error messages
+- **Exception Handling**: Proper HTTPException preservation in route handlers
+
+#### **HTTP Status Codes**
+- **400 Bad Request**: Invalid or empty input data
+- **404 Not Found**: Resource doesn't exist (e.g., product not found)  
+- **422 Unprocessable Entity**: Validation errors (negative values, invalid timestamps)
+- **500 Internal Server Error**: Unexpected system errors only
+
+#### **Input Validation**
+- **Meal Tracking**: Non-negative calories, valid timestamps, item count limits (1-20)
+- **Weight Tracking**: Positive weight values, valid date formats
+- **Barcode Validation**: Length constraints, non-empty values
+- **Timestamp Parsing**: ISO format validation with proper error messages
+
+#### **Routes Enhanced**
+- **Product APIs** (`/product/*`): Proper 404 for non-existent products vs 500 for system errors
+- **Tracking APIs** (`/track/*`): Enhanced validation for meals, weight entries, and timestamps  
+- **Reminder APIs** (`/reminder/*`): Consistent 404/422/500 error handling
+- **Plan APIs** (`/plan/*`): Validation error preservation and proper status codes
+
+*✅ Implemented: September 9, 2025*
 
 ### Core APIs
 
@@ -1419,6 +1450,7 @@ curl -X GET "http://localhost:8000/analytics/product-lookups?limit=10" \
 **✅ Mobile Application**: Full-featured React Native app with camera integration and developer settings  
 **✅ Authentication**: JWT-based security with role-based access control - **Webapp Integration Complete** (Aug 31, 2025)  
 **✅ Smart Diet Translations**: Real-time Spanish translation of recommendations and nutritional insights - **Multilingual Support** (Sep 6, 2025)  
+**✅ API Response Standardization**: Comprehensive error handling with proper HTTP status codes and input validation - **Enhanced Reliability** (Sep 9, 2025)  
 **✅ Database**: SQLite with users, sessions, tracking data  
 **✅ Caching**: Redis with 24-hour TTL for performance  
 **✅ Testing**: Comprehensive test suites with 100% pass rates  
@@ -1428,5 +1460,5 @@ curl -X GET "http://localhost:8000/analytics/product-lookups?limit=10" \
 
 ---
 
-*Last Updated: September 8, 2025*  
-*DietIntel Platform v1.1 - Complete Nutrition Tracking Solution with Smart Diet to Meal Plan Integration*
+*Last Updated: September 9, 2025*  
+*DietIntel Platform v1.2 - Complete Nutrition Tracking Solution with Enhanced API Reliability*

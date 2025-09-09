@@ -1,21 +1,32 @@
 from datetime import datetime
 from typing import Optional, List
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, validator
 
 class MealItem(BaseModel):
     """Individual item in a meal"""
-    barcode: str
-    name: str
-    serving: str
-    calories: float
-    macros: dict = Field(default_factory=dict)
+    barcode: str = Field(..., min_length=1, max_length=50, description="Product barcode")
+    name: str = Field(..., min_length=1, max_length=200, description="Food item name")
+    serving: str = Field(..., min_length=1, max_length=50, description="Serving size description")
+    calories: float = Field(..., ge=0, description="Calories per serving (must be non-negative)")
+    macros: dict = Field(default_factory=dict, description="Macronutrient information")
 
 class MealTrackingRequest(BaseModel):
     """Request model for tracking consumed meals"""
-    meal_name: str = Field(..., description="Name of the meal (Breakfast, Lunch, Dinner)")
-    items: List[MealItem] = Field(..., description="List of food items consumed")
-    photo: Optional[str] = Field(None, description="Base64 encoded photo of the meal")
+    meal_name: str = Field(..., min_length=1, max_length=100, description="Name of the meal (Breakfast, Lunch, Dinner)")
+    items: List[MealItem] = Field(..., min_items=1, max_items=20, description="List of food items consumed (1-20 items)")
+    photo: Optional[str] = Field(None, max_length=1000000, description="Base64 encoded photo of the meal")
     timestamp: str = Field(..., description="ISO timestamp when meal was consumed")
+
+    @validator('timestamp')
+    def validate_timestamp(cls, v):
+        if not v or not v.strip():
+            raise ValueError('Timestamp cannot be empty')
+        try:
+            # Try to parse as ISO format
+            datetime.fromisoformat(v.replace('Z', '+00:00'))
+        except (ValueError, TypeError):
+            raise ValueError('Timestamp must be a valid ISO datetime string')
+        return v
 
 class MealTrackingResponse(BaseModel):
     """Response model for meal tracking"""

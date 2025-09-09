@@ -81,7 +81,20 @@ async def get_product_by_barcode(request: BarcodeRequest):
             return ProductResponse(**cached_product)
         
         # Fetch from external API
-        product = await openfoodfacts_service.get_product(barcode)
+        try:
+            product = await openfoodfacts_service.get_product(barcode)
+        except Exception as api_error:
+            # Log API error and convert to appropriate HTTP status
+            response_time = int((datetime.now() - start_time).total_seconds() * 1000)
+            await db_service.log_product_lookup(
+                user_id, session_id, barcode, None, 
+                False, response_time, "OpenFoodFacts", f"API error: {str(api_error)}"
+            )
+            logger.warning(f"OpenFoodFacts API error for barcode {barcode}: {api_error}")
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Product lookup service temporarily unavailable"
+            )
         
         if product is None:
             response_time = int((datetime.now() - start_time).total_seconds() * 1000)
@@ -96,7 +109,7 @@ async def get_product_by_barcode(request: BarcodeRequest):
         
         # Store in database and cache
         product_dict = product.model_dump()
-        await cache_service.set(cache_key, product_dict, ttl_hours=24)
+        await cache_service.set(cache_key, product_dict, ttl=24*3600)
         
         # Store in database for future lookups  
         await db_service.store_product(
@@ -144,13 +157,16 @@ async def get_product_by_barcode(request: BarcodeRequest):
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Unable to connect to product database"
         )
+    except HTTPException:
+        # Re-raise HTTPException to preserve intended status codes (like 404)
+        raise
     except Exception as e:
         response_time = int((datetime.now() - start_time).total_seconds() * 1000)
         await db_service.log_product_lookup(
             user_id, session_id, barcode, None, 
             False, response_time, "System", f"Unexpected error: {str(e)}"
         )
-        logger.error(f"Unexpected error fetching product for barcode {barcode}: {e}")
+        logger.error(f"Unexpected error fetching product for barcode {barcode}: {e}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Internal server error"

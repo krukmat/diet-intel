@@ -90,7 +90,7 @@ async def create_reminder(request: ReminderRequest, req: Request):
             user_reminders = await cache_service.get(cache_key) or []
             user_reminders.append(reminder.model_dump())
             user_reminders = user_reminders[-50:]  # Keep last 50
-            await cache_service.set(cache_key, user_reminders, ttl_hours=24)
+            await cache_service.set(cache_key, user_reminders, ttl=24*3600)
         except Exception as cache_error:
             logger.warning(f"Failed to cache reminder {reminder_id}: {cache_error}")
         
@@ -138,7 +138,7 @@ async def get_reminders(req: Request):
         # Update cache (performance optimization)
         try:
             cache_key = f"user_reminders_{user_id}"
-            await cache_service.set(cache_key, [r.model_dump() for r in reminders], ttl_hours=24)
+            await cache_service.set(cache_key, [r.model_dump() for r in reminders], ttl=24*3600)
         except Exception as cache_error:
             logger.warning(f"Failed to cache reminders for user {user_id}: {cache_error}")
         
@@ -152,6 +152,9 @@ async def get_reminders(req: Request):
             count=len(reminders)
         )
     
+    except HTTPException:
+        # Re-raise HTTPException to preserve intended status codes
+        raise
     except Exception as e:
         logger.error(f"Failed to get reminders: {str(e)}")
         raise HTTPException(

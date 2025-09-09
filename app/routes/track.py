@@ -108,12 +108,15 @@ async def track_meal(request: MealTrackingRequest, req: Request):
         recent_meals.append(meal_record.model_dump())
         # Keep only last 50 meals
         recent_meals = recent_meals[-50:]
-        await cache_service.set(cache_key, recent_meals, ttl_hours=24)
+        await cache_service.set(cache_key, recent_meals, ttl=24*3600)
         
         logger.info(f"Successfully tracked meal {meal_id} for user {user_id}: {meal_data['total_calories']} calories")
         
         return meal_record
     
+    except HTTPException:
+        # Re-raise HTTPException to preserve intended status codes
+        raise
     except Exception as e:
         logger.error(f"Failed to track meal: {str(e)}")
         raise HTTPException(
@@ -168,12 +171,15 @@ async def track_weight(request: WeightTrackingRequest, req: Request):
                 return parse(date_val)
             return date_val
         weight_history = sorted(weight_history, key=sort_key)[-100:]
-        await cache_service.set(cache_key, weight_history, ttl_hours=24)
+        await cache_service.set(cache_key, weight_history, ttl=24*3600)
         
         logger.info(f"Successfully tracked weight {weight_id} for user {user_id}: {request.weight} kg")
         
         return weight_record
     
+    except HTTPException:
+        # Re-raise HTTPException to preserve intended status codes
+        raise
     except Exception as e:
         logger.error(f"Failed to track weight: {str(e)}")
         raise HTTPException(
@@ -220,6 +226,9 @@ async def get_weight_history(req: Request, limit: Optional[int] = 30):
             date_range=date_range
         )
     
+    except HTTPException:
+        # Re-raise HTTPException to preserve intended status codes
+        raise
     except Exception as e:
         logger.error(f"Failed to get weight history: {str(e)}")
         raise HTTPException(
@@ -273,6 +282,9 @@ async def get_photo_logs(req: Request, limit: Optional[int] = 50):
             count=len(photo_logs)
         )
     
+    except HTTPException:
+        # Re-raise HTTPException to preserve intended status codes
+        raise
     except Exception as e:
         logger.error(f"Failed to get photo logs: {str(e)}")
         raise HTTPException(
