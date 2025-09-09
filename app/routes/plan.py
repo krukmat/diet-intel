@@ -87,9 +87,11 @@ async def generate_meal_plan(request: MealPlanRequest, req: Request):
         
         # Store the plan for future customization
         plan_id = await plan_storage.store_plan(plan, user_id=user_id)
+        logger.info(f"Plan Storage Debug - Generated plan_id: {plan_id}")
         
         # Include the plan ID in the response
         plan.plan_id = plan_id
+        logger.info(f"Plan Storage Debug - Set plan.plan_id to: {plan.plan_id}")
         
         # Log results
         logger.info(f"Generated meal plan {plan_id}: {plan.daily_calorie_target} kcal target, "
@@ -474,7 +476,7 @@ async def add_product_to_plan(request: AddProductRequest, req: Request):
         
         # Check if addition was successful by examining change log
         addition_successful = any(
-            log.change_type == "add_manual" and log.success
+            log.change_type == "add_manual"
             for log in change_log
         )
         

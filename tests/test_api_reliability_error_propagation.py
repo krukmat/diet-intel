@@ -379,7 +379,8 @@ class TestErrorResponseConsistency:
         assert response.status_code == 400
         
         # 404 Not Found - Resource doesn't exist
-        with patch('app.services.openfoodfacts.OpenFoodFactsService.get_product', return_value=None):
+        from unittest.mock import AsyncMock
+        with patch('app.routes.product.openfoodfacts_service.get_product', new_callable=AsyncMock, return_value=None):
             response = client.post("/product/by-barcode", json={"barcode": "nonexistent"})
             assert response.status_code == 404
         

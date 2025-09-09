@@ -48,7 +48,7 @@ class PlanStorageService:
                 "version": 1
             }
             try:
-                await cache_service.set(cache_key, plan_data, ttl_hours=self.default_ttl_hours)
+                await cache_service.set(cache_key, plan_data, ttl=self.default_ttl_hours * 3600)
             except Exception as cache_error:
                 logger.warning(f"Failed to cache plan {actual_plan_id}: {cache_error}")
             
@@ -101,7 +101,7 @@ class PlanStorageService:
                     "plan_id": plan_id,
                     "version": 1
                 }
-                await cache_service.set(cache_key, cache_data, ttl_hours=self.default_ttl_hours)
+                await cache_service.set(cache_key, cache_data, ttl=self.default_ttl_hours * 3600)
             except Exception as cache_error:
                 logger.warning(f"Failed to cache retrieved plan {plan_id}: {cache_error}")
             
@@ -139,7 +139,7 @@ class PlanStorageService:
                     "plan_id": plan_id,
                     "version": 2
                 }
-                await cache_service.set(cache_key, plan_data, ttl_hours=self.default_ttl_hours)
+                await cache_service.set(cache_key, plan_data, ttl=self.default_ttl_hours * 3600)
             except Exception as cache_error:
                 logger.warning(f"Failed to update cache for plan {plan_id}: {cache_error}")
             

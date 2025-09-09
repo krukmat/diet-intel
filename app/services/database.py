@@ -4,6 +4,9 @@ import uuid
 from datetime import datetime, timedelta
 from typing import Optional, List, Dict, Any
 from contextlib import contextmanager
+from threading import Lock
+import threading
+from queue import Queue, Empty
 from app.models.user import User, UserCreate, UserSession, UserRole
 from app.config import config
 import logging
@@ -11,11 +14,89 @@ import logging
 logger = logging.getLogger(__name__)
 
 
+class ConnectionPool:
+    """Simple SQLite connection pool for better performance"""
+    
+    def __init__(self, db_path: str, max_connections: int = 10):
+        self.db_path = db_path
+        self.max_connections = max_connections
+        self._pool = Queue(maxsize=max_connections)
+        self._lock = Lock()
+        self._created_connections = 0
+        
+        # Pre-populate pool with initial connections
+        for _ in range(min(3, max_connections)):
+            conn = self._create_connection()
+            if conn:
+                self._pool.put(conn)
+    
+    def _create_connection(self) -> Optional[sqlite3.Connection]:
+        """Create a new database connection"""
+        try:
+            conn = sqlite3.connect(self.db_path, check_same_thread=False)
+            conn.row_factory = sqlite3.Row  # Enable column access by name
+            # Enable WAL mode for better concurrent access
+            conn.execute("PRAGMA journal_mode=WAL")
+            conn.execute("PRAGMA synchronous=NORMAL")
+            conn.execute("PRAGMA cache_size=10000")
+            conn.execute("PRAGMA temp_store=memory")
+            return conn
+        except Exception as e:
+            logger.error(f"Failed to create database connection: {e}")
+            return None
+    
+    @contextmanager
+    def get_connection(self):
+        """Get a connection from the pool"""
+        conn = None
+        try:
+            # Try to get existing connection from pool
+            try:
+                conn = self._pool.get_nowait()
+            except Empty:
+                # Create new connection if pool is empty and under limit
+                with self._lock:
+                    if self._created_connections < self.max_connections:
+                        conn = self._create_connection()
+                        if conn:
+                            self._created_connections += 1
+                    else:
+                        # Wait for connection if at limit
+                        conn = self._pool.get(timeout=5.0)
+            
+            if not conn:
+                raise RuntimeError("Unable to obtain database connection")
+            
+            yield conn
+            
+        except Exception as e:
+            if conn:
+                try:
+                    conn.rollback()
+                except:
+                    pass
+            raise e
+        finally:
+            if conn:
+                try:
+                    # Return connection to pool
+                    self._pool.put_nowait(conn)
+                except:
+                    # Pool is full, close the connection
+                    try:
+                        conn.close()
+                        with self._lock:
+                            self._created_connections -= 1
+                    except:
+                        pass
+
+
 class DatabaseService:
     """SQLite database service for user management"""
     
-    def __init__(self, db_path: str = "dietintel.db"):
+    def __init__(self, db_path: str = "dietintel.db", max_connections: int = 10):
         self.db_path = db_path
+        self.connection_pool = ConnectionPool(db_path, max_connections)
         self.init_database()
     
     def init_database(self):
@@ -242,13 +323,9 @@ class DatabaseService:
     
     @contextmanager
     def get_connection(self):
-        """Get database connection with automatic cleanup"""
-        conn = sqlite3.connect(self.db_path)
-        conn.row_factory = sqlite3.Row  # Enable column access by name
-        try:
+        """Get database connection from pool with automatic cleanup"""
+        with self.connection_pool.get_connection() as conn:
             yield conn
-        finally:
-            conn.close()
     
     async def create_user(self, user_data: UserCreate, password_hash: str) -> User:
         """Create a new user in the database"""
@@ -417,38 +494,57 @@ class DatabaseService:
         
         meal_id = str(uuid.uuid4())
         
-        # Calculate total calories
-        total_calories = sum(item.calories for item in meal_data.items)
-        
-        # Parse timestamp
         try:
-            timestamp = datetime.fromisoformat(meal_data.timestamp.replace("Z", "+00:00"))
-        except ValueError:
-            timestamp = datetime.now()
-        
-        with self.get_connection() as conn:
-            cursor = conn.cursor()
+            # Calculate total calories
+            total_calories = sum(item.calories for item in meal_data.items)
             
-            # Insert meal record
-            cursor.execute("""
-                INSERT INTO meals (id, user_id, meal_name, total_calories, photo_url, timestamp, created_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
-            """, (meal_id, user_id, meal_data.meal_name, total_calories, photo_url, 
-                  timestamp.isoformat(), datetime.now().isoformat()))
+            # Parse timestamp
+            try:
+                timestamp = datetime.fromisoformat(meal_data.timestamp.replace("Z", "+00:00"))
+            except ValueError:
+                timestamp = datetime.now()
             
-            # Insert meal items
-            for item in meal_data.items:
-                item_id = str(uuid.uuid4())
-                cursor.execute("""
-                    INSERT INTO meal_items (id, meal_id, barcode, name, serving, calories, macros)
-                    VALUES (?, ?, ?, ?, ?, ?, ?)
-                """, (item_id, meal_id, item.barcode, item.name, item.serving, 
-                      item.calories, json.dumps(item.macros)))
-            
-            conn.commit()
-            
-        logger.info(f"Created meal {meal_id} for user {user_id}: {total_calories} calories")
-        return meal_id
+            with self.get_connection() as conn:
+                cursor = conn.cursor()
+                
+                try:
+                    # Insert meal record
+                    cursor.execute("""
+                        INSERT INTO meals (id, user_id, meal_name, total_calories, photo_url, timestamp, created_at)
+                        VALUES (?, ?, ?, ?, ?, ?, ?)
+                    """, (meal_id, user_id, meal_data.meal_name, total_calories, photo_url, 
+                          timestamp.isoformat(), datetime.now().isoformat()))
+                    
+                    # Insert meal items (all or nothing)
+                    for item in meal_data.items:
+                        item_id = str(uuid.uuid4())
+                        try:
+                            macros_json = json.dumps(item.macros)
+                        except (TypeError, ValueError) as json_error:
+                            logger.error(f"Failed to serialize macros for item {item.name}: {json_error}")
+                            raise RuntimeError(f"Invalid macros data for item {item.name}")
+                        
+                        cursor.execute("""
+                            INSERT INTO meal_items (id, meal_id, barcode, name, serving, calories, macros)
+                            VALUES (?, ?, ?, ?, ?, ?, ?)
+                        """, (item_id, meal_id, item.barcode, item.name, item.serving, 
+                              item.calories, macros_json))
+                    
+                    # Commit the entire transaction
+                    conn.commit()
+                    
+                    logger.info(f"Created meal {meal_id} for user {user_id}: {total_calories} calories with {len(meal_data.items)} items")
+                    return meal_id
+                    
+                except Exception as db_error:
+                    # Rollback entire meal creation on any failure
+                    conn.rollback()
+                    logger.error(f"Database error creating meal for user {user_id}: {db_error}")
+                    raise RuntimeError(f"Failed to create meal: {str(db_error)}")
+                    
+        except Exception as e:
+            logger.error(f"Error in create_meal for user {user_id}: {e}")
+            raise RuntimeError(f"Failed to create meal: {str(e)}")
     
     async def get_meal_by_id(self, meal_id: str) -> Optional[Dict]:
         """Get a meal by ID with all its items"""
@@ -826,32 +922,46 @@ class DatabaseService:
         from app.models.meal_plan import MealPlanResponse
         import json
         
-        # Check if plan exists and not expired
-        existing_plan = await self.get_meal_plan(plan_id)
-        if not existing_plan:
+        try:
+            # Check if plan exists and not expired
+            existing_plan = await self.get_meal_plan(plan_id)
+            if not existing_plan:
+                logger.warning(f"Attempted to update non-existent meal plan: {plan_id}")
+                return False
+            
+            # Serialize updated plan data
+            plan_dict = plan.model_dump()
+            plan_dict.pop('created_at', None)  # Preserve original created_at
+            plan_data_json = json.dumps(plan_dict)
+            
+            with self.get_connection() as conn:
+                cursor = conn.cursor()
+                try:
+                    cursor.execute("""
+                        UPDATE meal_plans 
+                        SET plan_data = ?, bmr = ?, tdee = ?, daily_calorie_target = ?,
+                            flexibility_used = ?, optional_products_used = ?
+                        WHERE id = ?
+                    """, (plan_data_json, plan.bmr, plan.tdee, plan.daily_calorie_target,
+                          plan.flexibility_used, plan.optional_products_used, plan_id))
+                    updated = cursor.rowcount > 0
+                    conn.commit()
+                    
+                    if updated:
+                        logger.info(f"Updated meal plan {plan_id}")
+                    else:
+                        logger.warning(f"No meal plan updated for ID: {plan_id}")
+                    
+                    return updated
+                    
+                except Exception as db_error:
+                    conn.rollback()
+                    logger.error(f"Database error updating meal plan {plan_id}: {db_error}")
+                    raise RuntimeError(f"Failed to update meal plan: {str(db_error)}")
+                    
+        except Exception as e:
+            logger.error(f"Error in update_meal_plan for {plan_id}: {e}")
             return False
-        
-        # Serialize updated plan data
-        plan_dict = plan.model_dump()
-        plan_dict.pop('created_at', None)  # Preserve original created_at
-        plan_data_json = json.dumps(plan_dict)
-        
-        with self.get_connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute("""
-                UPDATE meal_plans 
-                SET plan_data = ?, bmr = ?, tdee = ?, daily_calorie_target = ?,
-                    flexibility_used = ?, optional_products_used = ?
-                WHERE id = ?
-            """, (plan_data_json, plan.bmr, plan.tdee, plan.daily_calorie_target,
-                  plan.flexibility_used, plan.optional_products_used, plan_id))
-            updated = cursor.rowcount > 0
-            conn.commit()
-        
-        if updated:
-            logger.info(f"Updated meal plan {plan_id}")
-        
-        return updated
     
     async def delete_meal_plan(self, plan_id: str) -> bool:
         """Delete a meal plan"""
@@ -870,32 +980,52 @@ class DatabaseService:
         """Get meal plans for a user (excluding expired ones)"""
         import json
         
-        with self.get_connection() as conn:
-            cursor = conn.cursor()
-            
-            # Clean up expired plans first
-            now = datetime.now().isoformat()
-            cursor.execute("DELETE FROM meal_plans WHERE expires_at < ?", (now,))
-            
-            # Get user's active plans
-            cursor.execute("""
-                SELECT * FROM meal_plans 
-                WHERE user_id = ? AND (expires_at IS NULL OR expires_at > ?)
-                ORDER BY created_at DESC 
-                LIMIT ?
-            """, (user_id, now, limit))
-            rows = cursor.fetchall()
-            
-            conn.commit()  # Commit the cleanup
-            
-            plans = []
-            for row in rows:
-                plan_data = json.loads(row['plan_data'])
-                plan_data['created_at'] = datetime.fromisoformat(row['created_at'])
-                plan_data['id'] = row['id']  # Add plan ID for reference
-                plans.append(plan_data)
-            
-            return plans
+        try:
+            with self.get_connection() as conn:
+                cursor = conn.cursor()
+                
+                try:
+                    # Clean up expired plans first
+                    now = datetime.now().isoformat()
+                    cursor.execute("DELETE FROM meal_plans WHERE expires_at < ?", (now,))
+                    deleted_count = cursor.rowcount
+                    
+                    # Get user's active plans
+                    cursor.execute("""
+                        SELECT * FROM meal_plans 
+                        WHERE user_id = ? AND (expires_at IS NULL OR expires_at > ?)
+                        ORDER BY created_at DESC 
+                        LIMIT ?
+                    """, (user_id, now, limit))
+                    rows = cursor.fetchall()
+                    
+                    conn.commit()  # Commit the cleanup and query
+                    
+                    if deleted_count > 0:
+                        logger.info(f"Cleaned up {deleted_count} expired meal plans during user query")
+                    
+                    plans = []
+                    for row in rows:
+                        try:
+                            plan_data = json.loads(row['plan_data'])
+                            plan_data['created_at'] = datetime.fromisoformat(row['created_at'])
+                            plan_data['id'] = row['id']  # Add plan ID for reference
+                            plans.append(plan_data)
+                        except (json.JSONDecodeError, ValueError) as parse_error:
+                            logger.error(f"Failed to parse meal plan {row['id']}: {parse_error}")
+                            # Skip corrupted plan data but continue with others
+                            continue
+                    
+                    return plans
+                    
+                except Exception as db_error:
+                    conn.rollback()
+                    logger.error(f"Database error getting meal plans for user {user_id}: {db_error}")
+                    raise RuntimeError(f"Failed to retrieve meal plans: {str(db_error)}")
+                    
+        except Exception as e:
+            logger.error(f"Error in get_user_meal_plans for user {user_id}: {e}")
+            return []  # Return empty list on error to maintain API contract
     
     async def cleanup_expired_meal_plans(self) -> int:
         """Clean up expired meal plans and return count of deleted plans"""
@@ -958,48 +1088,101 @@ class DatabaseService:
                            serving_size: Optional[str], image_url: Optional[str],
                            source: str = "OpenFoodFacts") -> bool:
         """Store or update a product in the database"""
-        nutriments_json = json.dumps(nutriments)
-        
-        with self.get_connection() as conn:
-            cursor = conn.cursor()
-            # Use INSERT OR REPLACE to update existing products
-            cursor.execute("""
-                INSERT OR REPLACE INTO products 
-                (barcode, name, brand, categories, nutriments, serving_size, image_url, source, access_count)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, 
-                    COALESCE((SELECT access_count FROM products WHERE barcode = ?), 0))
-            """, (barcode, name, brand, categories, nutriments_json, serving_size, 
-                  image_url, source, barcode))
-            conn.commit()
-        
-        return True
+        try:
+            nutriments_json = json.dumps(nutriments)
+            
+            with self.get_connection() as conn:
+                cursor = conn.cursor()
+                try:
+                    # Use INSERT OR REPLACE to update existing products
+                    cursor.execute("""
+                        INSERT OR REPLACE INTO products 
+                        (barcode, name, brand, categories, nutriments, serving_size, image_url, source, access_count)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 
+                            COALESCE((SELECT access_count FROM products WHERE barcode = ?), 0))
+                    """, (barcode, name, brand, categories, nutriments_json, serving_size, 
+                          image_url, source, barcode))
+                    conn.commit()
+                    
+                    logger.info(f"Successfully stored product {barcode}: {name}")
+                    return True
+                    
+                except Exception as db_error:
+                    conn.rollback()
+                    logger.error(f"Database error storing product {barcode}: {db_error}")
+                    raise RuntimeError(f"Failed to store product: {str(db_error)}")
+                    
+        except json.JSONEncodeError as json_error:
+            logger.error(f"Failed to serialize nutriments for product {barcode}: {json_error}")
+            return False
+        except Exception as e:
+            logger.error(f"Error in store_product for {barcode}: {e}")
+            return False
     
     async def get_product(self, barcode: str) -> Optional[dict]:
         """Get a product from the database and increment access count"""
-        with self.get_connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute("SELECT * FROM products WHERE barcode = ?", (barcode,))
-            row = cursor.fetchone()
-            
-            if row:
-                # Increment access count
-                cursor.execute("UPDATE products SET access_count = access_count + 1 WHERE barcode = ?", (barcode,))
-                conn.commit()
+        try:
+            with self.get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute("SELECT * FROM products WHERE barcode = ?", (barcode,))
+                row = cursor.fetchone()
                 
-                return {
-                    'barcode': row['barcode'],
-                    'name': row['name'],
-                    'brand': row['brand'],
-                    'categories': row['categories'],
-                    'nutriments': json.loads(row['nutriments']),
-                    'serving_size': row['serving_size'],
-                    'image_url': row['image_url'],
-                    'source': row['source'],
-                    'last_updated': row['last_updated'],
-                    'access_count': row['access_count']
-                }
-        
-        return None
+                if row:
+                    try:
+                        # Increment access count
+                        cursor.execute("UPDATE products SET access_count = access_count + 1 WHERE barcode = ?", (barcode,))
+                        conn.commit()
+                        
+                        # Parse nutriments JSON safely
+                        try:
+                            nutriments = json.loads(row['nutriments'])
+                        except json.JSONDecodeError as json_error:
+                            logger.error(f"Failed to parse nutriments for product {barcode}: {json_error}")
+                            nutriments = {}
+                        
+                        return {
+                            'barcode': row['barcode'],
+                            'name': row['name'],
+                            'brand': row['brand'],
+                            'categories': row['categories'],
+                            'nutriments': nutriments,
+                            'serving_size': row['serving_size'],
+                            'image_url': row['image_url'],
+                            'source': row['source'],
+                            'last_updated': row['last_updated'],
+                            'access_count': row['access_count'] + 1  # Reflect the incremented count
+                        }
+                        
+                    except Exception as update_error:
+                        # If access count update fails, rollback and still return product data
+                        conn.rollback()
+                        logger.warning(f"Failed to increment access count for product {barcode}: {update_error}")
+                        
+                        # Parse nutriments JSON safely
+                        try:
+                            nutriments = json.loads(row['nutriments'])
+                        except json.JSONDecodeError as json_error:
+                            logger.error(f"Failed to parse nutriments for product {barcode}: {json_error}")
+                            nutriments = {}
+                        
+                        return {
+                            'barcode': row['barcode'],
+                            'name': row['name'],
+                            'brand': row['brand'],
+                            'categories': row['categories'],
+                            'nutriments': nutriments,
+                            'serving_size': row['serving_size'],
+                            'image_url': row['image_url'],
+                            'source': row['source'],
+                            'last_updated': row['last_updated'],
+                            'access_count': row['access_count']  # Original count
+                        }
+            
+            return None
+            
+        except Exception as e:
+            logger.error(f"Error retrieving product {barcode}: {e}")
+            return None
     
     async def log_user_product_interaction(self, user_id: Optional[str], session_id: Optional[str],
                                          barcode: str, action: str, context: Optional[str] = None) -> str:

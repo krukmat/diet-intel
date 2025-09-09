@@ -137,10 +137,13 @@ export default function SmartDietScreen({ onBackPress }: SmartDietScreenProps) {
       // Add required current_meal_plan_id for optimize context
       if (selectedContext === 'optimize') {
         const currentPlanId = await getCurrentMealPlanId();
+        console.log('SmartDiet Debug - Retrieved meal plan ID:', currentPlanId);
         if (currentPlanId) {
+          console.log('SmartDiet Debug - Adding meal plan ID to params:', currentPlanId);
           params.append('current_meal_plan_id', currentPlanId);
         } else {
           // If no meal plan ID is available, show a helpful message
+          console.log('SmartDiet Debug - No meal plan ID found in AsyncStorage');
           throw new Error('No meal plan found. Please generate a meal plan first from the Plan tab.');
         }
       }

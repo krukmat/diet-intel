@@ -18,7 +18,7 @@ import { StatusBar as ExpoStatusBar } from 'expo-status-bar';
 import * as ImagePicker from 'expo-image-picker';
 import * as ImageManipulator from 'expo-image-manipulator';
 import { useTranslation } from 'react-i18next';
-import { translateFoodName } from '../utils/foodTranslation';
+import { translateFoodNameSync } from '../utils/foodTranslation';
 // import { LineChart } from 'react-native-chart-kit';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { apiService } from '../services/ApiService';
@@ -148,7 +148,7 @@ const MarkMealEatenModal: React.FC<MarkMealEatenModalProps> = ({
               <Text style={styles.mealCalories}>{Math.round(meal.actual_calories)} kcal</Text>
               {meal.items.map((item, index) => (
                 <Text key={index} style={styles.mealItem}>
-                  • {translateFoodName(item.name)} ({item.serving})
+                  • {translateFoodNameSync(item.name)} ({item.serving})
                 </Text>
               ))}
             </View>
@@ -626,7 +626,7 @@ export default function TrackScreen({ onBackPress }: TrackScreenProps) {
 
               {meal.items.map((item, itemIndex) => (
                 <View key={itemIndex} style={styles.mealItem}>
-                  <Text style={styles.itemName}>{translateFoodName(item.name)}</Text>
+                  <Text style={styles.itemName}>{translateFoodNameSync(item.name)}</Text>
                   <Text style={styles.itemDetails}>
                     {item.serving} • {Math.round(item.calories)} kcal
                   </Text>

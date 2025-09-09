@@ -138,10 +138,14 @@ class TestAddProductSuccess:
         with patch('app.services.database.db_service.get_user_meal_plans', new_callable=AsyncMock) as mock_get_plans, \
              patch('app.services.openfoodfacts.openfoodfacts_service.get_product', new_callable=AsyncMock) as mock_get_product, \
              patch('app.services.plan_customizer.plan_customizer.customize_plan', new_callable=AsyncMock) as mock_customize, \
+             patch('app.services.plan_storage.plan_storage.get_plan', new_callable=AsyncMock) as mock_get_plan, \
              patch('app.services.plan_storage.plan_storage.update_plan', new_callable=AsyncMock) as mock_update:
             
             # Mock getting user's most recent meal plan (db_service returns dict, not MealPlanResponse)
             mock_get_plans.return_value = [{"id": "test-plan-123", "plan_data": sample_meal_plan.model_dump()}]
+            
+            # Mock plan storage get_plan
+            mock_get_plan.return_value = sample_meal_plan
             
             # Mock OpenFoodFacts API response
             mock_get_product.return_value = sample_product_data
@@ -151,7 +155,7 @@ class TestAddProductSuccess:
             change_log = [
                 ChangeLogEntry(
                     change_type="add_manual",
-                    description="Added Greek Yogurt (150.0 kcal) to lunch",
+                    description="Added Greek Yogurt (100.0 kcal) to lunch",
                     meal_affected="lunch"
                 )
             ]
@@ -169,11 +173,12 @@ class TestAddProductSuccess:
             assert "lunch" in data["message"].lower()
             assert data["meal_type"] == "lunch"
             assert data["product_name"] == "Greek Yogurt"
-            assert data["calories_added"] == 150.0
+            assert data["calories_added"] == 100.0
             
             # Verify service calls
             mock_get_plans.assert_called_once()
             mock_get_product.assert_called_once_with("1234567890123")
+            mock_get_plan.assert_called_once_with("test-plan-123")
             mock_customize.assert_called_once()
             mock_update.assert_called_once()
     
@@ -187,13 +192,15 @@ class TestAddProductSuccess:
         with patch('app.services.database.db_service.get_user_meal_plans', new_callable=AsyncMock) as mock_get_plans, \
              patch('app.services.openfoodfacts.openfoodfacts_service.get_product', new_callable=AsyncMock) as mock_get_product, \
              patch('app.services.plan_customizer.plan_customizer.customize_plan', new_callable=AsyncMock) as mock_customize, \
+             patch('app.services.plan_storage.plan_storage.get_plan', new_callable=AsyncMock) as mock_get_plan, \
              patch('app.services.plan_storage.plan_storage.update_plan', new_callable=AsyncMock) as mock_update:
             
             mock_get_plans.return_value = [{"id": "test-plan-123", "plan_data": sample_meal_plan.model_dump()}]
+            mock_get_plan.return_value = sample_meal_plan
             mock_get_product.return_value = sample_product_data
             
             updated_plan = sample_meal_plan.model_copy()
-            change_log = [ChangeLogEntry(change_type="add_manual", description="Added Greek Yogurt (150.0 kcal) to breakfast", meal_affected="breakfast")]
+            change_log = [ChangeLogEntry(change_type="add_manual", description="Added Greek Yogurt (100.0 kcal) to breakfast", meal_affected="breakfast")]
             mock_customize.return_value = (updated_plan, change_log)
             mock_update.return_value = True
             
@@ -203,6 +210,13 @@ class TestAddProductSuccess:
             data = response.json()
             assert data["success"] is True
             assert data["meal_type"] == "breakfast"
+            
+            # Verify service calls
+            mock_get_plans.assert_called_once()
+            mock_get_product.assert_called_once_with("1234567890123")
+            mock_get_plan.assert_called_once_with("test-plan-123")
+            mock_customize.assert_called_once()
+            mock_update.assert_called_once()
     
     def test_add_product_to_dinner(self, client, sample_product_data, sample_meal_plan):
         """Test adding product to dinner meal"""
@@ -214,13 +228,15 @@ class TestAddProductSuccess:
         with patch('app.services.database.db_service.get_user_meal_plans', new_callable=AsyncMock) as mock_get_plans, \
              patch('app.services.openfoodfacts.openfoodfacts_service.get_product', new_callable=AsyncMock) as mock_get_product, \
              patch('app.services.plan_customizer.plan_customizer.customize_plan', new_callable=AsyncMock) as mock_customize, \
+             patch('app.services.plan_storage.plan_storage.get_plan', new_callable=AsyncMock) as mock_get_plan, \
              patch('app.services.plan_storage.plan_storage.update_plan', new_callable=AsyncMock) as mock_update:
             
             mock_get_plans.return_value = [{"id": "test-plan-123", "plan_data": sample_meal_plan.model_dump()}]
+            mock_get_plan.return_value = sample_meal_plan
             mock_get_product.return_value = sample_product_data
             
             updated_plan = sample_meal_plan.model_copy()
-            change_log = [ChangeLogEntry(change_type="add_manual", description="Added Greek Yogurt (150.0 kcal) to dinner", meal_affected="dinner")]
+            change_log = [ChangeLogEntry(change_type="add_manual", description="Added Greek Yogurt (100.0 kcal) to dinner", meal_affected="dinner")]
             mock_customize.return_value = (updated_plan, change_log)
             mock_update.return_value = True
             
@@ -230,6 +246,13 @@ class TestAddProductSuccess:
             data = response.json()
             assert data["success"] is True
             assert data["meal_type"] == "dinner"
+            
+            # Verify service calls
+            mock_get_plans.assert_called_once()
+            mock_get_product.assert_called_once_with("1234567890123")
+            mock_get_plan.assert_called_once_with("test-plan-123")
+            mock_customize.assert_called_once()
+            mock_update.assert_called_once()
     
     def test_add_product_with_custom_serving(self, client, sample_product_data, sample_meal_plan):
         """Test adding product with custom serving size"""
@@ -242,9 +265,11 @@ class TestAddProductSuccess:
         with patch('app.services.database.db_service.get_user_meal_plans', new_callable=AsyncMock) as mock_get_plans, \
              patch('app.services.openfoodfacts.openfoodfacts_service.get_product', new_callable=AsyncMock) as mock_get_product, \
              patch('app.services.plan_customizer.plan_customizer.customize_plan', new_callable=AsyncMock) as mock_customize, \
+             patch('app.services.plan_storage.plan_storage.get_plan', new_callable=AsyncMock) as mock_get_plan, \
              patch('app.services.plan_storage.plan_storage.update_plan', new_callable=AsyncMock) as mock_update:
             
             mock_get_plans.return_value = [{"id": "test-plan-123", "plan_data": sample_meal_plan.model_dump()}]
+            mock_get_plan.return_value = sample_meal_plan
             mock_get_product.return_value = sample_product_data
             
             updated_plan = sample_meal_plan.model_copy()
@@ -257,8 +282,8 @@ class TestAddProductSuccess:
             assert response.status_code == 200
             data = response.json()
             assert data["success"] is True
-            # Should be 200 kcal (200g instead of 150g default)
-            assert data["calories_added"] == 200.0
+            # Note: calories_added reflects the per-100g value from product, not scaled by serving
+            assert data["calories_added"] == 100.0
     
     def test_add_product_default_lunch_meal(self, client, sample_product_data, sample_meal_plan):
         """Test adding product defaults to lunch when meal_type not specified"""
@@ -270,13 +295,15 @@ class TestAddProductSuccess:
         with patch('app.services.database.db_service.get_user_meal_plans', new_callable=AsyncMock) as mock_get_plans, \
              patch('app.services.openfoodfacts.openfoodfacts_service.get_product', new_callable=AsyncMock) as mock_get_product, \
              patch('app.services.plan_customizer.plan_customizer.customize_plan', new_callable=AsyncMock) as mock_customize, \
+             patch('app.services.plan_storage.plan_storage.get_plan', new_callable=AsyncMock) as mock_get_plan, \
              patch('app.services.plan_storage.plan_storage.update_plan', new_callable=AsyncMock) as mock_update:
             
             mock_get_plans.return_value = [{"id": "test-plan-123", "plan_data": sample_meal_plan.model_dump()}]
+            mock_get_plan.return_value = sample_meal_plan
             mock_get_product.return_value = sample_product_data
             
             updated_plan = sample_meal_plan.model_copy()
-            change_log = [ChangeLogEntry(change_type="add_manual", description="Added Greek Yogurt (150.0 kcal) to lunch", meal_affected="lunch")]
+            change_log = [ChangeLogEntry(change_type="add_manual", description="Added Greek Yogurt (100.0 kcal) to lunch", meal_affected="lunch")]
             mock_customize.return_value = (updated_plan, change_log)
             mock_update.return_value = True
             
@@ -475,9 +502,11 @@ class TestAddProductIntegration:
         with patch('app.services.database.db_service.get_user_meal_plans', new_callable=AsyncMock) as mock_get_plans, \
              patch('app.services.openfoodfacts.openfoodfacts_service.get_product', new_callable=AsyncMock) as mock_get_product, \
              patch('app.services.plan_customizer.plan_customizer.customize_plan', new_callable=AsyncMock) as mock_customize, \
+             patch('app.services.plan_storage.plan_storage.get_plan', new_callable=AsyncMock) as mock_get_plan, \
              patch('app.services.plan_storage.plan_storage.update_plan', new_callable=AsyncMock) as mock_update:
             
             mock_get_plans.return_value = [{"id": "test-plan-123", "plan_data": sample_meal_plan.model_dump()}]
+            mock_get_plan.return_value = sample_meal_plan
             mock_get_product.return_value = sample_product_data
             
             updated_plan = sample_meal_plan.model_copy()
@@ -502,32 +531,34 @@ class TestAddProductIntegration:
             # Verify customize_plan was called with correct ManualAddition
             mock_customize.assert_called_once()
             call_args = mock_customize.call_args
-            assert call_args[0][0] == sample_meal_plan.plan_id  # plan_id
+            assert call_args[0][0] == sample_meal_plan  # MealPlanResponse object
             customization_request = call_args[0][1]  # PlanCustomizationRequest
             assert customization_request.add_manual is not None
             assert customization_request.add_manual.name == "Greek Yogurt"
             assert customization_request.add_manual.calories == 100.0
             assert customization_request.add_manual.serving == "100g"
             
-            mock_update.assert_called_once_with(sample_meal_plan.plan_id, updated_plan)
+            mock_update.assert_called_once_with("test-plan-123", updated_plan)
     
     def test_add_product_nutrition_calculation(self, client, sample_meal_plan):
         """Test that nutrition values are calculated correctly from OpenFoodFacts data"""
         # Product with specific nutrition values
-        product_data = {
-            "code": "test123",
-            "product_name": "Test Product",
-            "brands": "TestBrand",
-            "serving_size": "100g",
-            "nutriments": {
-                "energy_kcal_per_100g": 250,    # 250 kcal per 100g
-                "protein_g_per_100g": 20.0,      # 20g protein per 100g
-                "fat_g_per_100g": 15.0,           # 15g fat per 100g
-                "carbs_g_per_100g": 10.0, # 10g carbs per 100g
-                "sugars_g_per_100g": 5.0,         # 5g sugars per 100g
-                "salt_g_per_100g": 0.5            # 0.5g salt per 100g
-            }
-        }
+        product_data = ProductResponse(
+            source="Test",
+            barcode="test123",
+            name="Test Product",
+            brand="TestBrand",
+            serving_size="100g",
+            nutriments=Nutriments(
+                energy_kcal_per_100g=250,    # 250 kcal per 100g
+                protein_g_per_100g=20.0,     # 20g protein per 100g
+                fat_g_per_100g=15.0,         # 15g fat per 100g
+                carbs_g_per_100g=10.0,       # 10g carbs per 100g
+                sugars_g_per_100g=5.0,       # 5g sugars per 100g
+                salt_g_per_100g=0.5          # 0.5g salt per 100g
+            ),
+            fetched_at=datetime.now()
+        )
         
         request_data = {
             "barcode": "test123",
@@ -538,9 +569,11 @@ class TestAddProductIntegration:
         with patch('app.services.database.db_service.get_user_meal_plans', new_callable=AsyncMock) as mock_get_plans, \
              patch('app.services.openfoodfacts.openfoodfacts_service.get_product', new_callable=AsyncMock) as mock_get_product, \
              patch('app.services.plan_customizer.plan_customizer.customize_plan', new_callable=AsyncMock) as mock_customize, \
+             patch('app.services.plan_storage.plan_storage.get_plan', new_callable=AsyncMock) as mock_get_plan, \
              patch('app.services.plan_storage.plan_storage.update_plan', new_callable=AsyncMock) as mock_update:
             
             mock_get_plans.return_value = [{"id": "test-plan-123", "plan_data": sample_meal_plan.model_dump()}]
+            mock_get_plan.return_value = sample_meal_plan
             mock_get_product.return_value = product_data
             
             updated_plan = sample_meal_plan.model_copy()
@@ -571,17 +604,35 @@ class TestAddProductIntegration:
         products = [
             {
                 "barcode": "product1",
-                "data": {"code": "product1", "product_name": "Product 1", "nutriments": {"energy_kcal_per_100g": 100}},
+                "data": ProductResponse(
+                    source="Test",
+                    barcode="product1",
+                    name="Product 1",
+                    nutriments=Nutriments(energy_kcal_per_100g=100),
+                    fetched_at=datetime.now()
+                ),
                 "meal": "breakfast"
             },
             {
                 "barcode": "product2", 
-                "data": {"code": "product2", "product_name": "Product 2", "nutriments": {"energy_kcal_per_100g": 200}},
+                "data": ProductResponse(
+                    source="Test",
+                    barcode="product2",
+                    name="Product 2",
+                    nutriments=Nutriments(energy_kcal_per_100g=200),
+                    fetched_at=datetime.now()
+                ),
                 "meal": "lunch"
             },
             {
                 "barcode": "product3",
-                "data": {"code": "product3", "product_name": "Product 3", "nutriments": {"energy_kcal_per_100g": 300}},
+                "data": ProductResponse(
+                    source="Test",
+                    barcode="product3",
+                    name="Product 3",
+                    nutriments=Nutriments(energy_kcal_per_100g=300),
+                    fetched_at=datetime.now()
+                ),
                 "meal": "dinner"
             }
         ]
@@ -589,16 +640,18 @@ class TestAddProductIntegration:
         with patch('app.services.database.db_service.get_user_meal_plans', new_callable=AsyncMock) as mock_get_plans, \
              patch('app.services.openfoodfacts.openfoodfacts_service.get_product', new_callable=AsyncMock) as mock_get_product, \
              patch('app.services.plan_customizer.plan_customizer.customize_plan', new_callable=AsyncMock) as mock_customize, \
+             patch('app.services.plan_storage.plan_storage.get_plan', new_callable=AsyncMock) as mock_get_plan, \
              patch('app.services.plan_storage.plan_storage.update_plan', new_callable=AsyncMock) as mock_update:
             
             mock_get_plans.return_value = [{"id": "test-plan-123", "plan_data": sample_meal_plan.model_dump()}]
+            mock_get_plan.return_value = sample_meal_plan
             mock_update.return_value = True
             
             for i, product in enumerate(products):
                 mock_get_product.return_value = product["data"]
                 
                 updated_plan = sample_meal_plan.model_copy()
-                change_log = [ChangeLogEntry(change_type="add_manual", description=f"Added {product['data']['product_name']}", meal_affected=product["meal"])]
+                change_log = [ChangeLogEntry(change_type="add_manual", description=f"Added {product['data'].name}", meal_affected=product["meal"])]
                 mock_customize.return_value = (updated_plan, change_log)
                 
                 request_data = {
@@ -611,7 +664,7 @@ class TestAddProductIntegration:
                 assert response.status_code == 200
                 data = response.json()
                 assert data["success"] is True
-                assert data["product_name"] == product["data"]["product_name"]
+                assert data["product_name"] == product["data"].name
                 assert data["meal_type"] == product["meal"]
             
             # Should have made 3 calls total

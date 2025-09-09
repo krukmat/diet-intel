@@ -43,6 +43,12 @@ class OpenFoodFactsService:
             latency = (datetime.now() - start_time).total_seconds()
             logger.error(f"Network error calling OpenFoodFacts API after {latency:.3f}s: {e}")
             raise
+        except Exception as e:
+            latency = (datetime.now() - start_time).total_seconds()
+            logger.error(f"Unexpected error calling OpenFoodFacts API after {latency:.3f}s for barcode {barcode}: {e}")
+            # For non-network errors (like JSON parsing), return None to indicate "not found"
+            # rather than propagating the exception
+            return None
     
     def _map_to_product_response(self, product_data: dict, barcode: str) -> ProductResponse:
         nutriments_data = product_data.get("nutriments", {})
