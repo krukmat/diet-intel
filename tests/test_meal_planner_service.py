@@ -5,7 +5,7 @@ from unittest.mock import Mock, patch, AsyncMock
 from app.services.meal_planner import MealPlannerService
 from app.models.meal_plan import (
     MealPlanRequest, MealPlanResponse, MealPlanConfig, UserProfile, 
-    Sex, ActivityLevel, Goal, Meal, MealItem, MealItemMacros
+    Sex, ActivityLevel, Goal, Meal, MealItem, MealItemMacros, DailyMacros
 )
 from app.models.product import ProductResponse, Nutriments
 
@@ -188,9 +188,24 @@ class TestMealPlanGeneration:
         )
         
         with patch.object(self.service, '_create_empty_plan') as mock_empty_plan:
+            empty_metrics = DailyMacros(
+                total_calories=0.0,
+                protein_g=0.0,
+                fat_g=0.0,
+                carbs_g=0.0,
+                sugars_g=0.0,
+                salt_g=0.0,
+                protein_percent=0.0,
+                fat_percent=0.0,
+                carbs_percent=0.0
+            )
             mock_empty_plan.return_value = MealPlanResponse(
-                bmr=1700.0, tdee=2635.0, daily_target=2635.0,
-                meals=[], daily_macros=Mock(), metrics=Mock()
+                bmr=1700.0,
+                tdee=2635.0,
+                daily_calorie_target=2635.0,
+                meals=[],
+                metrics=empty_metrics,
+                flexibility_used=False
             )
             
             result = await self.service.generate_plan(request)
@@ -217,7 +232,30 @@ class TestMealPlanGeneration:
         with patch.object(self.service, '_load_available_products') as mock_load:
             with patch.object(self.service, '_build_meal') as mock_build:
                 mock_load.return_value = [Mock()]
-                mock_build.return_value = Mock()
+                
+                # Create proper meal structure with iterable items
+                mock_meal_item = MealItem(
+                    barcode="test_barcode",
+                    name="Test Food",
+                    serving="100g",
+                    calories=200.0,
+                    macros=MealItemMacros(
+                        protein_g=20.0,
+                        fat_g=8.0,
+                        carbs_g=25.0,
+                        sugars_g=3.0,
+                        salt_g=0.3
+                    )
+                )
+                
+                mock_meal = Meal(
+                    name="Test Meal",
+                    target_calories=400.0,
+                    actual_calories=200.0,
+                    items=[mock_meal_item]
+                )
+                
+                mock_build.return_value = mock_meal
                 
                 await self.service.generate_plan(request_strict)
                 await self.service.generate_plan(request_flexible)
@@ -241,8 +279,7 @@ class TestMealBuilding:
         self.service = MealPlannerService()
     
     @pytest.mark.asyncio
-    @patch('app.services.meal_planner.MealPlannerService._select_products_for_meal')
-    async def test_build_meal_success(self, mock_select_products):
+    async def test_build_meal_success(self):
         """Test successful meal building"""
         available_products = [
             ProductResponse(
@@ -262,22 +299,6 @@ class TestMealBuilding:
             )
         ]
         
-        mock_select_products.return_value = [
-            MealItem(
-                barcode="1234567890",
-                name="Test Food",
-                serving="100g",
-                calories=300.0,
-                macros=MealItemMacros(
-                    protein_g=25.0,
-                    fat_g=8.0,
-                    carbs_g=20.0,
-                    sugars_g=5.0,
-                    salt_g=0.8
-                )
-            )
-        ]
-        
         meal = await self.service._build_meal(
             "Lunch", 500.0, available_products, [], False, None
         )
@@ -285,8 +306,9 @@ class TestMealBuilding:
         assert meal.name == "Lunch"
         assert meal.target_calories == 500.0
         assert len(meal.items) == 1
+        assert meal.items[0].barcode == "1234567890"
+        assert meal.items[0].name == "Test Food"
         assert meal.actual_calories == 300.0
-        mock_select_products.assert_called_once()
     
     @pytest.mark.asyncio
     async def test_build_meal_with_optional_products(self):
@@ -327,17 +349,20 @@ class TestMealBuilding:
             )
         ]
         
-        with patch.object(self.service, '_select_products_for_meal') as mock_select:
-            mock_select.return_value = []
-            
-            await self.service._build_meal(
-                "Breakfast", 400.0, available_products, optional_products, False, None
-            )
-            
-            # Verify optional products are passed to selection
-            mock_select.assert_called_once()
-            args = mock_select.call_args[0]
-            assert optional_products[0] in args[1]  # available_products parameter
+        # Test that optional products are prioritized by passing them as barcodes
+        # The _build_meal method should prioritize products with barcodes in optional_products list
+        all_products = available_products + optional_products
+        
+        meal = await self.service._build_meal(
+            "Breakfast", 400.0, all_products, ["optional"], False, None
+        )
+        
+        # Verify optional product was prioritized (should be selected first)
+        assert meal.name == "Breakfast"
+        assert meal.target_calories == 400.0
+        assert len(meal.items) >= 1
+        # The optional product should be selected since it's prioritized
+        assert any(item.barcode == "optional" for item in meal.items)
 
 
 class TestProductSelection:
