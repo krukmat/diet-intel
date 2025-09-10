@@ -213,10 +213,28 @@ export class SmartDietService {
       console.log(`🧠 Fetching Smart Diet suggestions for context: ${context}`);
       const startTime = Date.now();
 
-      const response = await apiService.post(`${this.baseURL}/suggestions`, request);
+      // Build query parameters for GET request (matching the working API)
+      const params = new URLSearchParams({
+        context: context,
+        max_suggestions: request.max_suggestions?.toString() || '10',
+        include_history: request.include_optimizations?.toString() || 'true',
+        ...(request.user_id && { user_id: request.user_id }),
+        ...(request.lang && { lang: request.lang }),
+        ...(request.dietary_restrictions?.length && { dietary_restrictions: request.dietary_restrictions.join(',') }),
+        ...(request.cuisine_preferences?.length && { cuisine_preferences: request.cuisine_preferences.join(',') }),
+        ...(request.excluded_ingredients?.length && { excluded_ingredients: request.excluded_ingredients.join(',') })
+      });
+
+      const response = await apiService.get(`/smart-diet/suggestions?${params.toString()}`);
       
       const endTime = Date.now();
       console.log(`⚡ Smart Diet API response time: ${endTime - startTime}ms`);
+
+      // Check if response has data
+      if (!response || !response.data) {
+        console.error('❌ API returned invalid response:', response);
+        throw new Error('API returned empty or invalid response');
+      }
 
       // Cache the response
       await this.setCachedSuggestions(context, userId, response.data);
@@ -225,6 +243,10 @@ export class SmartDietService {
 
     } catch (error) {
       console.error('❌ Error fetching Smart Diet suggestions:', error);
+      console.error('❌ Error details:', {
+        message: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined
+      });
       
       // Try to return cached data as fallback
       const fallbackCache = await this.getCachedSuggestions(context, userId, true);
@@ -233,7 +255,7 @@ export class SmartDietService {
         return fallbackCache;
       }
 
-      throw new Error(`Failed to fetch Smart Diet suggestions: ${error}`);
+      throw new Error(`Failed to fetch Smart Diet suggestions: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
