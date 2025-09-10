@@ -153,8 +153,11 @@ class TestMealPlanGeneration:
                         serving="100g",
                         calories=200.0,
                         macros=MealItemMacros(
-                            protein=20.0, fat=5.0, carbohydrates=15.0,
-                            fiber=2.0, sugars=3.0, sodium=500.0
+                            protein_g=20.0,
+                            fat_g=5.0,
+                            carbs_g=15.0,
+                            sugars_g=3.0,
+                            salt_g=0.5
                         )
                     )
                 ],
@@ -169,7 +172,7 @@ class TestMealPlanGeneration:
             assert isinstance(result, MealPlanResponse)
             assert result.bmr == 1700.0
             assert result.tdee == 2635.0
-            assert result.daily_target == 2635.0
+            assert result.daily_calorie_target == 2635.0
             assert len(result.meals) == 3
             assert mock_build_meal.call_count == 3
     
@@ -243,13 +246,19 @@ class TestMealBuilding:
         """Test successful meal building"""
         available_products = [
             ProductResponse(
+                source="Test",
                 barcode="1234567890",
-                product_name="Test Food",
+                name="Test Food",
                 serving_size="100g",
                 nutriments=Nutriments(
-                    energy_kcal=300.0, proteins=25.0, fat=8.0, carbohydrates=20.0,
-                    fiber=3.0, sugars=5.0, salt=0.8
-                )
+                    energy_kcal_per_100g=300.0,
+                    protein_g_per_100g=25.0,
+                    fat_g_per_100g=8.0,
+                    carbs_g_per_100g=20.0,
+                    sugars_g_per_100g=5.0,
+                    salt_g_per_100g=0.8
+                ),
+                fetched_at=datetime.now()
             )
         ]
         
@@ -260,8 +269,11 @@ class TestMealBuilding:
                 serving="100g",
                 calories=300.0,
                 macros=MealItemMacros(
-                    protein=25.0, fat=8.0, carbohydrates=20.0,
-                    fiber=3.0, sugars=5.0, sodium=800.0
+                    protein_g=25.0,
+                    fat_g=8.0,
+                    carbs_g=20.0,
+                    sugars_g=5.0,
+                    salt_g=0.8
                 )
             )
         ]
@@ -280,15 +292,39 @@ class TestMealBuilding:
     async def test_build_meal_with_optional_products(self):
         """Test meal building prioritizes optional products"""
         available_products = [
-            ProductResponse(barcode="regular", product_name="Regular Food", serving_size="100g",
-                          nutriments=Nutriments(energy_kcal=200.0, proteins=10.0, fat=5.0, 
-                                               carbohydrates=25.0, fiber=2.0, sugars=8.0, salt=0.5))
+            ProductResponse(
+                source="Test",
+                barcode="regular",
+                name="Regular Food",
+                serving_size="100g",
+                nutriments=Nutriments(
+                    energy_kcal_per_100g=200.0,
+                    protein_g_per_100g=10.0,
+                    fat_g_per_100g=5.0,
+                    carbs_g_per_100g=25.0,
+                    sugars_g_per_100g=8.0,
+                    salt_g_per_100g=0.5
+                ),
+                fetched_at=datetime.now()
+            )
         ]
         
         optional_products = [
-            ProductResponse(barcode="optional", product_name="Optional Food", serving_size="100g",
-                          nutriments=Nutriments(energy_kcal=250.0, proteins=15.0, fat=7.0,
-                                               carbohydrates=20.0, fiber=3.0, sugars=5.0, salt=0.3))
+            ProductResponse(
+                source="Test",
+                barcode="optional",
+                name="Optional Food",
+                serving_size="100g",
+                nutriments=Nutriments(
+                    energy_kcal_per_100g=250.0,
+                    protein_g_per_100g=15.0,
+                    fat_g_per_100g=7.0,
+                    carbs_g_per_100g=20.0,
+                    sugars_g_per_100g=5.0,
+                    salt_g_per_100g=0.3
+                ),
+                fetched_at=datetime.now()
+            )
         ]
         
         with patch.object(self.service, '_select_products_for_meal') as mock_select:
