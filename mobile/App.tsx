@@ -26,6 +26,7 @@ import DeveloperSettingsModal from './components/DeveloperSettingsModal';
 import LanguageSwitcher, { LanguageToggle } from './components/LanguageSwitcher';
 import { developerSettingsService, DeveloperConfig, FeatureToggle } from './services/DeveloperSettings';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { notificationService } from './services/NotificationService';
 import LoginScreen from './screens/LoginScreen';
 import RegisterScreen from './screens/RegisterScreen';
 import SplashScreen from './screens/SplashScreen';
@@ -87,6 +88,11 @@ function MainApp({ user, onLogout }: { user: any; onLogout: () => void }) {
   const [showCamera, setShowCamera] = useState(false);
   type ScreenType = 'scanner' | 'upload' | 'plan' | 'track' | 'recommendations';
   const [currentScreen, setCurrentScreen] = useState<ScreenType>('scanner');
+  const [navigationContext, setNavigationContext] = useState<{
+    targetContext?: string;
+    sourceScreen?: string;
+    planId?: string;
+  }>({});
   const [showReminders, setShowReminders] = useState(false);
   const [showApiConfig, setShowApiConfig] = useState(false);
   const [showDeveloperSettings, setShowDeveloperSettings] = useState(false);
@@ -100,6 +106,16 @@ function MainApp({ user, onLogout }: { user: any; onLogout: () => void }) {
   const isActiveScreen = (screen: ScreenType) => currentScreen === screen;
   const [currentProduct, setCurrentProduct] = useState<any>(null);
   const [showProductDetail, setShowProductDetail] = useState(false);
+
+  // Navigation helper for cross-feature navigation
+  const navigateToScreen = (screen: ScreenType, context?: {
+    targetContext?: string;
+    sourceScreen?: string;
+    planId?: string;
+  }) => {
+    setCurrentScreen(screen);
+    setNavigationContext(context || {});
+  };
 
   useEffect(() => {
     const getBarCodeScannerPermissions = async () => {
@@ -121,6 +137,24 @@ function MainApp({ user, onLogout }: { user: any; onLogout: () => void }) {
     // Subscribe to developer settings changes
     const unsubscribeConfig = developerSettingsService.subscribeToConfigChanges(setDeveloperConfig);
     const unsubscribeFeatures = developerSettingsService.subscribeToFeatureChanges(setFeatureToggles);
+    
+    // Initialize notification service and handle pending navigation intents
+    const initializeNotifications = async () => {
+      const initialized = await notificationService.initialize();
+      if (initialized) {
+        // Check for pending navigation intents from notifications
+        const intent = await notificationService.getPendingNavigationIntent();
+        if (intent && intent.type === 'smart_diet_navigation') {
+          console.log('📱 Handling notification navigation intent:', intent);
+          navigateToScreen('recommendations', {
+            targetContext: intent.context,
+            sourceScreen: 'notification'
+          });
+        }
+      }
+    };
+    
+    initializeNotifications();
     
     return () => {
       unsubscribeConfig();
@@ -233,7 +267,14 @@ function MainApp({ user, onLogout }: { user: any; onLogout: () => void }) {
 
   if (currentScreen === 'plan') {
     console.log('Rendering PlanScreen...');
-    return <PlanScreen onBackPress={() => setCurrentScreen('scanner')} />;
+    return <PlanScreen 
+      onBackPress={() => setCurrentScreen('scanner')} 
+      navigateToSmartDiet={(context?: any) => navigateToScreen('recommendations', {
+        targetContext: 'optimize',
+        sourceScreen: 'plan',
+        ...context
+      })}
+    />;
   }
 
   if (currentScreen === 'track') {
@@ -242,7 +283,16 @@ function MainApp({ user, onLogout }: { user: any; onLogout: () => void }) {
 
   if (currentScreen === 'recommendations') {
     console.log('Rendering SmartDietScreen...');
-    return <SmartDietScreen onBackPress={() => setCurrentScreen('scanner')} />;
+    return <SmartDietScreen 
+      onBackPress={() => setCurrentScreen('scanner')}
+      navigationContext={navigationContext}
+      navigateToTrack={() => navigateToScreen('track', {
+        sourceScreen: 'recommendations'
+      })}
+      navigateToPlan={() => navigateToScreen('plan', {
+        sourceScreen: 'recommendations'
+      })}
+    />;
   }
 
   return (

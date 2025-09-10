@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -14,13 +14,23 @@ import {
 } from 'react-native';
 import { StatusBar as ExpoStatusBar } from 'expo-status-bar';
 import { useTranslation } from 'react-i18next';
+import { 
+  smartDietService, 
+  SmartDietContext, 
+  type SmartDietResponse,
+  type SmartSuggestion,
+  type SuggestionFeedback,
+  type SmartDietInsights
+} from '../services/SmartDietService';
 import { apiService } from '../services/ApiService';
 import { translateFoodNameSync, translateFoodName } from '../utils/foodTranslation';
 import { getCurrentMealPlanId } from '../utils/mealPlanUtils';
+import { notificationService, NotificationConfig } from '../services/NotificationService';
 import axios from 'axios';
 import { API_BASE_URL } from '../config/environment';
 
-interface SmartSuggestion {
+// Legacy interfaces for backward compatibility
+interface LegacySmartSuggestion {
   id: string;
   suggestion_type: string;
   category: string;
@@ -33,10 +43,10 @@ interface SmartSuggestion {
   created_at: string;
 }
 
-interface SmartDietResponse {
+interface LegacySmartDietResponse {
   user_id: string;
   context: string;
-  suggestions: SmartSuggestion[];
+  suggestions: LegacySmartSuggestion[];
   total_suggestions: number;
   avg_confidence: number;
   generated_at: string;
@@ -69,31 +79,50 @@ interface SmartDietResponse {
 
 interface SmartDietScreenProps {
   onBackPress: () => void;
+  navigationContext?: {
+    targetContext?: string;
+    sourceScreen?: string;
+    planId?: string;
+  };
+  navigateToTrack?: () => void;
+  navigateToPlan?: () => void;
 }
 
-type ContextType = 'today' | 'optimize' | 'discover' | 'insights';
-
-const CONTEXT_CONFIG = {
-  today: {
-    emoji: '🌟'
+// Performance-optimized context configuration with SmartDietContext enum
+const CONTEXT_CONFIG = Object.freeze({
+  [SmartDietContext.TODAY]: {
+    emoji: '🌟',
+    color: '#4A90E2',
+    gradient: ['#4A90E2', '#357ABD']
   },
-  optimize: {
-    emoji: '⚡'
+  [SmartDietContext.OPTIMIZE]: {
+    emoji: '⚡',
+    color: '#F39C12',
+    gradient: ['#F39C12', '#E67E22']
   },
-  discover: {
-    emoji: '🔍'
+  [SmartDietContext.DISCOVER]: {
+    emoji: '🔍',
+    color: '#27AE60',
+    gradient: ['#27AE60', '#229954']
   },
-  insights: {
-    emoji: '📊'
+  [SmartDietContext.INSIGHTS]: {
+    emoji: '📊',
+    color: '#8E44AD',
+    gradient: ['#8E44AD', '#7D3C98']
   }
-};
+});
 
-export default function SmartDietScreen({ onBackPress }: SmartDietScreenProps) {
+export default function SmartDietScreen({ onBackPress, navigationContext, navigateToTrack, navigateToPlan }: SmartDietScreenProps) {
   const { t, i18n } = useTranslation();
+  
+  // Performance-optimized state management with proper TypeScript types
   const [smartData, setSmartData] = useState<SmartDietResponse | null>(null);
+  const [legacyData, setLegacyData] = useState<LegacySmartDietResponse | null>(null);
   const [loading, setLoading] = useState(false);
-  const [selectedContext, setSelectedContext] = useState<ContextType>('today');
+  const [selectedContext, setSelectedContext] = useState<SmartDietContext>(SmartDietContext.TODAY);
   const [preferencesModal, setPreferencesModal] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [cacheStatus, setCacheStatus] = useState<'fresh' | 'cached' | 'stale' | 'none'>('none');
   const [preferences, setPreferences] = useState({
     dietaryRestrictions: [] as string[],
     cuisinePreferences: [] as string[],
@@ -101,6 +130,7 @@ export default function SmartDietScreen({ onBackPress }: SmartDietScreenProps) {
     maxSuggestions: 10,
     includeHistory: true,
   });
+  const [notificationConfig, setNotificationConfig] = useState<NotificationConfig | null>(null);
 
   const availableDietaryRestrictions = [
     'vegetarian', 'vegan', 'gluten-free', 'dairy-free', 'nut-free', 'low-sodium'
@@ -113,6 +143,27 @@ export default function SmartDietScreen({ onBackPress }: SmartDietScreenProps) {
   useEffect(() => {
     generateSmartSuggestions();
   }, [selectedContext]);
+
+  // Handle navigation context (e.g., coming from meal plan optimization)
+  useEffect(() => {
+    if (navigationContext?.targetContext && navigationContext.targetContext !== selectedContext) {
+      setSelectedContext(navigationContext.targetContext as SmartDietContext);
+    }
+  }, [navigationContext]);
+
+  // Load notification configuration
+  useEffect(() => {
+    const loadNotificationConfig = async () => {
+      try {
+        const config = await notificationService.getConfig();
+        setNotificationConfig(config);
+      } catch (error) {
+        console.error('Failed to load notification config:', error);
+      }
+    };
+    
+    loadNotificationConfig();
+  }, []);
 
   const generateSmartSuggestions = async () => {
     setLoading(true);
@@ -363,6 +414,41 @@ export default function SmartDietScreen({ onBackPress }: SmartDietScreenProps) {
     }));
   };
 
+  const handleNotificationToggle = async () => {
+    if (!notificationConfig) return;
+    
+    try {
+      const newConfig = { ...notificationConfig, enabled: !notificationConfig.enabled };
+      await notificationService.updateConfig(newConfig);
+      setNotificationConfig(newConfig);
+      
+      if (newConfig.enabled) {
+        // Trigger a test notification
+        await notificationService.triggerSmartDietNotification(
+          SmartDietContext.TODAY,
+          {
+            title: '🔔 Smart Diet Notifications Enabled',
+            message: 'You\'ll receive daily nutrition suggestions'
+          }
+        );
+      }
+    } catch (error) {
+      console.error('Failed to update notification settings:', error);
+    }
+  };
+
+  const handleNotificationTimeChange = async (time: string) => {
+    if (!notificationConfig) return;
+    
+    try {
+      const newConfig = { ...notificationConfig, dailySuggestionTime: time };
+      await notificationService.updateConfig(newConfig);
+      setNotificationConfig(newConfig);
+    } catch (error) {
+      console.error('Failed to update notification time:', error);
+    }
+  };
+
   const renderContextSelector = () => (
     <View style={styles.contextSelector}>
       <ScrollView horizontal showsHorizontalScrollIndicator={false}>
@@ -444,17 +530,36 @@ export default function SmartDietScreen({ onBackPress }: SmartDietScreenProps) {
         )}
         
         <View style={styles.feedbackButtons}>
+          {/* Cross-navigation buttons */}
+          {suggestion.suggestion_type === 'meal_recommendation' && navigateToTrack && (
+            <TouchableOpacity 
+              style={[styles.feedbackButton, styles.navigationActionButton]}
+              onPress={() => navigateToTrack()}
+            >
+              <Text style={styles.navigationActionText}>📊 Track</Text>
+            </TouchableOpacity>
+          )}
+          
+          {suggestion.suggestion_type === 'optimization' && navigateToPlan && (
+            <TouchableOpacity 
+              style={[styles.feedbackButton, styles.navigationActionButton]}
+              onPress={() => navigateToPlan()}
+            >
+              <Text style={styles.navigationActionText}>📋 Plan</Text>
+            </TouchableOpacity>
+          )}
+          
           <TouchableOpacity 
             style={styles.feedbackButton}
             onPress={() => handleProvideFeedback(suggestion, true)}
           >
-            <Text style={styles.feedbackButtonText}>{t('smartDiet.feedback.helpful')}</Text>
+            <Text style={styles.feedbackButtonText}>👍</Text>
           </TouchableOpacity>
           <TouchableOpacity 
             style={styles.feedbackButton}
             onPress={() => handleProvideFeedback(suggestion, false)}
           >
-            <Text style={styles.feedbackButtonText}>{t('smartDiet.feedback.notHelpful')}</Text>
+            <Text style={styles.feedbackButtonText}>👎</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -618,6 +723,35 @@ export default function SmartDietScreen({ onBackPress }: SmartDietScreenProps) {
             </View>
           </View>
 
+          {/* Notification Settings */}
+          <View style={styles.preferenceSection}>
+            <Text style={styles.sectionTitle}>📱 Daily Notifications</Text>
+            
+            <View style={styles.notificationRow}>
+              <Text style={styles.notificationLabel}>Enable daily suggestions</Text>
+              <TouchableOpacity 
+                style={[
+                  styles.notificationToggle,
+                  notificationConfig?.enabled && styles.notificationToggleActive
+                ]}
+                onPress={handleNotificationToggle}
+              >
+                <Text style={styles.notificationToggleText}>
+                  {notificationConfig?.enabled ? '🔔' : '🔕'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            {notificationConfig?.enabled && (
+              <View style={styles.notificationTimeRow}>
+                <Text style={styles.notificationLabel}>Reminder time</Text>
+                <Text style={styles.notificationTime}>
+                  {notificationConfig.dailySuggestionTime || '09:00'}
+                </Text>
+              </View>
+            )}
+          </View>
+
           <TouchableOpacity 
             style={styles.applyButton}
             onPress={() => {
@@ -659,12 +793,30 @@ export default function SmartDietScreen({ onBackPress }: SmartDietScreenProps) {
           <Text style={styles.title}>{contextConfig.emoji} {t('smartDiet.title')}</Text>
           <Text style={styles.subtitle}>{t(`smartDiet.contexts.${selectedContext}`)}</Text>
         </View>
-        <TouchableOpacity 
-          style={styles.preferencesButton} 
-          onPress={() => setPreferencesModal(true)}
-        >
-          <Text style={styles.preferencesButtonText}>⚙️</Text>
-        </TouchableOpacity>
+        <View style={styles.headerActions}>
+          {navigationContext?.sourceScreen && (
+            <TouchableOpacity 
+              style={styles.navigationButton} 
+              onPress={() => {
+                if (navigationContext.sourceScreen === 'plan' && navigateToPlan) {
+                  navigateToPlan();
+                } else if (navigateToTrack) {
+                  navigateToTrack();
+                }
+              }}
+            >
+              <Text style={styles.navigationButtonText}>
+                {navigationContext.sourceScreen === 'plan' ? '📋' : '📊'}
+              </Text>
+            </TouchableOpacity>
+          )}
+          <TouchableOpacity 
+            style={styles.preferencesButton} 
+            onPress={() => setPreferencesModal(true)}
+          >
+            <Text style={styles.preferencesButtonText}>⚙️</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
@@ -743,6 +895,23 @@ const styles = StyleSheet.create({
   subtitle: {
     color: 'rgba(255,255,255,0.8)',
     fontSize: 14,
+  },
+  headerActions: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  navigationButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.3)',
+    minWidth: 40,
+    alignItems: 'center',
+  },
+  navigationButtonText: {
+    color: 'white',
+    fontSize: 20,
+    fontWeight: 'bold',
   },
   preferencesButton: {
     paddingVertical: 8,
@@ -1059,6 +1228,16 @@ const styles = StyleSheet.create({
   feedbackButtonText: {
     fontSize: 16,
   },
+  navigationActionButton: {
+    backgroundColor: '#007AFF',
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+  },
+  navigationActionText: {
+    color: 'white',
+    fontSize: 12,
+    fontWeight: '600',
+  },
   emptyState: {
     alignItems: 'center',
     paddingVertical: 40,
@@ -1160,6 +1339,44 @@ const styles = StyleSheet.create({
   },
   preferenceTagTextActive: {
     color: 'white',
+  },
+  notificationRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  notificationTimeRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingLeft: 12,
+    opacity: 0.8,
+  },
+  notificationLabel: {
+    fontSize: 14,
+    color: '#333',
+    fontWeight: '500',
+  },
+  notificationToggle: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#E0E0E0',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  notificationToggleActive: {
+    backgroundColor: '#4CAF50',
+  },
+  notificationToggleText: {
+    fontSize: 20,
+  },
+  notificationTime: {
+    fontSize: 14,
+    color: '#007AFF',
+    fontWeight: '600',
+    fontFamily: Platform.OS === 'android' ? 'monospace' : 'Courier',
   },
   applyButton: {
     backgroundColor: '#4CAF50',

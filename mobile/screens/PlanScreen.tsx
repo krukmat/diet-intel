@@ -339,12 +339,14 @@ const CustomizeModal: React.FC<CustomizeModalProps> = ({ visible, onClose, onCon
 
 interface PlanScreenProps {
   onBackPress: () => void;
+  navigateToSmartDiet?: (context?: { planId?: string }) => void;
 }
 
-export default function PlanScreen({ onBackPress }: PlanScreenProps) {
+export default function PlanScreen({ onBackPress, navigateToSmartDiet }: PlanScreenProps) {
   const { t } = useTranslation();
   const [dailyPlan, setDailyPlan] = useState<DailyPlan | null>(null);
   const [loading, setLoading] = useState(false);
+  const [currentPlanId, setCurrentPlanId] = useState<string | null>(null);
   
   // Helper function to translate meal names
   const translateMealName = (mealName: string): string => {
@@ -382,6 +384,18 @@ export default function PlanScreen({ onBackPress }: PlanScreenProps) {
     generatePlan();
   }, []);
 
+  const handleOptimizePlan = () => {
+    if (navigateToSmartDiet && currentPlanId) {
+      navigateToSmartDiet({ planId: currentPlanId });
+    } else {
+      Alert.alert(
+        t('plan.optimize.title'),
+        t('plan.optimize.noPlan'),
+        [{ text: t('common.ok') }]
+      );
+    }
+  };
+
   const generatePlan = async () => {
     setLoading(true);
     try {
@@ -404,6 +418,7 @@ export default function PlanScreen({ onBackPress }: PlanScreenProps) {
       if (response.data && response.data.plan_id) {
         try {
           await storeCurrentMealPlanId(response.data.plan_id);
+          setCurrentPlanId(response.data.plan_id);
           console.log('PlanScreen Debug - Successfully stored meal plan ID:', response.data.plan_id);
         } catch (error) {
           console.error('PlanScreen Debug - Failed to store meal plan ID:', error);
@@ -573,9 +588,23 @@ export default function PlanScreen({ onBackPress }: PlanScreenProps) {
           {dailyPlan.meals.map(renderMeal)}
         </View>
 
-        <TouchableOpacity style={styles.regenerateButton} onPress={generatePlan}>
-          <Text style={styles.regenerateButtonText}>{t('plan.generateNewPlan')}</Text>
-        </TouchableOpacity>
+        <View style={styles.actionButtonsContainer}>
+          <TouchableOpacity 
+            style={[styles.actionButton, styles.optimizeButton, !currentPlanId && styles.disabledButton]} 
+            onPress={handleOptimizePlan}
+            disabled={!currentPlanId}
+          >
+            <Text style={[styles.actionButtonText, styles.optimizeButtonText]}>
+              ⚡ {t('plan.optimize.button')}
+            </Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity style={[styles.actionButton, styles.regenerateButton]} onPress={generatePlan}>
+            <Text style={[styles.actionButtonText, styles.regenerateButtonText]}>
+              🔄 {t('plan.generateNewPlan')}
+            </Text>
+          </TouchableOpacity>
+        </View>
       </ScrollView>
 
       <CustomizeModal
@@ -799,23 +828,46 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
   },
-  regenerateButton: {
-    backgroundColor: '#007AFF',
+  actionButtonsContainer: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 30,
+    paddingHorizontal: 5,
+  },
+  actionButton: {
+    flex: 1,
     paddingVertical: 15,
-    paddingHorizontal: 25,
+    paddingHorizontal: 20,
     borderRadius: 12,
     alignItems: 'center',
-    marginBottom: 30,
-    shadowColor: '#007AFF',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 6,
   },
-  regenerateButtonText: {
-    color: 'white',
+  optimizeButton: {
+    backgroundColor: '#FF9500',
+    shadowColor: '#FF9500',
+  },
+  regenerateButton: {
+    backgroundColor: '#007AFF',
+    shadowColor: '#007AFF',
+  },
+  disabledButton: {
+    backgroundColor: '#BDC3C7',
+    shadowColor: 'transparent',
+    elevation: 0,
+  },
+  actionButtonText: {
     fontSize: 16,
     fontWeight: '700',
+    textAlign: 'center',
+  },
+  optimizeButtonText: {
+    color: 'white',
+  },
+  regenerateButtonText: {
+    color: 'white',
   },
   modalContainer: {
     flex: 1,
