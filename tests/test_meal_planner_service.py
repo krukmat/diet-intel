@@ -110,6 +110,7 @@ class TestMealPlanGeneration:
     @patch('app.services.nutrition_calculator.nutrition_calculator.calculate_bmr')
     @patch('app.services.nutrition_calculator.nutrition_calculator.calculate_tdee')
     @patch('app.services.nutrition_calculator.nutrition_calculator.calculate_daily_target')
+    @pytest.mark.asyncio
     @patch('app.services.nutrition_calculator.nutrition_calculator.get_meal_targets')
     async def test_successful_meal_plan_generation(self, mock_meal_targets, mock_daily_target, 
                                                  mock_tdee, mock_bmr, mock_load_products):
@@ -122,13 +123,15 @@ class TestMealPlanGeneration:
         
         mock_products = [
             ProductResponse(
+                source="Test",
                 barcode="1234567890",
-                product_name="Test Food",
+                name="Test Food",
                 serving_size="100g",
                 nutriments=Nutriments(
-                    energy_kcal=200.0, proteins=20.0, fat=5.0, carbohydrates=15.0,
-                    fiber=2.0, sugars=3.0, salt=0.5
-                )
+                    energy_kcal_per_100g=200.0, protein_g_per_100g=20.0, fat_g_per_100g=5.0, carbs_g_per_100g=15.0,
+                    sugars_g_per_100g=3.0, salt_g_per_100g=0.5
+                ),
+                fetched_at=datetime.now()
             )
         ]
         mock_load_products.return_value = mock_products
@@ -170,6 +173,7 @@ class TestMealPlanGeneration:
             assert len(result.meals) == 3
             assert mock_build_meal.call_count == 3
     
+    @pytest.mark.asyncio
     @patch('app.services.meal_planner.MealPlannerService._load_available_products')
     async def test_empty_products_scenario(self, mock_load_products):
         """Test meal plan generation when no products available"""
@@ -192,6 +196,7 @@ class TestMealPlanGeneration:
             assert len(result.meals) == 0
             mock_empty_plan.assert_called_once()
     
+    @pytest.mark.asyncio
     async def test_flexibility_mode_impact(self):
         """Test that flexibility mode affects meal building"""
         request_strict = MealPlanRequest(
@@ -232,6 +237,7 @@ class TestMealBuilding:
     def setup_method(self):
         self.service = MealPlannerService()
     
+    @pytest.mark.asyncio
     @patch('app.services.meal_planner.MealPlannerService._select_products_for_meal')
     async def test_build_meal_success(self, mock_select_products):
         """Test successful meal building"""
@@ -270,6 +276,7 @@ class TestMealBuilding:
         assert meal.actual_calories == 300.0
         mock_select_products.assert_called_once()
     
+    @pytest.mark.asyncio
     async def test_build_meal_with_optional_products(self):
         """Test meal building prioritizes optional products"""
         available_products = [
@@ -401,9 +408,13 @@ class TestProductSelection:
         target_calories = 300.0
         
         optional_product = ProductResponse(
-            barcode="optional", product_name="Optional Food", serving_size="100g",
-            nutriments=Nutriments(energy_kcal=280.0, proteins=20.0, fat=8.0,
-                                 carbohydrates=20.0, fiber=5.0, sugars=3.0, salt=0.3)
+            source="Test",
+            barcode="optional", 
+            name="Optional Food", 
+            serving_size="100g",
+            nutriments=Nutriments(energy_kcal_per_100g=280.0, protein_g_per_100g=20.0, fat_g_per_100g=8.0,
+                                 carbs_g_per_100g=20.0, sugars_g_per_100g=3.0, salt_g_per_100g=0.3),
+            fetched_at=datetime.now()
         )
         
         selected_items = self.service._select_products_for_meal(
@@ -429,8 +440,8 @@ class TestMacroCalculations:
                 name="Breakfast", target_calories=400.0,
                 items=[
                     MealItem(barcode="1", name="Food 1", serving="100g", calories=200.0,
-                           macros=MealItemMacros(protein=20.0, fat=5.0, carbohydrates=25.0,
-                                               fiber=3.0, sugars=8.0, sodium=300.0))
+                           macros=MealItemMacros(protein_g=20.0, fat_g=5.0, carbs_g=25.0,
+                                               sugars_g=8.0, salt_g=0.3))
                 ],
                 actual_calories=200.0
             ),
@@ -438,8 +449,8 @@ class TestMacroCalculations:
                 name="Lunch", target_calories=600.0,
                 items=[
                     MealItem(barcode="2", name="Food 2", serving="150g", calories=350.0,
-                           macros=MealItemMacros(protein=30.0, fat=10.0, carbohydrates=35.0,
-                                               fiber=5.0, sugars=10.0, sodium=500.0))
+                           macros=MealItemMacros(protein_g=30.0, fat_g=10.0, carbs_g=35.0,
+                                               sugars_g=10.0, salt_g=0.5))
                 ],
                 actual_calories=350.0
             )
@@ -447,22 +458,21 @@ class TestMacroCalculations:
         
         daily_macros = self.service._calculate_daily_macros(meals)
         
-        assert daily_macros.calories == 550.0  # 200 + 350
-        assert daily_macros.protein == 50.0    # 20 + 30
-        assert daily_macros.fat == 15.0        # 5 + 10
-        assert daily_macros.carbohydrates == 60.0  # 25 + 35
-        assert daily_macros.fiber == 8.0       # 3 + 5
-        assert daily_macros.sugars == 18.0     # 8 + 10
-        assert daily_macros.sodium == 800.0    # 300 + 500
+        assert daily_macros.total_calories == 550.0  # 200 + 350
+        assert daily_macros.protein_g == 50.0    # 20 + 30
+        assert daily_macros.fat_g == 15.0        # 5 + 10
+        assert daily_macros.carbs_g == 60.0  # 25 + 35
+        assert daily_macros.sugars_g == 18.0     # 8 + 10
+        assert daily_macros.salt_g == 0.8    # 0.3 + 0.5 (converted from mg to g)
     
     def test_empty_meals_macro_calculation(self):
         """Test macro calculation with empty meals"""
         daily_macros = self.service._calculate_daily_macros([])
         
-        assert daily_macros.calories == 0.0
-        assert daily_macros.protein == 0.0
-        assert daily_macros.fat == 0.0
-        assert daily_macros.carbohydrates == 0.0
+        assert daily_macros.total_calories == 0.0
+        assert daily_macros.protein_g == 0.0
+        assert daily_macros.fat_g == 0.0
+        assert daily_macros.carbs_g == 0.0
 
 
 class TestEdgeCasesAndErrorHandling:
