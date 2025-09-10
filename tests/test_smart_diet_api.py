@@ -8,7 +8,8 @@ import json
 from main import app
 from app.models.smart_diet import (
     SmartDietRequest, SmartDietResponse, SmartSuggestion, 
-    SuggestionFeedback, SmartDietContext
+    SuggestionFeedback, SmartDietContext, SuggestionType, SuggestionCategory,
+    SmartDietInsights
 )
 
 @pytest.mark.integration
@@ -65,14 +66,28 @@ class TestSmartDietAPI:
         # Mock auth
         mock_auth.return_value = "test_user_123"
         
+        # Create sample suggestion for testing
+        sample_suggestion = SmartSuggestion(
+            id="test_suggestion_001",
+            suggestion_type=SuggestionType.RECOMMENDATION,
+            category=SuggestionCategory.DISCOVERY,
+            title="Greek Yogurt with Berries",
+            description="High-protein breakfast option",
+            reasoning="Great source of protein and probiotics",
+            suggested_item={"name": "Greek Yogurt", "barcode": "1234567890123"},
+            confidence_score=0.85,
+            planning_context=SmartDietContext.TODAY
+        )
+        
         # Mock response
         mock_response = SmartDietResponse(
             user_id="test_user_123",
-            context="general",
-            total_suggestions=1,
+            context_type=SmartDietContext.TODAY,
+            suggestions=[sample_suggestion],
             optimizations=[],
             discoveries=[],
             insights=[],
+            total_suggestions=1,
             avg_confidence=0.85,
             nutritional_summary={
                 "total_calories": 100,
@@ -230,14 +245,14 @@ class TestSmartDietAPI:
             
             mock_auth.return_value = "test_user_123"
             
-            # Mock insights response (would need actual SmartDietInsights structure)
-            mock_insights.return_value = {
-                "user_id": "test_user_123",
-                "period": "week",
-                "successful_suggestions": [],
-                "priority_improvements": [],
-                "improvement_score": 0.75
-            }
+            # Mock insights response using SmartDietInsights model
+            mock_insights.return_value = SmartDietInsights(
+                user_id="test_user_123",
+                period="week",
+                successful_suggestions=[],
+                priority_improvements=[],
+                improvement_score=0.75
+            )
             
             response = client.get("/smart-diet/insights?period=week")
             
@@ -323,7 +338,8 @@ class TestSmartDietAPI:
             mock_auth.return_value = "test_user_123"
             mock_suggestions.return_value = SmartDietResponse(
                 user_id="test_user_123",
-                context="discover",
+                context_type=SmartDietContext.DISCOVER,
+                suggestions=[],
                 total_suggestions=0,
                 optimizations=[],
                 discoveries=[],

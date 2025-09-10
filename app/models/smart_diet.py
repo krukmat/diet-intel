@@ -269,7 +269,7 @@ class LegacyMigrationHelper(BaseModel):
             calorie_impact=int(legacy_item.calories_per_serving),
             confidence_score=legacy_item.confidence_score,
             planning_context=SmartDietContext.DISCOVER,
-            legacy_recommendation_data=legacy_item.dict()
+            legacy_recommendation_data=legacy_item.model_dump()
         )
 
 

@@ -6,6 +6,8 @@ Integrates Smart Recommendations + Smart Meal Optimization
 import logging
 import asyncio
 import uuid
+import hashlib
+import json
 from typing import List, Dict, Optional, Any, Tuple
 from datetime import datetime, timedelta
 from collections import defaultdict
@@ -21,6 +23,7 @@ from app.models.recommendation import SmartRecommendationRequest
 from app.models.product import ProductResponse
 from app.models.meal_plan import MealPlanResponse
 from app.services.cache import cache_service
+from app.services.smart_diet_cache import get_smart_diet_cache
 from app.services.plan_storage import plan_storage
 from app.services.product_discovery import product_discovery_service
 from app.services.database import db_service
@@ -474,6 +477,9 @@ class SmartDietEngine:
         # Add optimization capabilities
         self.optimization_engine = OptimizationEngine()
         
+        # Smart Diet specific cache manager
+        self.cache_manager = get_smart_diet_cache()
+        
         # Translation service for internationalization
         self.translation_service = get_translation_service(cache_service)
         
@@ -505,6 +511,29 @@ class SmartDietEngine:
             }
         }
     
+    def _generate_request_hash(self, user_id: str, request: SmartDietRequest) -> str:
+        """Generate hash for cache key based on request parameters"""
+        # Create a consistent hash from request parameters
+        hash_data = {
+            'user_id': user_id,
+            'context_type': request.context_type.value,
+            'dietary_restrictions': sorted(request.dietary_restrictions),
+            'cuisine_preferences': sorted(request.cuisine_preferences),
+            'excluded_ingredients': sorted(request.excluded_ingredients),
+            'target_macros': request.target_macros,
+            'calorie_budget': request.calorie_budget,
+            'max_suggestions': request.max_suggestions,
+            'min_confidence': request.min_confidence,
+            'include_optimizations': request.include_optimizations,
+            'include_recommendations': request.include_recommendations,
+            'current_meal_plan_id': request.current_meal_plan_id,
+            'meal_context': request.meal_context
+        }
+        
+        # Convert to JSON string and hash
+        hash_string = json.dumps(hash_data, sort_keys=True)
+        return hashlib.md5(hash_string.encode()).hexdigest()[:16]  # First 16 chars
+    
     async def get_smart_suggestions(
         self, 
         user_id: str, 
@@ -516,6 +545,17 @@ class SmartDietEngine:
         """
         start_time = datetime.now()
         logger.info(f"Generating Smart Diet suggestions for user {user_id}, context: {request.context_type}")
+        
+        # Generate cache key
+        request_hash = self._generate_request_hash(user_id, request)
+        
+        # Try to get from cache first
+        cached_response = await self.cache_manager.get_suggestions_cache(
+            user_id, request.context_type, request_hash
+        )
+        if cached_response:
+            logger.info(f"Cache hit for Smart Diet suggestions: {user_id}, {request.context_type}")
+            return cached_response
         
         try:
             # Initialize response
@@ -568,6 +608,11 @@ class SmartDietEngine:
             
             # Store for learning
             self.suggestion_history.extend(response.suggestions)
+            
+            # Cache the response for future requests
+            await self.cache_manager.set_suggestions_cache(
+                user_id, request.context_type, request_hash, response
+            )
             
             logger.info(f"Generated {response.total_suggestions} Smart Diet suggestions "
                        f"(avg confidence: {response.avg_confidence:.2f}) in {response.generation_time_ms:.0f}ms")
