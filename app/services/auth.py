@@ -1,5 +1,6 @@
 import bcrypt
 import jwt
+import time
 from datetime import datetime, timedelta
 from typing import Optional, Dict, Any
 from fastapi import HTTPException, status, Depends
@@ -25,7 +26,7 @@ class AuthService:
     def __init__(self):
         self.secret_key = config.secret_key
         self.algorithm = ALGORITHM
-        self.access_token_expire_minutes = ACCESS_TOKEN_EXPIRE_MINUTES
+        self.access_token_expire_minutes = config.access_token_expire_minutes
         self.refresh_token_expire_days = REFRESH_TOKEN_EXPIRE_DAYS
     
     def hash_password(self, password: str) -> str:
@@ -43,26 +44,30 @@ class AuthService:
     
     def create_access_token(self, user: User) -> str:
         """Create JWT access token"""
-        expire = datetime.utcnow() + timedelta(minutes=self.access_token_expire_minutes)
+        now_timestamp = time.time()
+        expire_timestamp = now_timestamp + (self.access_token_expire_minutes * 60)
+        
         payload = {
             "user_id": user.id,
             "email": user.email,
             "role": user.role.value,
             "is_developer": user.is_developer,
-            "exp": expire,
-            "iat": datetime.utcnow(),
+            "exp": expire_timestamp,
+            "iat": now_timestamp,
             "type": "access"
         }
         return jwt.encode(payload, self.secret_key, algorithm=self.algorithm)
     
     def create_refresh_token(self, user: User) -> str:
         """Create JWT refresh token"""
-        expire = datetime.utcnow() + timedelta(days=self.refresh_token_expire_days)
+        now_timestamp = time.time()
+        expire_timestamp = now_timestamp + (self.refresh_token_expire_days * 24 * 60 * 60)
+        
         payload = {
             "user_id": user.id,
             "email": user.email,
-            "exp": expire,
-            "iat": datetime.utcnow(),
+            "exp": expire_timestamp,
+            "iat": now_timestamp,
             "type": "refresh"
         }
         return jwt.encode(payload, self.secret_key, algorithm=self.algorithm)
