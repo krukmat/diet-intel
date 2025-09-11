@@ -86,3 +86,4 @@ DietIntel is a FastAPI application for nutrition tracking with product lookup, O
 - all reports and plan should be save at root plan/ folder. do not create folders for this purpose. all folder creation should be authorize. db files should be pushed to git when needed
 - when you plan, create an md in plan folder. put the date and the objective in the file name.
 - for every task/phase you plan save it in a file md file in plan folder. when you finish save in that file the files you changed and the goals reached. the file should have the date and time.
+- when I say push all, you have to be in the root folder of the project always. Also should ask to update readme or not.

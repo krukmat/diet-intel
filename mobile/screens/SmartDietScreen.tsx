@@ -22,6 +22,12 @@ import {
   type SuggestionFeedback,
   type SmartDietInsights
 } from '../services/SmartDietService';
+
+// Extended SmartSuggestion interface to include legacy properties for backward compatibility
+interface ExtendedSmartSuggestion extends SmartSuggestion {
+  action_text?: string;
+  metadata?: Record<string, any>;
+}
 import { apiService } from '../services/ApiService';
 import { translateFoodNameSync, translateFoodName } from '../utils/foodTranslation';
 import { getCurrentMealPlanId } from '../utils/mealPlanUtils';
@@ -91,26 +97,33 @@ interface SmartDietScreenProps {
 // Performance-optimized context configuration with SmartDietContext enum
 const CONTEXT_CONFIG = Object.freeze({
   [SmartDietContext.TODAY]: {
+    title: 'For You Today',
     emoji: '🌟',
     color: '#4A90E2',
     gradient: ['#4A90E2', '#357ABD']
   },
   [SmartDietContext.OPTIMIZE]: {
+    title: 'Optimize Plan',
     emoji: '⚡',
     color: '#F39C12',
     gradient: ['#F39C12', '#E67E22']
   },
   [SmartDietContext.DISCOVER]: {
+    title: 'Discover Foods',
     emoji: '🔍',
     color: '#27AE60',
     gradient: ['#27AE60', '#229954']
   },
   [SmartDietContext.INSIGHTS]: {
+    title: 'Diet Insights',
     emoji: '📊',
     color: '#8E44AD',
     gradient: ['#8E44AD', '#7D3C98']
   }
 });
+
+// TypeScript type for context keys
+type ContextType = SmartDietContext;
 
 export default function SmartDietScreen({ onBackPress, navigationContext, navigateToTrack, navigateToPlan }: SmartDietScreenProps) {
   const { t, i18n } = useTranslation();
@@ -167,43 +180,49 @@ export default function SmartDietScreen({ onBackPress, navigationContext, naviga
 
   const generateSmartSuggestions = async () => {
     setLoading(true);
+    setError(null);
+    
     try {
-      const params = new URLSearchParams({
-        context: selectedContext,
-        max_suggestions: preferences.maxSuggestions.toString(),
-        include_history: preferences.includeHistory.toString(),
-        lang: i18n.language,
-      });
+      // Use the optimized SmartDietService with proper options
+      const options = {
+        dietary_restrictions: preferences.dietaryRestrictions,
+        cuisine_preferences: preferences.cuisinePreferences,
+        excluded_ingredients: preferences.excludedIngredients,
+        max_suggestions: preferences.maxSuggestions,
+        include_optimizations: preferences.includeHistory,
+        include_recommendations: true,
+        min_confidence: 0.3,
+        lang: i18n.language
+      };
 
-      if (preferences.dietaryRestrictions.length > 0) {
-        params.append('dietary_restrictions', preferences.dietaryRestrictions.join(','));
-      }
-      if (preferences.cuisinePreferences.length > 0) {
-        params.append('cuisine_preferences', preferences.cuisinePreferences.join(','));
-      }
-      if (preferences.excludedIngredients.length > 0) {
-        params.append('excluded_ingredients', preferences.excludedIngredients.join(','));
-      }
-
-      // Add required current_meal_plan_id for optimize context
-      if (selectedContext === 'optimize') {
+      // Add meal plan ID for optimize context
+      if (selectedContext === SmartDietContext.OPTIMIZE) {
         const currentPlanId = await getCurrentMealPlanId();
         console.log('SmartDiet Debug - Retrieved meal plan ID:', currentPlanId);
         if (currentPlanId) {
-          console.log('SmartDiet Debug - Adding meal plan ID to params:', currentPlanId);
-          params.append('current_meal_plan_id', currentPlanId);
+          console.log('SmartDiet Debug - Adding meal plan ID to options:', currentPlanId);
+          options.current_meal_plan_id = currentPlanId;
         } else {
-          // If no meal plan ID is available, show a helpful message
-          console.log('SmartDiet Debug - No meal plan ID found in AsyncStorage');
+          console.log('SmartDiet Debug - No meal plan ID found');
           throw new Error('No meal plan found. Please generate a meal plan first from the Plan tab.');
         }
       }
 
-      const response = await apiService.get(`/smart-diet/suggestions?${params.toString()}`);
-      setSmartData(response.data);
+      // Use the performance-optimized SmartDietService
+      const response = await smartDietService.getSmartSuggestions(
+        selectedContext,
+        'anonymous', // TODO: Get actual user ID
+        options
+      );
+      
+      setSmartData(response);
+      setCacheStatus(response.generated_at ? 'fresh' : 'cached');
     } catch (error) {
+      console.error('Smart Diet generation failed:', error);
+      setError(error instanceof Error ? error.message : 'Failed to load suggestions');
+      
       // Fallback to legacy recommendations API for backward compatibility
-      if (selectedContext === 'today') {
+      if (selectedContext === SmartDietContext.TODAY) {
         try {
           const legacyRequest = {
             meal_context: 'all',
@@ -217,21 +236,25 @@ export default function SmartDietScreen({ onBackPress, navigationContext, naviga
 
           const legacyResponse = await apiService.generateSmartRecommendations(legacyRequest);
           
-          // Transform legacy response to Smart Diet format
+          // Transform legacy response to new Smart Diet format
           const transformedData: SmartDietResponse = {
             user_id: legacyResponse.data.user_id || 'anonymous',
-            context: 'today',
-            suggestions: [],
-            total_suggestions: legacyResponse.data.total_recommendations || 0,
-            avg_confidence: legacyResponse.data.avg_confidence || 0,
+            context_type: SmartDietContext.TODAY,
             generated_at: legacyResponse.data.generated_at || new Date().toISOString(),
-            insights: legacyResponse.data.nutritional_insights ? {
-              calories_today: legacyResponse.data.nutritional_insights.total_recommended_calories,
-              target_calories: legacyResponse.data.nutritional_insights.total_recommended_calories,
-              macro_balance: legacyResponse.data.nutritional_insights.macro_distribution,
-              improvement_areas: legacyResponse.data.nutritional_insights.nutritional_gaps || [],
+            suggestions: [],
+            today_highlights: [],
+            optimizations: [],
+            discoveries: [],
+            insights: [],
+            nutritional_summary: legacyResponse.data.nutritional_insights ? {
+              total_recommended_calories: legacyResponse.data.nutritional_insights.total_recommended_calories,
+              macro_distribution: legacyResponse.data.nutritional_insights.macro_distribution,
+              nutritional_gaps: legacyResponse.data.nutritional_insights.nutritional_gaps || [],
               health_benefits: legacyResponse.data.nutritional_insights.health_benefits || []
-            } : undefined
+            } : {},
+            personalization_factors: [],
+            total_suggestions: legacyResponse.data.total_recommendations || 0,
+            avg_confidence: legacyResponse.data.avg_confidence || 0
           };
 
           // Transform recommendations to suggestions with async translations
@@ -239,15 +262,42 @@ export default function SmartDietScreen({ onBackPress, navigationContext, naviga
             for (const meal of legacyResponse.data.meal_recommendations) {
               for (const [index, item] of meal.recommendations.entries()) {
                 const translatedTitle = await translateFoodName(item.name);
-                transformedData.suggestions.push({
+                const newSuggestion: ExtendedSmartSuggestion = {
                   id: `meal_${meal.meal_name}_${index}`,
-                  suggestion_type: 'meal_recommendation',
-                  category: meal.meal_name,
+                  user_id: 'anonymous',
+                  suggestion_type: 'recommendation' as any,
+                  category: 'meal_addition' as any,
                   title: translatedTitle,
                   description: `${item.brand ? item.brand + ' - ' : ''}${Math.round(item.calories_per_serving)} kcal per ${item.serving_size}`,
-                  action_text: `Add to ${meal.meal_name}`,
+                  reasoning: `Recommended for ${meal.meal_name} based on your nutritional needs`,
+                  suggested_item: {
+                    barcode: item.barcode,
+                    name: item.name,
+                    brand: item.brand,
+                    serving_size: item.serving_size
+                  },
+                  nutritional_benefit: {
+                    calories: item.calories_per_serving,
+                    protein: item.protein_g,
+                    fat: item.fat_g,
+                    carbs: item.carbs_g
+                  },
+                  calorie_impact: item.calories_per_serving,
+                  macro_impact: {
+                    protein: item.protein_g,
+                    fat: item.fat_g,
+                    carbs: item.carbs_g
+                  },
                   confidence_score: item.confidence_score,
-                  priority: 1,
+                  priority_score: 1,
+                  meal_context: meal.meal_name,
+                  planning_context: SmartDietContext.TODAY,
+                  implementation_complexity: 'simple' as const,
+                  implementation_notes: `Add to ${meal.meal_name}`,
+                  created_at: new Date().toISOString(),
+                  tags: item.reasons || [],
+                  // Legacy compatibility
+                  action_text: `Add to ${meal.meal_name}`,
                   metadata: {
                     barcode: item.barcode,
                     nutrition: {
@@ -257,9 +307,9 @@ export default function SmartDietScreen({ onBackPress, navigationContext, naviga
                       carbs: item.carbs_g
                     },
                     reasons: item.reasons
-                  },
-                  created_at: new Date().toISOString()
-                });
+                  }
+                };
+                transformedData.suggestions.push(newSuggestion);
               }
             }
           }
@@ -268,20 +318,22 @@ export default function SmartDietScreen({ onBackPress, navigationContext, naviga
           return;
         } catch (legacyError) {
           console.error('Both Smart Diet and legacy APIs failed:', legacyError);
+          setError('Failed to load suggestions from both new and legacy APIs');
         }
+      } else {
+        // For other contexts, just show the error
+        setError(error instanceof Error ? error.message : 'Failed to load suggestions');
       }
-
-      Alert.alert(t('common.error'), t('smartDiet.alerts.error'));
-      console.error('Smart Diet generation failed:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  const addRecommendationToPlan = async (suggestion: SmartSuggestion) => {
+  const addRecommendationToPlan = async (suggestion: ExtendedSmartSuggestion) => {
     try {
-      // Extract barcode from metadata (Smart Diet suggestions include barcode info)
-      const barcode = suggestion.metadata?.suggested_item?.barcode || 
+      // Extract barcode from new Smart Diet format or legacy metadata
+      const barcode = suggestion.suggested_item?.barcode || 
+                    suggestion.metadata?.suggested_item?.barcode || 
                     suggestion.metadata?.barcode ||
                     suggestion.metadata?.product?.barcode;
       
@@ -294,9 +346,14 @@ export default function SmartDietScreen({ onBackPress, navigationContext, naviga
         return;
       }
       
-      // Determine meal type from category or default to appropriate meal
+      // Determine meal type from meal_context or category
       let mealType = 'lunch'; // default
-      if (suggestion.category) {
+      if (suggestion.meal_context) {
+        const context = suggestion.meal_context.toLowerCase();
+        if (context.includes('breakfast')) mealType = 'breakfast';
+        else if (context.includes('dinner')) mealType = 'dinner';
+        else if (context.includes('lunch')) mealType = 'lunch';
+      } else if (typeof suggestion.category === 'string') {
         const cat = suggestion.category.toLowerCase();
         if (cat.includes('breakfast')) mealType = 'breakfast';
         else if (cat.includes('dinner')) mealType = 'dinner';
@@ -336,12 +393,12 @@ export default function SmartDietScreen({ onBackPress, navigationContext, naviga
     }
   };
 
-  const handleSuggestionAction = async (suggestion: SmartSuggestion) => {
+  const handleSuggestionAction = async (suggestion: ExtendedSmartSuggestion) => {
     try {
-      if (suggestion.suggestion_type === 'meal_recommendation') {
+      if (suggestion.suggestion_type === 'recommendation' || suggestion.metadata?.suggestion_type === 'meal_recommendation') {
         Alert.alert(
           t('smartDiet.actions.addToPlan'),
-          `Would you like to add ${suggestion.title} to your ${suggestion.category}?`,
+          `Would you like to add ${suggestion.title} to your ${suggestion.meal_context || 'meal plan'}?`,
           [
             { text: t('common.cancel'), style: 'cancel' },
             {
@@ -379,7 +436,7 @@ export default function SmartDietScreen({ onBackPress, navigationContext, naviga
     }
   };
 
-  const handleProvideFeedback = async (suggestion: SmartSuggestion, helpful: boolean) => {
+  const handleProvideFeedback = async (suggestion: ExtendedSmartSuggestion, helpful: boolean) => {
     try {
       const feedbackData = {
         user_id: smartData?.user_id || 'anonymous',
@@ -476,13 +533,16 @@ export default function SmartDietScreen({ onBackPress, navigationContext, naviga
     </View>
   );
 
-  const renderSuggestion = (suggestion: SmartSuggestion, index?: number) => (
+  const renderSuggestion = (suggestion: ExtendedSmartSuggestion, index?: number) => (
     <View key={`suggestion_${suggestion.id}_${index || 0}`} style={styles.suggestionCard}>
       <View style={styles.suggestionHeader}>
         <View style={styles.suggestionInfo}>
           <Text style={styles.suggestionTitle}>{translateFoodNameSync(suggestion.title)}</Text>
           <Text style={styles.suggestionCategory}>
-            {suggestion.category.replace('_', ' ').toUpperCase()}
+            {typeof suggestion.category === 'string' 
+              ? suggestion.category.replace('_', ' ').toUpperCase()
+              : suggestion.meal_context?.toUpperCase() || 'RECOMMENDATION'
+            }
           </Text>
         </View>
         <View style={styles.confidenceContainer}>
@@ -495,22 +555,22 @@ export default function SmartDietScreen({ onBackPress, navigationContext, naviga
 
       <Text style={styles.suggestionDescription}>{translateFoodNameSync(suggestion.description)}</Text>
 
-      {suggestion.metadata?.nutrition && (
+      {(suggestion.nutritional_benefit || suggestion.metadata?.nutrition) && (
         <View style={styles.nutritionInfo}>
           <Text style={styles.nutritionText}>
-            📊 {Math.round(suggestion.metadata.nutrition.calories)} kcal • 
-            P: {Math.round(suggestion.metadata.nutrition.protein)}g • 
-            F: {Math.round(suggestion.metadata.nutrition.fat)}g • 
-            C: {Math.round(suggestion.metadata.nutrition.carbs)}g
+            📊 {Math.round(suggestion.nutritional_benefit?.calories || suggestion.metadata?.nutrition?.calories || 0)} kcal • 
+            P: {Math.round(suggestion.nutritional_benefit?.protein || suggestion.metadata?.nutrition?.protein || 0)}g • 
+            F: {Math.round(suggestion.nutritional_benefit?.fat || suggestion.metadata?.nutrition?.fat || 0)}g • 
+            C: {Math.round(suggestion.nutritional_benefit?.carbs || suggestion.metadata?.nutrition?.carbs || 0)}g
           </Text>
         </View>
       )}
 
-      {suggestion.metadata?.reasons && (
+      {(suggestion.tags?.length > 0 || suggestion.metadata?.reasons) && (
         <View style={styles.reasonsContainer}>
           <Text style={styles.reasonsLabel}>{t('smartDiet.whySuggested')}</Text>
           <View style={styles.reasonTags}>
-            {suggestion.metadata.reasons.slice(0, 3).map((reason: string, index: number) => (
+            {(suggestion.tags || suggestion.metadata?.reasons || []).slice(0, 3).map((reason: string, index: number) => (
               <View key={`reason_${reason}_${index}`} style={styles.reasonTag}>
                 <Text style={styles.reasonTagText}>{reason.replace('_', ' ')}</Text>
               </View>
@@ -520,18 +580,20 @@ export default function SmartDietScreen({ onBackPress, navigationContext, naviga
       )}
 
       <View style={styles.actionButtons}>
-        {suggestion.action_text && (
+        {(suggestion.action_text || suggestion.implementation_notes) && (
           <TouchableOpacity 
             style={styles.primaryButton}
             onPress={() => handleSuggestionAction(suggestion)}
           >
-            <Text style={styles.primaryButtonText}>{suggestion.action_text}</Text>
+            <Text style={styles.primaryButtonText}>
+              {suggestion.action_text || suggestion.implementation_notes || 'Apply'}
+            </Text>
           </TouchableOpacity>
         )}
         
         <View style={styles.feedbackButtons}>
           {/* Cross-navigation buttons */}
-          {suggestion.suggestion_type === 'meal_recommendation' && navigateToTrack && (
+          {(suggestion.suggestion_type === 'recommendation' || suggestion.metadata?.suggestion_type === 'meal_recommendation') && navigateToTrack && (
             <TouchableOpacity 
               style={[styles.feedbackButton, styles.navigationActionButton]}
               onPress={() => navigateToTrack()}
