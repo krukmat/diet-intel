@@ -35,7 +35,8 @@
     "uploadLabel": "🏷️ Upload Label",
     "mealPlan": "🍽️ Meal Plan",
     "track": "📊 Track",
-    "smartDiet": "🧠 Smart Diet"
+    "smartDiet": "🧠 Smart Diet",
+    "recipes": "🍳 Recipes"
   },
   "plan": {
     "title": "🍽️ Daily Meal Plan",

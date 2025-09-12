@@ -35,7 +35,8 @@
     "uploadLabel": "🏷️ Subir Etiqueta",
     "mealPlan": "🍽️ Plan de Comidas",
     "track": "📊 Seguimiento",
-    "smartDiet": "🧠 Dieta Inteligente"
+    "smartDiet": "🧠 Dieta Inteligente",
+    "recipes": "🍳 Recetas"
   },
   "plan": {
     "title": "🍽️ Plan de Comidas Diario",

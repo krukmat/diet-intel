@@ -19,6 +19,11 @@ import UploadLabel from './screens/UploadLabel';
 import PlanScreen from './screens/PlanScreen';
 import TrackScreen from './screens/TrackScreen';
 import SmartDietScreen from './screens/SmartDietScreen';
+import RecipeHomeScreen from './screens/RecipeHomeScreen';
+import RecipeGenerationScreen from './screens/RecipeGenerationScreen';
+import RecipeSearchScreen from './screens/RecipeSearchScreen';
+import MyRecipesScreen from './screens/MyRecipesScreen';
+import RecipeDetailScreen from './screens/RecipeDetailScreen';
 import ProductDetail from './components/ProductDetail';
 import ReminderSnippet from './components/ReminderSnippet';
 import ApiConfigModal from './components/ApiConfigModal';
@@ -86,12 +91,14 @@ function MainApp({ user, onLogout }: { user: any; onLogout: () => void }) {
   const [hasPermission, setHasPermission] = useState<boolean | null>(null);
   const [scanned, setScanned] = useState(false);
   const [showCamera, setShowCamera] = useState(false);
-  type ScreenType = 'scanner' | 'upload' | 'plan' | 'track' | 'recommendations';
+  type ScreenType = 'scanner' | 'upload' | 'plan' | 'track' | 'recommendations' | 'recipes' | 'recipe-generation' | 'recipe-search' | 'my-recipes' | 'recipe-detail';
   const [currentScreen, setCurrentScreen] = useState<ScreenType>('scanner');
   const [navigationContext, setNavigationContext] = useState<{
     targetContext?: string;
     sourceScreen?: string;
     planId?: string;
+    recipeId?: string;
+    recipeData?: any;
   }>({});
   const [showReminders, setShowReminders] = useState(false);
   const [showApiConfig, setShowApiConfig] = useState(false);
@@ -295,6 +302,64 @@ function MainApp({ user, onLogout }: { user: any; onLogout: () => void }) {
     />;
   }
 
+  // Recipe AI Screens
+  if (currentScreen === 'recipes') {
+    console.log('Rendering RecipeHomeScreen...');
+    return <RecipeHomeScreen 
+      onBackPress={() => setCurrentScreen('scanner')}
+      navigateToGeneration={() => setCurrentScreen('recipe-generation')}
+      navigateToSearch={() => setCurrentScreen('recipe-search')}
+      navigateToMyRecipes={() => setCurrentScreen('my-recipes')}
+      navigationContext={navigationContext}
+    />;
+  }
+
+  if (currentScreen === 'recipe-generation') {
+    console.log('Rendering RecipeGenerationScreen...');
+    return <RecipeGenerationScreen 
+      onBackPress={() => setCurrentScreen('recipes')}
+      onNavigateToDetail={(recipe: any) => {
+        setNavigationContext({ recipeData: recipe, sourceScreen: 'recipe-generation' });
+        setCurrentScreen('recipe-detail');
+      }}
+    />;
+  }
+
+  if (currentScreen === 'recipe-search') {
+    console.log('Rendering RecipeSearchScreen...');
+    return <RecipeSearchScreen 
+      onBackPress={() => setCurrentScreen('recipes')}
+    />;
+  }
+
+  if (currentScreen === 'my-recipes') {
+    console.log('Rendering MyRecipesScreen...');
+    return <MyRecipesScreen 
+      onBackPress={() => setCurrentScreen('recipes')}
+    />;
+  }
+
+  if (currentScreen === 'recipe-detail') {
+    console.log('Rendering RecipeDetailScreen...');
+    return <RecipeDetailScreen 
+      recipeId={navigationContext.recipeId}
+      recipe={navigationContext.recipeData}
+      onBackPress={() => {
+        // Navigate back to source screen or recipes home
+        const sourceScreen = navigationContext.sourceScreen;
+        if (sourceScreen && ['recipe-generation', 'recipe-search', 'my-recipes'].includes(sourceScreen)) {
+          setCurrentScreen(sourceScreen as ScreenType);
+        } else {
+          setCurrentScreen('recipes');
+        }
+      }}
+      onNavigateToOptimize={(recipe: any) => {
+        setNavigationContext({ recipeData: recipe, sourceScreen: 'recipe-detail' });
+        setCurrentScreen('recipe-generation'); // Use generation screen for optimization
+      }}
+    />;
+  }
+
   return (
     <SafeAreaView style={styles.container}>
       <ExpoStatusBar style="light" backgroundColor="#007AFF" />
@@ -391,6 +456,18 @@ function MainApp({ user, onLogout }: { user: any; onLogout: () => void }) {
         >
           <Text style={[styles.navButtonText, isActiveScreen('recommendations') && styles.navButtonTextActive]}>
             {t('navigation.smartDiet')}
+          </Text>
+        </TouchableOpacity>
+        
+        <TouchableOpacity 
+          style={[styles.navButton, isActiveScreen('recipes') && styles.navButtonActive]}
+          onPress={() => {
+            console.log('Recipe AI tab pressed!');
+            setCurrentScreen('recipes');
+          }}
+        >
+          <Text style={[styles.navButtonText, isActiveScreen('recipes') && styles.navButtonTextActive]}>
+            {t('navigation.recipes')}
           </Text>
         </TouchableOpacity>
       </View>
