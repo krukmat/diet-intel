@@ -279,6 +279,19 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
     return await auth_service.get_current_user_from_token(credentials.credentials)
 
 
+# FastAPI dependency for optional user (allows anonymous access)
+async def get_optional_user(credentials: Optional[HTTPAuthorizationCredentials] = Depends(HTTPBearer(auto_error=False))) -> Optional[User]:
+    """FastAPI dependency to optionally get current user (allows anonymous access)"""
+    if not credentials:
+        return None
+    
+    try:
+        return await auth_service.get_current_user_from_token(credentials.credentials)
+    except HTTPException:
+        # Invalid token, but allow anonymous access
+        return None
+
+
 # FastAPI dependency for developer-only access
 async def get_current_developer_user(current_user: User = Depends(get_current_user)) -> User:
     """FastAPI dependency to ensure user has developer access"""
