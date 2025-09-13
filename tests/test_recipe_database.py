@@ -13,11 +13,16 @@ from app.services.recipe_ai_engine import (
 
 class TestRecipeDatabaseService:
     """Test Recipe Database Service functionality"""
-    
-    def setup_method(self):
+
+    @pytest.fixture(autouse=True)
+    def setup_method(self, test_database):
         """Set up test fixtures"""
-        # Use in-memory database for testing
-        self.db_service = RecipeDatabaseService(db_path=":memory:")
+        # Use test database with proper schema, minimal setup
+        from app.services.database import ConnectionPool
+        self.db_service = RecipeDatabaseService.__new__(RecipeDatabaseService)
+        self.db_service.db_path = test_database
+        self.db_service.max_connections = 10
+        self.db_service.connection_pool = ConnectionPool(test_database, 10)
         
         # Create sample recipe for testing
         self.sample_recipe = GeneratedRecipe(

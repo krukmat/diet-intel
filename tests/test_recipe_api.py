@@ -1,6 +1,6 @@
 import pytest
 import json
-from fastapi.testclient import TestClient
+from httpx import AsyncClient
 from unittest.mock import patch, AsyncMock, MagicMock
 from datetime import datetime
 
@@ -11,10 +11,14 @@ from app.models.user import User, UserRole
 
 class TestRecipeAIAPI:
     """Test Recipe AI API endpoints"""
-    
+
+    @pytest.fixture
+    def client(self):
+        """Create async test client"""
+        return AsyncClient(app=app, base_url="http://testserver")
+
     def setup_method(self):
         """Set up test fixtures"""
-        self.client = TestClient(app)
         
         # Create mock user for authentication
         self.mock_user = User(
@@ -92,9 +96,10 @@ class TestRecipeAIAPI:
             tags=["mediterranean", "healthy", "vegetarian", "high_protein"]
         )
     
-    def test_health_check(self):
+    def test_health_check(self, client):
         """Test Recipe AI health check endpoint"""
-        response = self.client.get("/recipe/health")
+        with client as c:
+            response = c.get("/recipe/health")
         
         assert response.status_code == 200
         health_data = response.json()

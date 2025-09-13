@@ -46,6 +46,71 @@ def sample_user_profile():
     }
 
 @pytest.fixture
+def test_database():
+    """Create test database with recipe schema."""
+    import sqlite3
+    import tempfile
+    import os
+
+    # Create temporary database file
+    db_fd, db_path = tempfile.mkstemp(suffix='.db')
+
+    try:
+        # Initialize database with recipe schema
+        with sqlite3.connect(db_path) as conn:
+            # Create users table first (required by recipe tables)
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS users (
+                    id TEXT PRIMARY KEY,
+                    email TEXT UNIQUE NOT NULL,
+                    username TEXT UNIQUE NOT NULL,
+                    full_name TEXT NOT NULL,
+                    hashed_password TEXT NOT NULL,
+                    is_active BOOLEAN DEFAULT TRUE,
+                    role TEXT DEFAULT 'standard',
+                    is_developer BOOLEAN DEFAULT FALSE,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                );
+            """)
+
+            # Create products table (required by recipe_ingredients)
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS products (
+                    barcode TEXT PRIMARY KEY,
+                    name TEXT NOT NULL,
+                    brand TEXT,
+                    category TEXT,
+                    image_url TEXT,
+                    product_url TEXT,
+                    energy_100g REAL DEFAULT 0,
+                    proteins_100g REAL DEFAULT 0,
+                    fat_100g REAL DEFAULT 0,
+                    carbohydrates_100g REAL DEFAULT 0,
+                    sugars_100g REAL DEFAULT 0,
+                    fiber_100g REAL DEFAULT 0,
+                    salt_100g REAL DEFAULT 0,
+                    sodium_100g REAL DEFAULT 0,
+                    access_count INTEGER DEFAULT 0,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                );
+            """)
+
+            # Read and execute recipe schema
+            schema_path = os.path.join(os.path.dirname(__file__), '..', 'database', 'init', '02_recipe_tables.sql')
+            with open(schema_path, 'r') as f:
+                schema_sql = f.read()
+            conn.executescript(schema_sql)
+            conn.commit()
+
+        yield db_path
+    finally:
+        # Clean up
+        os.close(db_fd)
+        os.unlink(db_path)
+
+@pytest.fixture
 def sample_context_data():
     """Sample context data for different recommendation contexts."""
     return {

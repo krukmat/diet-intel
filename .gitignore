@@ -163,3 +163,4 @@ dietintel.db-shm
 .gitignore
 dietintel.db-wal
 app/database/smart_diet_indexes.sql
+mobile/screenshots/
