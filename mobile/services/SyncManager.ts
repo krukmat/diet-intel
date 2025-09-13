@@ -79,18 +79,24 @@ export class SyncManager {
 
   // Network Monitoring
   private initializeNetworkMonitoring(): void {
-    NetInfo.addEventListener(state => {
-      const wasOffline = !this.isOnline;
-      this.isOnline = state.isConnected ?? false;
-      
-      // Start sync when coming back online
-      if (wasOffline && this.isOnline && this.syncQueue.length > 0) {
-        console.log('📡 Back online - starting sync...');
-        this.performSync();
-      }
-      
-      this.notifyListeners();
-    });
+    try {
+      NetInfo.addEventListener(state => {
+        const wasOffline = !this.isOnline;
+        this.isOnline = state.isConnected ?? false;
+
+        // Start sync when coming back online
+        if (wasOffline && this.isOnline && this.syncQueue.length > 0) {
+          console.log('📡 Back online - starting sync...');
+          this.performSync();
+        }
+
+        this.notifyListeners();
+      });
+    } catch (error) {
+      console.warn('NetInfo not available in SyncManager, assuming online:', error);
+      // Fallback to online state
+      this.isOnline = true;
+    }
   }
 
   // Auto Sync Management

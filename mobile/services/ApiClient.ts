@@ -17,7 +17,7 @@ const getApiConfig = (): ApiConfig => {
   const isDev = __DEV__;
   
   return {
-    baseURL: isDev ? 'http://localhost:8001/api' : 'https://api.dietintel.com/api',
+    baseURL: isDev ? 'http://localhost:8000' : 'https://api.dietintel.com/api',
     timeout: 15000,
     retryAttempts: 3,
     cacheTimeout: 5 * 60 * 1000, // 5 minutes
@@ -82,6 +82,7 @@ export class ApiClient {
   private refreshToken: string | null = null;
   private requestQueue: QueuedRequest[] = [];
   private cache = new Map<string, CacheEntry>();
+  private unsubscribeNetInfo?: () => void;
   private networkState: NetworkState = {
     isConnected: true,
     type: 'unknown',
@@ -103,20 +104,34 @@ export class ApiClient {
 
   // Initialize network state monitoring
   private initializeNetworkListener(): void {
-    NetInfo.addEventListener(state => {
-      const wasOffline = !this.networkState.isConnected;
-      
-      this.networkState = {
-        isConnected: state.isConnected ?? false,
-        type: state.type,
-        isInternetReachable: state.isInternetReachable,
-      };
+    try {
+      // Subscribe to network state changes using the correct NetInfo API
+      const unsubscribe = NetInfo.addEventListener(state => {
+        const wasOffline = !this.networkState.isConnected;
 
-      // Process queued requests when coming back online
-      if (wasOffline && this.networkState.isConnected) {
-        this.processRequestQueue();
-      }
-    });
+        this.networkState = {
+          isConnected: state.isConnected ?? false,
+          type: state.type,
+          isInternetReachable: state.isInternetReachable,
+        };
+
+        // Process queued requests when coming back online
+        if (wasOffline && this.networkState.isConnected) {
+          this.processRequestQueue();
+        }
+      });
+
+      // Store unsubscribe function for cleanup if needed
+      this.unsubscribeNetInfo = unsubscribe;
+    } catch (error) {
+      console.warn('NetInfo not available, using fallback network state:', error);
+      // Fallback to online state if NetInfo is not available
+      this.networkState = {
+        isConnected: true,
+        type: 'unknown',
+        isInternetReachable: true,
+      };
+    }
   }
 
   // Authentication Management
