@@ -17,6 +17,8 @@ import {
   NumberInput,
   ValidatedTextInput,
 } from '../components/RecipeFormComponents';
+import { useRecipeGeneration, usePersonalRecipes, useNetworkStatus } from '../hooks/useApiRecipes';
+import { RecipeGenerationRequest } from '../services/RecipeApiService';
 
 interface RecipeGenerationScreenProps {
   onBackPress: () => void;
@@ -65,6 +67,12 @@ export default function RecipeGenerationScreen({
   onNavigateToDetail,
 }: RecipeGenerationScreenProps) {
   const { t } = useTranslation();
+  
+  // API Integration Hooks
+  const { generateRecipe, cancelGeneration, data, loading, error, progress, isGenerating } = useRecipeGeneration();
+  const { saveRecipe } = usePersonalRecipes();
+  const networkStatus = useNetworkStatus();
+
   const [preferences, setPreferences] = useState<RecipePreferences>({
     cuisineTypes: [],
     dietaryRestrictions: [],
@@ -77,13 +85,10 @@ export default function RecipeGenerationScreen({
     specialGoals: [],
   });
 
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [generationProgress, setGenerationProgress] = useState(0);
-  const [generationStage, setGenerationStage] = useState('');
-  const [generatedRecipe, setGeneratedRecipe] = useState<GeneratedRecipe | null>(null);
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+  const [showSaveOptions, setShowSaveOptions] = useState(false);
   
-  // Animation values for progress
+  // Animation values for progress (now using real API progress)
   const progressAnimation = new Animated.Value(0);
 
   // Form options data
@@ -209,33 +214,86 @@ export default function RecipeGenerationScreen({
       return;
     }
 
-    setIsGenerating(true);
-    setGenerationProgress(0);
-    setGeneratedRecipe(null);
+    // Check network connectivity
+    if (!networkStatus.isConnected) {
+      Alert.alert(
+        '📶 No Internet Connection', 
+        'Recipe generation requires an internet connection. Please check your network and try again.',
+        [
+          { text: 'OK', style: 'default' },
+          { text: 'Retry', style: 'default', onPress: handleGenerateRecipe }
+        ]
+      );
+      return;
+    }
 
     try {
-      await simulateRecipeGeneration();
-      setGenerationStage('Recipe generated successfully! 🎉');
-    } catch (error) {
+      // Prepare API request from form preferences
+      const generationRequest: RecipeGenerationRequest = {
+        cuisineTypes: preferences.cuisineTypes,
+        dietaryRestrictions: preferences.dietaryRestrictions,
+        mealType: 'dinner', // Default, could be made configurable
+        difficulty: preferences.difficultyLevel as 'beginner' | 'intermediate' | 'advanced',
+        cookingTime: preferences.cookingTime,
+        servings: preferences.servings,
+        ingredients: preferences.includeIngredients ? 
+          preferences.includeIngredients.split(',').map(i => i.trim()).filter(i => i.length > 0) : 
+          undefined,
+        allergies: preferences.excludeIngredients ? 
+          preferences.excludeIngredients.split(',').map(i => i.trim()).filter(i => i.length > 0) : 
+          undefined,
+        nutritionalTargets: preferences.targetCalories ? {
+          calories: parseInt(preferences.targetCalories),
+        } : undefined,
+      };
+
+      // Call the API through our custom hook
+      const response = await generateRecipe(generationRequest);
+      
+      if (response) {
+        Alert.alert('🎉 Recipe Generated!', `"${response.recipe.name}" has been created successfully!`);
+        setShowSaveOptions(true);
+      }
+    } catch (error: any) {
       console.error('Recipe generation error:', error);
-      Alert.alert('❌ Generation Error', 'Something went wrong during recipe generation. Please try again.');
-      setGenerationStage('Generation failed');
-    } finally {
-      setIsGenerating(false);
+      
+      let errorMessage = 'Something went wrong during recipe generation. Please try again.';
+      if (error?.code === 'GENERATION_FAILED') {
+        errorMessage = 'The AI recipe generator is currently unavailable. Please try again later.';
+      } else if (error?.code === 'NETWORK_ERROR') {
+        errorMessage = 'Network error occurred. Please check your connection and try again.';
+      }
+      
+      Alert.alert('❌ Generation Error', errorMessage);
     }
   };
 
-  const handleSaveRecipe = () => {
-    if (generatedRecipe) {
+  const handleSaveRecipe = async () => {
+    if (data?.recipe) {
       Alert.alert(
         '💾 Save Recipe',
-        `"${generatedRecipe.name}" will be saved to your recipe collection!`,
+        `Save "${data.recipe.name}" to your personal recipe collection?`,
         [
           { text: 'Cancel', style: 'cancel' },
-          { text: 'Save', style: 'default', onPress: () => {
-            // TODO: Implement recipe saving in R.2.1.6
-            Alert.alert('✅ Saved!', 'Recipe saved to your collection');
-          }},
+          { 
+            text: 'Save', 
+            style: 'default', 
+            onPress: async () => {
+              try {
+                await saveRecipe(data.recipe, {
+                  source: 'generated',
+                  collections: ['recently_added'],
+                  personalTags: ['AI Generated'],
+                  notes: `Generated with preferences: ${preferences.cuisineTypes.join(', ')}`,
+                });
+                
+                Alert.alert('✅ Saved!', `"${data.recipe.name}" has been saved to your recipe collection!`);
+                setShowSaveOptions(false);
+              } catch (error: any) {
+                Alert.alert('❌ Save Error', error.message || 'Failed to save recipe');
+              }
+            }
+          },
         ]
       );
     }
@@ -247,7 +305,19 @@ export default function RecipeGenerationScreen({
     }
   };
 
-  if (generatedRecipe && !isGenerating) {
+  // Animation effect for progress
+  useEffect(() => {
+    if (progress) {
+      Animated.timing(progressAnimation, {
+        toValue: progress.progress / 100,
+        duration: 300,
+        useNativeDriver: false,
+      }).start();
+    }
+  }, [progress]);
+
+  // Show results when recipe is generated
+  if (data && !isGenerating) {
     return (
       <ScrollView style={styles.container}>
         {/* Header */}
@@ -261,43 +331,60 @@ export default function RecipeGenerationScreen({
         {/* Recipe Preview */}
         <View style={styles.recipeContainer}>
           <View style={styles.recipeHeader}>
-            <Text style={styles.recipeName}>{generatedRecipe.name}</Text>
-            <Text style={styles.recipeDescription}>{generatedRecipe.description}</Text>
+            <Text style={styles.recipeName}>{data.recipe.name}</Text>
+            <Text style={styles.recipeDescription}>{data.recipe.description}</Text>
             
             <View style={styles.recipeMetrics}>
               <View style={styles.metricItem}>
-                <Text style={styles.metricValue}>⏱️ {generatedRecipe.cookingTime}min</Text>
+                <Text style={styles.metricValue}>⏱️ {data.recipe.cookingTime}min</Text>
               </View>
               <View style={styles.metricItem}>
-                <Text style={styles.metricValue}>👥 {generatedRecipe.servings} servings</Text>
+                <Text style={styles.metricValue}>👥 {preferences.servings} servings</Text>
               </View>
               <View style={styles.metricItem}>
-                <Text style={styles.metricValue}>📊 {Math.round(generatedRecipe.nutrition.score * 100)}% score</Text>
+                <Text style={styles.metricValue}>📊 {data.recipe.rating.toFixed(1)}★ rating</Text>
               </View>
+            </View>
+            
+            {/* AI Generation Metadata */}
+            <View style={styles.aiMetadata}>
+              <Text style={styles.aiMetadataText}>
+                🤖 Generated by {data.generationMetadata.aiModel} in {data.generationMetadata.processingTime.toFixed(1)}s
+              </Text>
+              <Text style={styles.confidenceText}>
+                Confidence: {Math.round(data.generationMetadata.confidence * 100)}%
+              </Text>
             </View>
           </View>
 
           {/* Ingredients */}
           <View style={styles.recipeSection}>
             <Text style={styles.sectionTitle}>🛒 Ingredients</Text>
-            {generatedRecipe.ingredients.map((ingredient, index) => (
+            {data.recipe.ingredients?.map((ingredient, index) => (
               <View key={index} style={styles.ingredientItem}>
                 <Text style={styles.ingredientText}>
-                  {ingredient.quantity} {ingredient.unit} {ingredient.name}
+                  {ingredient.amount} {ingredient.unit} {ingredient.name}
                 </Text>
               </View>
-            ))}
+            )) || (
+              <Text style={styles.noDataText}>Ingredients will be provided by the AI</Text>
+            )}
           </View>
 
           {/* Instructions */}
           <View style={styles.recipeSection}>
             <Text style={styles.sectionTitle}>👨‍🍳 Instructions</Text>
-            {generatedRecipe.instructions.map((instruction, index) => (
+            {data.recipe.instructions?.map((instruction, index) => (
               <View key={index} style={styles.instructionItem}>
                 <Text style={styles.instructionNumber}>{instruction.step}</Text>
                 <Text style={styles.instructionText}>{instruction.instruction}</Text>
+                {instruction.timeMinutes && (
+                  <Text style={styles.instructionTime}>⏱️ {instruction.timeMinutes}min</Text>
+                )}
               </View>
-            ))}
+            )) || (
+              <Text style={styles.noDataText}>Instructions will be provided by the AI</Text>
+            )}
           </View>
 
           {/* Nutrition */}
@@ -369,7 +456,9 @@ export default function RecipeGenerationScreen({
       {isGenerating && (
         <View style={styles.progressContainer}>
           <Text style={styles.progressTitle}>🤖 AI Recipe Generation</Text>
-          <Text style={styles.progressStage}>{generationStage}</Text>
+          <Text style={styles.progressStage}>
+            {progress?.message || 'Initializing AI recipe generation...'}
+          </Text>
           
           <View style={styles.progressBar}>
             <Animated.View 
@@ -377,7 +466,7 @@ export default function RecipeGenerationScreen({
                 styles.progressFill,
                 {
                   width: progressAnimation.interpolate({
-                    inputRange: [0, 100],
+                    inputRange: [0, 1],
                     outputRange: ['0%', '100%'],
                   }),
                 },
@@ -385,18 +474,37 @@ export default function RecipeGenerationScreen({
             />
           </View>
           
-          <Text style={styles.progressPercent}>{generationProgress}%</Text>
+          <Text style={styles.progressPercent}>
+            {progress?.progress || 0}%
+          </Text>
+          
+          {progress?.estimatedTimeRemaining && (
+            <Text style={styles.estimatedTime}>
+              Estimated time remaining: {progress.estimatedTimeRemaining}s
+            </Text>
+          )}
+          
+          {progress?.currentStep && (
+            <Text style={styles.currentStep}>
+              {progress.currentStep}
+            </Text>
+          )}
           
           <TouchableOpacity 
             style={styles.cancelButton}
-            onPress={() => {
-              setIsGenerating(false);
-              setGenerationProgress(0);
-              setGenerationStage('');
-            }}
+            onPress={cancelGeneration}
           >
             <Text style={styles.cancelButtonText}>Cancel Generation</Text>
           </TouchableOpacity>
+
+          {/* Network Status Indicator */}
+          {!networkStatus.isConnected && (
+            <View style={styles.networkWarning}>
+              <Text style={styles.networkWarningText}>
+                ⚠️ No internet connection - Generation paused
+              </Text>
+            </View>
+          )}
         </View>
       )}
 
@@ -880,5 +988,60 @@ const styles = StyleSheet.create({
     color: '#007AFF',
     fontSize: 16,
     fontWeight: '600',
+  },
+  estimatedTime: {
+    fontSize: 12,
+    color: '#8E8E93',
+    textAlign: 'center',
+    marginTop: 8,
+  },
+  currentStep: {
+    fontSize: 13,
+    color: '#007AFF',
+    textAlign: 'center',
+    marginTop: 4,
+    fontWeight: '500',
+  },
+  networkWarning: {
+    backgroundColor: '#FF3B3020',
+    padding: 12,
+    borderRadius: 8,
+    marginTop: 16,
+  },
+  networkWarningText: {
+    color: '#FF3B30',
+    fontSize: 14,
+    textAlign: 'center',
+    fontWeight: '600',
+  },
+  aiMetadata: {
+    backgroundColor: '#F2F2F7',
+    padding: 12,
+    borderRadius: 8,
+    marginTop: 16,
+  },
+  aiMetadataText: {
+    fontSize: 12,
+    color: '#8E8E93',
+    textAlign: 'center',
+  },
+  confidenceText: {
+    fontSize: 13,
+    color: '#34C759',
+    textAlign: 'center',
+    fontWeight: '600',
+    marginTop: 4,
+  },
+  noDataText: {
+    fontSize: 14,
+    color: '#8E8E93',
+    fontStyle: 'italic',
+    textAlign: 'center',
+    padding: 16,
+  },
+  instructionTime: {
+    fontSize: 11,
+    color: '#FF9500',
+    marginTop: 4,
   },
 });

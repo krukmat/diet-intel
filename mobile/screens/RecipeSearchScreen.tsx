@@ -12,6 +12,9 @@ import {
   SafeAreaView,
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
+import { useRecipeSearch, useNetworkStatus } from '../hooks/useApiRecipes';
+import { RecipeSearchRequest } from '../services/RecipeApiService';
+import { SyncStatusIndicator } from '../components/SyncStatusComponents';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   SearchBar,
@@ -55,11 +58,15 @@ export default function RecipeSearchScreen({
 }: RecipeSearchScreenProps) {
   const { t } = useTranslation();
   
-  // Search State
+  // API Integration Hooks
+  const { searchRecipes, data, loading, error, hasMore, totalCount, searchMetadata, loadMore, refresh, isSearching } = useRecipeSearch();
+  const networkStatus = useNetworkStatus();
+  
+  // Local State
   const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState<Recipe[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [refreshing, setRefreshing] = useState(false);
+  const [suggestions, setSuggestions] = useState<string[]>([]);
+  const [searchHistory, setSearchHistory] = useState<string[]>([]);
+  const [favoriteRecipes, setFavoriteRecipes] = useState<Set<string>>(new Set());
   
   // Filter State
   const [filters, setFilters] = useState<SearchFilters>({
@@ -76,32 +83,30 @@ export default function RecipeSearchScreen({
   // UI State
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [sortBy, setSortBy] = useState<'relevance' | 'rating' | 'time' | 'calories' | 'popularity'>('relevance');
-  const [suggestions, setSuggestions] = useState<string[]>([]);
-  const [searchHistory, setSearchHistory] = useState<string[]>([]);
-  const [favoriteRecipes, setFavoriteRecipes] = useState<Set<string>>(new Set());
 
-  // Pagination State
-  const [currentPage, setCurrentPage] = useState(1);
-  const [hasMoreResults, setHasMoreResults] = useState(true);
-  const [totalResults, setTotalResults] = useState(0);
-
+  // Initialize data and perform search
   useEffect(() => {
     loadSearchHistory();
     loadFavoriteRecipes();
     // Load initial popular recipes
-    performSearch('', true);
+    handleSearch('', true);
   }, []);
 
+  // Debounced search effect
   useEffect(() => {
-    // Debounced search
     const debounceTimer = setTimeout(() => {
-      if (searchQuery.length > 0) {
-        performSearch(searchQuery);
-      }
+      handleSearch(searchQuery);
     }, 300);
 
     return () => clearTimeout(debounceTimer);
   }, [searchQuery, filters, sortBy]);
+
+  // Update suggestions when search metadata is available
+  useEffect(() => {
+    if (searchMetadata?.relatedQueries) {
+      setSuggestions(searchMetadata.relatedQueries.slice(0, 5));
+    }
+  }, [searchMetadata]);
 
   const loadSearchHistory = async () => {
     try {
@@ -152,229 +157,62 @@ export default function RecipeSearchScreen({
     }
   };
 
-  const performSearch = async (query: string, isInitialLoad = false) => {
-    if (!isInitialLoad && loading) return;
-    
-    setLoading(true);
-    if (isInitialLoad) {
-      setSearchResults([]);
-      setCurrentPage(1);
+  const handleSearch = async (query: string, isInitialLoad = false) => {
+    if (!networkStatus.isConnected && query.trim()) {
+      Alert.alert(
+        '📶 No Internet Connection', 
+        'Recipe search requires an internet connection. Please check your network and try again.',
+        [
+          { text: 'OK', style: 'default' },
+          { text: 'Retry', style: 'default', onPress: () => handleSearch(query, isInitialLoad) }
+        ]
+      );
+      return;
     }
 
     try {
-      // TODO: Replace with actual API call in R.2.1.6
-      // const response = await searchRecipes({ query, filters, sortBy, page: currentPage });
-      
-      // Mock search results for demonstration
-      await new Promise(resolve => setTimeout(resolve, 800)); // Simulate API delay
-      
-      const mockResults: Recipe[] = generateMockSearchResults(query, filters, sortBy);
-      
-      if (isInitialLoad || currentPage === 1) {
-        setSearchResults(mockResults);
-      } else {
-        setSearchResults(prev => [...prev, ...mockResults]);
-      }
-      
-      setTotalResults(mockResults.length + (Math.random() > 0.5 ? 50 : 0)); // Simulate varying total counts
-      setHasMoreResults(mockResults.length === 10); // Assume 10 per page
-      
-      // Generate suggestions based on query
-      if (query.length > 2) {
-        setSuggestions(generateSearchSuggestions(query));
-      } else {
-        setSuggestions([]);
-      }
+      // Prepare API search request
+      const searchRequest: RecipeSearchRequest = {
+        query: query.trim() || undefined,
+        cuisineTypes: filters.cuisineTypes.length > 0 ? filters.cuisineTypes : undefined,
+        dietaryRestrictions: filters.dietaryRestrictions.length > 0 ? filters.dietaryRestrictions : undefined,
+        mealTypes: filters.mealTypes.length > 0 ? filters.mealTypes : undefined,
+        difficulty: filters.difficulty.length > 0 ? filters.difficulty : undefined,
+        cookingTimeRange: {
+          min: filters.cookingTime.min,
+          max: filters.cookingTime.max,
+        },
+        calorieRange: {
+          min: filters.calories.min,
+          max: filters.calories.max,
+        },
+        minRating: filters.minRating > 0 ? filters.minRating : undefined,
+        sortBy: sortBy as 'relevance' | 'rating' | 'popularity' | 'date' | 'cookingTime' | 'calories',
+        sortDirection: 'desc',
+      };
+
+      // Call API through our custom hook
+      await searchRecipes(searchRequest, false);
       
       // Save search to history if it's a user-initiated search
-      if (query && !isInitialLoad) {
-        saveSearchHistory(query);
+      if (query.trim() && !isInitialLoad) {
+        saveSearchHistory(query.trim());
       }
       
-    } catch (error) {
+    } catch (error: any) {
       console.error('Search error:', error);
-      Alert.alert('Search Error', 'Failed to search recipes. Please try again.');
-    } finally {
-      setLoading(false);
+      
+      let errorMessage = 'Failed to search recipes. Please try again.';
+      if (error?.code === 'SEARCH_FAILED') {
+        errorMessage = 'Search service is currently unavailable. Please try again later.';
+      } else if (error?.code === 'NETWORK_ERROR') {
+        errorMessage = 'Network error occurred. Please check your connection and try again.';
+      }
+      
+      Alert.alert('Search Error', errorMessage);
     }
   };
 
-  const generateMockSearchResults = (query: string, filters: SearchFilters, sortBy: string): Recipe[] => {
-    const baseRecipes: Recipe[] = [
-      {
-        id: '1',
-        name: 'Mediterranean Quinoa Bowl',
-        description: 'A healthy bowl packed with quinoa, vegetables, and Mediterranean flavors',
-        cookingTime: 25,
-        difficulty: 'intermediate',
-        rating: 4.7,
-        totalRatings: 89,
-        calories: 385,
-        cuisineType: 'mediterranean',
-        tags: ['Mediterranean', 'Healthy', 'Vegetarian'],
-      },
-      {
-        id: '2',
-        name: 'Spicy Thai Basil Chicken',
-        description: 'Authentic Thai stir-fry with fresh basil and chilies',
-        cookingTime: 20,
-        difficulty: 'beginner',
-        rating: 4.9,
-        totalRatings: 156,
-        calories: 420,
-        cuisineType: 'thai',
-        tags: ['Thai', 'Spicy', 'Quick'],
-      },
-      {
-        id: '3',
-        name: 'Classic Italian Carbonara',
-        description: 'Traditional Roman pasta with eggs, cheese, and pancetta',
-        cookingTime: 18,
-        difficulty: 'intermediate',
-        rating: 4.8,
-        totalRatings: 203,
-        calories: 520,
-        cuisineType: 'italian',
-        tags: ['Italian', 'Pasta', 'Classic'],
-      },
-      {
-        id: '4',
-        name: 'Vegan Buddha Bowl',
-        description: 'Colorful bowl with roasted vegetables, quinoa, and tahini dressing',
-        cookingTime: 35,
-        difficulty: 'beginner',
-        rating: 4.6,
-        totalRatings: 127,
-        calories: 340,
-        cuisineType: 'american',
-        tags: ['Vegan', 'Healthy', 'Bowl'],
-      },
-      {
-        id: '5',
-        name: 'Indian Butter Chicken',
-        description: 'Creamy tomato-based curry with tender chicken pieces',
-        cookingTime: 45,
-        difficulty: 'advanced',
-        rating: 4.9,
-        totalRatings: 312,
-        calories: 480,
-        cuisineType: 'indian',
-        tags: ['Indian', 'Curry', 'Comfort Food'],
-      },
-      {
-        id: '6',
-        name: 'Mexican Street Tacos',
-        description: 'Authentic corn tortilla tacos with cilantro and onions',
-        cookingTime: 15,
-        difficulty: 'beginner',
-        rating: 4.5,
-        totalRatings: 98,
-        calories: 280,
-        cuisineType: 'mexican',
-        tags: ['Mexican', 'Quick', 'Street Food'],
-      },
-      {
-        id: '7',
-        name: 'French Ratatouille',
-        description: 'Classic Provençal vegetable stew with fresh herbs',
-        cookingTime: 60,
-        difficulty: 'intermediate',
-        rating: 4.4,
-        totalRatings: 76,
-        calories: 150,
-        cuisineType: 'french',
-        tags: ['French', 'Vegetarian', 'Traditional'],
-      },
-      {
-        id: '8',
-        name: 'Japanese Chicken Teriyaki',
-        description: 'Glazed chicken with sweet and savory teriyaki sauce',
-        cookingTime: 30,
-        difficulty: 'beginner',
-        rating: 4.7,
-        totalRatings: 164,
-        calories: 390,
-        cuisineType: 'japanese',
-        tags: ['Japanese', 'Chicken', 'Glazed'],
-      },
-    ];
-
-    // Filter results based on search query and filters
-    let filteredResults = baseRecipes.filter(recipe => {
-      // Text search
-      if (query) {
-        const searchLower = query.toLowerCase();
-        const matchesName = recipe.name.toLowerCase().includes(searchLower);
-        const matchesDescription = recipe.description.toLowerCase().includes(searchLower);
-        const matchesCuisine = recipe.cuisineType.toLowerCase().includes(searchLower);
-        const matchesTags = recipe.tags.some(tag => tag.toLowerCase().includes(searchLower));
-        
-        if (!matchesName && !matchesDescription && !matchesCuisine && !matchesTags) {
-          return false;
-        }
-      }
-
-      // Apply filters
-      if (filters.cuisineTypes.length > 0 && !filters.cuisineTypes.includes(recipe.cuisineType)) {
-        return false;
-      }
-      
-      if (filters.difficulty.length > 0 && !filters.difficulty.includes(recipe.difficulty)) {
-        return false;
-      }
-      
-      if (recipe.cookingTime < filters.cookingTime.min || recipe.cookingTime > filters.cookingTime.max) {
-        return false;
-      }
-      
-      if (recipe.calories < filters.calories.min || recipe.calories > filters.calories.max) {
-        return false;
-      }
-      
-      if (recipe.rating < filters.minRating) {
-        return false;
-      }
-
-      return true;
-    });
-
-    // Sort results
-    filteredResults.sort((a, b) => {
-      switch (sortBy) {
-        case 'rating':
-          return b.rating - a.rating || b.totalRatings - a.totalRatings;
-        case 'time':
-          return a.cookingTime - b.cookingTime;
-        case 'calories':
-          return a.calories - b.calories;
-        case 'popularity':
-          return b.totalRatings - a.totalRatings;
-        default: // relevance
-          return b.rating - a.rating;
-      }
-    });
-
-    return filteredResults.slice(0, 10); // Return first 10 results
-  };
-
-  const generateSearchSuggestions = (query: string): string[] => {
-    const suggestions = [
-      'Mediterranean chicken',
-      'Vegetarian pasta',
-      'Quick dinner recipes',
-      'Healthy breakfast',
-      'Thai curry',
-      'Italian desserts',
-      'Vegan lunch',
-      'Low carb meals',
-      'One pot recipes',
-      'Gluten free options',
-    ];
-
-    return suggestions
-      .filter(s => s.toLowerCase().includes(query.toLowerCase()))
-      .slice(0, 5);
-  };
 
   const handleVoiceSearch = () => {
     Alert.alert('🎤 Voice Search', 'Voice search will be available in the next update!');
@@ -393,8 +231,7 @@ export default function RecipeSearchScreen({
   };
 
   const handleApplyFilters = () => {
-    setCurrentPage(1);
-    performSearch(searchQuery, true);
+    handleSearch(searchQuery, true);
   };
 
   const handleClearFilters = () => {
@@ -420,16 +257,14 @@ export default function RecipeSearchScreen({
   };
 
   const handleLoadMore = () => {
-    if (!loading && hasMoreResults) {
-      setCurrentPage(prev => prev + 1);
-      performSearch(searchQuery);
+    if (!loading && hasMore) {
+      loadMore();
     }
   };
 
   const onRefresh = useCallback(() => {
-    setRefreshing(true);
-    performSearch(searchQuery, true).finally(() => setRefreshing(false));
-  }, [searchQuery, filters, sortBy]);
+    refresh();
+  }, [refresh]);
 
   const quickFilterOptions = [
     { key: 'cuisineTypes', label: '🇮🇹 Italian', value: ['italian'] },
@@ -487,6 +322,7 @@ export default function RecipeSearchScreen({
           <Text style={styles.backButtonText}>← Back</Text>
         </TouchableOpacity>
         <Text style={styles.title}>🔍 Search Recipes</Text>
+        <SyncStatusIndicator />
         <TouchableOpacity 
           style={styles.viewToggleButton} 
           onPress={() => setViewMode(viewMode === 'grid' ? 'list' : 'grid')}
@@ -494,6 +330,15 @@ export default function RecipeSearchScreen({
           <Text style={styles.viewToggleText}>{viewMode === 'grid' ? '☰' : '⊞'}</Text>
         </TouchableOpacity>
       </View>
+
+      {/* Network Status */}
+      {!networkStatus.isConnected && (
+        <View style={styles.networkStatus}>
+          <Text style={styles.networkStatusText}>
+            📶 Offline Mode - {networkStatus.queuedRequests > 0 ? `${networkStatus.queuedRequests} requests queued` : 'No internet connection'}
+          </Text>
+        </View>
+      )}
 
       {/* Search Bar */}
       <View style={styles.searchSection}>
@@ -505,7 +350,7 @@ export default function RecipeSearchScreen({
           suggestions={suggestions}
           searchHistory={searchHistory}
           onSuggestionSelect={handleSuggestionSelect}
-          loading={loading}
+          loading={isSearching}
         />
       </View>
 
@@ -537,10 +382,10 @@ export default function RecipeSearchScreen({
       </View>
 
       {/* Results Header */}
-      {searchResults.length > 0 && (
+      {data.length > 0 && (
         <View style={styles.resultsHeader}>
           <Text style={styles.resultsCount}>
-            Found {totalResults} recipe{totalResults !== 1 ? 's' : ''}
+            Found {totalCount} recipe{totalCount !== 1 ? 's' : ''}
           </Text>
           
           <TouchableOpacity 
@@ -561,7 +406,7 @@ export default function RecipeSearchScreen({
 
       {/* Recipe Results */}
       <FlatList
-        data={searchResults}
+        data={data}
         renderItem={renderRecipe}
         keyExtractor={(item) => item.id}
         numColumns={viewMode === 'grid' ? 2 : 1}
@@ -573,7 +418,7 @@ export default function RecipeSearchScreen({
         ListFooterComponent={renderFooter}
         ListEmptyComponent={renderEmptyState}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          <RefreshControl refreshing={loading} onRefresh={onRefresh} />
         }
         showsVerticalScrollIndicator={false}
       />
@@ -735,5 +580,16 @@ const styles = StyleSheet.create({
     color: '#8E8E93',
     textAlign: 'center',
     lineHeight: 22,
+  },
+  networkStatus: {
+    backgroundColor: '#FF9500',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    alignItems: 'center',
+  },
+  networkStatusText: {
+    color: 'white',
+    fontSize: 14,
+    fontWeight: '600',
   },
 });

@@ -1,66 +1,705 @@
-import React, { useState } from 'react';
+// Optimized My Recipes Library Screen
+// Using React hooks optimization, custom hooks, and performance patterns
+
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
-  ScrollView,
   Alert,
+  FlatList,
+  RefreshControl,
+  ActivityIndicator,
+  SafeAreaView,
+  Modal,
+  ScrollView,
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
+import {
+  CollectionCard,
+  PersonalRecipeCard,
+  LibrarySearchBar,
+  CollectionSelectorModal,
+  CreateCollectionModal,
+  EmptyLibraryState,
+  RecipeManagementModal,
+  LibraryStats,
+  BackupExportModal,
+} from '../components/RecipeLibraryComponents';
+import { usePersonalRecipes, useNetworkStatus } from '../hooks/useApiRecipes';
+import { SyncStatusIndicator, SyncStatusBanner } from '../components/SyncStatusComponents';
+import { recipeStorage } from '../services/RecipeStorageService';
+import {
+  RecipeCollection,
+  RecipeListItem,
+  LibrarySearchFilters,
+  LibrarySortOptions,
+  PaginatedRecipeResult,
+  PersonalRecipe,
+  SYSTEM_COLLECTIONS,
+} from '../types/RecipeTypes';
 
 interface MyRecipesScreenProps {
   onBackPress: () => void;
-  onNavigateToDetail?: (recipeId: string) => void;
+  onNavigateToDetail?: (recipe: RecipeListItem) => void;
+  onNavigateToGeneration?: () => void;
+}
+
+// Custom hook for library state management with API integration
+function useRecipeLibrary() {
+  const {
+    recipes,
+    collections,
+    loading,
+    error,
+    loadRecipes,
+    loadCollections,
+    saveRecipe,
+    updateRecipe,
+    deleteRecipe,
+    toggleFavorite,
+    createCollection,
+    addToCollection,
+    removeFromCollection,
+    refresh,
+  } = usePersonalRecipes();
+  
+  const [searchQuery, setSearchQuery] = useState('');
+  const [activeFilters, setActiveFilters] = useState<LibrarySearchFilters>({});
+  const [sortOptions, setSortOptions] = useState<LibrarySortOptions>({
+    field: 'dateAdded',
+    direction: 'desc',
+  });
+  const [viewMode, setViewMode] = useState<'grid' | 'list' | 'compact'>('grid');
+  const [selectedCollection, setSelectedCollection] = useState<string | null>(null);
+  const [filteredRecipes, setFilteredRecipes] = useState<PersonalRecipe[]>([]);
+
+  // Filter and sort recipes based on current settings
+  useEffect(() => {
+    let filtered = [...recipes];
+    
+    // Apply text search
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(recipe =>
+        recipe.name.toLowerCase().includes(query) ||
+        recipe.description?.toLowerCase().includes(query) ||
+        recipe.tags?.some(tag => tag.toLowerCase().includes(query))
+      );
+    }
+    
+    // Apply collection filter
+    if (selectedCollection) {
+      filtered = filtered.filter(recipe =>
+        recipe.personalMetadata.collections.includes(selectedCollection)
+      );
+    }
+    
+    // Apply other filters
+    if (activeFilters.cuisineTypes?.length) {
+      filtered = filtered.filter(recipe =>
+        activeFilters.cuisineTypes!.includes(recipe.cuisineType)
+      );
+    }
+    
+    if (activeFilters.dietaryRestrictions?.length) {
+      filtered = filtered.filter(recipe =>
+        activeFilters.dietaryRestrictions!.some(restriction =>
+          recipe.dietaryRestrictions?.includes(restriction)
+        )
+      );
+    }
+    
+    if (activeFilters.difficulty?.length) {
+      filtered = filtered.filter(recipe =>
+        activeFilters.difficulty!.includes(recipe.difficulty)
+      );
+    }
+    
+    if (activeFilters.cookingTimeRange) {
+      const { min, max } = activeFilters.cookingTimeRange;
+      filtered = filtered.filter(recipe =>
+        recipe.cookingTime >= min && recipe.cookingTime <= max
+      );
+    }
+    
+    if (activeFilters.minRating) {
+      filtered = filtered.filter(recipe =>
+        (recipe.personalMetadata.personalRating || 0) >= activeFilters.minRating!
+      );
+    }
+
+    // Apply sorting
+    filtered.sort((a, b) => {
+      const { field, direction } = sortOptions;
+      let comparison = 0;
+      
+      switch (field) {
+        case 'name':
+          comparison = a.name.localeCompare(b.name);
+          break;
+        case 'dateAdded':
+          comparison = new Date(a.personalMetadata.dateAdded).getTime() - new Date(b.personalMetadata.dateAdded).getTime();
+          break;
+        case 'personalRating':
+          comparison = (a.personalMetadata.personalRating || 0) - (b.personalMetadata.personalRating || 0);
+          break;
+        case 'timesCooked':
+          comparison = (a.personalMetadata.timesCooked || 0) - (b.personalMetadata.timesCooked || 0);
+          break;
+        case 'lastCooked':
+          const aLastCooked = a.personalMetadata.lastCookedDate ? new Date(a.personalMetadata.lastCookedDate).getTime() : 0;
+          const bLastCooked = b.personalMetadata.lastCookedDate ? new Date(b.personalMetadata.lastCookedDate).getTime() : 0;
+          comparison = aLastCooked - bLastCooked;
+          break;
+        case 'cookingTime':
+          comparison = a.cookingTime - b.cookingTime;
+          break;
+        default:
+          comparison = 0;
+      }
+      
+      return direction === 'desc' ? -comparison : comparison;
+    });
+    
+    setFilteredRecipes(filtered);
+  }, [recipes, searchQuery, activeFilters, sortOptions, selectedCollection]);
+
+  // Convert to legacy format for compatibility
+  const recipeResults = {
+    items: filteredRecipes.map(recipe => ({
+      id: recipe.id,
+      name: recipe.name,
+      description: recipe.description || '',
+      cookingTime: recipe.cookingTime,
+      difficulty: recipe.difficulty,
+      rating: recipe.personalMetadata.personalRating || 0,
+      totalRatings: 1,
+      calories: recipe.nutrition?.calories || 0,
+      cuisineType: recipe.cuisineType,
+      tags: recipe.tags || [],
+      imageUrl: recipe.image,
+      personalMetadata: recipe.personalMetadata,
+    })),
+    totalCount: filteredRecipes.length,
+    hasMore: false,
+    currentPage: 1,
+  };
+
+  const handleRefresh = async () => {
+    await refresh();
+  };
+
+  return {
+    initialized: true,
+    collections,
+    setCollections: () => {}, // Managed by API hook
+    searchQuery,
+    setSearchQuery,
+    activeFilters,
+    setActiveFilters,
+    sortOptions,
+    setSortOptions,
+    viewMode,
+    setViewMode,
+    selectedCollection,
+    setSelectedCollection,
+    recipeResults,
+    loading,
+    refreshing: loading,
+    searchRecipes: () => {}, // Not needed with real-time filtering
+    handleRefresh,
+    apiHooks: {
+      saveRecipe,
+      updateRecipe,
+      deleteRecipe,
+      toggleFavorite,
+      createCollection,
+      addToCollection,
+      removeFromCollection,
+    },
+  };
 }
 
 export default function MyRecipesScreen({
   onBackPress,
   onNavigateToDetail,
+  onNavigateToGeneration,
 }: MyRecipesScreenProps) {
   const { t } = useTranslation();
+  const {
+    initialized,
+    collections,
+    setCollections,
+    searchQuery,
+    setSearchQuery,
+    activeFilters,
+    setActiveFilters,
+    sortOptions,
+    setSortOptions,
+    viewMode,
+    setViewMode,
+    selectedCollection,
+    setSelectedCollection,
+    recipeResults,
+    loading,
+    refreshing,
+    searchRecipes,
+    handleRefresh,
+    apiHooks,
+  } = useRecipeLibrary();
+  
+  const networkStatus = useNetworkStatus();
 
-  const handleViewRecipes = () => {
-    Alert.alert(
-      '📚 My Recipes',
-      'My Recipes screen will be implemented in R.2.1.5! This is a placeholder screen for navigation setup.',
-      [{ text: 'OK', style: 'default' }]
+  // Modal states
+  const [showCollectionSelector, setShowCollectionSelector] = useState(false);
+  const [showCreateCollection, setShowCreateCollection] = useState(false);
+  const [showSortModal, setShowSortModal] = useState(false);
+  const [showFilterModal, setShowFilterModal] = useState(false);
+  const [showManagementModal, setShowManagementModal] = useState(false);
+  const [showStatsModal, setShowStatsModal] = useState(false);
+  const [showBackupModal, setShowBackupModal] = useState(false);
+  const [selectedRecipeForManagement, setSelectedRecipeForManagement] = useState<RecipeListItem | null>(null);
+
+  // Memoized computed values
+  const selectedCollectionData = useMemo(() => {
+    if (!selectedCollection) return null;
+    return collections.find(c => c.id === selectedCollection);
+  }, [selectedCollection, collections]);
+
+  const activeFiltersCount = useMemo(() => {
+    return Object.keys(activeFilters).filter(key => {
+      const value = activeFilters[key as keyof LibrarySearchFilters];
+      return Array.isArray(value) ? value.length > 0 : value !== undefined;
+    }).length;
+  }, [activeFilters]);
+
+  // Event handlers
+  const handleCollectionPress = useCallback((collection: RecipeCollection) => {
+    if (selectedCollection === collection.id) {
+      setSelectedCollection(null); // Deselect if already selected
+    } else {
+      setSelectedCollection(collection.id);
+    }
+  }, [selectedCollection]);
+
+  const handleRecipePress = useCallback((recipe: RecipeListItem) => {
+    onNavigateToDetail?.(recipe);
+  }, [onNavigateToDetail]);
+
+  const handleRecipeFavorite = useCallback(async (recipeId: string) => {
+    try {
+      await apiHooks.toggleFavorite(recipeId);
+    } catch (error) {
+      console.error('Failed to toggle favorite:', error);
+      Alert.alert('Error', 'Failed to update recipe favorite status.');
+    }
+  }, [apiHooks]);
+
+  const handleRecipeShare = useCallback((recipe: RecipeListItem) => {
+    Alert.alert('🔗 Share Recipe', `Share "${recipe.name}" with friends!`);
+  }, []);
+
+  const handleAddToMealPlan = useCallback((recipe: RecipeListItem) => {
+    Alert.alert('📅 Add to Meal Plan', `Add "${recipe.name}" to your meal plan!`);
+  }, []);
+
+  const handleCreateCollection = useCallback(async (
+    name: string,
+    description: string,
+    color: string,
+    icon: string
+  ) => {
+    try {
+      await apiHooks.createCollection(name, description, color, icon);
+      setShowCreateCollection(false);
+      Alert.alert('✅ Success', `Collection "${name}" created!`);
+    } catch (error) {
+      console.error('Failed to create collection:', error);
+      Alert.alert('Error', 'Failed to create collection. Please try again.');
+    }
+  }, [apiHooks]);
+
+  const handleLoadMore = useCallback(() => {
+    // With real-time filtering, no need for pagination
+  }, []);
+
+  const onRefresh = useCallback(() => {
+    handleRefresh();
+  }, [handleRefresh]);
+
+  const handleSortChange = useCallback((field: LibrarySortOptions['field']) => {
+    const direction = sortOptions.field === field && sortOptions.direction === 'desc' ? 'asc' : 'desc';
+    setSortOptions({ field, direction });
+    setShowSortModal(false);
+  }, [sortOptions, setSortOptions]);
+
+  // Recipe Management Handlers
+  const handleRecipeLongPress = useCallback((recipe: RecipeListItem) => {
+    setSelectedRecipeForManagement(recipe);
+    setShowManagementModal(true);
+  }, []);
+
+  const handleEditRecipe = useCallback((recipe: RecipeListItem) => {
+    Alert.alert('✏️ Edit Recipe', `Edit functionality for "${recipe.name}" will be available in the next update!`);
+  }, []);
+
+  const handleExportRecipe = useCallback((recipe: RecipeListItem) => {
+    Alert.alert('📥 Export Recipe', `Export functionality for "${recipe.name}" will be integrated with external apps!`);
+  }, []);
+
+  const handleDuplicateRecipe = useCallback(async (recipe: RecipeListItem) => {
+    try {
+      const duplicatedRecipe = {
+        name: `${recipe.name} (Copy)`,
+        description: recipe.description,
+        cookingTime: recipe.cookingTime,
+        difficulty: recipe.difficulty,
+        cuisineType: recipe.cuisineType,
+        tags: recipe.tags,
+        ingredients: [],
+        instructions: [],
+        nutrition: { calories: recipe.calories },
+        personalNotes: 'Duplicated recipe',
+      };
+      
+      await apiHooks.saveRecipe(duplicatedRecipe, {
+        source: 'custom',
+        personalTags: recipe.tags,
+      });
+      
+      Alert.alert('✅ Recipe Duplicated', `"${duplicatedRecipe.name}" has been added to your library!`);
+    } catch (error) {
+      console.error('Failed to duplicate recipe:', error);
+      Alert.alert('Error', 'Failed to duplicate recipe. Please try again.');
+    }
+  }, [apiHooks]);
+
+  const handleDeleteRecipe = useCallback(async (recipeId: string) => {
+    try {
+      await apiHooks.deleteRecipe(recipeId);
+      Alert.alert('✅ Recipe Deleted', 'Recipe has been removed from your library.');
+    } catch (error) {
+      console.error('Failed to delete recipe:', error);
+      Alert.alert('Error', 'Failed to delete recipe. Please try again.');
+    }
+  }, [apiHooks]);
+
+  // Backup & Export Handlers
+  const handleBackupAll = useCallback(() => {
+    Alert.alert('💾 Full Backup', 'Full backup functionality will create a JSON file with all your recipes and collections!');
+  }, []);
+
+  const handleExportCollection = useCallback((collectionId: string) => {
+    const collection = collections.find(c => c.id === collectionId);
+    Alert.alert('📤 Export Collection', `Export "${collection?.name}" collection functionality will be available soon!`);
+  }, [collections]);
+
+  const handleImportRecipes = useCallback(() => {
+    Alert.alert('📥 Import Recipes', 'Import functionality will support JSON, CSV, and other recipe formats!');
+  }, []);
+
+  // Render functions
+  const renderCollectionCard = useCallback(({ item }: { item: RecipeCollection }) => {
+    // Calculate recipe count for collection (this would be optimized in real implementation)
+    const recipeCount = item.id === selectedCollection ? recipeResults.totalCount : 0;
+    
+    return (
+      <CollectionCard
+        collection={item}
+        recipeCount={recipeCount}
+        onPress={handleCollectionPress}
+        isSelected={selectedCollection === item.id}
+      />
     );
-  };
+  }, [selectedCollection, recipeResults.totalCount, handleCollectionPress]);
+
+  const renderRecipeItem = useCallback(({ item }: { item: RecipeListItem }) => (
+    <TouchableOpacity
+      onPress={() => handleRecipePress(item)}
+      onLongPress={() => handleRecipeLongPress(item)}
+      activeOpacity={0.95}
+    >
+      <PersonalRecipeCard
+        recipe={item}
+        viewMode={viewMode}
+        onPress={handleRecipePress}
+        onFavorite={handleRecipeFavorite}
+        onShare={handleRecipeShare}
+        onAddToMealPlan={handleAddToMealPlan}
+      />
+    </TouchableOpacity>
+  ), [viewMode, handleRecipePress, handleRecipeFavorite, handleRecipeShare, handleAddToMealPlan, handleRecipeLongPress]);
+
+  const renderEmpty = useCallback(() => {
+    if (loading) return null;
+    
+    if (recipeResults.items.length === 0) {
+      if (selectedCollection) {
+        return (
+          <EmptyLibraryState
+            title="No recipes in collection"
+            message={`"${selectedCollectionData?.name}" collection is empty. Add some recipes to get started!`}
+            actionText="Browse Recipes"
+            onAction={() => {
+              setSelectedCollection(null);
+              onNavigateToGeneration?.();
+            }}
+            icon="📂"
+          />
+        );
+      } else {
+        return (
+          <EmptyLibraryState
+            title="Your recipe library is empty"
+            message="Start building your personal recipe collection by generating or saving recipes!"
+            actionText="Generate Recipe"
+            onAction={onNavigateToGeneration}
+            icon="📚"
+          />
+        );
+      }
+    }
+    return null;
+  }, [loading, recipeResults.items.length, selectedCollection, selectedCollectionData, onNavigateToGeneration]);
+
+  const renderFooter = useCallback(() => {
+    if (!loading || recipeResults.items.length === 0) return null;
+    
+    return (
+      <View style={styles.loadingFooter}>
+        <ActivityIndicator size="small" color="#007AFF" />
+        <Text style={styles.loadingText}>Loading more recipes...</Text>
+      </View>
+    );
+  }, [loading, recipeResults.items.length]);
+
+  // Show loading state during initialization
+  if (!initialized) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#007AFF" />
+          <Text style={styles.loadingText}>Loading your recipe library...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
-    <ScrollView style={styles.container}>
+    <SafeAreaView style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity style={styles.backButton} onPress={onBackPress}>
           <Text style={styles.backButtonText}>← Back</Text>
         </TouchableOpacity>
         <Text style={styles.title}>📚 My Recipes</Text>
+        <View style={styles.headerActions}>
+          <TouchableOpacity 
+            style={styles.statsButton}
+            onPress={() => setShowStatsModal(true)}
+          >
+            <Text style={styles.statsButtonText}>📊</Text>
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={styles.backupButton}
+            onPress={() => setShowBackupModal(true)}
+          >
+            <Text style={styles.backupButtonText}>💾</Text>
+          </TouchableOpacity>
+          <SyncStatusIndicator />
+          <TouchableOpacity 
+            style={styles.viewToggle}
+            onPress={() => {
+              const modes: Array<'grid' | 'list' | 'compact'> = ['grid', 'list', 'compact'];
+              const currentIndex = modes.indexOf(viewMode);
+              const nextMode = modes[(currentIndex + 1) % modes.length];
+              setViewMode(nextMode);
+            }}
+          >
+            <Text style={styles.viewToggleText}>
+              {viewMode === 'grid' ? '⊞' : viewMode === 'list' ? '☰' : '≡'}
+            </Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
-      {/* Placeholder Content */}
-      <View style={styles.placeholderContainer}>
-        <Text style={styles.placeholderTitle}>🚧 Coming Soon</Text>
-        <Text style={styles.placeholderDescription}>
-          My Recipes Library will be implemented in task R.2.1.5
-        </Text>
-        
-        <TouchableOpacity style={styles.placeholderButton} onPress={handleViewRecipes}>
-          <Text style={styles.placeholderButtonText}>📚 View My Recipes (Placeholder)</Text>
-        </TouchableOpacity>
-      </View>
+      {/* Network Status */}
+      {!networkStatus.isConnected && (
+        <View style={styles.networkStatus}>
+          <Text style={styles.networkStatusText}>
+            📱 Offline Mode - Personal recipes available from local storage
+          </Text>
+        </View>
+      )}
 
-      {/* Feature Preview */}
-      <View style={styles.previewSection}>
-        <Text style={styles.previewTitle}>📋 Planned Features:</Text>
-        <Text style={styles.previewItem}>• Personal recipe library</Text>
-        <Text style={styles.previewItem}>• Recipe categories & organization</Text>
-        <Text style={styles.previewItem}>• Recipe management (edit, delete, share)</Text>
-        <Text style={styles.previewItem}>• Personal recipe analytics</Text>
-        <Text style={styles.previewItem}>• Favorite recipes</Text>
-        <Text style={styles.previewItem}>• Recipe folders and tags</Text>
-      </View>
-    </ScrollView>
+      {/* Sync Status Banner */}
+      <SyncStatusBanner />
+
+      {/* Collections Header */}
+      {collections.length > 0 && (
+        <View style={styles.collectionsSection}>
+          <FlatList
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            data={collections}
+            renderItem={renderCollectionCard}
+            keyExtractor={(item) => item.id}
+            contentContainerStyle={styles.collectionsContainer}
+          />
+          <TouchableOpacity
+            style={styles.addCollectionButton}
+            onPress={() => setShowCreateCollection(true)}
+          >
+            <Text style={styles.addCollectionText}>+ New Collection</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {/* Search Bar */}
+      <LibrarySearchBar
+        searchQuery={searchQuery}
+        onSearchChange={setSearchQuery}
+        onFilterPress={() => setShowFilterModal(true)}
+        onSortPress={() => setShowSortModal(true)}
+        activeFiltersCount={activeFiltersCount}
+        currentSort={sortOptions}
+        loading={loading}
+      />
+
+      {/* Results Header */}
+      {recipeResults.items.length > 0 && (
+        <View style={styles.resultsHeader}>
+          <Text style={styles.resultsText}>
+            {selectedCollectionData
+              ? `${selectedCollectionData.icon} ${selectedCollectionData.name}`
+              : '📚 All Recipes'
+            }
+          </Text>
+          <Text style={styles.resultsCount}>
+            {recipeResults.totalCount} recipe{recipeResults.totalCount !== 1 ? 's' : ''}
+          </Text>
+        </View>
+      )}
+
+      {/* Recipe List */}
+      <FlatList
+        data={recipeResults.items}
+        renderItem={renderRecipeItem}
+        keyExtractor={(item) => item.id}
+        numColumns={viewMode === 'grid' ? 2 : 1}
+        key={viewMode} // Force re-render when view mode changes
+        onEndReached={handleLoadMore}
+        onEndReachedThreshold={0.3}
+        ListFooterComponent={renderFooter}
+        ListEmptyComponent={renderEmpty}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
+        contentContainerStyle={styles.recipesList}
+        showsVerticalScrollIndicator={false}
+      />
+
+      {/* Modals */}
+      <CreateCollectionModal
+        visible={showCreateCollection}
+        onClose={() => setShowCreateCollection(false)}
+        onSubmit={handleCreateCollection}
+      />
+
+      {/* Sort Modal */}
+      <Modal visible={showSortModal} animationType="slide" presentationStyle="pageSheet">
+        <View style={styles.sortModalContainer}>
+          <View style={styles.sortModalHeader}>
+            <TouchableOpacity onPress={() => setShowSortModal(false)}>
+              <Text style={styles.modalCloseButton}>Cancel</Text>
+            </TouchableOpacity>
+            <Text style={styles.modalTitle}>Sort By</Text>
+            <View style={styles.placeholder} />
+          </View>
+          
+          <View style={styles.sortOptions}>
+            {[
+              { field: 'dateAdded' as const, label: '📅 Date Added' },
+              { field: 'name' as const, label: '🔤 Name' },
+              { field: 'personalRating' as const, label: '⭐ Rating' },
+              { field: 'timesCooked' as const, label: '🔥 Times Cooked' },
+              { field: 'lastCooked' as const, label: '⏰ Last Cooked' },
+              { field: 'cookingTime' as const, label: '⏱️ Cooking Time' },
+            ].map(({ field, label }) => (
+              <TouchableOpacity
+                key={field}
+                style={[
+                  styles.sortOption,
+                  sortOptions.field === field && styles.sortOptionSelected,
+                ]}
+                onPress={() => handleSortChange(field)}
+              >
+                <Text style={[
+                  styles.sortOptionText,
+                  sortOptions.field === field && styles.sortOptionTextSelected,
+                ]}>
+                  {label}
+                </Text>
+                {sortOptions.field === field && (
+                  <Text style={styles.sortDirection}>
+                    {sortOptions.direction === 'desc' ? '↓' : '↑'}
+                  </Text>
+                )}
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+      </Modal>
+
+      {/* Recipe Management Modal */}
+      <RecipeManagementModal
+        visible={showManagementModal}
+        onClose={() => {
+          setShowManagementModal(false);
+          setSelectedRecipeForManagement(null);
+        }}
+        recipe={selectedRecipeForManagement}
+        onEdit={handleEditRecipe}
+        onShare={handleRecipeShare}
+        onExport={handleExportRecipe}
+        onDelete={handleDeleteRecipe}
+        onDuplicate={handleDuplicateRecipe}
+        onAddToMealPlan={handleAddToMealPlan}
+      />
+
+      {/* Statistics Modal */}
+      <Modal visible={showStatsModal} animationType="slide" presentationStyle="pageSheet">
+        <View style={styles.sortModalContainer}>
+          <View style={styles.sortModalHeader}>
+            <TouchableOpacity onPress={() => setShowStatsModal(false)}>
+              <Text style={styles.modalCloseButton}>Close</Text>
+            </TouchableOpacity>
+            <Text style={styles.modalTitle}>Library Statistics</Text>
+            <View style={styles.placeholder} />
+          </View>
+          <ScrollView style={styles.sortOptions}>
+            <LibraryStats
+              totalRecipes={recipeResults.totalCount}
+              favoriteCount={collections.find(c => c.id === SYSTEM_COLLECTIONS.FAVORITES)?.recipeCount || 0}
+              recentlyAddedCount={collections.find(c => c.id === SYSTEM_COLLECTIONS.RECENTLY_ADDED)?.recipeCount || 0}
+              mostCookedRecipe={"Mediterranean Quinoa Bowl"}
+            />
+          </ScrollView>
+        </View>
+      </Modal>
+
+      {/* Backup & Export Modal */}
+      <BackupExportModal
+        visible={showBackupModal}
+        onClose={() => setShowBackupModal(false)}
+        onBackupAll={handleBackupAll}
+        onExportCollection={handleExportCollection}
+        onImportRecipes={handleImportRecipes}
+        collections={collections}
+      />
+    </SafeAreaView>
   );
 }
 
@@ -69,21 +708,37 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#F2F2F7',
   },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#F2F2F7',
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 16,
+    color: '#8E8E93',
+  },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingVertical: 12,
     backgroundColor: 'white',
     borderBottomWidth: 1,
     borderBottomColor: '#E5E5EA',
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
   },
   backButton: {
     paddingVertical: 8,
     paddingHorizontal: 12,
     borderRadius: 8,
     backgroundColor: '#F2F2F7',
-    marginRight: 16,
   },
   backButtonText: {
     fontSize: 16,
@@ -94,54 +749,164 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: 'bold',
     color: '#1C1C1E',
+    flex: 1,
+    textAlign: 'center',
   },
-  placeholderContainer: {
-    margin: 16,
-    padding: 24,
-    backgroundColor: 'white',
-    borderRadius: 12,
+  headerActions: {
+    flexDirection: 'row',
     alignItems: 'center',
   },
-  placeholderTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#FF9500',
-    marginBottom: 12,
-  },
-  placeholderDescription: {
-    fontSize: 16,
-    color: '#8E8E93',
-    textAlign: 'center',
-    marginBottom: 24,
-    lineHeight: 22,
-  },
-  placeholderButton: {
-    backgroundColor: '#FF9500',
-    paddingHorizontal: 24,
-    paddingVertical: 12,
+  statsButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 8,
     borderRadius: 8,
+    backgroundColor: '#F2F2F7',
+    marginRight: 8,
   },
-  placeholderButtonText: {
-    color: 'white',
+  statsButtonText: {
     fontSize: 16,
+    color: '#007AFF',
+  },
+  backupButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 8,
+    borderRadius: 8,
+    backgroundColor: '#F2F2F7',
+    marginRight: 8,
+  },
+  backupButtonText: {
+    fontSize: 16,
+    color: '#007AFF',
+  },
+  viewToggle: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    backgroundColor: '#F2F2F7',
+  },
+  viewToggleText: {
+    fontSize: 18,
+    color: '#007AFF',
+  },
+  
+  // Collections Section
+  collectionsSection: {
+    backgroundColor: 'white',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E5EA',
+    paddingVertical: 12,
+  },
+  collectionsContainer: {
+    paddingHorizontal: 12,
+  },
+  addCollectionButton: {
+    alignSelf: 'center',
+    backgroundColor: '#007AFF',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 16,
+    marginTop: 8,
+  },
+  addCollectionText: {
+    color: 'white',
+    fontSize: 14,
     fontWeight: '600',
   },
-  previewSection: {
-    margin: 16,
-    padding: 16,
+  
+  // Results Section
+  resultsHeader: {
     backgroundColor: 'white',
-    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E5EA',
   },
-  previewTitle: {
+  resultsText: {
     fontSize: 18,
     fontWeight: '600',
     color: '#1C1C1E',
-    marginBottom: 12,
+    marginBottom: 4,
   },
-  previewItem: {
+  resultsCount: {
     fontSize: 14,
     color: '#8E8E93',
-    marginVertical: 4,
-    lineHeight: 20,
+  },
+  
+  // Recipe List
+  recipesList: {
+    paddingTop: 8,
+    paddingBottom: 32,
+  },
+  loadingFooter: {
+    paddingVertical: 20,
+    alignItems: 'center',
+  },
+  
+  // Sort Modal
+  sortModalContainer: {
+    flex: 1,
+    backgroundColor: 'white',
+  },
+  sortModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E5EA',
+  },
+  modalCloseButton: {
+    fontSize: 16,
+    color: '#8E8E93',
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#1C1C1E',
+  },
+  placeholder: {
+    width: 60, // Balance the header
+  },
+  sortOptions: {
+    flex: 1,
+    padding: 16,
+  },
+  sortOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    marginBottom: 8,
+  },
+  sortOptionSelected: {
+    backgroundColor: '#007AFF15',
+  },
+  sortOptionText: {
+    fontSize: 16,
+    color: '#1C1C1E',
+    flex: 1,
+  },
+  sortOptionTextSelected: {
+    color: '#007AFF',
+    fontWeight: '600',
+  },
+  sortDirection: {
+    fontSize: 16,
+    color: '#007AFF',
+    fontWeight: '600',
+  },
+  networkStatus: {
+    backgroundColor: '#34C759',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    alignItems: 'center',
+  },
+  networkStatusText: {
+    color: 'white',
+    fontSize: 14,
+    fontWeight: '600',
   },
 });
