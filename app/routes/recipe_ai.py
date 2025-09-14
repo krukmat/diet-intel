@@ -9,10 +9,18 @@ from app.models.recipe import (
     RecipeGenerationRequest, RecipeOptimizationRequest, RecipeRatingRequest,
     ShoppingListRequest, RecipeSearchRequest, GeneratedRecipeResponse,
     RecipeSearchResponse, RecipeRatingResponse, ShoppingListResponse,
-    RecipeAnalyticsResponse, RecipeGenerationError
+    RecipeAnalyticsResponse, RecipeGenerationError, UserTasteProfileRequest,
+    UserTasteProfileResponse, PersonalizedRecipeRequest, PersonalizedRecommendationsResponse,
+    UserLearningProgressResponse
+)
+from app.models.shopping import (
+    ShoppingOptimizationRequest, ShoppingOptimizationResponse
 )
 from app.services.recipe_ai_engine import RecipeAIEngine, RecipeGenerationRequest as EngineRequest
 from app.services.recipe_database import recipe_db_service
+from app.services.taste_learning import taste_learning_service
+from app.services.recommendation_engine import recommendation_engine
+from app.services.shopping_optimization import ShoppingOptimizationService
 from app.services.auth import get_current_user, get_optional_user
 from app.models.user import User
 
@@ -41,10 +49,9 @@ def convert_to_engine_request(api_request: RecipeGenerationRequest, user_id: str
         servings=api_request.servings,
         max_prep_time_minutes=api_request.max_prep_time_minutes,
         max_cook_time_minutes=api_request.max_cook_time_minutes,
-        preferred_ingredients=api_request.preferred_ingredients,
-        excluded_ingredients=api_request.excluded_ingredients,
-        cooking_skill_level=api_request.cooking_skill_level,
-        available_equipment=api_request.available_equipment
+        # Map preferred_ingredients to available_ingredients for engine compatibility
+        available_ingredients=getattr(api_request, 'preferred_ingredients', []),
+        excluded_ingredients=api_request.excluded_ingredients
     )
 
 
@@ -95,9 +102,19 @@ async def generate_recipe(
         
         # Convert API request to engine request
         engine_request = convert_to_engine_request(request, current_user.id)
-        
-        # Generate recipe using AI engine
-        generated_recipe = await recipe_engine.generate_recipe(engine_request)
+
+        # Apply personalization based on user's taste profile
+        personalized_request, personalization_metadata = await recommendation_engine.apply_personalization(
+            engine_request, current_user.id
+        )
+
+        # Generate recipe using AI engine with personalized request
+        generated_recipe = await recipe_engine.generate_recipe(personalized_request)
+
+        # Score how well the recipe matches user's taste profile
+        personalization_score = await recommendation_engine.score_recipe_personalization(
+            generated_recipe, current_user.id
+        )
         
         # Store recipe in database
         recipe_id = await recipe_db_service.create_recipe(generated_recipe, current_user.id)
@@ -164,10 +181,22 @@ async def generate_recipe(
             confidence_score=generated_recipe.confidence_score,
             generation_time_ms=generated_recipe.generation_time_ms,
             tags=generated_recipe.tags,
+            # Include personalization metadata in response
+            personalization={
+                'metadata': personalization_metadata,
+                'score': personalization_score
+            },
             created_at=datetime.now()
         )
         
-        logger.info(f"Successfully generated recipe '{generated_recipe.name}' for user {current_user.id}")
+        # Log personalization insights
+        if personalization_metadata.get('applied'):
+            logger.info(f"Applied personalization for user {current_user.id}: "
+                       f"confidence={personalization_metadata.get('profile_confidence', 0):.3f}, "
+                       f"enhancements={len(personalization_metadata.get('enhancements', []))}")
+
+        logger.info(f"Successfully generated recipe '{generated_recipe.name}' for user {current_user.id} "
+                   f"(personalization_score={personalization_score.get('overall_score', 0):.3f})")
         return response
         
     except Exception as e:
@@ -655,7 +684,400 @@ async def submit_recipe_feedback(
             "message": "Feedback submitted successfully",
             "status": "received"
         }
-        
+
     except Exception as e:
         logger.error(f"Failed to submit feedback for user {current_user.id}: {e}")
         raise HTTPException(status_code=500, detail="Failed to submit feedback")
+
+
+# ===== TASTE LEARNING ENDPOINTS =====
+
+@router.post("/learn-preferences", response_model=UserTasteProfileResponse)
+async def learn_user_preferences(
+    request: Optional[UserTasteProfileRequest] = None,
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Analyze user's ratings and learn taste preferences.
+    Triggers cuisine and ingredient preference analysis.
+    """
+    try:
+        user_id = current_user.id
+        logger.info(f"Learning preferences for user {user_id}")
+
+        # Run cuisine preference analysis
+        cuisine_analysis = await taste_learning_service.analyze_cuisine_preferences(user_id, min_ratings=1)
+
+        if cuisine_analysis.get('error'):
+            raise HTTPException(
+                status_code=400,
+                detail=f"Insufficient data for taste learning: {cuisine_analysis.get('error')}"
+            )
+
+        # Update cuisine preferences in database
+        await taste_learning_service.update_cuisine_preferences_in_db(user_id, cuisine_analysis)
+
+        # Run ingredient preference analysis
+        ingredient_analysis = await taste_learning_service.analyze_ingredient_preferences(user_id, min_occurrences=1)
+
+        if not ingredient_analysis.get('error'):
+            # Update ingredient preferences in database
+            await taste_learning_service.update_ingredient_preferences_in_db(user_id, ingredient_analysis)
+
+        # Create consolidated taste profile
+        cuisine_prefs = []
+        for cuisine, data in cuisine_analysis.get('cuisine_preferences', {}).items():
+            cuisine_prefs.append({
+                'cuisine': cuisine,
+                'score': data['raw_score'],
+                'count': data['total_ratings']
+            })
+
+        liked_ingredients = []
+        disliked_ingredients = []
+        if not ingredient_analysis.get('error'):
+            categorized = ingredient_analysis.get('categorized_ingredients', {})
+            for ingredient in categorized.get('loved', []) + categorized.get('liked', []):
+                if ingredient in ingredient_analysis['ingredient_preferences']:
+                    data = ingredient_analysis['ingredient_preferences'][ingredient]
+                    liked_ingredients.append({
+                        'ingredient': ingredient,
+                        'preference': data['raw_score'],
+                        'frequency': data['total_occurrences']
+                    })
+
+            for ingredient in categorized.get('disliked', []) + categorized.get('avoided', []):
+                if ingredient in ingredient_analysis['ingredient_preferences']:
+                    data = ingredient_analysis['ingredient_preferences'][ingredient]
+                    disliked_ingredients.append({
+                        'ingredient': ingredient,
+                        'preference': data['raw_score'],
+                        'frequency': data['total_occurrences']
+                    })
+
+        # Update consolidated taste profile in database
+        profile_data = {
+            'profile_confidence': cuisine_analysis['confidence_score'],
+            'total_ratings_analyzed': cuisine_analysis['total_ratings_analyzed'],
+            'cuisine_preferences': cuisine_prefs,
+            'liked_ingredients': liked_ingredients,
+            'disliked_ingredients': disliked_ingredients
+        }
+
+        await recipe_db_service.create_or_update_user_taste_profile(user_id, profile_data)
+
+        # Return comprehensive taste profile response
+        return UserTasteProfileResponse(
+            user_id=user_id,
+            profile_confidence=cuisine_analysis['confidence_score'],
+            total_ratings_analyzed=cuisine_analysis['total_ratings_analyzed'],
+            cuisine_preferences=cuisine_prefs,
+            liked_ingredients=liked_ingredients,
+            disliked_ingredients=disliked_ingredients,
+            last_learning_update=datetime.now()
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to learn preferences for user {current_user.id}: {e}")
+        raise HTTPException(status_code=500, detail="Failed to learn user preferences")
+
+
+@router.get("/preferences/{user_id}", response_model=UserTasteProfileResponse)
+async def get_user_taste_profile(
+    user_id: str,
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Retrieve user's complete taste profile including preferences and learning progress.
+    """
+    try:
+        # Ensure user can only access their own profile (or admin access)
+        if current_user.id != user_id and not current_user.is_admin:
+            raise HTTPException(status_code=403, detail="Access denied")
+
+        # Get taste profile from database
+        profile = await recipe_db_service.get_user_taste_profile(user_id)
+
+        if not profile:
+            # If no profile exists, try to create one by learning from existing ratings
+            learn_response = await learn_user_preferences(current_user=current_user)
+            return learn_response
+
+        # Convert database format to API response format
+        return UserTasteProfileResponse(
+            user_id=profile['user_id'],
+            profile_confidence=profile['profile_confidence'],
+            total_ratings_analyzed=profile['total_ratings_analyzed'],
+            cuisine_preferences=profile['cuisine_preferences'],
+            liked_ingredients=profile['liked_ingredients'],
+            disliked_ingredients=profile['disliked_ingredients'],
+            preferred_prep_time_minutes=profile['preferred_prep_time_minutes'],
+            preferred_cook_time_minutes=profile['preferred_cook_time_minutes'],
+            quick_meal_preference=profile['quick_meal_preference'],
+            preferred_calories_per_serving=profile['preferred_calories_per_serving'],
+            preferred_protein_ratio=profile['preferred_protein_ratio'],
+            preferred_carb_ratio=profile['preferred_carb_ratio'],
+            preferred_fat_ratio=profile['preferred_fat_ratio'],
+            modification_tendency=profile['modification_tendency'],
+            repeat_cooking_tendency=profile['repeat_cooking_tendency'],
+            last_learning_update=profile['last_learning_update'],
+            created_at=profile['created_at'],
+            updated_at=profile['updated_at']
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to get taste profile for user {user_id}: {e}")
+        raise HTTPException(status_code=500, detail="Failed to retrieve taste profile")
+
+
+@router.get("/preferences/{user_id}/progress", response_model=UserLearningProgressResponse)
+async def get_user_learning_progress(
+    user_id: str,
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Get user's taste learning progress and achievements.
+    """
+    try:
+        # Ensure user can only access their own progress
+        if current_user.id != user_id and not current_user.is_admin:
+            raise HTTPException(status_code=403, detail="Access denied")
+
+        # Get learning progress from database
+        progress = await recipe_db_service.get_user_learning_progress(user_id)
+
+        if not progress:
+            # Create initial progress record
+            with recipe_db_service.get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute("""
+                    INSERT OR IGNORE INTO user_learning_progress (
+                        id, user_id, ratings_milestone, cuisines_explored, ingredients_learned
+                    ) VALUES (?, ?, 0, 0, 0)
+                """, (f"progress_{user_id}", user_id))
+                conn.commit()
+
+            # Return initial progress
+            return UserLearningProgressResponse(
+                user_id=user_id,
+                ratings_milestone=0,
+                cuisines_explored=0,
+                ingredients_learned=0,
+                profile_accuracy_score=0.0,
+                recommendation_success_rate=0.0,
+                learning_started_at=datetime.now()
+            )
+
+        return UserLearningProgressResponse(**progress)
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to get learning progress for user {user_id}: {e}")
+        raise HTTPException(status_code=500, detail="Failed to retrieve learning progress")
+
+
+@router.post("/generate-personalized", response_model=GeneratedRecipeResponse)
+async def generate_personalized_recipe(
+    request: PersonalizedRecipeRequest,
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Generate a recipe using user's taste profile for personalization.
+    Enhanced version of the standard generate endpoint.
+    """
+    try:
+        user_id = current_user.id
+        logger.info(f"Generating personalized recipe for user {user_id}")
+
+        if request.use_taste_profile:
+            # Get user's taste profile for personalization
+            profile = await recipe_db_service.get_user_taste_profile(user_id)
+
+            if profile and profile['profile_confidence'] > 0.3:
+                # Apply taste profile to generation request
+                base_request = request.base_request
+
+                # Enhance cuisine preferences based on learned preferences
+                if not base_request.cuisine_preferences:
+                    # Use top 3 preferred cuisines
+                    top_cuisines = sorted(
+                        profile['cuisine_preferences'],
+                        key=lambda x: x['score'],
+                        reverse=True
+                    )[:3]
+                    base_request.cuisine_preferences = [c['cuisine'] for c in top_cuisines]
+
+                # Apply preferred cooking times
+                if not base_request.max_prep_time_minutes:
+                    base_request.max_prep_time_minutes = profile['preferred_prep_time_minutes']
+                if not base_request.max_cook_time_minutes:
+                    base_request.max_cook_time_minutes = profile['preferred_cook_time_minutes']
+
+                # Apply nutritional preferences
+                if not base_request.target_calories_per_serving:
+                    base_request.target_calories_per_serving = profile['preferred_calories_per_serving']
+
+                # Exclude disliked ingredients
+                disliked_ingredients = [ing['ingredient'] for ing in profile['disliked_ingredients']
+                                     if ing['preference'] < -0.5]
+                base_request.excluded_ingredients.extend(disliked_ingredients)
+
+                # Prefer liked ingredients
+                liked_ingredients = [ing['ingredient'] for ing in profile['liked_ingredients']
+                                   if ing['preference'] > 0.5]
+                base_request.preferred_ingredients.extend(liked_ingredients[:5])  # Top 5
+
+        # Convert to engine request
+        engine_request = convert_to_engine_request(request.base_request, user_id)
+
+        # Generate recipe using enhanced request
+        recipe = await recipe_engine.generate_recipe(engine_request)
+
+        # Store in database
+        await recipe_db_service.create_recipe(recipe, user_id)
+
+        # Convert to response format
+        return GeneratedRecipeResponse(
+            id=recipe.id,
+            name=recipe.name,
+            description=recipe.description,
+            cuisine_type=recipe.cuisine_type,
+            difficulty_level=recipe.difficulty_level,
+            prep_time_minutes=recipe.prep_time_minutes,
+            cook_time_minutes=recipe.cook_time_minutes,
+            servings=recipe.servings,
+            ingredients=[{
+                'name': ing.name,
+                'quantity': ing.quantity,
+                'unit': ing.unit,
+                'calories_per_unit': ing.calories_per_unit,
+                'protein_g_per_unit': ing.protein_g_per_unit,
+                'fat_g_per_unit': ing.fat_g_per_unit,
+                'carbs_g_per_unit': ing.carbs_g_per_unit,
+                'is_optional': ing.is_optional,
+                'preparation_note': ing.preparation_note
+            } for ing in recipe.ingredients],
+            instructions=[{
+                'step_number': inst.step_number,
+                'instruction': inst.instruction,
+                'cooking_method': inst.cooking_method,
+                'duration_minutes': inst.duration_minutes,
+                'temperature_celsius': inst.temperature_celsius
+            } for inst in recipe.instructions],
+            nutrition={
+                'calories_per_serving': recipe.nutrition.calories_per_serving,
+                'protein_g_per_serving': recipe.nutrition.protein_g_per_serving,
+                'fat_g_per_serving': recipe.nutrition.fat_g_per_serving,
+                'carbs_g_per_serving': recipe.nutrition.carbs_g_per_serving,
+                'fiber_g_per_serving': recipe.nutrition.fiber_g_per_serving,
+                'sugar_g_per_serving': recipe.nutrition.sugar_g_per_serving,
+                'sodium_mg_per_serving': recipe.nutrition.sodium_mg_per_serving,
+                'recipe_score': recipe.nutrition.recipe_score
+            } if recipe.nutrition else None,
+            created_by=recipe.created_by,
+            confidence_score=recipe.confidence_score,
+            generation_time_ms=recipe.generation_time_ms,
+            tags=recipe.tags,
+            created_at=datetime.now()
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to generate personalized recipe for user {current_user.id}: {e}")
+        raise HTTPException(status_code=500, detail="Failed to generate personalized recipe")
+
+
+# ===== SMART SHOPPING OPTIMIZATION ENDPOINTS (TASK 11) =====
+
+@router.post("/shopping/optimize", response_model=ShoppingOptimizationResponse)
+async def optimize_shopping_list(
+    request: ShoppingOptimizationRequest,
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Generate optimized shopping list from multiple recipes with ingredient consolidation.
+
+    This endpoint implements multi-recipe ingredient consolidation algorithm that:
+    - Combines similar ingredients across recipes
+    - Handles complex unit conversions
+    - Optimizes quantities for practical shopping
+    - Provides cost optimization opportunities
+    - Maintains source recipe attribution
+    """
+    try:
+        user_id = current_user.id
+        logger.info(f"Starting shopping optimization for user {user_id} with {len(request.recipe_ids)} recipes")
+
+        # Task 11 related comment: Multi-recipe ingredient consolidation endpoint
+
+        # Initialize shopping optimization service
+        shopping_service = ShoppingOptimizationService(recipe_db_service)
+
+        # Generate optimized shopping list
+        optimization_result = await shopping_service.optimize_shopping_list(
+            recipe_ids=request.recipe_ids,
+            user_id=user_id,
+            preferred_store_id=request.preferred_store_id,
+            optimization_name=request.optimization_name
+        )
+
+        logger.info(f"Shopping optimization completed successfully: {optimization_result.optimization_id}")
+        return optimization_result
+
+    except HTTPException:
+        raise
+    except ValueError as e:
+        logger.error(f"Invalid request data: {e}")
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Shopping optimization failed for user {current_user.id}: {e}")
+        raise HTTPException(status_code=500, detail="Failed to generate optimized shopping list")
+
+
+@router.get("/shopping/{optimization_id}", response_model=ShoppingOptimizationResponse)
+async def get_shopping_optimization(
+    optimization_id: str,
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Retrieve existing shopping optimization by ID.
+
+    Returns the complete shopping optimization including:
+    - Consolidated ingredient list
+    - Source recipe attribution
+    - Optimization metrics
+    - Bulk buying suggestions (if available)
+    - Shopping path optimization (if available)
+    """
+    try:
+        user_id = current_user.id
+        logger.info(f"Retrieving shopping optimization {optimization_id} for user {user_id}")
+
+        # Task 11 related comment: Retrieve stored shopping optimization
+
+        # Initialize shopping optimization service
+        shopping_service = ShoppingOptimizationService(recipe_db_service)
+
+        # Get optimization
+        optimization = await shopping_service.get_shopping_optimization(
+            optimization_id=optimization_id,
+            user_id=user_id
+        )
+
+        if not optimization:
+            raise HTTPException(status_code=404, detail="Shopping optimization not found")
+
+        logger.info(f"Shopping optimization retrieved successfully: {optimization_id}")
+        return optimization
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to retrieve shopping optimization {optimization_id}: {e}")
+        raise HTTPException(status_code=500, detail="Failed to retrieve shopping optimization")

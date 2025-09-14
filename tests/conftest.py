@@ -4,7 +4,7 @@ from unittest.mock import AsyncMock, MagicMock
 from fastapi.testclient import TestClient
 from httpx import AsyncClient
 from app.services.cache import CacheService
-from app.services.recommendation_engine import SmartRecommendationEngine
+from app.services.recommendation_engine import RecommendationEngine
 
 @pytest.fixture(scope="session")
 def event_loop():
@@ -26,7 +26,7 @@ async def mock_cache_service():
 @pytest.fixture
 def mock_recommendation_engine(mock_cache_service):
     """Mock recommendation engine for testing."""
-    engine = SmartRecommendationEngine()
+    engine = RecommendationEngine()
     return engine
 
 @pytest.fixture

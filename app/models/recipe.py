@@ -181,7 +181,10 @@ class GeneratedRecipeResponse(BaseModel):
     confidence_score: float = Field(ge=0.0, le=1.0)
     generation_time_ms: float = 0.0
     tags: List[str] = Field(default_factory=list)
-    
+
+    # Personalization metadata (added in Phase R.3.1.1 Task 8)
+    personalization: Optional[Dict[str, Any]] = None
+
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
 
@@ -262,6 +265,107 @@ class RecipeCacheEntry(BaseModel):
         """Check if cache entry is expired"""
         expiry_time = self.created_at.timestamp() + self.ttl_seconds
         return datetime.now().timestamp() > expiry_time
+
+
+# ===== USER TASTE PROFILE MODELS =====
+
+class CuisinePreference(BaseModel):
+    """Model for individual cuisine preference"""
+    cuisine: str
+    score: float = Field(ge=-1.0, le=1.0)
+    count: int = Field(ge=0)
+
+
+class IngredientPreference(BaseModel):
+    """Model for individual ingredient preference"""
+    ingredient: str
+    preference: float = Field(ge=-1.0, le=1.0)
+    frequency: int = Field(ge=0)
+
+
+class UserTasteProfileRequest(BaseModel):
+    """Request model for updating user taste profile"""
+    user_id: str
+    learning_data: Optional[Dict[str, Any]] = None
+
+
+class UserTasteProfileResponse(BaseModel):
+    """Response model for user taste profile"""
+    user_id: str
+    profile_confidence: float = Field(ge=0.0, le=1.0)
+    total_ratings_analyzed: int = Field(ge=0)
+
+    # Preferences
+    cuisine_preferences: List[CuisinePreference] = Field(default_factory=list)
+    difficulty_preferences: Dict[str, float] = Field(default_factory=dict)
+    liked_ingredients: List[IngredientPreference] = Field(default_factory=list)
+    disliked_ingredients: List[IngredientPreference] = Field(default_factory=list)
+    cooking_method_preferences: Dict[str, float] = Field(default_factory=dict)
+
+    # Time preferences
+    preferred_prep_time_minutes: int = 30
+    preferred_cook_time_minutes: int = 45
+    quick_meal_preference: float = Field(default=0.5, ge=0.0, le=1.0)
+
+    # Nutritional preferences
+    preferred_calories_per_serving: float = 400.0
+    preferred_protein_ratio: float = Field(default=0.2, ge=0.0, le=1.0)
+    preferred_carb_ratio: float = Field(default=0.5, ge=0.0, le=1.0)
+    preferred_fat_ratio: float = Field(default=0.3, ge=0.0, le=1.0)
+
+    # Behavioral patterns
+    modification_tendency: float = Field(default=0.0, ge=0.0, le=1.0)
+    repeat_cooking_tendency: float = Field(default=0.5, ge=0.0, le=1.0)
+
+    # Metadata
+    last_learning_update: Optional[datetime] = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+
+
+class PersonalizedRecipeRequest(BaseModel):
+    """Request model for personalized recipe generation"""
+    user_id: str
+    base_request: RecipeGenerationRequest
+    use_taste_profile: bool = True
+    personalization_weight: float = Field(default=0.7, ge=0.0, le=1.0)
+
+
+class RecipeRecommendation(BaseModel):
+    """Model for individual recipe recommendation"""
+    recipe_id: str
+    recommendation_score: float = Field(ge=0.0, le=1.0)
+    reason_codes: List[str] = Field(default_factory=list)
+    cuisine_match_score: float = Field(default=0.0, ge=0.0, le=1.0)
+    ingredient_match_score: float = Field(default=0.0, ge=0.0, le=1.0)
+    difficulty_match_score: float = Field(default=0.0, ge=0.0, le=1.0)
+    time_match_score: float = Field(default=0.0, ge=0.0, le=1.0)
+    nutrition_match_score: float = Field(default=0.0, ge=0.0, le=1.0)
+
+
+class PersonalizedRecommendationsResponse(BaseModel):
+    """Response model for personalized recipe recommendations"""
+    user_id: str
+    recommendations: List[RecipeRecommendation]
+    profile_confidence: float = Field(ge=0.0, le=1.0)
+    total_available: int
+    generated_at: datetime
+
+
+class UserLearningProgressResponse(BaseModel):
+    """Response model for user learning progress"""
+    user_id: str
+    ratings_milestone: int
+    cuisines_explored: int
+    ingredients_learned: int
+    profile_accuracy_score: float = Field(ge=0.0, le=1.0)
+    recommendation_success_rate: float = Field(ge=0.0, le=1.0)
+    dominant_cuisine: Optional[str] = None
+    flavor_profile: Optional[str] = None
+    cooking_complexity_preference: Optional[str] = None
+    achievements: List[str] = Field(default_factory=list)
+    learning_started_at: Optional[datetime] = None
+    last_milestone_reached_at: Optional[datetime] = None
 
 
 # ===== ERROR MODELS =====

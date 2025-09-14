@@ -24,6 +24,8 @@ import RecipeGenerationScreen from './screens/RecipeGenerationScreen';
 import RecipeSearchScreen from './screens/RecipeSearchScreen';
 import MyRecipesScreen from './screens/MyRecipesScreen';
 import RecipeDetailScreen from './screens/RecipeDetailScreen';
+import TastePreferencesScreen from './screens/TastePreferencesScreen';
+import ShoppingOptimizationScreen from './screens/ShoppingOptimizationScreen';
 import ProductDetail from './components/ProductDetail';
 import ReminderSnippet from './components/ReminderSnippet';
 import ApiConfigModal from './components/ApiConfigModal';
@@ -91,7 +93,7 @@ function MainApp({ user, onLogout }: { user: any; onLogout: () => void }) {
   const [hasPermission, setHasPermission] = useState<boolean | null>(null);
   const [scanned, setScanned] = useState(false);
   const [showCamera, setShowCamera] = useState(false);
-  type ScreenType = 'scanner' | 'upload' | 'plan' | 'track' | 'recommendations' | 'recipes' | 'recipe-generation' | 'recipe-search' | 'my-recipes' | 'recipe-detail';
+  type ScreenType = 'scanner' | 'upload' | 'plan' | 'track' | 'recommendations' | 'recipes' | 'recipe-generation' | 'recipe-search' | 'my-recipes' | 'recipe-detail' | 'taste-preferences' | 'shopping-optimization';
   const [currentScreen, setCurrentScreen] = useState<ScreenType>('scanner');
   const [navigationContext, setNavigationContext] = useState<{
     targetContext?: string;
@@ -99,6 +101,7 @@ function MainApp({ user, onLogout }: { user: any; onLogout: () => void }) {
     planId?: string;
     recipeId?: string;
     recipeData?: any;
+    selectedRecipes?: any[];
   }>({});
   const [showReminders, setShowReminders] = useState(false);
   const [showApiConfig, setShowApiConfig] = useState(false);
@@ -357,6 +360,21 @@ function MainApp({ user, onLogout }: { user: any; onLogout: () => void }) {
         setNavigationContext({ recipeData: recipe, sourceScreen: 'recipe-detail' });
         setCurrentScreen('recipe-generation'); // Use generation screen for optimization
       }}
+    />;
+  }
+
+  if (currentScreen === 'taste-preferences') {
+    return <TastePreferencesScreen
+      onBackPress={() => setCurrentScreen('recipes')}
+      userId={user?.id || 'user-demo'}
+    />;
+  }
+
+  if (currentScreen === 'shopping-optimization') {
+    return <ShoppingOptimizationScreen
+      onBackPress={() => setCurrentScreen('recipes')}
+      selectedRecipes={navigationContext.selectedRecipes || []}
+      userId={user?.id || 'user-demo'}
     />;
   }
 

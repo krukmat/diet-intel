@@ -2,7 +2,7 @@
 // Using modern patterns: Singleton, Interceptors, Request Queuing, Cache Management
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import NetInfo from 'react-native-netinfo';
+import NetInfo from '@react-native-community/netinfo';
 
 // Environment Configuration
 interface ApiConfig {
@@ -105,24 +105,30 @@ export class ApiClient {
   // Initialize network state monitoring
   private initializeNetworkListener(): void {
     try {
-      // Subscribe to network state changes using the correct NetInfo API
-      const unsubscribe = NetInfo.addEventListener(state => {
-        const wasOffline = !this.networkState.isConnected;
+      // Check if NetInfo is properly available
+      if (NetInfo && typeof NetInfo.addEventListener === 'function') {
+        // Subscribe to network state changes using the correct NetInfo API
+        const unsubscribe = NetInfo.addEventListener(state => {
+          const wasOffline = !this.networkState.isConnected;
 
-        this.networkState = {
-          isConnected: state.isConnected ?? false,
-          type: state.type,
-          isInternetReachable: state.isInternetReachable,
-        };
+          this.networkState = {
+            isConnected: state.isConnected ?? true, // Default to true if undefined
+            type: state.type || 'unknown',
+            isInternetReachable: state.isInternetReachable ?? true,
+          };
 
-        // Process queued requests when coming back online
-        if (wasOffline && this.networkState.isConnected) {
-          this.processRequestQueue();
-        }
-      });
+          // Process queued requests when coming back online
+          if (wasOffline && this.networkState.isConnected) {
+            this.processRequestQueue();
+          }
+        });
 
-      // Store unsubscribe function for cleanup if needed
-      this.unsubscribeNetInfo = unsubscribe;
+        // Store unsubscribe function for cleanup if needed
+        this.unsubscribeNetInfo = unsubscribe;
+        console.log('NetInfo initialized successfully');
+      } else {
+        throw new Error('NetInfo.addEventListener is not available');
+      }
     } catch (error) {
       console.warn('NetInfo not available, using fallback network state:', error);
       // Fallback to online state if NetInfo is not available

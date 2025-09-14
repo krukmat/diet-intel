@@ -151,62 +151,6 @@ export default function RecipeGenerationScreen({
     return Object.keys(errors).length === 0;
   };
 
-  const simulateRecipeGeneration = async () => {
-    const stages = [
-      { progress: 25, stage: 'Analyzing your preferences...' },
-      { progress: 50, stage: 'Selecting perfect ingredients...' },
-      { progress: 75, stage: 'Creating recipe instructions...' },
-      { progress: 100, stage: 'Calculating nutrition information...' },
-    ];
-
-    for (const { progress, stage } of stages) {
-      setGenerationProgress(progress);
-      setGenerationStage(stage);
-      
-      Animated.timing(progressAnimation, {
-        toValue: progress,
-        duration: 800,
-        useNativeDriver: false,
-      }).start();
-
-      await new Promise(resolve => setTimeout(resolve, 1500));
-    }
-
-    // Generate mock recipe based on preferences
-    const mockRecipe: GeneratedRecipe = {
-      id: 'generated_' + Date.now(),
-      name: `${preferences.cuisineTypes[0]?.charAt(0).toUpperCase() + preferences.cuisineTypes[0]?.slice(1) || 'Delicious'} ${preferences.difficultyLevel === 'beginner' ? 'Simple' : 'Gourmet'} Bowl`,
-      description: `A ${preferences.difficultyLevel} ${preferences.cuisineTypes.join(' & ')} recipe perfect for ${preferences.servings} people`,
-      cookingTime: preferences.cookingTime,
-      servings: preferences.servings,
-      difficulty: preferences.difficultyLevel,
-      ingredients: [
-        { name: 'Olive Oil', quantity: '2', unit: 'tbsp' },
-        { name: 'Onion', quantity: '1', unit: 'medium' },
-        { name: 'Garlic', quantity: '3', unit: 'cloves' },
-        { name: 'Main Protein', quantity: '400', unit: 'g' },
-        { name: 'Vegetables', quantity: '300', unit: 'g' },
-        { name: 'Herbs & Spices', quantity: '1', unit: 'tsp each' },
-      ],
-      instructions: [
-        { step: 1, instruction: 'Heat olive oil in a large pan over medium heat' },
-        { step: 2, instruction: 'Add diced onion and cook until translucent, about 5 minutes' },
-        { step: 3, instruction: 'Add minced garlic and cook for 1 minute until fragrant' },
-        { step: 4, instruction: 'Add main protein and cook according to type and preference' },
-        { step: 5, instruction: 'Add vegetables and seasonings, cook until tender' },
-        { step: 6, instruction: 'Adjust seasoning to taste and serve immediately' },
-      ],
-      nutrition: {
-        calories: parseInt(preferences.targetCalories) || 450,
-        protein: 28,
-        fat: 18,
-        carbs: 42,
-        score: 0.87,
-      },
-    };
-
-    setGeneratedRecipe(mockRecipe);
-  };
 
   const handleGenerateRecipe = async () => {
     if (!validateForm()) {
@@ -300,7 +244,7 @@ export default function RecipeGenerationScreen({
   };
 
   const handleShareRecipe = () => {
-    if (generatedRecipe) {
+    if (data?.recipe) {
       Alert.alert('🔗 Share Recipe', 'Recipe sharing will be available in the next update!');
     }
   };
@@ -392,19 +336,19 @@ export default function RecipeGenerationScreen({
             <Text style={styles.sectionTitle}>📊 Nutrition (per serving)</Text>
             <View style={styles.nutritionGrid}>
               <View style={styles.nutritionItem}>
-                <Text style={styles.nutritionValue}>{generatedRecipe.nutrition.calories}</Text>
+                <Text style={styles.nutritionValue}>{data.recipe.calories || 'N/A'}</Text>
                 <Text style={styles.nutritionLabel}>Calories</Text>
               </View>
               <View style={styles.nutritionItem}>
-                <Text style={styles.nutritionValue}>{generatedRecipe.nutrition.protein}g</Text>
+                <Text style={styles.nutritionValue}>Est. {Math.round((data.recipe.calories || 0) * 0.3 / 4)}g</Text>
                 <Text style={styles.nutritionLabel}>Protein</Text>
               </View>
               <View style={styles.nutritionItem}>
-                <Text style={styles.nutritionValue}>{generatedRecipe.nutrition.fat}g</Text>
+                <Text style={styles.nutritionValue}>Est. {Math.round((data.recipe.calories || 0) * 0.3 / 9)}g</Text>
                 <Text style={styles.nutritionLabel}>Fat</Text>
               </View>
               <View style={styles.nutritionItem}>
-                <Text style={styles.nutritionValue}>{generatedRecipe.nutrition.carbs}g</Text>
+                <Text style={styles.nutritionValue}>Est. {Math.round((data.recipe.calories || 0) * 0.4 / 4)}g</Text>
                 <Text style={styles.nutritionLabel}>Carbs</Text>
               </View>
             </View>
@@ -413,8 +357,8 @@ export default function RecipeGenerationScreen({
           {/* Action Buttons */}
           <View style={styles.actionButtons}>
             <TouchableOpacity style={styles.primaryButton} onPress={() => {
-              if (onNavigateToDetail && generatedRecipe) {
-                onNavigateToDetail(generatedRecipe);
+              if (onNavigateToDetail && data?.recipe) {
+                onNavigateToDetail(data.recipe);
               }
             }}>
               <Text style={styles.primaryButtonText}>📖 View Full Recipe</Text>
@@ -430,8 +374,7 @@ export default function RecipeGenerationScreen({
               </TouchableOpacity>
               
               <TouchableOpacity style={styles.secondaryButton} onPress={() => {
-                setGeneratedRecipe(null);
-                setGenerationProgress(0);
+                onBackPress();
               }}>
                 <Text style={styles.secondaryButtonText}>🔄 New</Text>
               </TouchableOpacity>

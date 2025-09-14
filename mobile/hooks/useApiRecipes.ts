@@ -14,6 +14,7 @@ import {
 import { BaseRecipe, PersonalRecipe, RecipeCollection } from '../types/RecipeTypes';
 import { apiClient } from '../services/ApiClient';
 import { syncManager } from '../services/SyncManager';
+import { recipeStorage } from '../services/RecipeStorageService';
 
 // Hook State Types
 interface ApiState<T> {
@@ -292,22 +293,46 @@ export function usePersonalRecipes() {
 
   // Load personal recipes
   const loadRecipes = useCallback(async (
-    page: number = 1, 
+    page: number = 1,
     filters?: Record<string, any>,
     append: boolean = false
   ) => {
     setState(prev => ({ ...prev, loading: true, error: null }));
 
     try {
-      const response = await recipeApi.getPersonalRecipes(page, 20, filters);
+      // First, try to load from local storage
+      let localRecipes: PersonalRecipe[] = [];
+      try {
+        const searchResult = await recipeStorage.searchRecipes(filters || {});
+        localRecipes = searchResult.items;
+      } catch (localError) {
+        console.warn('Failed to load from local storage:', localError);
+      }
+
+      // Try to load from API as well
+      let apiRecipes: PersonalRecipe[] = [];
+      try {
+        const response = await recipeApi.getPersonalRecipes(page, 20, filters);
+        apiRecipes = response.recipes;
+      } catch (apiError) {
+        console.warn('Failed to load from API:', apiError);
+      }
+
+      // Combine recipes, preferring local versions (for offline-first approach)
+      const combinedRecipes = [...localRecipes];
+      apiRecipes.forEach(apiRecipe => {
+        if (!combinedRecipes.find(local => local.id === apiRecipe.id)) {
+          combinedRecipes.push(apiRecipe);
+        }
+      });
 
       setState(prev => ({
         ...prev,
         loading: false,
-        recipes: append ? [...prev.recipes, ...response.recipes] : response.recipes,
+        recipes: append ? [...prev.recipes, ...combinedRecipes] : combinedRecipes,
       }));
 
-      return response;
+      return { recipes: combinedRecipes, totalCount: combinedRecipes.length, page, limit: 20, hasMore: false };
     } catch (error: any) {
       setState(prev => ({
         ...prev,
@@ -341,21 +366,32 @@ export function usePersonalRecipes() {
     } = {}
   ) => {
     try {
-      const response = await recipeApi.savePersonalRecipe({
-        recipe,
-        ...options,
-      });
+      // First, save to local storage to ensure persistence
+      const savedRecipe = await recipeStorage.saveRecipe(recipe as BaseRecipe, options.source || 'generated');
+
+      // Try to save to API (may fail in mock mode, but that's OK)
+      let apiResponse;
+      try {
+        apiResponse = await recipeApi.savePersonalRecipe({
+          recipe,
+          ...options,
+        });
+      } catch (apiError) {
+        console.warn('API save failed, but recipe saved locally:', apiError);
+        // Use locally saved recipe if API fails
+        apiResponse = { recipe: savedRecipe };
+      }
 
       // Add to local state optimistically
       setState(prev => ({
         ...prev,
-        recipes: [response.recipe, ...prev.recipes],
+        recipes: [savedRecipe, ...prev.recipes.filter(r => r.id !== savedRecipe.id)],
       }));
 
-      // Queue for sync
-      await syncManager.queueRecipeChange(response.recipe.id, 'create', response.recipe);
+      // Queue for sync when back online
+      await syncManager.queueRecipeChange(savedRecipe.id, 'create', savedRecipe);
 
-      return response.recipe;
+      return savedRecipe;
     } catch (error: any) {
       Alert.alert('Error', error.message || 'Failed to save recipe');
       throw error;

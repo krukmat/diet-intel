@@ -13,7 +13,9 @@ from datetime import datetime, timedelta
 from collections import defaultdict
 
 # Import existing recommendation engine as base
-from app.services.recommendation_engine import SmartRecommendationEngine, recommendation_engine
+# Temporarily commented to fix circular import - Task 8 integration
+# from app.services.recommendation_engine import SmartRecommendationEngine, recommendation_engine
+# from app.services.recommendation_engine import recommendation_engine
 from app.models.smart_diet import (
     SmartDietRequest, SmartDietResponse, SmartSuggestion, SuggestionFeedback,
     SuggestionType, SuggestionCategory, SmartDietContext, SmartDietInsights,
@@ -472,7 +474,8 @@ class SmartDietEngine:
     
     def __init__(self):
         # Use existing recommendation engine as foundation
-        self.recommendation_engine = recommendation_engine
+        # Temporarily disabled for Task 8 integration - will re-enable after completion
+        self.recommendation_engine = None  # recommendation_engine
         
         # Add optimization capabilities
         self.optimization_engine = OptimizationEngine()

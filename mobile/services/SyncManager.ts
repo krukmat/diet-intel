@@ -2,7 +2,7 @@
 // Coordinates between local storage and remote API with conflict resolution
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import NetInfo from 'react-native-netinfo';
+import NetInfo from '@react-native-community/netinfo';
 import { apiClient } from './ApiClient';
 import { recipeApi } from './RecipeApiService';
 import { recipeStorage } from './RecipeStorageService';
@@ -80,18 +80,24 @@ export class SyncManager {
   // Network Monitoring
   private initializeNetworkMonitoring(): void {
     try {
-      NetInfo.addEventListener(state => {
-        const wasOffline = !this.isOnline;
-        this.isOnline = state.isConnected ?? false;
+      // Check if NetInfo is properly available
+      if (NetInfo && typeof NetInfo.addEventListener === 'function') {
+        NetInfo.addEventListener(state => {
+          const wasOffline = !this.isOnline;
+          this.isOnline = state.isConnected ?? true; // Default to true if undefined
 
-        // Start sync when coming back online
-        if (wasOffline && this.isOnline && this.syncQueue.length > 0) {
-          console.log('📡 Back online - starting sync...');
-          this.performSync();
-        }
+          // Start sync when coming back online
+          if (wasOffline && this.isOnline && this.syncQueue.length > 0) {
+            console.log('📡 Back online - starting sync...');
+            this.performSync();
+          }
 
-        this.notifyListeners();
-      });
+          this.notifyListeners();
+        });
+        console.log('📡 SyncManager NetInfo initialized successfully');
+      } else {
+        throw new Error('NetInfo.addEventListener is not available');
+      }
     } catch (error) {
       console.warn('NetInfo not available in SyncManager, assuming online:', error);
       // Fallback to online state

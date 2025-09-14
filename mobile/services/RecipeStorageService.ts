@@ -364,7 +364,7 @@ export class RecipeStorageService {
       if (!hasTag) return false;
     }
 
-    if (filters.personalRatingMin && recipe.personalMetadata.personalRating) {
+    if (filters.personalRatingMin && recipe.personalMetadata?.personalRating) {
       if (recipe.personalMetadata.personalRating < filters.personalRatingMin) return false;
     }
 
@@ -402,16 +402,16 @@ export class RecipeStorageService {
           comparison = a.recipe.name.localeCompare(b.recipe.name);
           break;
         case 'personalRating':
-          const aRating = a.recipe.personalMetadata.personalRating || 0;
-          const bRating = b.recipe.personalMetadata.personalRating || 0;
+          const aRating = a.recipe.personalMetadata?.personalRating || 0;
+          const bRating = b.recipe.personalMetadata?.personalRating || 0;
           comparison = aRating - bRating;
           break;
         case 'timesCooked':
-          comparison = a.recipe.personalMetadata.timesCooked - b.recipe.personalMetadata.timesCooked;
+          comparison = (a.recipe.personalMetadata?.timesCooked || 0) - (b.recipe.personalMetadata?.timesCooked || 0);
           break;
         case 'lastCooked':
-          const aLast = a.recipe.personalMetadata.lastCooked?.getTime() || 0;
-          const bLast = b.recipe.personalMetadata.lastCooked?.getTime() || 0;
+          const aLast = a.recipe.personalMetadata?.lastCooked?.getTime() || 0;
+          const bLast = b.recipe.personalMetadata?.lastCooked?.getTime() || 0;
           comparison = aLast - bLast;
           break;
         case 'cookingTime':
@@ -431,10 +431,10 @@ export class RecipeStorageService {
       name: recipe.name,
       imageUrl: recipe.imageUrl,
       cookingTime: recipe.cookingTime,
-      personalRating: recipe.personalMetadata.personalRating,
-      isFavorite: recipe.personalMetadata.isFavorite,
+      personalRating: recipe.personalMetadata?.personalRating,
+      isFavorite: recipe.personalMetadata?.isFavorite || false,
       collections: recipe.collections,
-      lastCooked: recipe.personalMetadata.lastCooked,
+      lastCooked: recipe.personalMetadata?.lastCooked,
     };
   }
 
