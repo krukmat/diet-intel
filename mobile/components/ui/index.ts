@@ -2,11 +2,11 @@
  * UI Components Library
  * Central export for all DietIntel design system components
  *
- * Phase 1: Design System Foundation
+ * Phase 1: Design System Foundation - COMPLETE ✅
  * - Button: Complete ✅
  * - Card: Complete ✅
- * - Input: Coming next
- * - Layout: Coming next
+ * - Input: Complete ✅
+ * - Layout: Complete ✅
  */
 
 // Button Component System
@@ -37,9 +37,44 @@ export type {
   CardActionProps
 } from './Card';
 
+// Input Component System
+export {
+  Input,
+  InputSearch,
+  InputNumber
+} from './Input';
+export type {
+  InputProps,
+  InputRef,
+  InputSearchProps,
+  InputNumberProps,
+  InputVariant,
+  InputSize,
+  InputState,
+  ValidationRule,
+  InputValidationProps
+} from './Input';
+
+// Layout Component System
+export {
+  Container,
+  Section,
+  Spacer,
+  Grid,
+  GridItem
+} from './Layout';
+export type {
+  ContainerProps,
+  SectionProps,
+  SpacerProps,
+  GridProps,
+  GridItemProps,
+  ContainerVariant,
+  ContainerPadding,
+  SectionSpacing,
+  GridColumns,
+  SpacerDirection
+} from './Layout';
+
 // Design Tokens (for component consumers)
 export { tokens } from '../../styles/tokens';
-
-// More components will be added here as we implement them:
-// export { Input } from './Input';
-// export { Container, Section, Spacer, Grid } from './Layout';
