@@ -4,7 +4,7 @@
  *
  * Phase 1: Design System Foundation
  * - Button: Complete ✅
- * - Card: Coming next
+ * - Card: Complete ✅
  * - Input: Coming next
  * - Layout: Coming next
  */
@@ -18,10 +18,28 @@ export type {
   ButtonWidth
 } from './Button';
 
+// Card Component System
+export {
+  Card,
+  CardHeader,
+  CardBody,
+  CardFooter
+} from './Card';
+export type {
+  CardProps,
+  CardHeaderProps,
+  CardBodyProps,
+  CardFooterProps,
+  CardVariant,
+  CardPadding,
+  CardShadow,
+  CardStatsProps,
+  CardActionProps
+} from './Card';
+
 // Design Tokens (for component consumers)
 export { tokens } from '../../styles/tokens';
 
 // More components will be added here as we implement them:
-// export { Card } from './Card';
 // export { Input } from './Input';
 // export { Container, Section, Spacer, Grid } from './Layout';
