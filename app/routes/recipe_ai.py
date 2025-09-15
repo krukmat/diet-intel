@@ -11,7 +11,8 @@ from app.models.recipe import (
     RecipeSearchResponse, RecipeRatingResponse, ShoppingListResponse,
     RecipeAnalyticsResponse, RecipeGenerationError, UserTasteProfileRequest,
     UserTasteProfileResponse, PersonalizedRecipeRequest, PersonalizedRecommendationsResponse,
-    UserLearningProgressResponse
+    UserLearningProgressResponse, RecipeTranslationRequest, RecipeTranslationResponse,
+    BatchRecipeTranslationRequest, BatchRecipeTranslationResponse
 )
 from app.models.shopping import (
     ShoppingOptimizationRequest, ShoppingOptimizationResponse
@@ -51,7 +52,9 @@ def convert_to_engine_request(api_request: RecipeGenerationRequest, user_id: str
         max_cook_time_minutes=api_request.max_cook_time_minutes,
         # Map preferred_ingredients to available_ingredients for engine compatibility
         available_ingredients=getattr(api_request, 'preferred_ingredients', []),
-        excluded_ingredients=api_request.excluded_ingredients
+        excluded_ingredients=api_request.excluded_ingredients,
+        # Include target language for Spanish translation support
+        target_language=getattr(api_request, 'target_language', 'en')
     )
 
 
@@ -108,8 +111,8 @@ async def generate_recipe(
             engine_request, current_user.id
         )
 
-        # Generate recipe using AI engine with personalized request
-        generated_recipe = await recipe_engine.generate_recipe(personalized_request)
+        # Generate recipe using AI engine with personalized request and Spanish translation support
+        generated_recipe = await recipe_engine.generate_recipe_with_translation(personalized_request)
 
         # Score how well the recipe matches user's taste profile
         personalization_score = await recommendation_engine.score_recipe_personalization(
@@ -1081,3 +1084,172 @@ async def get_shopping_optimization(
     except Exception as e:
         logger.error(f"Failed to retrieve shopping optimization {optimization_id}: {e}")
         raise HTTPException(status_code=500, detail="Failed to retrieve shopping optimization")
+
+
+# ===== SPANISH TRANSLATION ENDPOINTS =====
+
+@router.post("/translate/{recipe_id}", response_model=GeneratedRecipeResponse)
+async def translate_recipe_to_spanish(
+    recipe_id: str,
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Translate an existing recipe to Spanish.
+
+    Takes an existing recipe ID and returns the recipe translated to Spanish
+    with ingredients, instructions, and descriptions in Spanish.
+    """
+    try:
+        logger.info(f"Translating recipe {recipe_id} to Spanish for user {current_user.id}")
+
+        # Get the existing recipe from database
+        existing_recipe = await recipe_db_service.get_recipe(recipe_id)
+        if not existing_recipe:
+            raise HTTPException(status_code=404, detail="Recipe not found")
+
+        # Translate the recipe to Spanish
+        translated_recipe = await recipe_engine.translate_existing_recipe(existing_recipe, target_language="es")
+
+        # Store the translated recipe in database
+        await recipe_db_service.create_recipe(translated_recipe, current_user.id)
+
+        # Convert to response format
+        response = GeneratedRecipeResponse(
+            id=translated_recipe.id,
+            name=translated_recipe.name,
+            description=translated_recipe.description,
+            cuisine_type=translated_recipe.cuisine_type,
+            difficulty_level=translated_recipe.difficulty_level,
+            prep_time_minutes=translated_recipe.prep_time_minutes,
+            cook_time_minutes=translated_recipe.cook_time_minutes,
+            servings=translated_recipe.servings,
+            ingredients=[
+                {
+                    "name": ing.name,
+                    "quantity": ing.quantity,
+                    "unit": ing.unit,
+                    "barcode": ing.barcode,
+                    "calories_per_unit": ing.calories_per_unit,
+                    "protein_g_per_unit": ing.protein_g_per_unit,
+                    "fat_g_per_unit": ing.fat_g_per_unit,
+                    "carbs_g_per_unit": ing.carbs_g_per_unit,
+                    "is_optional": ing.is_optional,
+                    "preparation_note": ing.preparation_note
+                }
+                for ing in translated_recipe.ingredients
+            ],
+            instructions=[
+                {
+                    "step_number": inst.step_number,
+                    "instruction": inst.instruction,
+                    "cooking_method": inst.cooking_method,
+                    "duration_minutes": inst.duration_minutes,
+                    "temperature_celsius": inst.temperature_celsius
+                }
+                for inst in translated_recipe.instructions
+            ],
+            nutrition={
+                "calories_per_serving": translated_recipe.nutrition.calories_per_serving,
+                "protein_g_per_serving": translated_recipe.nutrition.protein_g_per_serving,
+                "fat_g_per_serving": translated_recipe.nutrition.fat_g_per_serving,
+                "carbs_g_per_serving": translated_recipe.nutrition.carbs_g_per_serving,
+                "fiber_g_per_serving": translated_recipe.nutrition.fiber_g_per_serving,
+                "sugar_g_per_serving": translated_recipe.nutrition.sugar_g_per_serving,
+                "sodium_mg_per_serving": translated_recipe.nutrition.sodium_mg_per_serving,
+                "recipe_score": translated_recipe.nutrition.recipe_score
+            } if translated_recipe.nutrition else None,
+            created_by=translated_recipe.created_by,
+            confidence_score=translated_recipe.confidence_score,
+            generation_time_ms=translated_recipe.generation_time_ms,
+            tags=translated_recipe.tags,
+            created_at=datetime.now()
+        )
+
+        logger.info(f"Successfully translated recipe {recipe_id} to Spanish: {translated_recipe.name}")
+        return response
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to translate recipe {recipe_id} to Spanish: {e}")
+        raise HTTPException(status_code=500, detail="Failed to translate recipe to Spanish")
+
+
+@router.post("/translate/batch", response_model=Dict[str, Any])
+async def batch_translate_recipes_to_spanish(
+    request: BatchRecipeTranslationRequest,
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Translate multiple recipes to Spanish in a batch operation.
+
+    Efficiently translates multiple recipes at once, useful for
+    translating entire recipe collections.
+    """
+    try:
+        logger.info(f"Batch translating {len(request.recipe_ids)} recipes to Spanish for user {current_user.id}")
+
+        # Get existing recipes from database
+        recipes = []
+        for recipe_id in request.recipe_ids:
+            recipe = await recipe_db_service.get_recipe(recipe_id)
+            if recipe:
+                recipes.append(recipe)
+
+        # Translate all recipes
+        translations = await recipe_engine.batch_translate_recipes(recipes, target_language=request.target_language)
+
+        # Store translated recipes in database
+        successful_translations = {}
+        for original_recipe_id, translated_recipe in translations.items():
+            if translated_recipe:
+                try:
+                    await recipe_db_service.create_recipe(translated_recipe, current_user.id)
+                    successful_translations[original_recipe_id] = translated_recipe.id
+                except Exception as e:
+                    logger.error(f"Failed to store translated recipe {original_recipe_id}: {e}")
+
+        # Prepare response
+        total_count = len(request.recipe_ids)
+        successful_count = len([t for t in translations.values() if t is not None])
+        failed_count = total_count - successful_count
+
+        response = {
+            "translations": successful_translations,
+            "target_language": request.target_language,
+            "total_count": total_count,
+            "successful_count": successful_count,
+            "failed_count": failed_count,
+            "cached_count": 0  # Would be implemented with caching logic
+        }
+
+        logger.info(f"Batch translation completed: {successful_count}/{total_count} successful")
+        return response
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to batch translate recipes to Spanish: {e}")
+        raise HTTPException(status_code=500, detail="Failed to batch translate recipes")
+
+
+@router.get("/languages")
+async def get_supported_languages():
+    """
+    Get supported languages for Recipe AI translation.
+
+    Currently supports English (en) and Spanish (es).
+    """
+    return {
+        "supported_languages": {
+            "en": "English",
+            "es": "Español"
+        },
+        "default_language": "en",
+        "translation_features": [
+            "Recipe names and descriptions",
+            "Ingredient names and preparation notes",
+            "Step-by-step cooking instructions",
+            "Recipe tags and categories"
+        ]
+    }

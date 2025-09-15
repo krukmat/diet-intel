@@ -18,6 +18,10 @@ import {
   NutritionDisplay,
   RatingSystem,
 } from '../components/RecipeDetailComponents';
+import {
+  getCurrentRecipeLanguage,
+  formatRecipeTime,
+} from '../utils/recipeLanguageHelper';
 
 interface RecipeDetailScreenProps {
   recipeId?: string;
@@ -76,6 +80,8 @@ const CookingMode: React.FC<CookingModeProps> = ({
   completedSteps,
   onStepComplete,
 }) => {
+  const { t } = useTranslation();
+  const currentLanguage = getCurrentRecipeLanguage();
   const [currentStep, setCurrentStep] = useState(0);
   const [timers, setTimers] = useState<Record<number, { time: number; active: boolean }>>({});
 
@@ -108,10 +114,13 @@ const CookingMode: React.FC<CookingModeProps> = ({
           <TouchableOpacity style={styles.cookingModeClose} onPress={onClose}>
             <Text style={styles.cookingModeCloseText}>✕</Text>
           </TouchableOpacity>
-          <Text style={styles.cookingModeTitle}>🔥 Cooking Mode</Text>
+          <Text style={styles.cookingModeTitle}>{t('recipeDetail.cookingMode', '🔥 Cooking Mode')}</Text>
           <View style={styles.cookingModeProgress}>
             <Text style={styles.cookingModeProgressText}>
-              {currentStep + 1} / {recipe.instructions.length}
+              {t('recipeDetail.stepProgress', '{{current}} / {{total}}', {
+                current: currentStep + 1,
+                total: recipe.instructions.length
+              })}
             </Text>
           </View>
         </View>
@@ -136,7 +145,9 @@ const CookingMode: React.FC<CookingModeProps> = ({
                     onPress={() => startTimer(currentStep, currentInstruction.timeMinutes!)}
                   >
                     <Text style={styles.currentTimerText}>
-                      ⏰ Set {currentInstruction.timeMinutes} min timer
+                      {t('recipeDetail.setTimer', '⏰ Set {{time}} timer', {
+                        time: formatRecipeTime(currentInstruction.timeMinutes!, currentLanguage)
+                      })}
                     </Text>
                   </TouchableOpacity>
                 )}
@@ -162,7 +173,10 @@ const CookingMode: React.FC<CookingModeProps> = ({
                 styles.stepCompleteText,
                 completedSteps[currentStep] && styles.stepCompleteTextCompleted
               ]}>
-                {completedSteps[currentStep] ? '✓ Step Complete' : 'Mark as Complete'}
+                {completedSteps[currentStep] ?
+                  t('recipeDetail.stepComplete', '✓ Step Complete') :
+                  t('recipeDetail.markComplete', 'Mark as Complete')
+                }
               </Text>
             </TouchableOpacity>
           </View>
@@ -179,7 +193,7 @@ const CookingMode: React.FC<CookingModeProps> = ({
               styles.cookingNavButtonText,
               currentStep === 0 && styles.cookingNavButtonTextDisabled
             ]}>
-              ← Previous
+              {t('common.previous', '← Previous')}
             </Text>
           </TouchableOpacity>
 
@@ -210,7 +224,7 @@ const CookingMode: React.FC<CookingModeProps> = ({
               styles.cookingNavButtonText,
               currentStep === recipe.instructions.length - 1 && styles.cookingNavButtonTextDisabled
             ]}>
-              Next →
+              {t('common.next', 'Next →')}
             </Text>
           </TouchableOpacity>
         </View>
@@ -320,7 +334,10 @@ export default function RecipeDetailScreen({
       setCompletedSteps(new Array(mockRecipe.instructions.length).fill(false));
     } catch (error) {
       console.error('Error loading recipe:', error);
-      Alert.alert('Error', 'Failed to load recipe. Please try again.');
+      Alert.alert(
+        t('common.error', 'Error'),
+        t('recipeDetail.loadError', 'Failed to load recipe. Please try again.')
+      );
     } finally {
       setLoading(false);
     }
@@ -349,14 +366,24 @@ export default function RecipeDetailScreen({
   };
 
   const handleShare = () => {
-    Alert.alert('🔗 Share Recipe', `Share "${recipe?.name}" with friends!`);
+    Alert.alert(
+      t('recipeDetail.shareRecipe', '🔗 Share Recipe'),
+      t('recipeDetail.shareMessage', 'Share "{{recipeName}}" with friends!', { recipeName: recipe?.name })
+    );
   };
 
   const handleSave = () => {
     setIsFavorited(!isFavorited);
     Alert.alert(
-      isFavorited ? '💔 Removed from Favorites' : '❤️ Added to Favorites',
-      `"${recipe?.name}" ${isFavorited ? 'removed from' : 'added to'} your favorites`
+      isFavorited ?
+        t('recipeDetail.removedFromFavorites', '💔 Removed from Favorites') :
+        t('recipeDetail.addedToFavorites', '❤️ Added to Favorites'),
+      t('recipeDetail.favoritesMessage', '"{{recipeName}}" {{action}} your favorites', {
+        recipeName: recipe?.name,
+        action: isFavorited ?
+          t('recipeDetail.removedFrom', 'removed from') :
+          t('recipeDetail.addedTo', 'added to')
+      })
     );
   };
 
@@ -364,19 +391,27 @@ export default function RecipeDetailScreen({
     if (recipe && onNavigateToOptimize) {
       onNavigateToOptimize(recipe);
     } else {
-      Alert.alert('⚡ Optimize Recipe', 'Recipe optimization will be available in the next update!');
+      Alert.alert(
+        t('recipeDetail.optimizeRecipe', '⚡ Optimize Recipe'),
+        t('recipeDetail.optimizeComingSoon', 'Recipe optimization will be available in the next update!')
+      );
     }
   };
 
   const handleGenerateShoppingList = () => {
     const missingIngredients = recipe?.ingredients.filter((_, index) => !checkedIngredients[index]) || [];
     Alert.alert(
-      '🛒 Shopping List',
-      `Generate shopping list for ${missingIngredients.length} missing ingredients?`,
+      t('recipeDetail.shoppingList', '🛒 Shopping List'),
+      t('recipeDetail.generateShoppingListMessage', 'Generate shopping list for {{count}} missing ingredients?', {
+        count: missingIngredients.length
+      }),
       [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Generate', onPress: () => {
-          Alert.alert('✅ Shopping List Created!', 'Added missing ingredients to your shopping list');
+        { text: t('common.cancel', 'Cancel'), style: 'cancel' },
+        { text: t('common.generate', 'Generate'), onPress: () => {
+          Alert.alert(
+            t('recipeDetail.shoppingListCreated', '✅ Shopping List Created!'),
+            t('recipeDetail.shoppingListCreatedMessage', 'Added missing ingredients to your shopping list')
+          );
         }},
       ]
     );
@@ -385,8 +420,13 @@ export default function RecipeDetailScreen({
   const handleRatingSubmit = (rating: number, review?: string) => {
     setUserRating(rating);
     Alert.alert(
-      '⭐ Rating Submitted',
-      `Thank you for rating "${recipe?.name}" ${rating} star${rating !== 1 ? 's' : ''}!${review ? ' Your review has been submitted.' : ''}`
+      t('recipeDetail.ratingSubmitted', '⭐ Rating Submitted'),
+      t('recipeDetail.ratingThankYou', 'Thank you for rating "{{recipeName}}" {{rating}} {{stars}}!{{reviewNote}}', {
+        recipeName: recipe?.name,
+        rating: rating,
+        stars: rating !== 1 ? t('common.stars', 'stars') : t('common.star', 'star'),
+        reviewNote: review ? ` ${t('recipeDetail.reviewSubmitted', 'Your review has been submitted.')}` : ''
+      })
     );
   };
 
@@ -397,7 +437,7 @@ export default function RecipeDetailScreen({
   if (loading || !recipe) {
     return (
       <View style={styles.loadingContainer}>
-        <Text style={styles.loadingText}>Loading recipe...</Text>
+        <Text style={styles.loadingText}>{t('recipeDetail.loading', 'Loading recipe...')}</Text>
       </View>
     );
   }
@@ -407,9 +447,9 @@ export default function RecipeDetailScreen({
       {/* Header */}
       <View style={styles.headerContainer}>
         <TouchableOpacity style={styles.backButton} onPress={onBackPress}>
-          <Text style={styles.backButtonText}>← Back</Text>
+          <Text style={styles.backButtonText}>← {t('common.back', 'Back')}</Text>
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Recipe Details</Text>
+        <Text style={styles.headerTitle}>{t('recipeDetail.title', 'Recipe Details')}</Text>
         <View style={styles.headerSpacer} />
       </View>
 
@@ -436,7 +476,7 @@ export default function RecipeDetailScreen({
             onPress={() => setActiveTab('ingredients')}
           >
             <Text style={[styles.tabText, activeTab === 'ingredients' && styles.tabTextActive]}>
-              Ingredients
+              {t('recipeDetail.ingredientsTab', 'Ingredients')}
             </Text>
           </TouchableOpacity>
           
@@ -445,7 +485,7 @@ export default function RecipeDetailScreen({
             onPress={() => setActiveTab('instructions')}
           >
             <Text style={[styles.tabText, activeTab === 'instructions' && styles.tabTextActive]}>
-              Instructions
+              {t('recipeDetail.instructionsTab', 'Instructions')}
             </Text>
           </TouchableOpacity>
           
@@ -454,7 +494,7 @@ export default function RecipeDetailScreen({
             onPress={() => setActiveTab('nutrition')}
           >
             <Text style={[styles.tabText, activeTab === 'nutrition' && styles.tabTextActive]}>
-              Nutrition
+              {t('recipeDetail.nutritionTab', 'Nutrition')}
             </Text>
           </TouchableOpacity>
           
@@ -463,7 +503,7 @@ export default function RecipeDetailScreen({
             onPress={() => setActiveTab('reviews')}
           >
             <Text style={[styles.tabText, activeTab === 'reviews' && styles.tabTextActive]}>
-              Reviews
+              {t('recipeDetail.reviewsTab', 'Reviews')}
             </Text>
           </TouchableOpacity>
         </View>

@@ -16,6 +16,12 @@ import {
   ScrollView,
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
+import { RecipeLanguageToggle } from '../components/RecipeLanguageToggle';
+import {
+  getCurrentRecipeLanguage,
+  getLocalizedDifficultyLevels,
+  formatRecipeTime,
+} from '../utils/recipeLanguageHelper';
 import {
   CollectionCard,
   PersonalRecipeCard,
@@ -293,17 +299,33 @@ export default function MyRecipesScreen({
       await apiHooks.toggleFavorite(recipeId);
     } catch (error) {
       console.error('Failed to toggle favorite:', error);
-      Alert.alert('Error', 'Failed to update recipe favorite status.');
+      Alert.alert(
+        t('common.error', 'Error'),
+        t('myRecipes.failedToUpdateFavorite', 'Failed to update recipe favorite status.')
+      );
     }
   }, [apiHooks]);
 
   const handleRecipeShare = useCallback((recipe: RecipeListItem) => {
-    Alert.alert('🔗 Share Recipe', `Share "${recipe.name}" with friends!`);
+    Alert.alert(
+      t('myRecipes.shareRecipe', '🔗 Share Recipe'),
+      t('myRecipes.shareMessage', 'Share "{{recipeName}}" with friends!', { recipeName: recipe.name })
+    );
   }, []);
 
   const handleAddToMealPlan = useCallback((recipe: RecipeListItem) => {
-    Alert.alert('📅 Add to Meal Plan', `Add "${recipe.name}" to your meal plan!`);
+    Alert.alert(
+      t('myRecipes.addToMealPlan', '📅 Add to Meal Plan'),
+      t('myRecipes.addToMealPlanMessage', 'Add "{{recipeName}}" to your meal plan!', { recipeName: recipe.name })
+    );
   }, []);
+
+  const handleLanguageChange = useCallback((language: string) => {
+    // Refresh data when language changes
+    setTimeout(() => {
+      apiHooks.refresh();
+    }, 100);
+  }, [apiHooks]);
 
   const handleCreateCollection = useCallback(async (
     name: string,
@@ -314,10 +336,16 @@ export default function MyRecipesScreen({
     try {
       await apiHooks.createCollection(name, description, color, icon);
       setShowCreateCollection(false);
-      Alert.alert('✅ Success', `Collection "${name}" created!`);
+      Alert.alert(
+        t('common.success', '✅ Success'),
+        t('myRecipes.collectionCreated', 'Collection "{{name}}" created!', { name })
+      );
     } catch (error) {
       console.error('Failed to create collection:', error);
-      Alert.alert('Error', 'Failed to create collection. Please try again.');
+      Alert.alert(
+        t('common.error', 'Error'),
+        t('myRecipes.failedToCreateCollection', 'Failed to create collection. Please try again.')
+      );
     }
   }, [apiHooks]);
 
@@ -342,17 +370,23 @@ export default function MyRecipesScreen({
   }, []);
 
   const handleEditRecipe = useCallback((recipe: RecipeListItem) => {
-    Alert.alert('✏️ Edit Recipe', `Edit functionality for "${recipe.name}" will be available in the next update!`);
+    Alert.alert(
+      t('myRecipes.editRecipe', '✏️ Edit Recipe'),
+      t('myRecipes.editComingSoon', 'Edit functionality for "{{recipeName}}" will be available in the next update!', { recipeName: recipe.name })
+    );
   }, []);
 
   const handleExportRecipe = useCallback((recipe: RecipeListItem) => {
-    Alert.alert('📥 Export Recipe', `Export functionality for "${recipe.name}" will be integrated with external apps!`);
+    Alert.alert(
+      t('myRecipes.exportRecipe', '📥 Export Recipe'),
+      t('myRecipes.exportComingSoon', 'Export functionality for "{{recipeName}}" will be integrated with external apps!', { recipeName: recipe.name })
+    );
   }, []);
 
   const handleDuplicateRecipe = useCallback(async (recipe: RecipeListItem) => {
     try {
       const duplicatedRecipe = {
-        name: `${recipe.name} (Copy)`,
+        name: `${recipe.name} (${t('myRecipes.copy', 'Copy')})`,
         description: recipe.description,
         cookingTime: recipe.cookingTime,
         difficulty: recipe.difficulty,
@@ -361,7 +395,7 @@ export default function MyRecipesScreen({
         ingredients: [],
         instructions: [],
         nutrition: { calories: recipe.calories },
-        personalNotes: 'Duplicated recipe',
+        personalNotes: t('myRecipes.duplicatedRecipe', 'Duplicated recipe'),
       };
       
       await apiHooks.saveRecipe(duplicatedRecipe, {
@@ -369,35 +403,56 @@ export default function MyRecipesScreen({
         personalTags: recipe.tags,
       });
       
-      Alert.alert('✅ Recipe Duplicated', `"${duplicatedRecipe.name}" has been added to your library!`);
+      Alert.alert(
+        t('myRecipes.recipeDuplicated', '✅ Recipe Duplicated'),
+        t('myRecipes.recipeDuplicatedMessage', '"{{recipeName}}" has been added to your library!', { recipeName: duplicatedRecipe.name })
+      );
     } catch (error) {
       console.error('Failed to duplicate recipe:', error);
-      Alert.alert('Error', 'Failed to duplicate recipe. Please try again.');
+      Alert.alert(
+        t('common.error', 'Error'),
+        t('myRecipes.failedToDuplicate', 'Failed to duplicate recipe. Please try again.')
+      );
     }
   }, [apiHooks]);
 
   const handleDeleteRecipe = useCallback(async (recipeId: string) => {
     try {
       await apiHooks.deleteRecipe(recipeId);
-      Alert.alert('✅ Recipe Deleted', 'Recipe has been removed from your library.');
+      Alert.alert(
+        t('myRecipes.recipeDeleted', '✅ Recipe Deleted'),
+        t('myRecipes.recipeDeletedMessage', 'Recipe has been removed from your library.')
+      );
     } catch (error) {
       console.error('Failed to delete recipe:', error);
-      Alert.alert('Error', 'Failed to delete recipe. Please try again.');
+      Alert.alert(
+        t('common.error', 'Error'),
+        t('myRecipes.failedToDelete', 'Failed to delete recipe. Please try again.')
+      );
     }
   }, [apiHooks]);
 
   // Backup & Export Handlers
   const handleBackupAll = useCallback(() => {
-    Alert.alert('💾 Full Backup', 'Full backup functionality will create a JSON file with all your recipes and collections!');
+    Alert.alert(
+      t('myRecipes.fullBackup', '💾 Full Backup'),
+      t('myRecipes.fullBackupMessage', 'Full backup functionality will create a JSON file with all your recipes and collections!')
+    );
   }, []);
 
   const handleExportCollection = useCallback((collectionId: string) => {
     const collection = collections.find(c => c.id === collectionId);
-    Alert.alert('📤 Export Collection', `Export "${collection?.name}" collection functionality will be available soon!`);
+    Alert.alert(
+      t('myRecipes.exportCollection', '📤 Export Collection'),
+      t('myRecipes.exportCollectionMessage', 'Export "{{collectionName}}" collection functionality will be available soon!', { collectionName: collection?.name })
+    );
   }, [collections]);
 
   const handleImportRecipes = useCallback(() => {
-    Alert.alert('📥 Import Recipes', 'Import functionality will support JSON, CSV, and other recipe formats!');
+    Alert.alert(
+      t('myRecipes.importRecipes', '📥 Import Recipes'),
+      t('myRecipes.importRecipesMessage', 'Import functionality will support JSON, CSV, and other recipe formats!')
+    );
   }, []);
 
   // Render functions
@@ -439,9 +494,9 @@ export default function MyRecipesScreen({
       if (selectedCollection) {
         return (
           <EmptyLibraryState
-            title="No recipes in collection"
-            message={`"${selectedCollectionData?.name}" collection is empty. Add some recipes to get started!`}
-            actionText="Browse Recipes"
+            title={t('myRecipes.noRecipesInCollection', 'No recipes in collection')}
+            message={t('myRecipes.collectionEmpty', '"{{collectionName}}" collection is empty. Add some recipes to get started!', { collectionName: selectedCollectionData?.name })}
+            actionText={t('myRecipes.browseRecipes', 'Browse Recipes')}
             onAction={() => {
               setSelectedCollection(null);
               onNavigateToGeneration?.();
@@ -452,9 +507,9 @@ export default function MyRecipesScreen({
       } else {
         return (
           <EmptyLibraryState
-            title="Your recipe library is empty"
-            message="Start building your personal recipe collection by generating or saving recipes!"
-            actionText="Generate Recipe"
+            title={t('myRecipes.libraryEmpty', 'Your recipe library is empty')}
+            message={t('myRecipes.libraryEmptyMessage', 'Start building your personal recipe collection by generating or saving recipes!')}
+            actionText={t('myRecipes.generateRecipe', 'Generate Recipe')}
             onAction={onNavigateToGeneration}
             icon="📚"
           />
@@ -470,7 +525,7 @@ export default function MyRecipesScreen({
     return (
       <View style={styles.loadingFooter}>
         <ActivityIndicator size="small" color="#007AFF" />
-        <Text style={styles.loadingText}>Loading more recipes...</Text>
+        <Text style={styles.loadingText}>{t('myRecipes.loadingMoreRecipes', 'Loading more recipes...')}</Text>
       </View>
     );
   }, [loading, recipeResults.items.length]);
@@ -481,7 +536,7 @@ export default function MyRecipesScreen({
       <SafeAreaView style={styles.container}>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#007AFF" />
-          <Text style={styles.loadingText}>Loading your recipe library...</Text>
+          <Text style={styles.loadingText}>{t('myRecipes.loadingLibrary', 'Loading your recipe library...')}</Text>
         </View>
       </SafeAreaView>
     );
@@ -492,17 +547,21 @@ export default function MyRecipesScreen({
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity style={styles.backButton} onPress={onBackPress}>
-          <Text style={styles.backButtonText}>← Back</Text>
+          <Text style={styles.backButtonText}>← {t('common.back', 'Back')}</Text>
         </TouchableOpacity>
-        <Text style={styles.title}>📚 My Recipes</Text>
+        <Text style={styles.title}>{t('myRecipes.title', '📚 My Recipes')}</Text>
         <View style={styles.headerActions}>
-          <TouchableOpacity 
+          <RecipeLanguageToggle
+            style={styles.languageToggle}
+            onLanguageChange={handleLanguageChange}
+          />
+          <TouchableOpacity
             style={styles.statsButton}
             onPress={() => setShowStatsModal(true)}
           >
             <Text style={styles.statsButtonText}>📊</Text>
           </TouchableOpacity>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.backupButton}
             onPress={() => setShowBackupModal(true)}
           >
@@ -529,7 +588,7 @@ export default function MyRecipesScreen({
       {!networkStatus.isConnected && (
         <View style={styles.networkStatus}>
           <Text style={styles.networkStatusText}>
-            📱 Offline Mode - Personal recipes available from local storage
+            {t('myRecipes.offlineMode', '📱 Offline Mode - Personal recipes available from local storage')}
           </Text>
         </View>
       )}
@@ -755,6 +814,10 @@ const styles = StyleSheet.create({
   headerActions: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 8,
+  },
+  languageToggle: {
+    marginRight: 4,
   },
   statsButton: {
     paddingVertical: 8,

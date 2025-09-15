@@ -78,6 +78,9 @@ class RecipeGenerationRequest(BaseModel):
     # Ingredient preferences
     preferred_ingredients: List[str] = Field(default_factory=list)
     excluded_ingredients: List[str] = Field(default_factory=list)
+
+    # Language preferences
+    target_language: str = Field(default="en", description="Target language for recipe (en, es)")
     
     # Context
     cooking_skill_level: str = "beginner"  # beginner, intermediate, advanced
@@ -383,3 +386,45 @@ class RecipeValidationError(BaseModel):
     field: str
     error_message: str
     invalid_value: Optional[Any] = None
+
+
+# ===== SPANISH TRANSLATION MODELS =====
+
+class RecipeTranslationRequest(BaseModel):
+    """Request model for translating existing recipes to Spanish"""
+    recipe_id: str = Field(..., description="ID of the recipe to translate")
+    target_language: str = Field(default="es", description="Target language (es for Spanish)")
+
+
+class RecipeTranslationResponse(BaseModel):
+    """Response model for translated recipe"""
+    original_recipe_id: str
+    translated_recipe: "GeneratedRecipeResponse"
+    target_language: str
+    translation_timestamp: datetime
+    cached: bool = Field(default=False, description="Whether translation was cached")
+
+
+class BatchRecipeTranslationRequest(BaseModel):
+    """Request model for batch recipe translation"""
+    recipe_ids: List[str] = Field(..., min_items=1, max_items=10, description="Recipe IDs to translate")
+    target_language: str = Field(default="es", description="Target language (es for Spanish)")
+
+
+class BatchRecipeTranslationResponse(BaseModel):
+    """Response model for batch recipe translation"""
+    translations: Dict[str, Optional["GeneratedRecipeResponse"]] = Field(..., description="Recipe translations")
+    target_language: str
+    total_count: int
+    successful_count: int
+    failed_count: int
+    cached_count: int = Field(default=0)
+
+
+class SpanishRecipeMetadata(BaseModel):
+    """Metadata for Spanish recipe translations"""
+    original_language: str = "en"
+    target_language: str = "es"
+    translation_quality_score: Optional[float] = Field(None, ge=0.0, le=1.0)
+    cultural_adaptations: List[str] = Field(default_factory=list)
+    ingredient_substitutions: Dict[str, str] = Field(default_factory=dict)

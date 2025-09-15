@@ -15,6 +15,7 @@ from .smart_diet_optimized import SmartDietEngine
 from .nutrition_calculator import NutritionCalculator
 from .performance_monitor import performance_monitor
 from .redis_cache import redis_cache_service
+from .recipe_translation_service import get_recipe_translation_service
 
 logger = logging.getLogger(__name__)
 
@@ -557,12 +558,15 @@ class RecipeAIEngine:
         # Leverage existing Smart Diet components
         self.smart_diet_engine = SmartDietEngine()
         self.nutrition_calculator = NutritionCalculator()
-        
+
         # New recipe-specific components
         self.recipe_generator = RecipeGenerator()
         self.ingredient_optimizer = IngredientOptimizer()
         self.cooking_method_analyzer = CookingMethodAnalyzer()
         self.nutritional_optimizer = NutritionalOptimizer()
+
+        # Spanish translation service
+        self.translation_service = get_recipe_translation_service()
     
     async def generate_recipe(self, request: RecipeGenerationRequest) -> GeneratedRecipe:
         """
@@ -785,6 +789,54 @@ class RecipeAIEngine:
                 total_cost += 4.0  # Default cost for unknown ingredients
         
         return round(total_cost, 2)
+
+    async def generate_recipe_with_translation(self, request: RecipeGenerationRequest) -> GeneratedRecipe:
+        """
+        Generate recipe and translate to target language if specified
+        Enhanced version that supports Spanish translation
+        """
+        # Generate the base recipe in English
+        base_recipe = await self.generate_recipe(request)
+
+        # If target language is Spanish, translate the recipe
+        if hasattr(request, 'target_language') and request.target_language == "es":
+            try:
+                logger.info(f"Translating recipe '{base_recipe.name}' to Spanish")
+                translated_recipe = await self.translation_service.translate_complete_recipe(base_recipe)
+                logger.info(f"Successfully translated recipe to Spanish: {translated_recipe.name}")
+                return translated_recipe
+            except Exception as e:
+                logger.error(f"Failed to translate recipe to Spanish: {e}")
+                # Return original recipe if translation fails
+                return base_recipe
+
+        # Return original recipe if no translation needed
+        return base_recipe
+
+    async def translate_existing_recipe(self, recipe: GeneratedRecipe, target_language: str = "es") -> GeneratedRecipe:
+        """
+        Translate an existing recipe to Spanish
+        """
+        if target_language == "es":
+            try:
+                logger.info(f"Translating existing recipe '{recipe.name}' to Spanish")
+                translated_recipe = await self.translation_service.translate_complete_recipe(recipe)
+                logger.info(f"Successfully translated existing recipe: {translated_recipe.name}")
+                return translated_recipe
+            except Exception as e:
+                logger.error(f"Failed to translate existing recipe to Spanish: {e}")
+                raise Exception(f"Translation failed: {str(e)}")
+        else:
+            raise ValueError(f"Unsupported target language: {target_language}")
+
+    async def batch_translate_recipes(self, recipes: List[GeneratedRecipe], target_language: str = "es") -> Dict[str, Optional[GeneratedRecipe]]:
+        """
+        Translate multiple recipes to Spanish
+        """
+        if target_language == "es":
+            return await self.translation_service.batch_translate_recipes(recipes)
+        else:
+            raise ValueError(f"Unsupported target language: {target_language}")
 
 
 # Singleton instance

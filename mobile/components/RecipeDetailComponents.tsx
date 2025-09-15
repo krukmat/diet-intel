@@ -10,6 +10,12 @@ import {
   Animated,
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
+import {
+  getCurrentRecipeLanguage,
+  getLocalizedDifficultyLevels,
+  formatRecipeTime,
+  formatServings,
+} from '../utils/recipeLanguageHelper';
 
 // Enhanced Recipe Header with Hero Section
 interface RecipeHeaderProps {
@@ -39,6 +45,10 @@ export const RecipeHeader: React.FC<RecipeHeaderProps> = ({
   onGenerateShoppingList,
   isFavorited,
 }) => {
+  const { t } = useTranslation();
+  const currentLanguage = getCurrentRecipeLanguage();
+  const localizedDifficultyLevels = getLocalizedDifficultyLevels(currentLanguage);
+
   const getDifficultyColor = (difficulty: string) => {
     switch (difficulty.toLowerCase()) {
       case 'beginner': return '#34C759';
@@ -88,7 +98,7 @@ export const RecipeHeader: React.FC<RecipeHeaderProps> = ({
               {renderStars(recipe.rating)}
             </View>
             <Text style={styles.ratingText}>
-              {recipe.rating.toFixed(1)} ({recipe.totalRatings || 0} reviews)
+              {recipe.rating.toFixed(1)} ({recipe.totalRatings || 0} {t('recipeDetail.reviews', 'reviews')})
             </Text>
           </View>
         )}
@@ -97,22 +107,22 @@ export const RecipeHeader: React.FC<RecipeHeaderProps> = ({
         <View style={styles.metricsContainer}>
           <View style={styles.metricItem}>
             <Text style={styles.metricIcon}>⏱️</Text>
-            <Text style={styles.metricValue}>{recipe.cookingTime}min</Text>
-            <Text style={styles.metricLabel}>Cook Time</Text>
+            <Text style={styles.metricValue}>{formatRecipeTime(recipe.cookingTime, currentLanguage)}</Text>
+            <Text style={styles.metricLabel}>{t('recipeDetail.cookTime', 'Cook Time')}</Text>
           </View>
           
           <View style={styles.metricItem}>
             <Text style={styles.metricIcon}>👥</Text>
-            <Text style={styles.metricValue}>{recipe.servings}</Text>
-            <Text style={styles.metricLabel}>Servings</Text>
+            <Text style={styles.metricValue}>{formatServings(recipe.servings, currentLanguage)}</Text>
+            <Text style={styles.metricLabel}>{t('recipeDetail.servings', 'Servings')}</Text>
           </View>
           
           <View style={styles.metricItem}>
             <Text style={styles.metricIcon}>📊</Text>
             <Text style={[styles.metricValue, { color: getDifficultyColor(recipe.difficulty) }]}>
-              {recipe.difficulty}
+              {localizedDifficultyLevels[recipe.difficulty] || recipe.difficulty}
             </Text>
-            <Text style={styles.metricLabel}>Difficulty</Text>
+            <Text style={styles.metricLabel}>{t('recipeDetail.difficulty', 'Difficulty')}</Text>
           </View>
         </View>
 
@@ -135,11 +145,11 @@ export const RecipeHeader: React.FC<RecipeHeaderProps> = ({
         {/* Action Buttons */}
         <View style={styles.actionButtonsContainer}>
           <TouchableOpacity style={styles.primaryActionButton} onPress={onGenerateShoppingList}>
-            <Text style={styles.primaryActionText}>🛒 Shopping List</Text>
+            <Text style={styles.primaryActionText}>{t('recipeDetail.shoppingList', '🛒 Shopping List')}</Text>
           </TouchableOpacity>
           
           <TouchableOpacity style={styles.secondaryActionButton} onPress={onOptimize}>
-            <Text style={styles.secondaryActionText}>⚡ Optimize</Text>
+            <Text style={styles.secondaryActionText}>{t('recipeDetail.optimize', '⚡ Optimize')}</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -168,6 +178,8 @@ export const InteractiveIngredients: React.FC<InteractiveIngredientsProps> = ({
   onIngredientToggle,
   checkedIngredients,
 }) => {
+  const { t } = useTranslation();
+  const currentLanguage = getCurrentRecipeLanguage();
   const [currentServings, setCurrentServings] = useState(originalServings);
 
   const adjustServings = (newServings: number) => {
@@ -184,7 +196,7 @@ export const InteractiveIngredients: React.FC<InteractiveIngredientsProps> = ({
 
   // Group ingredients by category
   const groupedIngredients = ingredients.reduce((groups, ingredient, index) => {
-    const category = ingredient.category || 'Main Ingredients';
+    const category = ingredient.category || t('recipeDetail.mainIngredients', 'Main Ingredients');
     if (!groups[category]) {
       groups[category] = [];
     }
@@ -196,7 +208,7 @@ export const InteractiveIngredients: React.FC<InteractiveIngredientsProps> = ({
     <View style={styles.ingredientsContainer}>
       {/* Servings Adjuster */}
       <View style={styles.servingsAdjuster}>
-        <Text style={styles.sectionTitle}>🛒 Ingredients</Text>
+        <Text style={styles.sectionTitle}>{t('recipeDetail.ingredientsTitle', '🛒 Ingredients')}</Text>
         <View style={styles.servingsControls}>
           <TouchableOpacity
             style={[styles.servingsButton, currentServings <= 1 && styles.servingsButtonDisabled]}
@@ -208,7 +220,7 @@ export const InteractiveIngredients: React.FC<InteractiveIngredientsProps> = ({
           
           <View style={styles.servingsDisplay}>
             <Text style={styles.servingsValue}>{currentServings}</Text>
-            <Text style={styles.servingsLabel}>servings</Text>
+            <Text style={styles.servingsLabel}>{t('recipeDetail.servings', 'servings')}</Text>
           </View>
           
           <TouchableOpacity
@@ -262,7 +274,7 @@ export const InteractiveIngredients: React.FC<InteractiveIngredientsProps> = ({
       {/* Shopping List Actions */}
       <View style={styles.shoppingActions}>
         <TouchableOpacity style={styles.shoppingActionButton}>
-          <Text style={styles.shoppingActionText}>📝 Add Missing to Shopping List</Text>
+          <Text style={styles.shoppingActionText}>{t('recipeDetail.addMissingToShoppingList', '📝 Add Missing to Shopping List')}</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -288,15 +300,16 @@ export const Instructions: React.FC<InstructionsProps> = ({
   completedSteps,
   onStepComplete,
 }) => {
+  const { t } = useTranslation();
   const [activeStep, setActiveStep] = useState(0);
 
   return (
     <View style={styles.instructionsContainer}>
       {/* Instructions Header */}
       <View style={styles.instructionsHeader}>
-        <Text style={styles.sectionTitle}>👨‍🍳 Instructions</Text>
+        <Text style={styles.sectionTitle}>{t('recipeDetail.instructionsTitle', '👨‍🍳 Instructions')}</Text>
         <TouchableOpacity style={styles.cookingModeButton} onPress={onStartCookingMode}>
-          <Text style={styles.cookingModeText}>🔥 Cooking Mode</Text>
+          <Text style={styles.cookingModeText}>{t('recipeDetail.cookingMode', '🔥 Cooking Mode')}</Text>
         </TouchableOpacity>
       </View>
 
@@ -313,7 +326,10 @@ export const Instructions: React.FC<InstructionsProps> = ({
           />
         </View>
         <Text style={styles.progressText}>
-          {completedSteps.filter(Boolean).length} of {instructions.length} steps completed
+          {t('recipeDetail.stepsCompleted', '{{completed}} of {{total}} steps completed', {
+            completed: completedSteps.filter(Boolean).length,
+            total: instructions.length
+          })}
         </Text>
       </View>
 
@@ -352,7 +368,7 @@ export const Instructions: React.FC<InstructionsProps> = ({
                 <View style={styles.stepMeta}>
                   {instruction.timeMinutes && (
                     <View style={styles.stepMetaItem}>
-                      <Text style={styles.stepMetaText}>⏱️ {instruction.timeMinutes} min</Text>
+                      <Text style={styles.stepMetaText}>⏱️ {formatRecipeTime(instruction.timeMinutes, currentLanguage)}</Text>
                     </View>
                   )}
                   {instruction.temperature && (
@@ -395,6 +411,7 @@ export const NutritionDisplay: React.FC<NutritionDisplayProps> = ({
   nutrition,
   servings,
 }) => {
+  const { t } = useTranslation();
   const totalCalories = nutrition.calories * servings;
   const proteinCalories = nutrition.protein * 4;
   const fatCalories = nutrition.fat * 9;
@@ -404,77 +421,77 @@ export const NutritionDisplay: React.FC<NutritionDisplayProps> = ({
   const fatPercent = (fatCalories / nutrition.calories) * 100;
   const carbPercent = (carbCalories / nutrition.calories) * 100;
 
-  const MacroChart: React.FC<{ percent: number; color: string; label: string }> = ({ percent, color, label }) => (
+  const MacroChart: React.FC<{ percent: number; color: string; labelKey: string; defaultLabel: string }> = ({ percent, color, labelKey, defaultLabel }) => (
     <View style={styles.macroChart}>
       <View style={styles.macroCircleContainer}>
         <View style={[styles.macroCircle, { borderColor: color }]}>
           <Text style={[styles.macroPercent, { color }]}>{Math.round(percent)}%</Text>
         </View>
       </View>
-      <Text style={styles.macroLabel}>{label}</Text>
+      <Text style={styles.macroLabel}>{t(labelKey, defaultLabel)}</Text>
     </View>
   );
 
   return (
     <View style={styles.nutritionContainer}>
-      <Text style={styles.sectionTitle}>📊 Nutrition Facts</Text>
+      <Text style={styles.sectionTitle}>{t('recipeDetail.nutritionFacts', '📊 Nutrition Facts')}</Text>
       
       {/* Calories Summary */}
       <View style={styles.caloriesSummary}>
         <View style={styles.caloriesMain}>
           <Text style={styles.caloriesValue}>{nutrition.calories}</Text>
-          <Text style={styles.caloriesLabel}>calories per serving</Text>
+          <Text style={styles.caloriesLabel}>{t('recipeDetail.caloriesPerServing', 'calories per serving')}</Text>
         </View>
         
         {nutrition.score && (
           <View style={styles.nutritionScore}>
             <Text style={styles.scoreValue}>{Math.round(nutrition.score * 100)}%</Text>
-            <Text style={styles.scoreLabel}>nutrition score</Text>
+            <Text style={styles.scoreLabel}>{t('recipeDetail.nutritionScore', 'nutrition score')}</Text>
           </View>
         )}
       </View>
 
       {/* Macro Charts */}
       <View style={styles.macroChartsContainer}>
-        <MacroChart percent={proteinPercent} color="#007AFF" label="Protein" />
-        <MacroChart percent={fatPercent} color="#FF9500" label="Fat" />
-        <MacroChart percent={carbPercent} color="#34C759" label="Carbs" />
+        <MacroChart percent={proteinPercent} color="#007AFF" labelKey="recipeDetail.protein" defaultLabel="Protein" />
+        <MacroChart percent={fatPercent} color="#FF9500" labelKey="recipeDetail.fat" defaultLabel="Fat" />
+        <MacroChart percent={carbPercent} color="#34C759" labelKey="recipeDetail.carbs" defaultLabel="Carbs" />
       </View>
 
       {/* Detailed Breakdown */}
       <View style={styles.nutritionDetails}>
         <View style={styles.nutritionRow}>
-          <Text style={styles.nutritionLabel}>Protein</Text>
+          <Text style={styles.nutritionLabel}>{t('recipeDetail.protein', 'Protein')}</Text>
           <Text style={styles.nutritionValue}>{nutrition.protein}g</Text>
         </View>
         
         <View style={styles.nutritionRow}>
-          <Text style={styles.nutritionLabel}>Fat</Text>
+          <Text style={styles.nutritionLabel}>{t('recipeDetail.fat', 'Fat')}</Text>
           <Text style={styles.nutritionValue}>{nutrition.fat}g</Text>
         </View>
         
         <View style={styles.nutritionRow}>
-          <Text style={styles.nutritionLabel}>Carbohydrates</Text>
+          <Text style={styles.nutritionLabel}>{t('recipeDetail.carbohydrates', 'Carbohydrates')}</Text>
           <Text style={styles.nutritionValue}>{nutrition.carbs}g</Text>
         </View>
         
         {nutrition.fiber && (
           <View style={styles.nutritionRow}>
-            <Text style={styles.nutritionLabel}>Fiber</Text>
+            <Text style={styles.nutritionLabel}>{t('recipeDetail.fiber', 'Fiber')}</Text>
             <Text style={styles.nutritionValue}>{nutrition.fiber}g</Text>
           </View>
         )}
         
         {nutrition.sugar && (
           <View style={styles.nutritionRow}>
-            <Text style={styles.nutritionLabel}>Sugar</Text>
+            <Text style={styles.nutritionLabel}>{t('recipeDetail.sugar', 'Sugar')}</Text>
             <Text style={styles.nutritionValue}>{nutrition.sugar}g</Text>
           </View>
         )}
         
         {nutrition.sodium && (
           <View style={styles.nutritionRow}>
-            <Text style={styles.nutritionLabel}>Sodium</Text>
+            <Text style={styles.nutritionLabel}>{t('recipeDetail.sodium', 'Sodium')}</Text>
             <Text style={styles.nutritionValue}>{nutrition.sodium}mg</Text>
           </View>
         )}
@@ -482,9 +499,9 @@ export const NutritionDisplay: React.FC<NutritionDisplayProps> = ({
 
       {/* Daily Values */}
       <View style={styles.dailyValues}>
-        <Text style={styles.dailyValuesTitle}>% Daily Value*</Text>
+        <Text style={styles.dailyValuesTitle}>{t('recipeDetail.dailyValueTitle', '% Daily Value*')}</Text>
         <Text style={styles.dailyValuesNote}>
-          *Based on a 2000 calorie diet. Your daily values may be higher or lower.
+          {t('recipeDetail.dailyValueNote', '*Based on a 2000 calorie diet. Your daily values may be higher or lower.')}
         </Text>
       </View>
     </View>
@@ -505,6 +522,7 @@ export const RatingSystem: React.FC<RatingSystemProps> = ({
   userRating,
   onRatingSubmit,
 }) => {
+  const { t } = useTranslation();
   const [selectedRating, setSelectedRating] = useState(userRating || 0);
   const [showReviewModal, setShowReviewModal] = useState(false);
   const [reviewText, setReviewText] = useState('');
@@ -528,7 +546,7 @@ export const RatingSystem: React.FC<RatingSystemProps> = ({
 
   return (
     <View style={styles.ratingSystemContainer}>
-      <Text style={styles.sectionTitle}>⭐ Rate This Recipe</Text>
+      <Text style={styles.sectionTitle}>{t('recipeDetail.rateRecipe', '⭐ Rate This Recipe')}</Text>
       
       {/* Current Rating Display */}
       <View style={styles.currentRating}>
@@ -540,13 +558,13 @@ export const RatingSystem: React.FC<RatingSystemProps> = ({
             </Text>
           ))}
         </View>
-        <Text style={styles.totalRatings}>({totalRatings} reviews)</Text>
+        <Text style={styles.totalRatings}>({totalRatings} {t('recipeDetail.reviews', 'reviews')})</Text>
       </View>
 
       {/* User Rating Interface */}
       <View style={styles.userRating}>
         <Text style={styles.userRatingLabel}>
-          {userRating ? 'Your Rating:' : 'Rate this recipe:'}
+          {userRating ? t('recipeDetail.yourRating', 'Your Rating:') : t('recipeDetail.rateThisRecipe', 'Rate this recipe:')}
         </Text>
         <View style={styles.userStars}>
           {Array.from({ length: 5 }, (_, i) => (
@@ -568,7 +586,7 @@ export const RatingSystem: React.FC<RatingSystemProps> = ({
       >
         <View style={styles.reviewModalOverlay}>
           <View style={styles.reviewModal}>
-            <Text style={styles.reviewModalTitle}>Add a Review</Text>
+            <Text style={styles.reviewModalTitle}>{t('recipeDetail.addReview', 'Add a Review')}</Text>
             
             <View style={styles.reviewStars}>
               {Array.from({ length: 5 }, (_, i) => (
@@ -580,7 +598,7 @@ export const RatingSystem: React.FC<RatingSystemProps> = ({
 
             <TextInput
               style={styles.reviewTextInput}
-              placeholder="Share your experience with this recipe..."
+              placeholder={t('recipeDetail.reviewPlaceholder', 'Share your experience with this recipe...')}
               multiline
               numberOfLines={4}
               value={reviewText}
@@ -593,14 +611,14 @@ export const RatingSystem: React.FC<RatingSystemProps> = ({
                 style={styles.reviewModalCancel}
                 onPress={() => setShowReviewModal(false)}
               >
-                <Text style={styles.reviewModalCancelText}>Cancel</Text>
+                <Text style={styles.reviewModalCancelText}>{t('common.cancel', 'Cancel')}</Text>
               </TouchableOpacity>
               
               <TouchableOpacity
                 style={styles.reviewModalSubmit}
                 onPress={submitReview}
               >
-                <Text style={styles.reviewModalSubmitText}>Submit Review</Text>
+                <Text style={styles.reviewModalSubmitText}>{t('recipeDetail.submitReview', 'Submit Review')}</Text>
               </TouchableOpacity>
             </View>
           </View>

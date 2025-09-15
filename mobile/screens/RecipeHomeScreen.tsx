@@ -9,6 +9,7 @@ import {
   Alert,
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
+import { RecipeLanguageToggle } from '../components/RecipeLanguageToggle';
 
 interface RecipeHomeScreenProps {
   onBackPress: () => void;
@@ -101,35 +102,45 @@ export default function RecipeHomeScreen({
 
   const handleRandomRecipe = () => {
     // TODO: Implement random recipe generation in R.2.1.6
-    Alert.alert('🎲 Random Recipe', 'Random recipe generation will be available in the next update!');
+    Alert.alert(
+      t('recipeHome.randomRecipe', '🎲 Random Recipe'),
+      t('recipeHome.randomComingSoon', 'Random recipe generation will be available in the next update!')
+    );
+  };
+
+  const handleLanguageChange = (language: string) => {
+    // Reload stats and data when language changes
+    setTimeout(() => {
+      loadRecipeStats();
+    }, 100);
   };
 
   const contextModes = [
     {
       id: 'generate',
-      title: '🔧 Generate Recipe',
-      description: 'Create new recipes with AI',
+      title: t('recipeHome.generateRecipe', '🔧 Generate Recipe'),
+      description: t('recipeHome.generateDescription', 'Create new recipes with AI'),
       color: '#007AFF',
       action: () => handleQuickAction('generate'),
     },
     {
       id: 'search',
-      title: '🔍 Search Recipes',
-      description: 'Find recipes by ingredients',
+      title: t('recipeHome.searchRecipes', '🔍 Search Recipes'),
+      description: t('recipeHome.searchDescription', 'Find recipes by ingredients'),
       color: '#34C759',
       action: () => handleQuickAction('search'),
     },
     {
       id: 'my-recipes',
-      title: '📚 My Recipes',
-      description: 'View saved & generated recipes',
+      title: t('recipeHome.myRecipes', '📚 My Recipes'),
+      description: t('recipeHome.myRecipesDescription', 'View saved & generated recipes'),
       color: '#FF9500',
       action: () => handleQuickAction('my-recipes'),
     },
     {
       id: 'random',
-      title: '🎲 Random Recipe',
-      description: 'Get a surprise recipe suggestion',
+      title: t('recipeHome.randomRecipe', '🎲 Random Recipe'),
+      description: t('recipeHome.randomDescription', 'Get a surprise recipe suggestion'),
       color: '#AF52DE',
       action: () => handleQuickAction('random'),
     },
@@ -140,9 +151,13 @@ export default function RecipeHomeScreen({
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity style={styles.backButton} onPress={onBackPress}>
-          <Text style={styles.backButtonText}>🏠 Home</Text>
+          <Text style={styles.backButtonText}>{t('recipeHome.home', '🏠 Home')}</Text>
         </TouchableOpacity>
-        <Text style={styles.title}>🍳 Recipe AI</Text>
+        <Text style={styles.title}>{t('recipeHome.title', '🍳 Recipe AI')}</Text>
+        <RecipeLanguageToggle
+          style={styles.languageToggle}
+          onLanguageChange={handleLanguageChange}
+        />
       </View>
 
       {/* Quick Stats */}
@@ -252,6 +267,10 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: 'bold',
     color: '#1C1C1E',
+    flex: 1,
+  },
+  languageToggle: {
+    marginLeft: 8,
   },
   statsContainer: {
     margin: 16,

@@ -17,8 +17,16 @@ import {
   NumberInput,
   ValidatedTextInput,
 } from '../components/RecipeFormComponents';
+import { RecipeLanguageToggle } from '../components/RecipeLanguageToggle';
 import { useRecipeGeneration, usePersonalRecipes, useNetworkStatus } from '../hooks/useApiRecipes';
 import { RecipeGenerationRequest } from '../services/RecipeApiService';
+import {
+  getCurrentRecipeLanguage,
+  getLocalizedCuisineTypes,
+  getLocalizedDietaryRestrictions,
+  getLocalizedDifficultyLevels,
+  enhanceRequestWithLanguage
+} from '../utils/recipeLanguageHelper';
 
 interface RecipeGenerationScreenProps {
   onBackPress: () => void;
@@ -67,11 +75,17 @@ export default function RecipeGenerationScreen({
   onNavigateToDetail,
 }: RecipeGenerationScreenProps) {
   const { t } = useTranslation();
-  
+
   // API Integration Hooks
   const { generateRecipe, cancelGeneration, data, loading, error, progress, isGenerating } = useRecipeGeneration();
   const { saveRecipe } = usePersonalRecipes();
   const networkStatus = useNetworkStatus();
+
+  // Get current language for Recipe AI
+  const currentLanguage = getCurrentRecipeLanguage();
+  const localizedCuisineTypes = getLocalizedCuisineTypes(currentLanguage);
+  const localizedDietaryRestrictions = getLocalizedDietaryRestrictions(currentLanguage);
+  const localizedDifficultyLevels = getLocalizedDifficultyLevels(currentLanguage);
 
   const [preferences, setPreferences] = useState<RecipePreferences>({
     cuisineTypes: [],
@@ -87,64 +101,77 @@ export default function RecipeGenerationScreen({
 
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [showSaveOptions, setShowSaveOptions] = useState(false);
-  
+
   // Animation values for progress (now using real API progress)
   const progressAnimation = new Animated.Value(0);
 
-  // Form options data
+  // Handle language changes
+  const handleLanguageChange = (language: string) => {
+    // Refresh form options when language changes
+    setTimeout(() => {
+      // Force re-render with new language
+      setPreferences(prev => ({ ...prev }));
+    }, 100);
+  };
+
+  // Form options data - now using i18n translations
   const cuisineOptions = [
-    { value: 'italian', label: '🇮🇹 Italian' },
-    { value: 'mexican', label: '🇲🇽 Mexican' },
-    { value: 'asian', label: '🥢 Asian' },
-    { value: 'mediterranean', label: '🫒 Mediterranean' },
-    { value: 'american', label: '🇺🇸 American' },
-    { value: 'indian', label: '🇮🇳 Indian' },
-    { value: 'french', label: '🇫🇷 French' },
-    { value: 'thai', label: '🇹🇭 Thai' },
-    { value: 'japanese', label: '🇯🇵 Japanese' },
-    { value: 'middle_eastern', label: '🕌 Middle Eastern' },
+    { value: 'italian', label: `🇮🇹 ${localizedCuisineTypes.italian}` },
+    { value: 'mexican', label: `🇲🇽 ${localizedCuisineTypes.mexican}` },
+    { value: 'spanish', label: `🇪🇸 ${localizedCuisineTypes.spanish}` },
+    { value: 'mediterranean', label: `🫒 ${localizedCuisineTypes.mediterranean}` },
+    { value: 'american', label: `🇺🇸 ${localizedCuisineTypes.american}` },
+    { value: 'chinese', label: `🇨🇳 ${localizedCuisineTypes.chinese}` },
+    { value: 'japanese', label: `🇯🇵 ${localizedCuisineTypes.japanese}` },
+    { value: 'indian', label: `🇮🇳 ${localizedCuisineTypes.indian}` },
+    { value: 'thai', label: `🇹🇭 ${localizedCuisineTypes.thai}` },
+    { value: 'french', label: `🇫🇷 ${localizedCuisineTypes.french}` },
+    { value: 'greek', label: `🇬🇷 ${localizedCuisineTypes.greek}` },
+    { value: 'korean', label: `🇰🇷 ${localizedCuisineTypes.korean}` },
+    { value: 'middle_eastern', label: `🕌 ${localizedCuisineTypes.middle_eastern}` },
+    { value: 'other', label: `🌍 ${localizedCuisineTypes.other}` },
   ];
 
   const dietaryOptions = [
-    { value: 'vegetarian', label: '🥬 Vegetarian', description: 'No meat or fish' },
-    { value: 'vegan', label: '🌱 Vegan', description: 'No animal products' },
-    { value: 'gluten_free', label: '🚫 Gluten-Free', description: 'No gluten-containing ingredients' },
-    { value: 'dairy_free', label: '🥛 Dairy-Free', description: 'No milk or dairy products' },
-    { value: 'low_carb', label: '📉 Low-Carb', description: 'Reduced carbohydrate content' },
-    { value: 'keto', label: '⚡ Keto', description: 'Very low carb, high fat' },
-    { value: 'paleo', label: '🦕 Paleo', description: 'Stone-age inspired ingredients' },
-    { value: 'whole30', label: '💯 Whole30', description: 'No processed foods' },
+    { value: 'vegetarian', label: `🥬 ${localizedDietaryRestrictions.vegetarian}`, description: t('recipeAI.dietaryRestrictions.vegetarian_desc', 'No meat or fish') },
+    { value: 'vegan', label: `🌱 ${localizedDietaryRestrictions.vegan}`, description: t('recipeAI.dietaryRestrictions.vegan_desc', 'No animal products') },
+    { value: 'gluten_free', label: `🚫 ${localizedDietaryRestrictions.gluten_free}`, description: t('recipeAI.dietaryRestrictions.gluten_free_desc', 'No gluten-containing ingredients') },
+    { value: 'dairy_free', label: `🥛 ${localizedDietaryRestrictions.dairy_free}`, description: t('recipeAI.dietaryRestrictions.dairy_free_desc', 'No milk or dairy products') },
+    { value: 'nut_free', label: `🥜 ${localizedDietaryRestrictions.nut_free}`, description: t('recipeAI.dietaryRestrictions.nut_free_desc', 'No nuts or nut products') },
+    { value: 'low_carb', label: `📉 ${localizedDietaryRestrictions.low_carb}`, description: t('recipeAI.dietaryRestrictions.low_carb_desc', 'Reduced carbohydrate content') },
+    { value: 'low_fat', label: `🍃 ${localizedDietaryRestrictions.low_fat}`, description: t('recipeAI.dietaryRestrictions.low_fat_desc', 'Reduced fat content') },
+    { value: 'keto', label: `⚡ ${localizedDietaryRestrictions.keto}`, description: t('recipeAI.dietaryRestrictions.keto_desc', 'Very low carb, high fat') },
+    { value: 'paleo', label: `🦕 ${localizedDietaryRestrictions.paleo}`, description: t('recipeAI.dietaryRestrictions.paleo_desc', 'Stone-age inspired ingredients') },
   ];
 
   const difficultyOptions = [
-    { value: 'beginner', label: '👶 Beginner', description: '15-30 min, basic techniques' },
-    { value: 'intermediate', label: '👨‍🍳 Intermediate', description: '30-60 min, some skills needed' },
-    { value: 'advanced', label: '🧑‍🍳 Advanced', description: '60+ min, complex techniques' },
-    { value: 'expert', label: '👨‍💼 Expert', description: 'Professional level cooking' },
+    { value: 'beginner', label: `👶 ${localizedDifficultyLevels.beginner}`, description: t('recipeAI.difficulty.beginner_desc', '15-30 min, basic techniques') },
+    { value: 'intermediate', label: `👨‍🍳 ${localizedDifficultyLevels.intermediate}`, description: t('recipeAI.difficulty.intermediate_desc', '30-60 min, some skills needed') },
+    { value: 'advanced', label: `🧑‍🍳 ${localizedDifficultyLevels.advanced}`, description: t('recipeAI.difficulty.advanced_desc', '60+ min, complex techniques') },
   ];
 
   const specialGoalOptions = [
-    { value: 'high_protein', label: '💪 High Protein', description: 'Focus on protein content' },
-    { value: 'heart_healthy', label: '❤️ Heart Healthy', description: 'Low sodium, good fats' },
-    { value: 'weight_loss', label: '⚖️ Weight Loss', description: 'Lower calorie options' },
-    { value: 'muscle_gain', label: '🏋️ Muscle Gain', description: 'High protein and calories' },
-    { value: 'quick_prep', label: '⚡ Quick Prep', description: 'Minimal preparation time' },
-    { value: 'budget_friendly', label: '💰 Budget Friendly', description: 'Affordable ingredients' },
+    { value: 'high_protein', label: t('recipeAI.specialGoals.high_protein', '💪 High Protein'), description: t('recipeAI.specialGoals.high_protein_desc', 'Focus on protein content') },
+    { value: 'heart_healthy', label: t('recipeAI.specialGoals.heart_healthy', '❤️ Heart Healthy'), description: t('recipeAI.specialGoals.heart_healthy_desc', 'Low sodium, good fats') },
+    { value: 'weight_loss', label: t('recipeAI.specialGoals.weight_loss', '⚖️ Weight Loss'), description: t('recipeAI.specialGoals.weight_loss_desc', 'Lower calorie options') },
+    { value: 'muscle_gain', label: t('recipeAI.specialGoals.muscle_gain', '🏋️ Muscle Gain'), description: t('recipeAI.specialGoals.muscle_gain_desc', 'High protein and calories') },
+    { value: 'quick_prep', label: t('recipeAI.specialGoals.quick_prep', '⚡ Quick Prep'), description: t('recipeAI.specialGoals.quick_prep_desc', 'Minimal preparation time') },
+    { value: 'budget_friendly', label: t('recipeAI.specialGoals.budget_friendly', '💰 Budget Friendly'), description: t('recipeAI.specialGoals.budget_friendly_desc', 'Affordable ingredients') },
   ];
 
   const validateForm = (): boolean => {
     const errors: Record<string, string> = {};
-    
+
     if (preferences.cuisineTypes.length === 0) {
-      errors.cuisineTypes = 'Please select at least one cuisine type';
+      errors.cuisineTypes = t('recipeAI.validation.selectCuisineType', 'Please select at least one cuisine type');
     }
-    
+
     if (preferences.targetCalories && (
-      isNaN(parseInt(preferences.targetCalories)) || 
-      parseInt(preferences.targetCalories) < 100 || 
+      isNaN(parseInt(preferences.targetCalories)) ||
+      parseInt(preferences.targetCalories) < 100 ||
       parseInt(preferences.targetCalories) > 3000
     )) {
-      errors.targetCalories = 'Target calories should be between 100 and 3000';
+      errors.targetCalories = t('recipeAI.validation.targetCaloriesRange', 'Target calories should be between 100 and 3000');
     }
 
     setFormErrors(errors);
@@ -154,25 +181,28 @@ export default function RecipeGenerationScreen({
 
   const handleGenerateRecipe = async () => {
     if (!validateForm()) {
-      Alert.alert('⚠️ Form Validation', 'Please fix the form errors before generating a recipe.');
+      Alert.alert(
+        t('recipeAI.validation.formValidationTitle', '⚠️ Form Validation'),
+        t('recipeAI.validation.formValidationMessage', 'Please fix the form errors before generating a recipe.')
+      );
       return;
     }
 
     // Check network connectivity
     if (!networkStatus.isConnected) {
       Alert.alert(
-        '📶 No Internet Connection', 
-        'Recipe generation requires an internet connection. Please check your network and try again.',
+        t('recipeAI.errors.noInternetTitle', '📶 No Internet Connection'),
+        t('recipeAI.errors.noInternetMessage', 'Recipe generation requires an internet connection. Please check your network and try again.'),
         [
-          { text: 'OK', style: 'default' },
-          { text: 'Retry', style: 'default', onPress: handleGenerateRecipe }
+          { text: t('common.ok', 'OK'), style: 'default' },
+          { text: t('common.retry', 'Retry'), style: 'default', onPress: handleGenerateRecipe }
         ]
       );
       return;
     }
 
     try {
-      // Prepare API request from form preferences
+      // Prepare API request from form preferences with language support
       const generationRequest: RecipeGenerationRequest = {
         cuisineTypes: preferences.cuisineTypes,
         dietaryRestrictions: preferences.dietaryRestrictions,
@@ -180,48 +210,57 @@ export default function RecipeGenerationScreen({
         difficulty: preferences.difficultyLevel as 'beginner' | 'intermediate' | 'advanced',
         cookingTime: preferences.cookingTime,
         servings: preferences.servings,
-        ingredients: preferences.includeIngredients ? 
-          preferences.includeIngredients.split(',').map(i => i.trim()).filter(i => i.length > 0) : 
+        ingredients: preferences.includeIngredients ?
+          preferences.includeIngredients.split(',').map(i => i.trim()).filter(i => i.length > 0) :
           undefined,
-        allergies: preferences.excludeIngredients ? 
-          preferences.excludeIngredients.split(',').map(i => i.trim()).filter(i => i.length > 0) : 
+        allergies: preferences.excludeIngredients ?
+          preferences.excludeIngredients.split(',').map(i => i.trim()).filter(i => i.length > 0) :
           undefined,
         nutritionalTargets: preferences.targetCalories ? {
           calories: parseInt(preferences.targetCalories),
         } : undefined,
       };
 
-      // Call the API through our custom hook
-      const response = await generateRecipe(generationRequest);
+      // Enhance request with automatic language detection
+      const enhancedRequest = enhanceRequestWithLanguage(generationRequest);
+
+      // Call the API through our custom hook with language support
+      const response = await generateRecipe(enhancedRequest);
       
       if (response) {
-        Alert.alert('🎉 Recipe Generated!', `"${response.recipe.name}" has been created successfully!`);
+        Alert.alert(
+          t('recipeAI.success.generatedTitle', '🎉 Recipe Generated!'),
+          t('recipeAI.success.generatedMessage', `"{{recipeName}}" has been created successfully!`, { recipeName: response.recipe.name })
+        );
         setShowSaveOptions(true);
       }
     } catch (error: any) {
       console.error('Recipe generation error:', error);
       
-      let errorMessage = 'Something went wrong during recipe generation. Please try again.';
+      let errorMessage = t('recipeAI.errors.defaultError', 'Something went wrong during recipe generation. Please try again.');
       if (error?.code === 'GENERATION_FAILED') {
-        errorMessage = 'The AI recipe generator is currently unavailable. Please try again later.';
+        errorMessage = t('recipeAI.errors.generationFailed', 'The AI recipe generator is currently unavailable. Please try again later.');
       } else if (error?.code === 'NETWORK_ERROR') {
-        errorMessage = 'Network error occurred. Please check your connection and try again.';
+        errorMessage = t('recipeAI.errors.networkError', 'Network error occurred. Please check your connection and try again.');
       }
-      
-      Alert.alert('❌ Generation Error', errorMessage);
+
+      Alert.alert(
+        t('recipeAI.errors.generationErrorTitle', '❌ Generation Error'),
+        errorMessage
+      );
     }
   };
 
   const handleSaveRecipe = async () => {
     if (data?.recipe) {
       Alert.alert(
-        '💾 Save Recipe',
-        `Save "${data.recipe.name}" to your personal recipe collection?`,
+        t('recipeAI.save.saveRecipeTitle', '💾 Save Recipe'),
+        t('recipeAI.save.saveRecipeMessage', 'Save "{{recipeName}}" to your personal recipe collection?', { recipeName: data.recipe.name }),
         [
-          { text: 'Cancel', style: 'cancel' },
-          { 
-            text: 'Save', 
-            style: 'default', 
+          { text: t('common.cancel', 'Cancel'), style: 'cancel' },
+          {
+            text: t('common.save', 'Save'),
+            style: 'default',
             onPress: async () => {
               try {
                 await saveRecipe(data.recipe, {
@@ -231,10 +270,16 @@ export default function RecipeGenerationScreen({
                   notes: `Generated with preferences: ${preferences.cuisineTypes.join(', ')}`,
                 });
                 
-                Alert.alert('✅ Saved!', `"${data.recipe.name}" has been saved to your recipe collection!`);
+                Alert.alert(
+                  t('recipeAI.save.savedTitle', '✅ Saved!'),
+                  t('recipeAI.save.savedMessage', '"{{recipeName}}" has been saved to your recipe collection!', { recipeName: data.recipe.name })
+                );
                 setShowSaveOptions(false);
               } catch (error: any) {
-                Alert.alert('❌ Save Error', error.message || 'Failed to save recipe');
+                Alert.alert(
+                  t('recipeAI.errors.saveErrorTitle', '❌ Save Error'),
+                  error.message || t('recipeAI.errors.saveErrorMessage', 'Failed to save recipe')
+                );
               }
             }
           },
@@ -245,7 +290,10 @@ export default function RecipeGenerationScreen({
 
   const handleShareRecipe = () => {
     if (data?.recipe) {
-      Alert.alert('🔗 Share Recipe', 'Recipe sharing will be available in the next update!');
+      Alert.alert(
+        t('recipeAI.share.shareTitle', '🔗 Share Recipe'),
+        t('recipeAI.share.comingSoon', 'Recipe sharing will be available in the next update!')
+      );
     }
   };
 
@@ -267,9 +315,13 @@ export default function RecipeGenerationScreen({
         {/* Header */}
         <View style={styles.header}>
           <TouchableOpacity style={styles.backButton} onPress={onBackPress}>
-            <Text style={styles.backButtonText}>← Back</Text>
+            <Text style={styles.backButtonText}>← {t('common.back', 'Back')}</Text>
           </TouchableOpacity>
-          <Text style={styles.title}>✨ Generated Recipe</Text>
+          <Text style={styles.title}>{t('recipeAI.results.title', '✨ Generated Recipe')}</Text>
+          <RecipeLanguageToggle
+            style={styles.languageToggle}
+            onLanguageChange={handleLanguageChange}
+          />
         </View>
 
         {/* Recipe Preview */}
@@ -283,27 +335,32 @@ export default function RecipeGenerationScreen({
                 <Text style={styles.metricValue}>⏱️ {data.recipe.cookingTime}min</Text>
               </View>
               <View style={styles.metricItem}>
-                <Text style={styles.metricValue}>👥 {preferences.servings} servings</Text>
+                <Text style={styles.metricValue}>👥 {preferences.servings} {t('recipeAI.results.servings', 'servings')}</Text>
               </View>
               <View style={styles.metricItem}>
-                <Text style={styles.metricValue}>📊 {data.recipe.rating.toFixed(1)}★ rating</Text>
+                <Text style={styles.metricValue}>📊 {data.recipe.rating.toFixed(1)}★ {t('recipeAI.results.rating', 'rating')}</Text>
               </View>
             </View>
             
             {/* AI Generation Metadata */}
             <View style={styles.aiMetadata}>
               <Text style={styles.aiMetadataText}>
-                🤖 Generated by {data.generationMetadata.aiModel} in {data.generationMetadata.processingTime.toFixed(1)}s
+                🤖 {t('recipeAI.results.generatedBy', 'Generated by {{model}} in {{time}}s', {
+                  model: data.generationMetadata.aiModel,
+                  time: data.generationMetadata.processingTime.toFixed(1)
+                })}
               </Text>
               <Text style={styles.confidenceText}>
-                Confidence: {Math.round(data.generationMetadata.confidence * 100)}%
+                {t('recipeAI.results.confidence', 'Confidence: {{confidence}}%', {
+                  confidence: Math.round(data.generationMetadata.confidence * 100)
+                })}
               </Text>
             </View>
           </View>
 
           {/* Ingredients */}
           <View style={styles.recipeSection}>
-            <Text style={styles.sectionTitle}>🛒 Ingredients</Text>
+            <Text style={styles.sectionTitle}>{t('recipeAI.results.ingredientsTitle', '🛒 Ingredients')}</Text>
             {data.recipe.ingredients?.map((ingredient, index) => (
               <View key={index} style={styles.ingredientItem}>
                 <Text style={styles.ingredientText}>
@@ -311,13 +368,13 @@ export default function RecipeGenerationScreen({
                 </Text>
               </View>
             )) || (
-              <Text style={styles.noDataText}>Ingredients will be provided by the AI</Text>
+              <Text style={styles.noDataText}>{t('recipeAI.results.ingredientsPlaceholder', 'Ingredients will be provided by the AI')}</Text>
             )}
           </View>
 
           {/* Instructions */}
           <View style={styles.recipeSection}>
-            <Text style={styles.sectionTitle}>👨‍🍳 Instructions</Text>
+            <Text style={styles.sectionTitle}>{t('recipeAI.results.instructionsTitle', '👨‍🍳 Instructions')}</Text>
             {data.recipe.instructions?.map((instruction, index) => (
               <View key={index} style={styles.instructionItem}>
                 <Text style={styles.instructionNumber}>{instruction.step}</Text>
@@ -327,29 +384,29 @@ export default function RecipeGenerationScreen({
                 )}
               </View>
             )) || (
-              <Text style={styles.noDataText}>Instructions will be provided by the AI</Text>
+              <Text style={styles.noDataText}>{t('recipeAI.results.instructionsPlaceholder', 'Instructions will be provided by the AI')}</Text>
             )}
           </View>
 
           {/* Nutrition */}
           <View style={styles.recipeSection}>
-            <Text style={styles.sectionTitle}>📊 Nutrition (per serving)</Text>
+            <Text style={styles.sectionTitle}>{t('recipeAI.results.nutritionTitle', '📊 Nutrition (per serving)')}</Text>
             <View style={styles.nutritionGrid}>
               <View style={styles.nutritionItem}>
-                <Text style={styles.nutritionValue}>{data.recipe.calories || 'N/A'}</Text>
-                <Text style={styles.nutritionLabel}>Calories</Text>
+                <Text style={styles.nutritionValue}>{data.recipe.calories || t('common.na', 'N/A')}</Text>
+                <Text style={styles.nutritionLabel}>{t('recipeAI.results.calories', 'Calories')}</Text>
               </View>
               <View style={styles.nutritionItem}>
-                <Text style={styles.nutritionValue}>Est. {Math.round((data.recipe.calories || 0) * 0.3 / 4)}g</Text>
-                <Text style={styles.nutritionLabel}>Protein</Text>
+                <Text style={styles.nutritionValue}>{t('common.estimated', 'Est.')} {Math.round((data.recipe.calories || 0) * 0.3 / 4)}g</Text>
+                <Text style={styles.nutritionLabel}>{t('recipeAI.results.protein', 'Protein')}</Text>
               </View>
               <View style={styles.nutritionItem}>
-                <Text style={styles.nutritionValue}>Est. {Math.round((data.recipe.calories || 0) * 0.3 / 9)}g</Text>
-                <Text style={styles.nutritionLabel}>Fat</Text>
+                <Text style={styles.nutritionValue}>{t('common.estimated', 'Est.')} {Math.round((data.recipe.calories || 0) * 0.3 / 9)}g</Text>
+                <Text style={styles.nutritionLabel}>{t('recipeAI.results.fat', 'Fat')}</Text>
               </View>
               <View style={styles.nutritionItem}>
-                <Text style={styles.nutritionValue}>Est. {Math.round((data.recipe.calories || 0) * 0.4 / 4)}g</Text>
-                <Text style={styles.nutritionLabel}>Carbs</Text>
+                <Text style={styles.nutritionValue}>{t('common.estimated', 'Est.')} {Math.round((data.recipe.calories || 0) * 0.4 / 4)}g</Text>
+                <Text style={styles.nutritionLabel}>{t('recipeAI.results.carbs', 'Carbs')}</Text>
               </View>
             </View>
           </View>
@@ -361,22 +418,22 @@ export default function RecipeGenerationScreen({
                 onNavigateToDetail(data.recipe);
               }
             }}>
-              <Text style={styles.primaryButtonText}>📖 View Full Recipe</Text>
+              <Text style={styles.primaryButtonText}>{t('recipeAI.actions.viewFullRecipe', '📖 View Full Recipe')}</Text>
             </TouchableOpacity>
             
             <View style={styles.secondaryButtons}>
               <TouchableOpacity style={styles.secondaryButton} onPress={handleSaveRecipe}>
-                <Text style={styles.secondaryButtonText}>💾 Save</Text>
+                <Text style={styles.secondaryButtonText}>{t('recipeAI.actions.save', '💾 Save')}</Text>
               </TouchableOpacity>
-              
+
               <TouchableOpacity style={styles.secondaryButton} onPress={handleShareRecipe}>
-                <Text style={styles.secondaryButtonText}>🔗 Share</Text>
+                <Text style={styles.secondaryButtonText}>{t('recipeAI.actions.share', '🔗 Share')}</Text>
               </TouchableOpacity>
-              
+
               <TouchableOpacity style={styles.secondaryButton} onPress={() => {
                 onBackPress();
               }}>
-                <Text style={styles.secondaryButtonText}>🔄 New</Text>
+                <Text style={styles.secondaryButtonText}>{t('recipeAI.actions.new', '🔄 New')}</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -390,17 +447,21 @@ export default function RecipeGenerationScreen({
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity style={styles.backButton} onPress={onBackPress}>
-          <Text style={styles.backButtonText}>← Back</Text>
+          <Text style={styles.backButtonText}>← {t('common.back', 'Back')}</Text>
         </TouchableOpacity>
-        <Text style={styles.title}>🔧 Generate Recipe</Text>
+        <Text style={styles.title}>{t('recipeAI.title', '🤖 Generate Recipe')}</Text>
+        <RecipeLanguageToggle
+          style={styles.languageToggle}
+          onLanguageChange={handleLanguageChange}
+        />
       </View>
 
       {/* Generation Progress */}
       {isGenerating && (
         <View style={styles.progressContainer}>
-          <Text style={styles.progressTitle}>🤖 AI Recipe Generation</Text>
+          <Text style={styles.progressTitle}>{t('recipeAI.generation.title', '🤖 AI Recipe Generation')}</Text>
           <Text style={styles.progressStage}>
-            {progress?.message || 'Initializing AI recipe generation...'}
+            {progress?.message || t('recipeAI.generation.initializing', 'Initializing AI recipe generation...')}
           </Text>
           
           <View style={styles.progressBar}>
@@ -423,7 +484,9 @@ export default function RecipeGenerationScreen({
           
           {progress?.estimatedTimeRemaining && (
             <Text style={styles.estimatedTime}>
-              Estimated time remaining: {progress.estimatedTimeRemaining}s
+              {t('recipeAI.generation.estimatedTime', 'Estimated time remaining: {{time}}s', {
+                time: progress.estimatedTimeRemaining
+              })}
             </Text>
           )}
           
@@ -433,18 +496,18 @@ export default function RecipeGenerationScreen({
             </Text>
           )}
           
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.cancelButton}
             onPress={cancelGeneration}
           >
-            <Text style={styles.cancelButtonText}>Cancel Generation</Text>
+            <Text style={styles.cancelButtonText}>{t('recipeAI.generation.cancel', 'Cancel Generation')}</Text>
           </TouchableOpacity>
 
           {/* Network Status Indicator */}
           {!networkStatus.isConnected && (
             <View style={styles.networkWarning}>
               <Text style={styles.networkWarningText}>
-                ⚠️ No internet connection - Generation paused
+                {t('recipeAI.errors.noConnectionWarning', '⚠️ No internet connection - Generation paused')}
               </Text>
             </View>
           )}
@@ -457,13 +520,13 @@ export default function RecipeGenerationScreen({
           {/* Cuisine Types */}
           <View style={styles.formSection}>
             <MultiSelect
-              title="🌍 Cuisine Types"
+              title={t('recipeAI.form.cuisineTypes', '🌍 Cuisine Types')}
               options={cuisineOptions}
               selectedValues={preferences.cuisineTypes}
-              onSelectionChange={(values) => 
+              onSelectionChange={(values) =>
                 setPreferences(prev => ({ ...prev, cuisineTypes: values }))
               }
-              placeholder="Select your favorite cuisines"
+              placeholder={t('recipeAI.form.selectCuisines', 'Select your favorite cuisines')}
             />
             {formErrors.cuisineTypes && (
               <Text style={styles.errorText}>{formErrors.cuisineTypes}</Text>
@@ -473,7 +536,7 @@ export default function RecipeGenerationScreen({
           {/* Dietary Restrictions */}
           <View style={styles.formSection}>
             <CheckboxGroup
-              title="🥗 Dietary Restrictions"
+              title={t('recipeAI.form.dietaryRestrictions', '🥗 Dietary Restrictions')}
               options={dietaryOptions}
               selectedValues={preferences.dietaryRestrictions}
               onSelectionChange={(values) =>
@@ -485,7 +548,7 @@ export default function RecipeGenerationScreen({
           {/* Difficulty Level */}
           <View style={styles.formSection}>
             <RadioGroup
-              title="📈 Difficulty Level"
+              title={t('recipeAI.form.difficulty', '📈 Difficulty Level')}
               options={difficultyOptions}
               selectedValue={preferences.difficultyLevel}
               onSelectionChange={(value) =>
@@ -499,7 +562,7 @@ export default function RecipeGenerationScreen({
             <View style={styles.numberInputRow}>
               <View style={styles.numberInputHalf}>
                 <NumberInput
-                  title="👥 Servings"
+                  title={t('recipeAI.form.servings', '👥 Servings')}
                   value={preferences.servings}
                   onValueChange={(value) =>
                     setPreferences(prev => ({ ...prev, servings: value }))
@@ -511,7 +574,7 @@ export default function RecipeGenerationScreen({
               
               <View style={styles.numberInputHalf}>
                 <NumberInput
-                  title="⏱️ Max Cooking Time"
+                  title={t('recipeAI.form.maxCookingTime', '⏱️ Max Cooking Time')}
                   value={preferences.cookingTime}
                   onValueChange={(value) =>
                     setPreferences(prev => ({ ...prev, cookingTime: value }))
@@ -519,7 +582,7 @@ export default function RecipeGenerationScreen({
                   min={15}
                   max={180}
                   step={15}
-                  suffix="min"
+                  suffix={t('common.minutes', 'min')}
                 />
               </View>
             </View>
@@ -528,12 +591,12 @@ export default function RecipeGenerationScreen({
           {/* Target Calories */}
           <View style={styles.formSection}>
             <ValidatedTextInput
-              title="🎯 Target Calories (per serving)"
+              title={t('recipeAI.form.targetCalories', '🎯 Target Calories (per serving)')}
               value={preferences.targetCalories}
               onValueChange={(value) =>
                 setPreferences(prev => ({ ...prev, targetCalories: value }))
               }
-              placeholder="e.g., 400"
+              placeholder={t('recipeAI.form.caloriesPlaceholder', 'e.g., 400')}
               keyboardType="numeric"
               error={formErrors.targetCalories}
             />
@@ -542,7 +605,7 @@ export default function RecipeGenerationScreen({
           {/* Special Goals */}
           <View style={styles.formSection}>
             <CheckboxGroup
-              title="🎯 Special Goals"
+              title={t('recipeAI.form.specialGoals', '🎯 Special Goals')}
               options={specialGoalOptions}
               selectedValues={preferences.specialGoals}
               onSelectionChange={(values) =>
@@ -554,21 +617,21 @@ export default function RecipeGenerationScreen({
           {/* Include/Exclude Ingredients */}
           <View style={styles.formSection}>
             <ValidatedTextInput
-              title="✅ Include Ingredients (optional)"
+              title={t('recipeAI.form.includeIngredients', '✅ Include Ingredients (optional)')}
               value={preferences.includeIngredients}
               onValueChange={(value) =>
                 setPreferences(prev => ({ ...prev, includeIngredients: value }))
               }
-              placeholder="e.g., chicken, tomatoes, basil"
+              placeholder={t('recipeAI.form.includeIngredientsPlaceholder', 'e.g., chicken, tomatoes, basil')}
             />
-            
+
             <ValidatedTextInput
-              title="❌ Exclude Ingredients (optional)"
+              title={t('recipeAI.form.excludeIngredients', '❌ Exclude Ingredients (optional)')}
               value={preferences.excludeIngredients}
               onValueChange={(value) =>
                 setPreferences(prev => ({ ...prev, excludeIngredients: value }))
               }
-              placeholder="e.g., nuts, shellfish, dairy"
+              placeholder={t('recipeAI.form.excludeIngredientsPlaceholder', 'e.g., nuts, shellfish, dairy')}
             />
           </View>
 
@@ -586,12 +649,12 @@ export default function RecipeGenerationScreen({
                 styles.generateButtonText,
                 preferences.cuisineTypes.length === 0 && styles.generateButtonTextDisabled
               ]}>
-                🤖 Generate AI Recipe
+                {t('recipeAI.form.generateButton', '🤖 Generate AI Recipe')}
               </Text>
             </TouchableOpacity>
             
             <Text style={styles.generateHint}>
-              Your preferences will be used to create a personalized recipe
+              {t('recipeAI.form.generateHint', 'Your preferences will be used to create a personalized recipe')}
             </Text>
           </View>
         </View>
@@ -632,6 +695,10 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: 'bold',
     color: '#1C1C1E',
+    flex: 1,
+  },
+  languageToggle: {
+    marginLeft: 8,
   },
 
   // Progress Styles

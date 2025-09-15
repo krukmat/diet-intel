@@ -73,7 +73,13 @@ export const getCurrentLanguage = () => i18n.language;
 
 // Helper function to change language
 export const changeLanguage = async (language: string) => {
+  console.log('🌐 i18n config: changeLanguage called with:', language);
+  console.log('🌐 i18n.language before change:', i18n.language);
+
   await i18n.changeLanguage(language);
+
+  console.log('🌐 i18n.language after change:', i18n.language);
+  console.log('🌐 Language change completed successfully');
 };
 
 // Helper function to get supported languages

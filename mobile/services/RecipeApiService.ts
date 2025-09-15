@@ -25,6 +25,7 @@ export interface RecipeGenerationRequest {
     cookingMethod?: string[];
     equipment?: string[];
   };
+  target_language?: 'en' | 'es'; // Spanish language support
 }
 
 export interface RecipeGenerationResponse {
@@ -132,6 +133,7 @@ export interface PersonalizedRecipeRequest {
   cookingTime?: number;
   servings?: number;
   usePersonalization?: boolean;
+  target_language?: 'en' | 'es'; // Spanish language support
 }
 
 export interface GeneratedRecipeResponse {
@@ -319,6 +321,46 @@ const MOCK_SEARCH_RESULTS: RecipeSearchResponse = {
     },
     relatedQueries: ['pasta recipes', 'curry recipes', 'quick dinners'],
   },
+};
+
+// Spanish Translation Interfaces
+export interface RecipeTranslationRequest {
+  recipe_id: string;
+  target_language: 'es'; // Spanish
+}
+
+export interface RecipeTranslationResponse {
+  original_recipe_id: string;
+  translated_recipe: BaseRecipe;
+  target_language: string;
+  translation_timestamp: string;
+  cached: boolean;
+}
+
+export interface BatchRecipeTranslationRequest {
+  recipe_ids: string[];
+  target_language: 'es'; // Spanish
+}
+
+export interface BatchRecipeTranslationResponse {
+  translations: Record<string, BaseRecipe | null>;
+  target_language: string;
+  total_count: number;
+  successful_count: number;
+  failed_count: number;
+  cached_count: number;
+}
+
+// Language Helper Functions
+export const getCurrentAppLanguage = (): 'en' | 'es' => {
+  try {
+    // Dynamic import to avoid circular dependency
+    const { getCurrentRecipeLanguage } = require('../utils/recipeLanguageHelper');
+    return getCurrentRecipeLanguage();
+  } catch (error) {
+    console.warn('Failed to get current language, defaulting to English:', error);
+    return 'en'; // Default fallback
+  }
 };
 
 // Production-Ready Recipe API Service
@@ -987,6 +1029,125 @@ export class RecipeApiService {
       return response.data;
     } catch (error) {
       throw this.enhanceError(error, 'GET_SHOPPING_OPTIMIZATION_FAILED', 'Failed to get shopping optimization');
+    }
+  }
+
+  // === SPANISH TRANSLATION METHODS ===
+
+  // Translate single recipe to Spanish
+  public async translateRecipeToSpanish(recipeId: string): Promise<RecipeTranslationResponse> {
+    try {
+      const response = await apiClient.post<RecipeTranslationResponse>(
+        `/recipe-ai/translate/${recipeId}`,
+        { target_language: 'es' },
+        {
+          timeout: 15000,
+          mockResponse: {
+            original_recipe_id: recipeId,
+            translated_recipe: {
+              ...MOCK_RECIPE_GENERATION.recipe,
+              name: 'Tazón Mediterráneo Generado por IA',
+              description: 'Un tazón mediterráneo perfectamente equilibrado con quinua, verduras asadas y aderezo de tahini.',
+            },
+            target_language: 'es',
+            translation_timestamp: new Date().toISOString(),
+            cached: false,
+          },
+        }
+      );
+
+      return response.data;
+    } catch (error) {
+      throw this.enhanceError(error, 'RECIPE_TRANSLATION_FAILED', 'Failed to translate recipe to Spanish');
+    }
+  }
+
+  // Translate multiple recipes to Spanish
+  public async batchTranslateRecipesToSpanish(recipeIds: string[]): Promise<BatchRecipeTranslationResponse> {
+    try {
+      const response = await apiClient.post<BatchRecipeTranslationResponse>(
+        '/recipe-ai/translate/batch',
+        { recipe_ids: recipeIds, target_language: 'es' },
+        {
+          timeout: 30000,
+          mockResponse: {
+            translations: recipeIds.reduce((acc, id) => ({
+              ...acc,
+              [id]: {
+                ...MOCK_RECIPE_GENERATION.recipe,
+                id,
+                name: 'Receta Traducida ' + id,
+                description: 'Descripción traducida para la receta',
+              }
+            }), {}),
+            target_language: 'es',
+            total_count: recipeIds.length,
+            successful_count: recipeIds.length,
+            failed_count: 0,
+            cached_count: 0,
+          },
+        }
+      );
+
+      return response.data;
+    } catch (error) {
+      throw this.enhanceError(error, 'BATCH_TRANSLATION_FAILED', 'Failed to translate recipes to Spanish');
+    }
+  }
+
+  // Get supported translation languages
+  public async getSupportedLanguages(): Promise<{ languages: string[]; count: number }> {
+    try {
+      const response = await apiClient.get(
+        '/recipe-ai/languages',
+        undefined,
+        {
+          mockResponse: {
+            languages: ['en', 'es'],
+            count: 2,
+          },
+        }
+      );
+
+      return response.data;
+    } catch (error) {
+      throw this.enhanceError(error, 'GET_LANGUAGES_FAILED', 'Failed to get supported languages');
+    }
+  }
+
+  // Enhanced recipe generation with automatic language detection
+  public async generateRecipeWithLanguage(request: RecipeGenerationRequest): Promise<RecipeGenerationResponse> {
+    try {
+      // Auto-detect language if not specified
+      if (!request.target_language) {
+        request.target_language = getCurrentAppLanguage();
+      }
+
+      const response = await apiClient.post<RecipeGenerationResponse>(
+        '/recipe-ai/generate',
+        request,
+        {
+          timeout: 30000,
+          retryable: false,
+          mockResponse: {
+            ...MOCK_RECIPE_GENERATION,
+            recipe: {
+              ...MOCK_RECIPE_GENERATION.recipe,
+              name: request.target_language === 'es'
+                ? 'Tazón Mediterráneo Generado por IA'
+                : MOCK_RECIPE_GENERATION.recipe.name,
+              description: request.target_language === 'es'
+                ? 'Un tazón mediterráneo perfectamente equilibrado con quinua, verduras asadas y aderezo de tahini.'
+                : MOCK_RECIPE_GENERATION.recipe.description,
+            }
+          },
+        }
+      );
+
+      return response.data;
+    } catch (error) {
+      console.error('Recipe generation with language failed:', error);
+      throw this.enhanceError(error, 'GENERATION_WITH_LANGUAGE_FAILED', 'Failed to generate recipe with language support');
     }
   }
 
