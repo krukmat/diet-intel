@@ -2,14 +2,22 @@ import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
-  StyleSheet,
-  TouchableOpacity,
-  ScrollView,
   ActivityIndicator,
   Alert,
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { RecipeLanguageToggle } from '../components/RecipeLanguageToggle';
+import {
+  Container,
+  Section,
+  Spacer,
+  Grid,
+  Card,
+  CardHeader,
+  CardBody,
+  Button,
+  tokens
+} from '../components/ui';
 
 interface RecipeHomeScreenProps {
   onBackPress: () => void;
@@ -147,273 +155,268 @@ export default function RecipeHomeScreen({
   ];
 
   return (
-    <ScrollView style={styles.container}>
+    <Container padding="md" scrollable safeArea>
       {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={onBackPress}>
-          <Text style={styles.backButtonText}>{t('recipeHome.home', '🏠 Home')}</Text>
-        </TouchableOpacity>
-        <Text style={styles.title}>{t('recipeHome.title', '🍳 Recipe AI')}</Text>
-        <RecipeLanguageToggle
-          style={styles.languageToggle}
-          onLanguageChange={handleLanguageChange}
-        />
-      </View>
+      <Section spacing="sm" noDivider>
+        <View style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+        }}>
+          <Button
+            variant="tertiary"
+            size="sm"
+            onPress={onBackPress}
+            title={t('recipeHome.home', '🏠 Home')}
+          />
+          <Text style={{
+            fontSize: tokens.typography.fontSize['2xl'],
+            fontWeight: tokens.typography.fontWeight.bold,
+            color: tokens.colors.text.primary,
+            flex: 1,
+            textAlign: 'center',
+          }}>
+            {t('recipeHome.title', '🍳 Recipe AI')}
+          </Text>
+          <RecipeLanguageToggle onLanguageChange={handleLanguageChange} />
+        </View>
+      </Section>
 
       {/* Quick Stats */}
-      <View style={styles.statsContainer}>
-        <Text style={styles.statsTitle}>📊 Your Recipe Statistics</Text>
-        {loading ? (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="small" color="#007AFF" />
-            <Text style={styles.loadingText}>Loading stats...</Text>
-          </View>
-        ) : (
-          <View style={styles.statsGrid}>
-            <View style={styles.statCard}>
-              <Text style={styles.statNumber}>{stats.totalRecipes}</Text>
-              <Text style={styles.statLabel}>Total Recipes</Text>
-            </View>
-            <View style={styles.statCard}>
-              <Text style={styles.statNumber}>{stats.favoriteRecipes}</Text>
-              <Text style={styles.statLabel}>Favorites</Text>
-            </View>
-            <View style={styles.statCard}>
-              <Text style={styles.statNumber}>{stats.recentGenerations}</Text>
-              <Text style={styles.statLabel}>Recent</Text>
-            </View>
-          </View>
-        )}
-      </View>
+      <Section
+        title="📊 Your Recipe Statistics"
+        spacing="md"
+      >
+        <Card variant="default" padding="md">
+          <CardBody spacing="md">
+            {loading ? (
+              <View style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'center',
+                paddingVertical: tokens.spacing.lg,
+              }}>
+                <ActivityIndicator size="small" color={tokens.colors.primary[500]} />
+                <Text style={{
+                  marginLeft: tokens.spacing.sm,
+                  fontSize: tokens.typography.fontSize.md,
+                  color: tokens.colors.text.secondary,
+                }}>
+                  Loading stats...
+                </Text>
+              </View>
+            ) : (
+              <Grid columns={3} gap="sm">
+                <Card variant="outlined" padding="md">
+                  <CardBody spacing="xs">
+                    <Text style={{
+                      fontSize: tokens.typography.fontSize['2xl'],
+                      fontWeight: tokens.typography.fontWeight.bold,
+                      color: tokens.colors.primary[500],
+                      textAlign: 'center',
+                    }}>
+                      {stats.totalRecipes}
+                    </Text>
+                    <Text style={{
+                      fontSize: tokens.typography.fontSize.sm,
+                      color: tokens.colors.text.secondary,
+                      textAlign: 'center',
+                    }}>
+                      Total Recipes
+                    </Text>
+                  </CardBody>
+                </Card>
+                <Card variant="outlined" padding="md">
+                  <CardBody spacing="xs">
+                    <Text style={{
+                      fontSize: tokens.typography.fontSize['2xl'],
+                      fontWeight: tokens.typography.fontWeight.bold,
+                      color: tokens.colors.primary[500],
+                      textAlign: 'center',
+                    }}>
+                      {stats.favoriteRecipes}
+                    </Text>
+                    <Text style={{
+                      fontSize: tokens.typography.fontSize.sm,
+                      color: tokens.colors.text.secondary,
+                      textAlign: 'center',
+                    }}>
+                      Favorites
+                    </Text>
+                  </CardBody>
+                </Card>
+                <Card variant="outlined" padding="md">
+                  <CardBody spacing="xs">
+                    <Text style={{
+                      fontSize: tokens.typography.fontSize['2xl'],
+                      fontWeight: tokens.typography.fontWeight.bold,
+                      color: tokens.colors.primary[500],
+                      textAlign: 'center',
+                    }}>
+                      {stats.recentGenerations}
+                    </Text>
+                    <Text style={{
+                      fontSize: tokens.typography.fontSize.sm,
+                      color: tokens.colors.text.secondary,
+                      textAlign: 'center',
+                    }}>
+                      Recent
+                    </Text>
+                  </CardBody>
+                </Card>
+              </Grid>
+            )}
+          </CardBody>
+        </Card>
+      </Section>
 
-      {/* Context Selection */}
-      <View style={styles.contextSection}>
-        <Text style={styles.sectionTitle}>🚀 Quick Actions</Text>
-        <View style={styles.contextGrid}>
+      {/* Quick Actions */}
+      <Section title="🚀 Quick Actions" spacing="md">
+        <Grid columns={1} gap="sm">
           {contextModes.map((mode) => (
-            <TouchableOpacity
+            <Card
               key={mode.id}
-              style={[styles.contextCard, { borderLeftColor: mode.color }]}
+              variant="interactive"
+              padding="md"
               onPress={mode.action}
             >
-              <Text style={styles.contextTitle}>{mode.title}</Text>
-              <Text style={styles.contextDescription}>{mode.description}</Text>
-              <View style={[styles.contextIndicator, { backgroundColor: mode.color }]} />
-            </TouchableOpacity>
+              <CardBody spacing="sm">
+                <View style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                }}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{
+                      fontSize: tokens.typography.fontSize.lg,
+                      fontWeight: tokens.typography.fontWeight.semibold,
+                      color: tokens.colors.text.primary,
+                      marginBottom: tokens.spacing.xs,
+                    }}>
+                      {mode.title}
+                    </Text>
+                    <Text style={{
+                      fontSize: tokens.typography.fontSize.sm,
+                      color: tokens.colors.text.secondary,
+                      lineHeight: tokens.typography.fontSize.sm * tokens.typography.lineHeight.normal,
+                    }}>
+                      {mode.description}
+                    </Text>
+                  </View>
+                  <View style={{
+                    width: 12,
+                    height: 12,
+                    borderRadius: 6,
+                    backgroundColor: mode.color,
+                    marginLeft: tokens.spacing.sm,
+                  }} />
+                </View>
+              </CardBody>
+            </Card>
           ))}
-        </View>
-      </View>
+        </Grid>
+      </Section>
 
       {/* Recent Activity */}
-      <View style={styles.recentSection}>
-        <Text style={styles.sectionTitle}>⏰ Recent Activity</Text>
-        <View style={styles.recentCard}>
-          <Text style={styles.recentTitle}>🍝 Mediterranean Pasta</Text>
-          <Text style={styles.recentDescription}>Generated 2 hours ago • 4.8⭐</Text>
-          <Text style={styles.recentMeta}>Vegetarian • 25 min cook time</Text>
-        </View>
-        <View style={styles.recentCard}>
-          <Text style={styles.recentTitle}>🥗 Quinoa Power Bowl</Text>
-          <Text style={styles.recentDescription}>Generated yesterday • 4.6⭐</Text>
-          <Text style={styles.recentMeta}>Vegan • High Protein</Text>
-        </View>
-        <View style={styles.recentCard}>
-          <Text style={styles.recentTitle}>🍲 Chicken Curry</Text>
-          <Text style={styles.recentDescription}>Generated 3 days ago • 4.9⭐</Text>
-          <Text style={styles.recentMeta}>Gluten-Free • 40 min cook time</Text>
-        </View>
-      </View>
+      <Section title="⏰ Recent Activity" spacing="md">
+        <Grid columns={1} gap="sm">
+          <Card variant="default" padding="md">
+            <CardBody spacing="xs">
+              <Text style={{
+                fontSize: tokens.typography.fontSize.lg,
+                fontWeight: tokens.typography.fontWeight.semibold,
+                color: tokens.colors.text.primary,
+              }}>
+                🍝 Mediterranean Pasta
+              </Text>
+              <Text style={{
+                fontSize: tokens.typography.fontSize.sm,
+                color: tokens.colors.text.secondary,
+              }}>
+                Generated 2 hours ago • 4.8⭐
+              </Text>
+              <Text style={{
+                fontSize: tokens.typography.fontSize.xs,
+                color: tokens.colors.primary[600],
+              }}>
+                Vegetarian • 25 min cook time
+              </Text>
+            </CardBody>
+          </Card>
+          <Card variant="default" padding="md">
+            <CardBody spacing="xs">
+              <Text style={{
+                fontSize: tokens.typography.fontSize.lg,
+                fontWeight: tokens.typography.fontWeight.semibold,
+                color: tokens.colors.text.primary,
+              }}>
+                🥗 Quinoa Power Bowl
+              </Text>
+              <Text style={{
+                fontSize: tokens.typography.fontSize.sm,
+                color: tokens.colors.text.secondary,
+              }}>
+                Generated yesterday • 4.6⭐
+              </Text>
+              <Text style={{
+                fontSize: tokens.typography.fontSize.xs,
+                color: tokens.colors.primary[600],
+              }}>
+                Vegan • High Protein
+              </Text>
+            </CardBody>
+          </Card>
+          <Card variant="default" padding="md">
+            <CardBody spacing="xs">
+              <Text style={{
+                fontSize: tokens.typography.fontSize.lg,
+                fontWeight: tokens.typography.fontWeight.semibold,
+                color: tokens.colors.text.primary,
+              }}>
+                🍲 Chicken Curry
+              </Text>
+              <Text style={{
+                fontSize: tokens.typography.fontSize.sm,
+                color: tokens.colors.text.secondary,
+              }}>
+                Generated 3 days ago • 4.9⭐
+              </Text>
+              <Text style={{
+                fontSize: tokens.typography.fontSize.xs,
+                color: tokens.colors.primary[600],
+              }}>
+                Gluten-Free • 40 min cook time
+              </Text>
+            </CardBody>
+          </Card>
+        </Grid>
+      </Section>
 
       {/* Footer */}
-      <View style={styles.footer}>
-        <Text style={styles.footerText}>
-          🤖 AI-Powered Recipe Generation
-        </Text>
-        <Text style={styles.footerSubtext}>
-          Create personalized recipes based on your preferences
-        </Text>
-      </View>
-    </ScrollView>
+      <Section spacing="lg" noDivider>
+        <View style={{
+          alignItems: 'center',
+          paddingVertical: tokens.spacing.lg,
+        }}>
+          <Text style={{
+            fontSize: tokens.typography.fontSize.lg,
+            fontWeight: tokens.typography.fontWeight.medium,
+            color: tokens.colors.text.primary,
+            textAlign: 'center',
+            marginBottom: tokens.spacing.xs,
+          }}>
+            🤖 AI-Powered Recipe Generation
+          </Text>
+          <Text style={{
+            fontSize: tokens.typography.fontSize.sm,
+            color: tokens.colors.text.secondary,
+            textAlign: 'center',
+          }}>
+            Create personalized recipes based on your preferences
+          </Text>
+        </View>
+      </Section>
+    </Container>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#F2F2F7',
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: 'white',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E5EA',
-  },
-  backButton: {
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 8,
-    backgroundColor: '#F2F2F7',
-  },
-  backButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#007AFF',
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#1C1C1E',
-    flex: 1,
-  },
-  languageToggle: {
-    marginLeft: 8,
-  },
-  statsContainer: {
-    margin: 16,
-    padding: 16,
-    backgroundColor: 'white',
-    borderRadius: 12,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 3.84,
-    elevation: 5,
-  },
-  statsTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#1C1C1E',
-    marginBottom: 12,
-  },
-  loadingContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 20,
-  },
-  loadingText: {
-    marginLeft: 8,
-    fontSize: 16,
-    color: '#8E8E93',
-  },
-  statsGrid: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-  },
-  statCard: {
-    alignItems: 'center',
-    padding: 12,
-  },
-  statNumber: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#007AFF',
-  },
-  statLabel: {
-    fontSize: 14,
-    color: '#8E8E93',
-    marginTop: 4,
-  },
-  contextSection: {
-    margin: 16,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#1C1C1E',
-    marginBottom: 12,
-  },
-  contextGrid: {
-    gap: 12,
-  },
-  contextCard: {
-    backgroundColor: 'white',
-    borderRadius: 12,
-    padding: 16,
-    borderLeftWidth: 4,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 3.84,
-    elevation: 5,
-    position: 'relative',
-  },
-  contextTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#1C1C1E',
-    marginBottom: 4,
-  },
-  contextDescription: {
-    fontSize: 14,
-    color: '#8E8E93',
-    lineHeight: 20,
-  },
-  contextIndicator: {
-    position: 'absolute',
-    right: 16,
-    top: 16,
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-  },
-  recentSection: {
-    margin: 16,
-  },
-  recentCard: {
-    backgroundColor: 'white',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 8,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 1,
-    },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  recentTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#1C1C1E',
-    marginBottom: 4,
-  },
-  recentDescription: {
-    fontSize: 14,
-    color: '#8E8E93',
-    marginBottom: 4,
-  },
-  recentMeta: {
-    fontSize: 12,
-    color: '#AF52DE',
-  },
-  footer: {
-    padding: 16,
-    alignItems: 'center',
-    marginBottom: 32,
-  },
-  footerText: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: '#1C1C1E',
-    textAlign: 'center',
-    marginBottom: 4,
-  },
-  footerSubtext: {
-    fontSize: 14,
-    color: '#8E8E93',
-    textAlign: 'center',
-  },
-});
