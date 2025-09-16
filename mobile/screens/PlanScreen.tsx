@@ -2,14 +2,9 @@ import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
   ActivityIndicator,
   Alert,
   Modal,
-  TextInput,
-  SafeAreaView,
   Platform,
 } from 'react-native';
 import { StatusBar as ExpoStatusBar } from 'expo-status-bar';
@@ -17,6 +12,14 @@ import { useTranslation } from 'react-i18next';
 import { apiService } from '../services/ApiService';
 import { translateFoodNameSync } from '../utils/foodTranslation';
 import { storeCurrentMealPlanId } from '../utils/mealPlanUtils';
+import {
+  Container,
+  Section,
+  Button,
+  Input,
+  InputNumber,
+  tokens
+} from '../components/ui';
 
 interface UserProfile {
   age: number;
@@ -224,34 +227,28 @@ const CustomizeModal: React.FC<CustomizeModalProps> = ({ visible, onClose, onCon
                 </TouchableOpacity>
               </View>
 
-              <TextInput
-                style={styles.searchInput}
+              <Input
                 placeholder={searchType === 'barcode' ? t('scanner.manual.placeholder') : t('plan.modal.searchProduct')}
                 value={searchQuery}
                 onChangeText={setSearchQuery}
                 keyboardType={searchType === 'barcode' ? 'numeric' : 'default'}
               />
 
-              <TouchableOpacity
-                style={[styles.actionButton, (!searchQuery.trim() || loading) && styles.buttonDisabled]}
+              <Button
+                variant="primary"
                 onPress={handleSearch}
                 disabled={!searchQuery.trim() || loading}
-              >
-                {loading ? (
-                  <ActivityIndicator size="small" color="white" />
-                ) : (
-                  <Text style={styles.actionButtonText}>{t('plan.modal.searchProduct')}</Text>
-                )}
-              </TouchableOpacity>
+                loading={loading}
+                title={t('plan.modal.searchProduct')}
+              />
             </View>
           ) : (
             <View>
               <Text style={styles.sectionTitle}>{t('plan.modal.addManualItem')}</Text>
               
               <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>{t('plan.modal.productName')}</Text>
-                <TextInput
-                  style={styles.textInput}
+                <Input
+                  label={t('plan.modal.productName')}
                   value={manualItem.name}
                   onChangeText={(text) => setManualItem(prev => ({ ...prev, name: text }))}
                   placeholder={t('plan.modal.productNamePlaceholder')}
@@ -259,9 +256,8 @@ const CustomizeModal: React.FC<CustomizeModalProps> = ({ visible, onClose, onCon
               </View>
 
               <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>{t('plan.modal.brand')}</Text>
-                <TextInput
-                  style={styles.textInput}
+                <Input
+                  label={t('plan.modal.brand')}
                   value={manualItem.brand}
                   onChangeText={(text) => setManualItem(prev => ({ ...prev, brand: text }))}
                   placeholder={t('plan.modal.brandPlaceholder')}
@@ -269,9 +265,8 @@ const CustomizeModal: React.FC<CustomizeModalProps> = ({ visible, onClose, onCon
               </View>
 
               <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>{t('plan.modal.servingSize')}</Text>
-                <TextInput
-                  style={styles.textInput}
+                <Input
+                  label={t('plan.modal.servingSize')}
                   value={manualItem.serving_size}
                   onChangeText={(text) => setManualItem(prev => ({ ...prev, serving_size: text }))}
                   placeholder={t('plan.modal.servingSizePlaceholder')}
@@ -279,56 +274,63 @@ const CustomizeModal: React.FC<CustomizeModalProps> = ({ visible, onClose, onCon
               </View>
 
               <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>{t('plan.modal.caloriesPerServing')}</Text>
-                <TextInput
-                  style={styles.textInput}
-                  value={manualItem.calories_per_serving}
-                  onChangeText={(text) => setManualItem(prev => ({ ...prev, calories_per_serving: text }))}
+                <InputNumber
+                  label={t('plan.modal.caloriesPerServing')}
+                  value={parseFloat(manualItem.calories_per_serving) || 0}
+                  onChangeValue={(value) => setManualItem(prev => ({ ...prev, calories_per_serving: value.toString() }))}
                   placeholder="0"
-                  keyboardType="numeric"
+                  min={0}
+                  max={9999}
+                  step={1}
+                  unit="kcal"
                 />
               </View>
 
               <View style={styles.macroRow}>
                 <View style={styles.macroInput}>
-                  <Text style={styles.inputLabel}>{t('plan.modal.proteinG')}</Text>
-                  <TextInput
-                    style={styles.textInput}
-                    value={manualItem.protein_g}
-                    onChangeText={(text) => setManualItem(prev => ({ ...prev, protein_g: text }))}
+                  <InputNumber
+                    label={t('plan.modal.proteinG')}
+                    value={parseFloat(manualItem.protein_g) || 0}
+                    onChangeValue={(value) => setManualItem(prev => ({ ...prev, protein_g: value.toString() }))}
                     placeholder="0"
-                    keyboardType="numeric"
+                    min={0}
+                    max={999}
+                    step={0.1}
+                    unit="g"
                   />
                 </View>
                 <View style={styles.macroInput}>
-                  <Text style={styles.inputLabel}>{t('plan.modal.fatG')}</Text>
-                  <TextInput
-                    style={styles.textInput}
-                    value={manualItem.fat_g}
-                    onChangeText={(text) => setManualItem(prev => ({ ...prev, fat_g: text }))}
+                  <InputNumber
+                    label={t('plan.modal.fatG')}
+                    value={parseFloat(manualItem.fat_g) || 0}
+                    onChangeValue={(value) => setManualItem(prev => ({ ...prev, fat_g: value.toString() }))}
                     placeholder="0"
-                    keyboardType="numeric"
+                    min={0}
+                    max={999}
+                    step={0.1}
+                    unit="g"
                   />
                 </View>
                 <View style={styles.macroInput}>
-                  <Text style={styles.inputLabel}>{t('plan.modal.carbsG')}</Text>
-                  <TextInput
-                    style={styles.textInput}
-                    value={manualItem.carbs_g}
-                    onChangeText={(text) => setManualItem(prev => ({ ...prev, carbs_g: text }))}
+                  <InputNumber
+                    label={t('plan.modal.carbsG')}
+                    value={parseFloat(manualItem.carbs_g) || 0}
+                    onChangeValue={(value) => setManualItem(prev => ({ ...prev, carbs_g: value.toString() }))}
                     placeholder="0"
-                    keyboardType="numeric"
+                    min={0}
+                    max={999}
+                    step={0.1}
+                    unit="g"
                   />
                 </View>
               </View>
 
-              <TouchableOpacity
-                style={[styles.actionButton, !manualItem.name.trim() && styles.buttonDisabled]}
+              <Button
+                variant="primary"
                 onPress={handleManualAdd}
                 disabled={!manualItem.name.trim()}
-              >
-                <Text style={styles.actionButtonText}>{t('plan.modal.addItem')}</Text>
-              </TouchableOpacity>
+                title={t('plan.modal.addItem')}
+              />
             </View>
           )}
         </ScrollView>

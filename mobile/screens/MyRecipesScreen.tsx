@@ -471,10 +471,15 @@ export default function MyRecipesScreen({
   }, [selectedCollection, recipeResults.totalCount, handleCollectionPress]);
 
   const renderRecipeItem = useCallback(({ item }: { item: RecipeListItem }) => (
-    <TouchableOpacity
+    <Button
+      variant="ghost"
       onPress={() => handleRecipePress(item)}
       onLongPress={() => handleRecipeLongPress(item)}
-      activeOpacity={0.95}
+      style={{
+        padding: 0,
+        margin: 0,
+        backgroundColor: 'transparent',
+      }}
     >
       <PersonalRecipeCard
         recipe={item}
@@ -484,7 +489,7 @@ export default function MyRecipesScreen({
         onShare={handleRecipeShare}
         onAddToMealPlan={handleAddToMealPlan}
       />
-    </TouchableOpacity>
+    </Button>
   ), [viewMode, handleRecipePress, handleRecipeFavorite, handleRecipeShare, handleAddToMealPlan, handleRecipeLongPress]);
 
   const renderEmpty = useCallback(() => {
@@ -687,26 +692,47 @@ export default function MyRecipesScreen({
               { field: 'lastCooked' as const, label: '⏰ Last Cooked' },
               { field: 'cookingTime' as const, label: '⏱️ Cooking Time' },
             ].map(({ field, label }) => (
-              <TouchableOpacity
+              <Section
                 key={field}
-                style={[
-                  styles.sortOption,
-                  sortOptions.field === field && styles.sortOptionSelected,
-                ]}
-                onPress={() => handleSortChange(field)}
+                flexDirection="row"
+                alignItems="center"
+                justifyContent="space-between"
+                padding="md"
+                style={{
+                  borderRadius: tokens.borderRadius.sm,
+                  marginBottom: tokens.spacing.xs,
+                  backgroundColor: sortOptions.field === field ?
+                    tokens.colors.primary[50] : 'transparent',
+                }}
+                noDivider
               >
-                <Text style={[
-                  styles.sortOptionText,
-                  sortOptions.field === field && styles.sortOptionTextSelected,
-                ]}>
-                  {label}
-                </Text>
+                <Button
+                  variant="ghost"
+                  size="md"
+                  onPress={() => handleSortChange(field)}
+                  title={label}
+                  style={{
+                    flex: 1,
+                    alignItems: 'flex-start',
+                    backgroundColor: 'transparent',
+                    color: sortOptions.field === field ?
+                      tokens.colors.primary[500] :
+                      tokens.colors.text.primary,
+                    fontWeight: sortOptions.field === field ?
+                      tokens.typography.fontWeight.semiBold :
+                      tokens.typography.fontWeight.normal,
+                  }}
+                />
                 {sortOptions.field === field && (
-                  <Text style={styles.sortDirection}>
+                  <Text style={{
+                    fontSize: tokens.typography.fontSize.md,
+                    color: tokens.colors.primary[500],
+                    fontWeight: tokens.typography.fontWeight.semiBold,
+                  }}>
                     {sortOptions.direction === 'desc' ? '↓' : '↑'}
                   </Text>
                 )}
-              </TouchableOpacity>
+              </Section>
             ))}
           </View>
         </View>

@@ -2,14 +2,10 @@ import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
-  StyleSheet,
-  TouchableOpacity,
-  ScrollView,
   Alert,
   FlatList,
   RefreshControl,
   ActivityIndicator,
-  SafeAreaView,
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useRecipeSearch, useNetworkStatus } from '../hooks/useApiRecipes';
@@ -17,11 +13,17 @@ import { RecipeSearchRequest } from '../services/RecipeApiService';
 import { SyncStatusIndicator } from '../components/SyncStatusComponents';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
-  SearchBar,
   QuickFilters,
   FilterModal,
   RecipeCard,
 } from '../components/RecipeSearchComponents';
+import {
+  Container,
+  Section,
+  InputSearch,
+  Button,
+  tokens
+} from '../components/ui';
 
 interface RecipeSearchScreenProps {
   onBackPress: () => void;
@@ -315,113 +317,183 @@ export default function RecipeSearchScreen({
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <Container padding="md" scrollable={false} safeArea>
       {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={onBackPress}>
-          <Text style={styles.backButtonText}>← Back</Text>
-        </TouchableOpacity>
-        <Text style={styles.title}>🔍 Search Recipes</Text>
-        <SyncStatusIndicator />
-        <TouchableOpacity 
-          style={styles.viewToggleButton} 
-          onPress={() => setViewMode(viewMode === 'grid' ? 'list' : 'grid')}
-        >
-          <Text style={styles.viewToggleText}>{viewMode === 'grid' ? '☰' : '⊞'}</Text>
-        </TouchableOpacity>
-      </View>
+      <Section spacing="sm" noDivider>
+        <View style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+        }}>
+          <Button
+            variant="tertiary"
+            size="sm"
+            onPress={onBackPress}
+            title="← Back"
+          />
+          <Text style={{
+            fontSize: tokens.typography.fontSize.lg,
+            fontWeight: tokens.typography.fontWeight.bold,
+            color: tokens.colors.text.primary,
+            flex: 1,
+            textAlign: 'center',
+          }}>
+            🔍 Search Recipes
+          </Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <SyncStatusIndicator />
+            <Button
+              variant="tertiary"
+              size="sm"
+              onPress={() => setViewMode(viewMode === 'grid' ? 'list' : 'grid')}
+              title={viewMode === 'grid' ? '☰' : '⊞'}
+              style={{ marginLeft: tokens.spacing.sm }}
+            />
+          </View>
+        </View>
+      </Section>
 
       {/* Network Status */}
       {!networkStatus.isConnected && (
-        <View style={styles.networkStatus}>
-          <Text style={styles.networkStatusText}>
+        <View style={{
+          backgroundColor: tokens.colors.warning[500],
+          paddingHorizontal: tokens.spacing.md,
+          paddingVertical: tokens.spacing.sm,
+          alignItems: 'center',
+        }}>
+          <Text style={{
+            color: tokens.colors.surface.card,
+            fontSize: tokens.typography.fontSize.sm,
+            fontWeight: tokens.typography.fontWeight.semibold,
+          }}>
             📶 Offline Mode - {networkStatus.queuedRequests > 0 ? `${networkStatus.queuedRequests} requests queued` : 'No internet connection'}
           </Text>
         </View>
       )}
 
-      {/* Search Bar */}
-      <View style={styles.searchSection}>
-        <SearchBar
-          searchQuery={searchQuery}
-          onSearchChange={setSearchQuery}
-          onVoiceSearch={handleVoiceSearch}
-          onCameraSearch={handleCameraSearch}
-          suggestions={suggestions}
-          searchHistory={searchHistory}
+      {/* Search Section */}
+      <Section spacing="sm" noDivider>
+        <InputSearch
+          placeholder="Search recipes..."
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+          onSearch={(query) => console.log('Search submitted:', query)}
+          showSuggestions={true}
+          suggestions={searchQuery.length > 0 ? suggestions : searchHistory.slice(0, 5)}
           onSuggestionSelect={handleSuggestionSelect}
-          loading={isSearching}
         />
-      </View>
+
+        {/* Voice and Camera Search Buttons */}
+        <View style={{
+          flexDirection: 'row',
+          justifyContent: 'center',
+          gap: tokens.spacing.sm,
+          marginTop: tokens.spacing.sm,
+        }}>
+          <Button
+            variant="secondary"
+            size="sm"
+            onPress={handleVoiceSearch}
+            title="🎤 Voice Search"
+          />
+          <Button
+            variant="secondary"
+            size="sm"
+            onPress={handleCameraSearch}
+            title="📷 Visual Search"
+          />
+        </View>
+      </Section>
 
       {/* Quick Filters */}
-      <View style={styles.filtersSection}>
-        <QuickFilters
-          activeFilters={filters}
-          onFilterRemove={(key) => {
-            setFilters(prev => ({
-              ...prev,
-              [key]: Array.isArray(prev[key as keyof SearchFilters]) ? [] : 
-                    typeof prev[key as keyof SearchFilters] === 'object' ? { min: 15, max: 180 } : 
-                    key === 'minRating' ? 0 : prev[key as keyof SearchFilters]
-            }));
-          }}
-          onClearAll={handleClearFilters}
-          quickFilterOptions={quickFilterOptions}
-          onQuickFilterSelect={(key, value) => {
-            setFilters(prev => ({ ...prev, [key]: value }));
-          }}
-        />
-        
-        <TouchableOpacity 
-          style={styles.filterButton} 
-          onPress={() => setShowFilterModal(true)}
-        >
-          <Text style={styles.filterButtonText}>🎛️ More Filters</Text>
-        </TouchableOpacity>
-      </View>
+      <Section spacing="sm" noDivider>
+        <View style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+        }}>
+          <QuickFilters
+            activeFilters={filters}
+            onFilterRemove={(key) => {
+              setFilters(prev => ({
+                ...prev,
+                [key]: Array.isArray(prev[key as keyof SearchFilters]) ? [] :
+                      typeof prev[key as keyof SearchFilters] === 'object' ? { min: 15, max: 180 } :
+                      key === 'minRating' ? 0 : prev[key as keyof SearchFilters]
+              }));
+            }}
+            onClearAll={handleClearFilters}
+            quickFilterOptions={quickFilterOptions}
+            onQuickFilterSelect={(key, value) => {
+              setFilters(prev => ({ ...prev, [key]: value }));
+            }}
+          />
+
+          <Button
+            variant="primary"
+            size="sm"
+            onPress={() => setShowFilterModal(true)}
+            title="🎛️ More Filters"
+          />
+        </View>
+      </Section>
 
       {/* Results Header */}
       {data.length > 0 && (
-        <View style={styles.resultsHeader}>
-          <Text style={styles.resultsCount}>
-            Found {totalCount} recipe{totalCount !== 1 ? 's' : ''}
-          </Text>
-          
-          <TouchableOpacity 
-            style={styles.sortButton}
-            onPress={() => {
-              const sortOptions = ['relevance', 'rating', 'time', 'calories', 'popularity'];
-              const currentIndex = sortOptions.indexOf(sortBy);
-              const nextSort = sortOptions[(currentIndex + 1) % sortOptions.length] as typeof sortBy;
-              setSortBy(nextSort);
-            }}
-          >
-            <Text style={styles.sortButtonText}>
-              Sort: {sortBy.charAt(0).toUpperCase() + sortBy.slice(1)} ↕️
+        <Section spacing="xs" noDivider>
+          <View style={{
+            flexDirection: 'row',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+          }}>
+            <Text style={{
+              fontSize: tokens.typography.fontSize.md,
+              fontWeight: tokens.typography.fontWeight.semibold,
+              color: tokens.colors.text.primary,
+            }}>
+              Found {totalCount} recipe{totalCount !== 1 ? 's' : ''}
             </Text>
-          </TouchableOpacity>
-        </View>
+
+            <Button
+              variant="secondary"
+              size="sm"
+              onPress={() => {
+                const sortOptions = ['relevance', 'rating', 'time', 'calories', 'popularity'];
+                const currentIndex = sortOptions.indexOf(sortBy);
+                const nextSort = sortOptions[(currentIndex + 1) % sortOptions.length] as typeof sortBy;
+                setSortBy(nextSort);
+              }}
+              title={`Sort: ${sortBy.charAt(0).toUpperCase() + sortBy.slice(1)} ↕️`}
+            />
+          </View>
+        </Section>
       )}
 
       {/* Recipe Results */}
-      <FlatList
-        data={data}
-        renderItem={renderRecipe}
-        keyExtractor={(item) => item.id}
-        numColumns={viewMode === 'grid' ? 2 : 1}
-        key={viewMode} // Force re-render when view mode changes
-        contentContainerStyle={styles.recipesList}
-        columnWrapperStyle={viewMode === 'grid' ? styles.recipeRow : undefined}
-        onEndReached={handleLoadMore}
-        onEndReachedThreshold={0.3}
-        ListFooterComponent={renderFooter}
-        ListEmptyComponent={renderEmptyState}
-        refreshControl={
-          <RefreshControl refreshing={loading} onRefresh={onRefresh} />
-        }
-        showsVerticalScrollIndicator={false}
-      />
+      <View style={{ flex: 1 }}>
+        <FlatList
+          data={data}
+          renderItem={renderRecipe}
+          keyExtractor={(item) => item.id}
+          numColumns={viewMode === 'grid' ? 2 : 1}
+          key={viewMode}
+          contentContainerStyle={{
+            paddingHorizontal: tokens.spacing.md,
+            paddingBottom: tokens.spacing.xl,
+          }}
+          columnWrapperStyle={viewMode === 'grid' ? {
+            justifyContent: 'space-between',
+          } : undefined}
+          onEndReached={handleLoadMore}
+          onEndReachedThreshold={0.3}
+          ListFooterComponent={renderFooter}
+          ListEmptyComponent={renderEmptyState}
+          refreshControl={
+            <RefreshControl refreshing={loading} onRefresh={onRefresh} />
+          }
+          showsVerticalScrollIndicator={false}
+        />
+      </View>
 
       {/* Filter Modal */}
       <FilterModal
@@ -432,164 +504,7 @@ export default function RecipeSearchScreen({
         onApplyFilters={handleApplyFilters}
         onClearFilters={handleClearFilters}
       />
-    </SafeAreaView>
+    </Container>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#F2F2F7',
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: 'white',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E5EA',
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-  },
-  backButton: {
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 8,
-    backgroundColor: '#F2F2F7',
-  },
-  backButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#007AFF',
-  },
-  title: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#1C1C1E',
-    flex: 1,
-    textAlign: 'center',
-  },
-  viewToggleButton: {
-    padding: 8,
-    borderRadius: 8,
-    backgroundColor: '#F2F2F7',
-  },
-  viewToggleText: {
-    fontSize: 18,
-    color: '#007AFF',
-  },
-  searchSection: {
-    backgroundColor: 'white',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E5EA',
-  },
-  filtersSection: {
-    backgroundColor: 'white',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E5EA',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  filterButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#007AFF',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    marginLeft: 12,
-  },
-  filterButtonText: {
-    color: 'white',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  resultsHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: 'white',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E5EA',
-  },
-  resultsCount: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#1C1C1E',
-  },
-  sortButton: {
-    backgroundColor: '#FF9500',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 12,
-  },
-  sortButtonText: {
-    color: 'white',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  recipesList: {
-    paddingTop: 16,
-    paddingBottom: 32,
-  },
-  recipeRow: {
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-  },
-  loadingFooter: {
-    paddingVertical: 20,
-    alignItems: 'center',
-  },
-  loadingText: {
-    marginTop: 8,
-    fontSize: 14,
-    color: '#8E8E93',
-  },
-  emptyState: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 32,
-    paddingVertical: 64,
-  },
-  emptyStateIcon: {
-    fontSize: 64,
-    marginBottom: 16,
-  },
-  emptyStateTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#1C1C1E',
-    marginBottom: 8,
-    textAlign: 'center',
-  },
-  emptyStateDescription: {
-    fontSize: 16,
-    color: '#8E8E93',
-    textAlign: 'center',
-    lineHeight: 22,
-  },
-  networkStatus: {
-    backgroundColor: '#FF9500',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    alignItems: 'center',
-  },
-  networkStatusText: {
-    color: 'white',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-});

@@ -507,30 +507,55 @@ export default function SmartDietScreen({ onBackPress, navigationContext, naviga
   };
 
   const renderContextSelector = () => (
-    <View style={styles.contextSelector}>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+    <Section
+      backgroundColor={tokens.colors.surface.primary}
+      padding="md"
+      noDivider
+    >
+      <Container
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        scrollable
+      >
         {(Object.keys(CONTEXT_CONFIG) as ContextType[]).map(context => (
-          <TouchableOpacity
+          <Button
             key={context}
-            style={[
-              styles.contextButton,
-              selectedContext === context && styles.contextButtonActive
-            ]}
+            variant={selectedContext === context ? "primary" : "tertiary"}
+            size="md"
             onPress={() => setSelectedContext(context)}
+            style={{
+              marginRight: tokens.spacing.sm,
+              paddingHorizontal: tokens.spacing.md,
+              paddingVertical: tokens.spacing.sm,
+              borderRadius: tokens.borderRadius.lg,
+              backgroundColor: selectedContext === context ?
+                tokens.colors.primary[500] :
+                tokens.colors.surface.secondary,
+              flexDirection: 'column',
+              alignItems: 'center',
+              minWidth: 80,
+            }}
           >
-            <Text style={styles.contextEmoji}>
+            <Text style={{
+              fontSize: tokens.typography.fontSize.lg,
+              marginBottom: 4,
+            }}>
               {CONTEXT_CONFIG[context].emoji}
             </Text>
-            <Text style={[
-              styles.contextButtonText,
-              selectedContext === context && styles.contextButtonTextActive
-            ]}>
+            <Text style={{
+              fontSize: tokens.typography.fontSize.xs,
+              fontWeight: tokens.typography.fontWeight.semiBold,
+              color: selectedContext === context ?
+                tokens.colors.text.dark :
+                tokens.colors.text.primary,
+              textAlign: 'center',
+            }}>
               {t(`smartDiet.contexts.${context}`)}
             </Text>
-          </TouchableOpacity>
+          </Button>
         ))}
-      </ScrollView>
-    </View>
+      </Container>
+    </Section>
   );
 
   const renderSuggestion = (suggestion: ExtendedSmartSuggestion, index?: number) => (
@@ -581,14 +606,16 @@ export default function SmartDietScreen({ onBackPress, navigationContext, naviga
 
       <View style={styles.actionButtons}>
         {(suggestion.action_text || suggestion.implementation_notes) && (
-          <TouchableOpacity 
-            style={styles.primaryButton}
+          <Button
+            variant="primary"
+            size="md"
             onPress={() => handleSuggestionAction(suggestion)}
-          >
-            <Text style={styles.primaryButtonText}>
-              {suggestion.action_text || suggestion.implementation_notes || 'Apply'}
-            </Text>
-          </TouchableOpacity>
+            title={suggestion.action_text || suggestion.implementation_notes || 'Apply'}
+            style={{
+              backgroundColor: tokens.colors.primary[500],
+              paddingHorizontal: tokens.spacing.lg,
+            }}
+          />
         )}
         
         <View style={styles.feedbackButtons}>
@@ -914,7 +941,7 @@ export default function SmartDietScreen({ onBackPress, navigationContext, naviga
       </ScrollView>
 
       <PreferencesModal />
-    </SafeAreaView>
+    </Container>
   );
 }
 

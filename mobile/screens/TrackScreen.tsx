@@ -2,13 +2,8 @@ import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
   Alert,
   Modal,
-  TextInput,
-  SafeAreaView,
   Platform,
   Image,
   ActivityIndicator,
@@ -19,9 +14,15 @@ import * as ImagePicker from 'expo-image-picker';
 import * as ImageManipulator from 'expo-image-manipulator';
 import { useTranslation } from 'react-i18next';
 import { translateFoodNameSync } from '../utils/foodTranslation';
-// import { LineChart } from 'react-native-chart-kit';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { apiService } from '../services/ApiService';
+import {
+  Container,
+  Section,
+  Button,
+  InputNumber,
+  tokens
+} from '../components/ui';
 
 interface MealItem {
   barcode: string;
@@ -267,13 +268,17 @@ const WeighInModal: React.FC<WeighInModalProps> = ({ visible, onClose, onConfirm
 
         <ScrollView style={styles.modalContent}>
           <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>{t('track.modal.weightKg')}</Text>
-            <TextInput
-              style={styles.weightInput}
-              value={weight}
-              onChangeText={setWeight}
+            <InputNumber
+              label={t('track.modal.weightKg')}
+              value={parseFloat(weight) || 0}
+              onChangeValue={(value) => setWeight(value.toString())}
               placeholder={t('scanner.input.weightPlaceholder')}
-              keyboardType="numeric"
+              min={0}
+              max={500}
+              step={0.1}
+              unit="kg"
+              state={weight && parseFloat(weight) <= 0 ? 'error' : 'default'}
+              errorMessage={weight && parseFloat(weight) <= 0 ? t('track.modal.invalidWeight') : undefined}
             />
           </View>
 

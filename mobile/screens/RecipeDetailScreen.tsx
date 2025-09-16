@@ -2,15 +2,16 @@ import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
   Alert,
   Modal,
-  SafeAreaView,
   RefreshControl,
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
+import { Container } from '../components/ui/Container';
+import { Section } from '../components/ui/Section';
+import { Button } from '../components/ui/Button';
+import { Card } from '../components/ui/Card';
+import { tokens } from '../theme/tokens';
 import {
   RecipeHeader,
   InteractiveIngredients,
@@ -108,127 +109,221 @@ const CookingMode: React.FC<CookingModeProps> = ({
 
   return (
     <Modal visible={visible} animationType="slide">
-      <SafeAreaView style={styles.cookingModeContainer}>
+      <Container
+        padding="none"
+        backgroundColor={tokens.colors.surface.dark}
+        safeArea
+      >
         {/* Cooking Mode Header */}
-        <View style={styles.cookingModeHeader}>
-          <TouchableOpacity style={styles.cookingModeClose} onPress={onClose}>
-            <Text style={styles.cookingModeCloseText}>✕</Text>
-          </TouchableOpacity>
-          <Text style={styles.cookingModeTitle}>{t('recipeDetail.cookingMode', '🔥 Cooking Mode')}</Text>
-          <View style={styles.cookingModeProgress}>
-            <Text style={styles.cookingModeProgressText}>
+        <Section
+          flexDirection="row"
+          alignItems="center"
+          justifyContent="space-between"
+          padding="lg"
+          backgroundColor={tokens.colors.surface.darkSecondary}
+          noDivider
+        >
+          <Button
+            variant="tertiary"
+            size="sm"
+            onPress={onClose}
+            title="✕"
+            style={{
+              width: 40,
+              height: 40,
+              borderRadius: 20,
+              backgroundColor: tokens.colors.surface.darkTertiary,
+            }}
+          />
+          <Text style={{
+            fontSize: tokens.typography.fontSize.xl,
+            fontWeight: tokens.typography.fontWeight.bold,
+            color: tokens.colors.text.dark,
+          }}>
+            {t('recipeDetail.cookingMode', '🔥 Cooking Mode')}
+          </Text>
+          <View style={{
+            backgroundColor: tokens.colors.surface.darkTertiary,
+            paddingHorizontal: tokens.spacing.sm,
+            paddingVertical: tokens.spacing.xs,
+            borderRadius: tokens.borderRadius.lg,
+          }}>
+            <Text style={{
+              fontSize: tokens.typography.fontSize.sm,
+              color: tokens.colors.text.dark,
+              fontWeight: tokens.typography.fontWeight.semiBold,
+            }}>
               {t('recipeDetail.stepProgress', '{{current}} / {{total}}', {
                 current: currentStep + 1,
                 total: recipe.instructions.length
               })}
             </Text>
           </View>
-        </View>
+        </Section>
 
         {/* Current Step Display */}
-        <ScrollView style={styles.cookingModeContent}>
-          <View style={styles.currentStepContainer}>
-            <View style={styles.currentStepNumber}>
-              <Text style={styles.currentStepNumberText}>{currentInstruction.step}</Text>
+        <Container
+          scrollable
+          padding="lg"
+          backgroundColor={tokens.colors.surface.dark}
+        >
+          <Card
+            padding="xl"
+            backgroundColor={tokens.colors.surface.darkSecondary}
+            style={{ alignItems: 'center' }}
+          >
+            <View style={{
+              width: 60,
+              height: 60,
+              borderRadius: 30,
+              backgroundColor: tokens.colors.primary[500],
+              justifyContent: 'center',
+              alignItems: 'center',
+              marginBottom: tokens.spacing.lg,
+            }}>
+              <Text style={{
+                fontSize: tokens.typography.fontSize.xxl,
+                fontWeight: tokens.typography.fontWeight.bold,
+                color: tokens.colors.text.dark,
+              }}>
+                {currentInstruction.step}
+              </Text>
             </View>
-            
-            <Text style={styles.currentStepText}>
+
+            <Text style={{
+              fontSize: tokens.typography.fontSize.xxl,
+              color: tokens.colors.text.dark,
+              textAlign: 'center',
+              lineHeight: 32,
+              marginBottom: tokens.spacing.xl,
+            }}>
               {currentInstruction.instruction}
             </Text>
 
             {/* Step Meta Information */}
             {(currentInstruction.timeMinutes || currentInstruction.temperature) && (
-              <View style={styles.currentStepMeta}>
+              <Section
+                flexDirection="row"
+                gap={tokens.spacing.md}
+                style={{ marginBottom: tokens.spacing.xxl }}
+                noDivider
+              >
                 {currentInstruction.timeMinutes && (
-                  <TouchableOpacity
-                    style={styles.currentTimerButton}
+                  <Button
+                    variant="secondary"
+                    size="md"
                     onPress={() => startTimer(currentStep, currentInstruction.timeMinutes!)}
-                  >
-                    <Text style={styles.currentTimerText}>
-                      {t('recipeDetail.setTimer', '⏰ Set {{time}} timer', {
-                        time: formatRecipeTime(currentInstruction.timeMinutes!, currentLanguage)
-                      })}
-                    </Text>
-                  </TouchableOpacity>
+                    title={t('recipeDetail.setTimer', '⏰ Set {{time}} timer', {
+                      time: formatRecipeTime(currentInstruction.timeMinutes!, currentLanguage)
+                    })}
+                    style={{
+                      backgroundColor: tokens.colors.secondary[500],
+                    }}
+                  />
                 )}
                 {currentInstruction.temperature && (
-                  <View style={styles.currentTempInfo}>
-                    <Text style={styles.currentTempText}>
+                  <View style={{
+                    backgroundColor: tokens.colors.surface.darkTertiary,
+                    paddingHorizontal: tokens.spacing.lg,
+                    paddingVertical: tokens.spacing.sm,
+                    borderRadius: tokens.borderRadius.md,
+                  }}>
+                    <Text style={{
+                      color: tokens.colors.text.dark,
+                      fontSize: tokens.typography.fontSize.md,
+                      fontWeight: tokens.typography.fontWeight.semiBold,
+                    }}>
                       🌡️ {currentInstruction.temperature}
                     </Text>
                   </View>
                 )}
-              </View>
+              </Section>
             )}
 
             {/* Step Completion */}
-            <TouchableOpacity
-              style={[
-                styles.stepCompleteButton,
-                completedSteps[currentStep] && styles.stepCompleteButtonCompleted
-              ]}
+            <Button
+              variant={completedSteps[currentStep] ? "primary" : "tertiary"}
+              size="lg"
               onPress={() => onStepComplete(currentStep, !completedSteps[currentStep])}
-            >
-              <Text style={[
-                styles.stepCompleteText,
-                completedSteps[currentStep] && styles.stepCompleteTextCompleted
-              ]}>
-                {completedSteps[currentStep] ?
-                  t('recipeDetail.stepComplete', '✓ Step Complete') :
-                  t('recipeDetail.markComplete', 'Mark as Complete')
-                }
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </ScrollView>
+              title={completedSteps[currentStep] ?
+                t('recipeDetail.stepComplete', '✓ Step Complete') :
+                t('recipeDetail.markComplete', 'Mark as Complete')
+              }
+              style={{
+                minWidth: 200,
+                backgroundColor: completedSteps[currentStep] ?
+                  tokens.colors.success[500] :
+                  tokens.colors.surface.darkTertiary,
+              }}
+            />
+          </Card>
+        </Container>
 
         {/* Navigation Controls */}
-        <View style={styles.cookingModeNavigation}>
-          <TouchableOpacity
-            style={[styles.cookingNavButton, currentStep === 0 && styles.cookingNavButtonDisabled]}
+        <Section
+          flexDirection="row"
+          alignItems="center"
+          padding="lg"
+          backgroundColor={tokens.colors.surface.darkSecondary}
+          noDivider
+        >
+          <Button
+            variant={currentStep === 0 ? "disabled" : "primary"}
+            size="md"
             onPress={prevStep}
             disabled={currentStep === 0}
-          >
-            <Text style={[
-              styles.cookingNavButtonText,
-              currentStep === 0 && styles.cookingNavButtonTextDisabled
-            ]}>
-              {t('common.previous', '← Previous')}
-            </Text>
-          </TouchableOpacity>
+            title={t('common.previous', '← Previous')}
+            style={{
+              minWidth: 100,
+              backgroundColor: currentStep === 0 ?
+                tokens.colors.surface.darkTertiary :
+                tokens.colors.primary[500],
+              opacity: currentStep === 0 ? 0.5 : 1,
+            }}
+          />
 
-          <View style={styles.cookingModeStepIndicator}>
-            <View style={styles.stepDots}>
+          <View style={{
+            flex: 1,
+            alignItems: 'center',
+          }}>
+            <View style={{
+              flexDirection: 'row',
+              gap: tokens.spacing.xs,
+            }}>
               {recipe.instructions.map((_, index) => (
                 <View
                   key={index}
-                  style={[
-                    styles.stepDot,
-                    index === currentStep && styles.stepDotActive,
-                    completedSteps[index] && styles.stepDotCompleted,
-                  ]}
+                  style={{
+                    width: index === currentStep ? 12 : 8,
+                    height: 8,
+                    borderRadius: index === currentStep ? 6 : 4,
+                    backgroundColor: completedSteps[index] ?
+                      tokens.colors.success[500] :
+                      index === currentStep ?
+                        tokens.colors.primary[500] :
+                        tokens.colors.surface.darkTertiary,
+                  }}
                 />
               ))}
             </View>
           </View>
 
-          <TouchableOpacity
-            style={[
-              styles.cookingNavButton,
-              currentStep === recipe.instructions.length - 1 && styles.cookingNavButtonDisabled
-            ]}
+          <Button
+            variant={currentStep === recipe.instructions.length - 1 ? "disabled" : "primary"}
+            size="md"
             onPress={nextStep}
             disabled={currentStep === recipe.instructions.length - 1}
-          >
-            <Text style={[
-              styles.cookingNavButtonText,
-              currentStep === recipe.instructions.length - 1 && styles.cookingNavButtonTextDisabled
-            ]}>
-              {t('common.next', 'Next →')}
-            </Text>
-          </TouchableOpacity>
-        </View>
-      </SafeAreaView>
+            title={t('common.next', 'Next →')}
+            style={{
+              minWidth: 100,
+              backgroundColor: currentStep === recipe.instructions.length - 1 ?
+                tokens.colors.surface.darkTertiary :
+                tokens.colors.primary[500],
+              opacity: currentStep === recipe.instructions.length - 1 ? 0.5 : 1,
+            }}
+          />
+        </Section>
+      </Container>
     </Modal>
   );
 };
@@ -436,25 +531,65 @@ export default function RecipeDetailScreen({
 
   if (loading || !recipe) {
     return (
-      <View style={styles.loadingContainer}>
-        <Text style={styles.loadingText}>{t('recipeDetail.loading', 'Loading recipe...')}</Text>
-      </View>
+      <Container
+        flex={1}
+        justifyContent="center"
+        alignItems="center"
+        backgroundColor={tokens.colors.background.primary}
+      >
+        <Text style={{
+          fontSize: tokens.typography.fontSize.lg,
+          color: tokens.colors.text.secondary,
+        }}>
+          {t('recipeDetail.loading', 'Loading recipe...')}
+        </Text>
+      </Container>
     );
   }
 
   return (
-    <View style={styles.container}>
+    <Container
+      flex={1}
+      backgroundColor={tokens.colors.background.primary}
+    >
       {/* Header */}
-      <View style={styles.headerContainer}>
-        <TouchableOpacity style={styles.backButton} onPress={onBackPress}>
-          <Text style={styles.backButtonText}>← {t('common.back', 'Back')}</Text>
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>{t('recipeDetail.title', 'Recipe Details')}</Text>
-        <View style={styles.headerSpacer} />
-      </View>
+      <Section
+        flexDirection="row"
+        alignItems="center"
+        padding="md"
+        backgroundColor={tokens.colors.surface.primary}
+        style={{
+          borderBottomWidth: 1,
+          borderBottomColor: tokens.colors.border.primary,
+        }}
+        noDivider
+      >
+        <Button
+          variant="tertiary"
+          size="sm"
+          onPress={onBackPress}
+          title={`← ${t('common.back', 'Back')}`}
+          style={{
+            paddingVertical: tokens.spacing.xs,
+            paddingHorizontal: tokens.spacing.sm,
+            borderRadius: tokens.borderRadius.sm,
+            backgroundColor: tokens.colors.background.primary,
+          }}
+        />
+        <Text style={{
+          flex: 1,
+          fontSize: tokens.typography.fontSize.lg,
+          fontWeight: tokens.typography.fontWeight.bold,
+          color: tokens.colors.text.primary,
+          textAlign: 'center',
+        }}>
+          {t('recipeDetail.title', 'Recipe Details')}
+        </Text>
+        <View style={{ width: 80 }} />
+      </Section>
 
-      <ScrollView 
-        style={styles.content}
+      <Container
+        scrollable
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
@@ -470,43 +605,66 @@ export default function RecipeDetailScreen({
         />
 
         {/* Tab Navigation */}
-        <View style={styles.tabContainer}>
-          <TouchableOpacity
-            style={[styles.tab, activeTab === 'ingredients' && styles.tabActive]}
+        <Card
+          padding="xs"
+          margin="md"
+          style={{
+            flexDirection: 'row',
+            backgroundColor: tokens.colors.surface.primary,
+          }}
+        >
+          <Button
+            variant={activeTab === 'ingredients' ? 'primary' : 'ghost'}
+            size="sm"
             onPress={() => setActiveTab('ingredients')}
-          >
-            <Text style={[styles.tabText, activeTab === 'ingredients' && styles.tabTextActive]}>
-              {t('recipeDetail.ingredientsTab', 'Ingredients')}
-            </Text>
-          </TouchableOpacity>
-          
-          <TouchableOpacity
-            style={[styles.tab, activeTab === 'instructions' && styles.tabActive]}
+            title={t('recipeDetail.ingredientsTab', 'Ingredients')}
+            style={{
+              flex: 1,
+              backgroundColor: activeTab === 'ingredients' ?
+                tokens.colors.primary[500] : 'transparent',
+              borderRadius: tokens.borderRadius.sm,
+            }}
+          />
+
+          <Button
+            variant={activeTab === 'instructions' ? 'primary' : 'ghost'}
+            size="sm"
             onPress={() => setActiveTab('instructions')}
-          >
-            <Text style={[styles.tabText, activeTab === 'instructions' && styles.tabTextActive]}>
-              {t('recipeDetail.instructionsTab', 'Instructions')}
-            </Text>
-          </TouchableOpacity>
-          
-          <TouchableOpacity
-            style={[styles.tab, activeTab === 'nutrition' && styles.tabActive]}
+            title={t('recipeDetail.instructionsTab', 'Instructions')}
+            style={{
+              flex: 1,
+              backgroundColor: activeTab === 'instructions' ?
+                tokens.colors.primary[500] : 'transparent',
+              borderRadius: tokens.borderRadius.sm,
+            }}
+          />
+
+          <Button
+            variant={activeTab === 'nutrition' ? 'primary' : 'ghost'}
+            size="sm"
             onPress={() => setActiveTab('nutrition')}
-          >
-            <Text style={[styles.tabText, activeTab === 'nutrition' && styles.tabTextActive]}>
-              {t('recipeDetail.nutritionTab', 'Nutrition')}
-            </Text>
-          </TouchableOpacity>
-          
-          <TouchableOpacity
-            style={[styles.tab, activeTab === 'reviews' && styles.tabActive]}
+            title={t('recipeDetail.nutritionTab', 'Nutrition')}
+            style={{
+              flex: 1,
+              backgroundColor: activeTab === 'nutrition' ?
+                tokens.colors.primary[500] : 'transparent',
+              borderRadius: tokens.borderRadius.sm,
+            }}
+          />
+
+          <Button
+            variant={activeTab === 'reviews' ? 'primary' : 'ghost'}
+            size="sm"
             onPress={() => setActiveTab('reviews')}
-          >
-            <Text style={[styles.tabText, activeTab === 'reviews' && styles.tabTextActive]}>
-              {t('recipeDetail.reviewsTab', 'Reviews')}
-            </Text>
-          </TouchableOpacity>
-        </View>
+            title={t('recipeDetail.reviewsTab', 'Reviews')}
+            style={{
+              flex: 1,
+              backgroundColor: activeTab === 'reviews' ?
+                tokens.colors.primary[500] : 'transparent',
+              borderRadius: tokens.borderRadius.sm,
+            }}
+          />
+        </Card>
 
         {/* Tab Content */}
         {activeTab === 'ingredients' && (
@@ -543,7 +701,7 @@ export default function RecipeDetailScreen({
             onRatingSubmit={handleRatingSubmit}
           />
         )}
-      </ScrollView>
+      </Container>
 
       {/* Cooking Mode Modal */}
       <CookingMode
@@ -553,264 +711,8 @@ export default function RecipeDetailScreen({
         completedSteps={completedSteps}
         onStepComplete={handleStepComplete}
       />
-    </View>
+    </Container>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#F2F2F7',
-  },
-  
-  // Loading Styles
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#F2F2F7',
-  },
-  loadingText: {
-    fontSize: 18,
-    color: '#8E8E93',
-  },
-
-  // Header Styles
-  headerContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: 'white',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E5EA',
-  },
-  backButton: {
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 8,
-    backgroundColor: '#F2F2F7',
-  },
-  backButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#007AFF',
-  },
-  headerTitle: {
-    flex: 1,
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#1C1C1E',
-    textAlign: 'center',
-  },
-  headerSpacer: {
-    width: 80, // Same width as back button to center title
-  },
-
-  // Content Styles
-  content: {
-    flex: 1,
-  },
-
-  // Tab Styles
-  tabContainer: {
-    flexDirection: 'row',
-    backgroundColor: 'white',
-    marginHorizontal: 16,
-    marginTop: 16,
-    borderRadius: 12,
-    padding: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  tab: {
-    flex: 1,
-    paddingVertical: 12,
-    alignItems: 'center',
-    borderRadius: 8,
-  },
-  tabActive: {
-    backgroundColor: '#007AFF',
-  },
-  tabText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#8E8E93',
-  },
-  tabTextActive: {
-    color: 'white',
-  },
-
-  // Cooking Mode Styles
-  cookingModeContainer: {
-    flex: 1,
-    backgroundColor: '#1C1C1E', // Dark background for cooking mode
-  },
-  cookingModeHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    backgroundColor: '#2C2C2E',
-  },
-  cookingModeClose: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#48484A',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  cookingModeCloseText: {
-    fontSize: 18,
-    color: 'white',
-    fontWeight: 'bold',
-  },
-  cookingModeTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: 'white',
-  },
-  cookingModeProgress: {
-    backgroundColor: '#48484A',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
-  },
-  cookingModeProgressText: {
-    fontSize: 14,
-    color: 'white',
-    fontWeight: '600',
-  },
-  cookingModeContent: {
-    flex: 1,
-    padding: 20,
-  },
-  currentStepContainer: {
-    backgroundColor: '#2C2C2E',
-    borderRadius: 16,
-    padding: 24,
-    alignItems: 'center',
-  },
-  currentStepNumber: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: '#007AFF',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  currentStepNumberText: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: 'white',
-  },
-  currentStepText: {
-    fontSize: 24,
-    color: 'white',
-    textAlign: 'center',
-    lineHeight: 32,
-    marginBottom: 24,
-  },
-  currentStepMeta: {
-    flexDirection: 'row',
-    gap: 16,
-    marginBottom: 32,
-  },
-  currentTimerButton: {
-    backgroundColor: '#FF9500',
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderRadius: 12,
-  },
-  currentTimerText: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  currentTempInfo: {
-    backgroundColor: '#48484A',
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderRadius: 12,
-  },
-  currentTempText: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  stepCompleteButton: {
-    backgroundColor: '#48484A',
-    paddingHorizontal: 32,
-    paddingVertical: 16,
-    borderRadius: 12,
-    minWidth: 200,
-    alignItems: 'center',
-  },
-  stepCompleteButtonCompleted: {
-    backgroundColor: '#34C759',
-  },
-  stepCompleteText: {
-    color: 'white',
-    fontSize: 18,
-    fontWeight: '600',
-  },
-  stepCompleteTextCompleted: {
-    color: 'white',
-  },
-  cookingModeNavigation: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    backgroundColor: '#2C2C2E',
-  },
-  cookingNavButton: {
-    backgroundColor: '#007AFF',
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderRadius: 8,
-    minWidth: 100,
-    alignItems: 'center',
-  },
-  cookingNavButtonDisabled: {
-    backgroundColor: '#48484A',
-    opacity: 0.5,
-  },
-  cookingNavButtonText: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  cookingNavButtonTextDisabled: {
-    color: '#8E8E93',
-  },
-  cookingModeStepIndicator: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  stepDots: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  stepDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#48484A',
-  },
-  stepDotActive: {
-    backgroundColor: '#007AFF',
-    width: 12,
-    height: 8,
-    borderRadius: 6,
-  },
-  stepDotCompleted: {
-    backgroundColor: '#34C759',
-  },
-});
+// Styles removed - now using systematic components with design tokens

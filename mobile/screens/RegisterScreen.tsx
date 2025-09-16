@@ -2,18 +2,20 @@ import React, { useState } from 'react';
 import {
   View,
   Text,
-  TextInput,
-  TouchableOpacity,
-  StyleSheet,
   Alert,
-  ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
-  ScrollView,
   Switch,
 } from 'react-native';
 import { StatusBar as ExpoStatusBar } from 'expo-status-bar';
 import { RegisterData } from '../types/auth';
+import {
+  Container,
+  Section,
+  Button,
+  Input,
+  tokens
+} from '../components/ui';
 
 interface RegisterScreenProps {
   onRegister: (data: RegisterData) => Promise<void>;
@@ -30,29 +32,8 @@ export default function RegisterScreen({ onRegister, onNavigateToLogin, isLoadin
   const [showDeveloperCode, setShowDeveloperCode] = useState(false);
 
   const handleRegister = async () => {
-    // Validation
-    if (!fullName.trim()) {
-      Alert.alert('Error', 'Please enter your full name');
-      return;
-    }
-
-    if (!email.trim() || !isValidEmail(email)) {
-      Alert.alert('Error', 'Please enter a valid email address');
-      return;
-    }
-
-    if (!password.trim()) {
-      Alert.alert('Error', 'Please enter a password');
-      return;
-    }
-
-    if (password.length < 8) {
-      Alert.alert('Error', 'Password must be at least 8 characters long');
-      return;
-    }
-
-    if (password !== confirmPassword) {
-      Alert.alert('Error', 'Passwords do not match');
+    // Validation is now handled by Input components with real-time feedback
+    if (!canSubmit) {
       return;
     }
 
@@ -89,293 +70,204 @@ export default function RegisterScreen({ onRegister, onNavigateToLogin, isLoadin
 
   const isPasswordValid = password.length >= 8;
   const doPasswordsMatch = password === confirmPassword && password.length > 0;
-  
-  const canSubmit = 
-    fullName.trim() && 
-    email.trim() && 
-    isValidEmail(email) && 
-    isPasswordValid && 
-    doPasswordsMatch && 
+
+  const canSubmit =
+    fullName.trim() &&
+    email.trim() &&
+    isValidEmail(email) &&
+    isPasswordValid &&
+    doPasswordsMatch &&
     !isLoading;
 
   return (
-    <KeyboardAvoidingView 
-      style={styles.container} 
+    <KeyboardAvoidingView
+      style={{ flex: 1, backgroundColor: tokens.colors.primary[500] }}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
-      <ExpoStatusBar style="light" backgroundColor="#007AFF" />
-      
-      <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
+      <ExpoStatusBar style="light" backgroundColor={tokens.colors.primary[500]} />
+
+      <Container padding="md" scrollable safeArea keyboardShouldPersistTaps="handled">
         {/* Header */}
-        <View style={styles.header}>
-          <Text style={styles.title}>🍎 DietIntel</Text>
-          <Text style={styles.subtitle}>Create your account</Text>
-        </View>
+        <Section spacing="lg" noDivider>
+          <View style={{ alignItems: 'center' }}>
+            <Text style={{
+              color: tokens.colors.surface.card,
+              fontSize: tokens.typography.fontSize['4xl'],
+              fontWeight: tokens.typography.fontWeight.bold,
+              marginBottom: tokens.spacing.xs,
+            }}>
+              🍎 DietIntel
+            </Text>
+            <Text style={{
+              color: tokens.colors.surface.card,
+              fontSize: tokens.typography.fontSize.lg,
+              fontWeight: tokens.typography.fontWeight.medium,
+              opacity: 0.9,
+            }}>
+              Create your account
+            </Text>
+          </View>
+        </Section>
 
         {/* Register Form */}
-        <View style={styles.formContainer}>
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Full Name</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="Enter your full name"
-              value={fullName}
-              onChangeText={setFullName}
-              autoComplete="name"
-              editable={!isLoading}
-            />
-          </View>
+        <Section spacing="md" style={{
+          backgroundColor: tokens.colors.surface.card,
+          borderRadius: tokens.borderRadius.xl,
+          padding: tokens.spacing.lg,
+          shadowColor: tokens.colors.neutral[900],
+          shadowOffset: { width: 0, height: 4 },
+          shadowOpacity: 0.1,
+          shadowRadius: 8,
+          elevation: 8,
+        }}>
+          <Input
+            label="Full Name"
+            placeholder="Enter your full name"
+            value={fullName}
+            onChangeText={setFullName}
+            autoComplete="name"
+            editable={!isLoading}
+            state={!fullName.trim() && fullName.length > 0 ? 'error' : 'default'}
+            errorMessage={!fullName.trim() && fullName.length > 0 ? 'Please enter your full name' : undefined}
+            required
+          />
 
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Email</Text>
-            <TextInput
-              style={[styles.input, !isValidEmail(email) && email.length > 0 && styles.inputError]}
-              placeholder="Enter your email"
-              value={email}
-              onChangeText={setEmail}
-              keyboardType="email-address"
-              autoCapitalize="none"
-              autoComplete="email"
-              editable={!isLoading}
-            />
-            {!isValidEmail(email) && email.length > 0 && (
-              <Text style={styles.errorText}>Please enter a valid email address</Text>
-            )}
-          </View>
+          <Input
+            label="Email"
+            placeholder="Enter your email"
+            value={email}
+            onChangeText={setEmail}
+            keyboardType="email-address"
+            autoCapitalize="none"
+            autoComplete="email"
+            editable={!isLoading}
+            state={!isValidEmail(email) && email.length > 0 ? 'error' : 'default'}
+            errorMessage={!isValidEmail(email) && email.length > 0 ? 'Please enter a valid email address' : undefined}
+            required
+          />
 
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Password</Text>
-            <TextInput
-              style={[styles.input, !isPasswordValid && password.length > 0 && styles.inputError]}
-              placeholder="Enter your password (min 8 characters)"
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry
-              autoComplete="password-new"
-              editable={!isLoading}
-            />
-            {!isPasswordValid && password.length > 0 && (
-              <Text style={styles.errorText}>Password must be at least 8 characters</Text>
-            )}
-          </View>
+          <Input
+            label="Password"
+            placeholder="Enter your password (min 8 characters)"
+            value={password}
+            onChangeText={setPassword}
+            secureTextEntry
+            autoComplete="password-new"
+            editable={!isLoading}
+            state={!isPasswordValid && password.length > 0 ? 'error' : 'default'}
+            errorMessage={!isPasswordValid && password.length > 0 ? 'Password must be at least 8 characters' : undefined}
+            required
+          />
 
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Confirm Password</Text>
-            <TextInput
-              style={[styles.input, !doPasswordsMatch && confirmPassword.length > 0 && styles.inputError]}
-              placeholder="Confirm your password"
-              value={confirmPassword}
-              onChangeText={setConfirmPassword}
-              secureTextEntry
-              autoComplete="password-new"
-              editable={!isLoading}
-            />
-            {!doPasswordsMatch && confirmPassword.length > 0 && (
-              <Text style={styles.errorText}>Passwords do not match</Text>
-            )}
-          </View>
+          <Input
+            label="Confirm Password"
+            placeholder="Confirm your password"
+            value={confirmPassword}
+            onChangeText={setConfirmPassword}
+            secureTextEntry
+            autoComplete="password-new"
+            editable={!isLoading}
+            state={!doPasswordsMatch && confirmPassword.length > 0 ? 'error' : 'default'}
+            errorMessage={!doPasswordsMatch && confirmPassword.length > 0 ? 'Passwords do not match' : undefined}
+            required
+          />
 
           {/* Developer Code Section */}
-          <View style={styles.developerSection}>
-            <View style={styles.switchRow}>
-              <Text style={styles.switchLabel}>Developer Account</Text>
-              <TouchableOpacity onPress={handleDeveloperCodeDemo}>
-                <Text style={styles.demoLink}>Show Code</Text>
-              </TouchableOpacity>
+          <View style={{
+            backgroundColor: tokens.colors.neutral[50],
+            borderRadius: tokens.borderRadius.lg,
+            padding: tokens.spacing.md,
+            marginBottom: tokens.spacing.md,
+          }}>
+            <View style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              marginBottom: tokens.spacing.sm,
+            }}>
+              <Text style={{
+                fontSize: tokens.typography.fontSize.sm,
+                fontWeight: tokens.typography.fontWeight.semibold,
+                color: tokens.colors.text.primary,
+                flex: 1,
+              }}>
+                Developer Account
+              </Text>
+              <Button
+                variant="tertiary"
+                size="sm"
+                onPress={handleDeveloperCodeDemo}
+                title="Show Code"
+                style={{ marginRight: tokens.spacing.sm }}
+              />
               <Switch
                 value={showDeveloperCode}
                 onValueChange={setShowDeveloperCode}
-                trackColor={{ false: '#E0E0E0', true: '#007AFF' }}
-                thumbColor="white"
+                trackColor={{ false: tokens.colors.neutral[200], true: tokens.colors.primary[500] }}
+                thumbColor={tokens.colors.surface.card}
                 disabled={isLoading}
               />
             </View>
-            
+
             {showDeveloperCode && (
-              <View style={styles.inputGroup}>
-                <Text style={styles.label}>Developer Code</Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder="Enter developer code (optional)"
-                  value={developerCode}
-                  onChangeText={setDeveloperCode}
-                  autoCapitalize="characters"
-                  editable={!isLoading}
-                />
-                <Text style={styles.helperText}>
-                  Use "DIETINTEL_DEV_2024" for developer features
-                </Text>
-              </View>
+              <Input
+                label="Developer Code"
+                placeholder="Enter developer code (optional)"
+                value={developerCode}
+                onChangeText={setDeveloperCode}
+                autoCapitalize="characters"
+                editable={!isLoading}
+                helperText='Use "DIETINTEL_DEV_2024" for developer features'
+              />
             )}
           </View>
 
-          <TouchableOpacity
-            style={[styles.registerButton, !canSubmit && styles.buttonDisabled]}
+          <Button
+            variant="primary"
             onPress={handleRegister}
             disabled={!canSubmit}
-          >
-            {isLoading ? (
-              <ActivityIndicator size="small" color="white" />
-            ) : (
-              <Text style={styles.registerButtonText}>Create Account</Text>
-            )}
-          </TouchableOpacity>
+            loading={isLoading}
+            title="Create Account"
+            style={{ marginTop: tokens.spacing.sm }}
+          />
 
-          <View style={styles.loginSection}>
-            <Text style={styles.loginText}>Already have an account?</Text>
-            <TouchableOpacity onPress={onNavigateToLogin} disabled={isLoading}>
-              <Text style={styles.loginLink}>Sign In</Text>
-            </TouchableOpacity>
+          <View style={{
+            flexDirection: 'row',
+            justifyContent: 'center',
+            alignItems: 'center',
+            marginTop: tokens.spacing.md,
+            gap: tokens.spacing.xs,
+          }}>
+            <Text style={{
+              color: tokens.colors.text.secondary,
+              fontSize: tokens.typography.fontSize.sm,
+            }}>
+              Already have an account?
+            </Text>
+            <Button
+              variant="tertiary"
+              size="sm"
+              onPress={onNavigateToLogin}
+              disabled={isLoading}
+              title="Sign In"
+            />
           </View>
-        </View>
+        </Section>
 
         {/* Footer */}
-        <View style={styles.footer}>
-          <Text style={styles.footerText}>
-            🔒 Your data is secure | 🌟 Join DietIntel
-          </Text>
-        </View>
-      </ScrollView>
+        <Section spacing="md" noDivider>
+          <View style={{ alignItems: 'center' }}>
+            <Text style={{
+              color: tokens.colors.surface.card,
+              fontSize: tokens.typography.fontSize.xs,
+              textAlign: 'center',
+              opacity: 0.8,
+            }}>
+              🔒 Your data is secure | 🌟 Join DietIntel
+            </Text>
+          </View>
+        </Section>
+      </Container>
     </KeyboardAvoidingView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#007AFF',
-  },
-  scrollContent: {
-    flexGrow: 1,
-    justifyContent: 'center',
-    padding: 20,
-  },
-  header: {
-    alignItems: 'center',
-    marginBottom: 40,
-  },
-  title: {
-    color: 'white',
-    fontSize: 42,
-    fontWeight: 'bold',
-    marginBottom: 8,
-  },
-  subtitle: {
-    color: 'rgba(255,255,255,0.9)',
-    fontSize: 18,
-    fontWeight: '500',
-  },
-  formContainer: {
-    backgroundColor: 'white',
-    borderRadius: 20,
-    padding: 25,
-    marginBottom: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 8,
-  },
-  inputGroup: {
-    marginBottom: 20,
-  },
-  label: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 8,
-  },
-  input: {
-    borderWidth: 2,
-    borderColor: '#E3F2FD',
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    fontSize: 16,
-    backgroundColor: '#F8F9FA',
-  },
-  inputError: {
-    borderColor: '#FF3B30',
-  },
-  errorText: {
-    color: '#FF3B30',
-    fontSize: 12,
-    marginTop: 4,
-  },
-  helperText: {
-    color: '#666',
-    fontSize: 12,
-    marginTop: 4,
-    fontStyle: 'italic',
-  },
-  developerSection: {
-    backgroundColor: '#F8F9FA',
-    borderRadius: 12,
-    padding: 15,
-    marginBottom: 20,
-  },
-  switchRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 10,
-  },
-  switchLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#333',
-    flex: 1,
-  },
-  demoLink: {
-    color: '#007AFF',
-    fontSize: 12,
-    fontWeight: '600',
-    marginRight: 10,
-  },
-  registerButton: {
-    backgroundColor: '#007AFF',
-    borderRadius: 12,
-    paddingVertical: 16,
-    alignItems: 'center',
-    marginTop: 10,
-    shadowColor: '#007AFF',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 6,
-  },
-  buttonDisabled: {
-    backgroundColor: '#BDC3C7',
-    shadowColor: 'transparent',
-  },
-  registerButtonText: {
-    color: 'white',
-    fontSize: 18,
-    fontWeight: '700',
-  },
-  loginSection: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginTop: 20,
-    gap: 5,
-  },
-  loginText: {
-    color: '#666',
-    fontSize: 14,
-  },
-  loginLink: {
-    color: '#007AFF',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  footer: {
-    alignItems: 'center',
-    marginTop: 20,
-  },
-  footerText: {
-    color: 'rgba(255,255,255,0.8)',
-    fontSize: 12,
-    textAlign: 'center',
-  },
-});
