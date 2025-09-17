@@ -15,6 +15,15 @@ import {
 import { StatusBar as ExpoStatusBar } from 'expo-status-bar';
 import { apiService } from '../services/ApiService';
 import { translateFoodNameSync } from '../utils/foodTranslation';
+import {
+  Container,
+  Section,
+  Button,
+  Card,
+  CardHeader,
+  CardBody,
+  tokens
+} from '../components/ui';
 
 interface NutritionalScore {
   overall_score: number;
@@ -187,19 +196,24 @@ export default function RecommendationsScreen({ onBackPress }: RecommendationsSc
   };
 
   const renderRecommendationItem = (item: RecommendationItem, mealType: string) => (
-    <View key={item.barcode} style={styles.recommendationCard}>
-      <View style={styles.recommendationHeader}>
-        <View style={styles.itemInfo}>
-          <Text style={styles.itemName}>{translateFoodNameSync(item.name)}</Text>
-          {item.brand && <Text style={styles.itemBrand}>{item.brand}</Text>}
+    <Card key={item.barcode} padding="md" style={{ marginBottom: tokens.spacing.md }}>
+      <CardHeader
+        flexDirection="row"
+        justifyContent="space-between"
+        alignItems="flex-start"
+        style={{ marginBottom: tokens.spacing.sm }}
+      >
+        <View style={{ flex: 1 }}>
+          <Text style={[styles.itemName, { color: tokens.colors.text.primary }]}>{translateFoodNameSync(item.name)}</Text>
+          {item.brand && <Text style={[styles.itemBrand, { color: tokens.colors.text.secondary }]}>{item.brand}</Text>}
         </View>
-        <View style={styles.scoreContainer}>
-          <Text style={styles.confidenceScore}>
+        <View style={{ alignItems: 'center' }}>
+          <Text style={[styles.confidenceScore, { color: tokens.colors.primary[600] }]}>
             {Math.round(item.confidence_score * 100)}%
           </Text>
-          <Text style={styles.scoreLabel}>confidence</Text>
+          <Text style={[styles.scoreLabel, { color: tokens.colors.text.secondary }]}>confidence</Text>
         </View>
-      </View>
+      </CardHeader>
 
       <View style={styles.nutritionInfo}>
         <Text style={styles.nutritionText}>
@@ -249,52 +263,52 @@ export default function RecommendationsScreen({ onBackPress }: RecommendationsSc
         </View>
       </View>
 
-      <View style={styles.actionButtons}>
-        <TouchableOpacity 
-          style={styles.addButton}
-          onPress={() => handleAddToMeal(item, mealType)}
-        >
-          <Text style={styles.addButtonText}>➕ Add to {mealType}</Text>
-        </TouchableOpacity>
-        
-        <View style={styles.feedbackButtons}>
-          <TouchableOpacity 
-            style={styles.feedbackButton}
-            onPress={() => handleProvideFeedback(item, true)}
-          >
-            <Text style={styles.feedbackButtonText}>👍</Text>
-          </TouchableOpacity>
-          <TouchableOpacity 
-            style={styles.feedbackButton}
-            onPress={() => handleProvideFeedback(item, false)}
-          >
-            <Text style={styles.feedbackButtonText}>👎</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-    </View>
+      <CardBody>
+        <Section flexDirection="row" justifyContent="space-between" alignItems="center" noDivider>
+          <Button
+            variant="primary"
+            size="md"
+            onPress={() => handleAddToMeal(item, mealType)}
+            title={`➕ Add to ${mealType}`}
+            style={{ flex: 1, marginRight: tokens.spacing.sm }}
+          />
+
+          <Section flexDirection="row" noDivider style={{ gap: tokens.spacing.xs }}>
+            <Button
+              variant="tertiary"
+              size="sm"
+              onPress={() => handleProvideFeedback(item, true)}
+              title="👍"
+              style={{ minWidth: 44 }}
+            />
+            <Button
+              variant="tertiary"
+              size="sm"
+              onPress={() => handleProvideFeedback(item, false)}
+              title="👎"
+              style={{ minWidth: 44 }}
+            />
+          </Section>
+        </Section>
+      </CardBody>
+    </Card>
   );
 
   const renderMealSelector = () => (
-    <View style={styles.mealSelector}>
-      {['breakfast', 'lunch', 'dinner'].map(meal => (
-        <TouchableOpacity
-          key={meal}
-          style={[
-            styles.mealButton, 
-            selectedMeal === meal && styles.mealButtonActive
-          ]}
-          onPress={() => setSelectedMeal(meal)}
-        >
-          <Text style={[
-            styles.mealButtonText,
-            selectedMeal === meal && styles.mealButtonTextActive
-          ]}>
-            {meal === 'breakfast' ? '🌅' : meal === 'lunch' ? '🌞' : '🌙'} {meal.charAt(0).toUpperCase() + meal.slice(1)}
-          </Text>
-        </TouchableOpacity>
-      ))}
-    </View>
+    <Section spacing="md">
+      <Section flexDirection="row" justifyContent="space-around" noDivider>
+        {['breakfast', 'lunch', 'dinner'].map(meal => (
+          <Button
+            key={meal}
+            variant={selectedMeal === meal ? "primary" : "tertiary"}
+            size="md"
+            onPress={() => setSelectedMeal(meal)}
+            title={`${meal === 'breakfast' ? '🌅' : meal === 'lunch' ? '🌞' : '🌙'} ${meal.charAt(0).toUpperCase() + meal.slice(1)}`}
+            style={{ flex: 1, marginHorizontal: tokens.spacing.xs }}
+          />
+        ))}
+      </Section>
+    </Section>
   );
 
   const renderInsights = () => {
@@ -421,26 +435,38 @@ export default function RecommendationsScreen({ onBackPress }: RecommendationsSc
   );
 
   return (
-    <SafeAreaView style={styles.container}>
+    <Container flex={1} backgroundColor={tokens.colors.primary[500]} safeArea>
       <ExpoStatusBar style="light" backgroundColor="#007AFF" />
-      
-      <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={onBackPress}>
-          <Text style={styles.backButtonText}>🏠</Text>
-        </TouchableOpacity>
-        <View style={styles.headerContent}>
-          <Text style={styles.title}>🎯 Smart Recommendations</Text>
-          <Text style={styles.subtitle}>Personalized for your goals</Text>
-        </View>
-        <TouchableOpacity 
-          style={styles.preferencesButton} 
-          onPress={() => setPreferencesModal(true)}
-        >
-          <Text style={styles.preferencesButtonText}>⚙️</Text>
-        </TouchableOpacity>
-      </View>
 
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+      <Section
+        flexDirection="row"
+        alignItems="center"
+        justifyContent="space-between"
+        padding="md"
+        backgroundColor={tokens.colors.primary[500]}
+        noDivider
+      >
+        <Button
+          variant="tertiary"
+          size="sm"
+          onPress={onBackPress}
+          title="🏠"
+          style={{ backgroundColor: 'transparent' }}
+        />
+        <View style={{ flex: 1, alignItems: 'center' }}>
+          <Text style={[styles.title, { color: tokens.colors.text.onDark }]}>🎯 Smart Recommendations</Text>
+          <Text style={[styles.subtitle, { color: tokens.colors.text.onDark }]}>Personalized for your goals</Text>
+        </View>
+        <Button
+          variant="tertiary"
+          size="sm"
+          onPress={() => setPreferencesModal(true)}
+          title="⚙️"
+          style={{ backgroundColor: 'transparent' }}
+        />
+      </Section>
+
+      <Container flex={1} backgroundColor={tokens.colors.background.primary} scrollable>
         {renderMealSelector()}
         {renderInsights()}
 
@@ -477,13 +503,19 @@ export default function RecommendationsScreen({ onBackPress }: RecommendationsSc
           </View>
         )}
 
-        <TouchableOpacity style={styles.regenerateButton} onPress={generateRecommendations}>
-          <Text style={styles.regenerateButtonText}>🔄 Generate New Recommendations</Text>
-        </TouchableOpacity>
-      </ScrollView>
+        <Section noDivider>
+          <Button
+            variant="secondary"
+            size="lg"
+            onPress={generateRecommendations}
+            title="🔄 Generate New Recommendations"
+            style={{ marginTop: tokens.spacing.lg }}
+          />
+        </Section>
+      </Container>
 
       <PreferencesModal />
-    </SafeAreaView>
+    </Container>
   );
 }
 

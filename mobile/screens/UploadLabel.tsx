@@ -18,6 +18,17 @@ import * as ImageManipulator from 'expo-image-manipulator';
 import { StatusBar as ExpoStatusBar } from 'expo-status-bar';
 import { useTranslation } from 'react-i18next';
 import { apiService } from '../services/ApiService';
+import {
+  Container,
+  Section,
+  Button,
+  Input,
+  Card,
+  CardHeader,
+  CardBody,
+  OCRProcessingLoader,
+  tokens
+} from '../components/ui';
 
 const { width: screenWidth } = Dimensions.get('window');
 
@@ -49,6 +60,7 @@ export default function UploadLabel({ onBackPress }: UploadLabelProps) {
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
+  const [processingStage, setProcessingStage] = useState<'uploading' | 'processing' | 'analyzing' | 'complete'>('uploading');
   const [ocrResult, setOcrResult] = useState<OCRResult | null>(null);
   const [showManualEdit, setShowManualEdit] = useState(false);
   const [manualValues, setManualValues] = useState({
@@ -139,6 +151,7 @@ export default function UploadLabel({ onBackPress }: UploadLabelProps) {
 
     setUploading(true);
     setUploadProgress(0);
+    setProcessingStage('uploading');
 
     try {
       // Create form data
@@ -149,16 +162,29 @@ export default function UploadLabel({ onBackPress }: UploadLabelProps) {
         name: 'nutrition_label.jpg',
       } as any);
 
-      // Simulate progress updates
+      // Enhanced progress updates with stages
       const progressInterval = setInterval(() => {
-        setUploadProgress(prev => Math.min(prev + 10, 90));
-      }, 200);
+        setUploadProgress(prev => {
+          const newProgress = Math.min(prev + 8, 90);
+          if (newProgress > 30 && processingStage === 'uploading') {
+            setProcessingStage('processing');
+          } else if (newProgress > 60 && processingStage === 'processing') {
+            setProcessingStage('analyzing');
+          }
+          return newProgress;
+        });
+      }, 180);
 
       const response = await apiService.scanNutritionLabel(formData);
 
       clearInterval(progressInterval);
+      setProcessingStage('complete');
       setUploadProgress(100);
-      setOcrResult(response.data);
+
+      // Brief completion delay for UX
+      setTimeout(() => {
+        setOcrResult(response.data);
+      }, 500);
 
       if (response.data.low_confidence) {
         Alert.alert(
@@ -176,8 +202,11 @@ export default function UploadLabel({ onBackPress }: UploadLabelProps) {
         [{ text: t('common.ok') }]
       );
     } finally {
-      setUploading(false);
-      setUploadProgress(0);
+      setTimeout(() => {
+        setUploading(false);
+        setUploadProgress(0);
+        setProcessingStage('uploading');
+      }, 800);
     }
   };
 
@@ -261,15 +290,23 @@ export default function UploadLabel({ onBackPress }: UploadLabelProps) {
       <Text style={styles.sectionTitle}>{t('upload.title')}</Text>
       <Text style={styles.subtitle}>{t('upload.subtitle')}</Text>
       
-      <View style={styles.buttonRow}>
-        <TouchableOpacity style={styles.primaryButton} onPress={takePhoto}>
-          <Text style={styles.primaryButtonText}>{t('upload.takePhoto')}</Text>
-        </TouchableOpacity>
-        
-        <TouchableOpacity style={styles.secondaryButton} onPress={pickImageFromGallery}>
-          <Text style={styles.secondaryButtonText}>{t('upload.fromGallery')}</Text>
-        </TouchableOpacity>
-      </View>
+      <Section flexDirection="row" noDivider style={{ gap: tokens.spacing.md }}>
+        <Button
+          variant="primary"
+          size="lg"
+          onPress={takePhoto}
+          title={t('upload.takePhoto')}
+          style={{ flex: 1 }}
+        />
+
+        <Button
+          variant="secondary"
+          size="lg"
+          onPress={pickImageFromGallery}
+          title={t('upload.fromGallery')}
+          style={{ flex: 1 }}
+        />
+      </Section>
     </View>
   );
 
@@ -422,27 +459,44 @@ export default function UploadLabel({ onBackPress }: UploadLabelProps) {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <Container flex={1} backgroundColor={tokens.colors.primary[500]} safeArea>
       <ExpoStatusBar style="light" backgroundColor="#007AFF" />
-      
-      <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={onBackPress}>
-          <Text style={styles.backButtonText}>🏠</Text>
-        </TouchableOpacity>
-        <View style={styles.headerContent}>
-          <Text style={styles.title}>{t('upload.headerTitle')}</Text>
-          <Text style={styles.headerSubtitle}>{t('upload.headerSubtitle')}</Text>
-        </View>
-        <View style={styles.headerSpacer} />
-      </View>
 
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+      <Section
+        flexDirection="row"
+        alignItems="center"
+        padding="md"
+        backgroundColor={tokens.colors.primary[500]}
+        noDivider
+      >
+        <Button
+          variant="tertiary"
+          size="sm"
+          onPress={onBackPress}
+          title="🏠"
+          style={{ backgroundColor: 'transparent' }}
+        />
+        <View style={{ flex: 1, alignItems: 'center' }}>
+          <Text style={[styles.title, { color: tokens.colors.text.onDark }]}>{t('upload.headerTitle')}</Text>
+          <Text style={[styles.headerSubtitle, { color: tokens.colors.text.onDark }]}>{t('upload.headerSubtitle')}</Text>
+        </View>
+        <View style={{ width: 50 }} />
+      </Section>
+
+      <Container flex={1} backgroundColor={tokens.colors.background.primary} scrollable>
         {!selectedImage && renderImagePicker()}
         {selectedImage && !ocrResult && renderImagePreview()}
         {ocrResult && renderOCRResults()}
         {renderManualEdit()}
-      </ScrollView>
-    </SafeAreaView>
+      </Container>
+
+      {/* Performance-optimized OCR Processing Loader */}
+      <OCRProcessingLoader
+        visible={uploading}
+        progress={uploadProgress}
+        stage={processingStage}
+      />
+    </Container>
   );
 }
 

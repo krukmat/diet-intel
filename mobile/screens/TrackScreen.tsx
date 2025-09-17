@@ -8,6 +8,9 @@ import {
   Image,
   ActivityIndicator,
   FlatList,
+  SafeAreaView,
+  TouchableOpacity,
+  ScrollView,
 } from 'react-native';
 import { StatusBar as ExpoStatusBar } from 'expo-status-bar';
 import * as ImagePicker from 'expo-image-picker';
@@ -21,6 +24,10 @@ import {
   Section,
   Button,
   InputNumber,
+  Card,
+  CardHeader,
+  CardBody,
+  Input,
   tokens
 } from '../components/ui';
 
@@ -137,9 +144,13 @@ const MarkMealEatenModal: React.FC<MarkMealEatenModalProps> = ({
       <SafeAreaView style={styles.modalContainer}>
         <View style={styles.modalHeader}>
           <Text style={styles.modalTitle}>{t('track.modal.markEatenTitle')}</Text>
-          <TouchableOpacity onPress={handleClose} style={styles.closeButton}>
-            <Text style={styles.closeButtonText}>✕</Text>
-          </TouchableOpacity>
+          <Button
+            variant="tertiary"
+            size="sm"
+            onPress={handleClose}
+            title="✕"
+            style={{ backgroundColor: 'transparent', padding: tokens.spacing.xs }}
+          />
         </View>
 
         <ScrollView style={styles.modalContent}>
@@ -160,17 +171,22 @@ const MarkMealEatenModal: React.FC<MarkMealEatenModalProps> = ({
             {photo ? (
               <View style={styles.photoPreview}>
                 <Image source={{ uri: photo }} style={styles.previewImage} />
-                <TouchableOpacity
-                  style={styles.retakeButton}
+                <Button
+                  variant="secondary"
+                  size="sm"
                   onPress={() => setPhoto(null)}
-                >
-                  <Text style={styles.retakeButtonText}>{t('track.modal.removePhoto')}</Text>
-                </TouchableOpacity>
+                  title={t('track.modal.removePhoto')}
+                  style={{ marginTop: tokens.spacing.sm }}
+                />
               </View>
             ) : (
-              <TouchableOpacity style={styles.photoButton} onPress={takePhoto}>
-                <Text style={styles.photoButtonText}>{t('track.modal.takePhoto')}</Text>
-              </TouchableOpacity>
+              <Button
+                variant="secondary"
+                size="md"
+                onPress={takePhoto}
+                title={t('track.modal.takePhoto')}
+                style={{ marginTop: tokens.spacing.md }}
+              />
             )}
           </View>
 
@@ -261,9 +277,13 @@ const WeighInModal: React.FC<WeighInModalProps> = ({ visible, onClose, onConfirm
       <SafeAreaView style={styles.modalContainer}>
         <View style={styles.modalHeader}>
           <Text style={styles.modalTitle}>{t('track.modal.weighInTitle')}</Text>
-          <TouchableOpacity onPress={handleClose} style={styles.closeButton}>
-            <Text style={styles.closeButtonText}>✕</Text>
-          </TouchableOpacity>
+          <Button
+            variant="tertiary"
+            size="sm"
+            onPress={handleClose}
+            title="✕"
+            style={{ backgroundColor: 'transparent', padding: tokens.spacing.xs }}
+          />
         </View>
 
         <ScrollView style={styles.modalContent}>
@@ -287,17 +307,22 @@ const WeighInModal: React.FC<WeighInModalProps> = ({ visible, onClose, onConfirm
             {photo ? (
               <View style={styles.photoPreview}>
                 <Image source={{ uri: photo }} style={styles.previewImage} />
-                <TouchableOpacity
-                  style={styles.retakeButton}
+                <Button
+                  variant="secondary"
+                  size="sm"
                   onPress={() => setPhoto(null)}
-                >
-                  <Text style={styles.retakeButtonText}>{t('track.modal.removePhoto')}</Text>
-                </TouchableOpacity>
+                  title={t('track.modal.removePhoto')}
+                  style={{ marginTop: tokens.spacing.sm }}
+                />
               </View>
             ) : (
-              <TouchableOpacity style={styles.photoButton} onPress={takePhoto}>
-                <Text style={styles.photoButtonText}>{t('track.modal.takePhoto')}</Text>
-              </TouchableOpacity>
+              <Button
+                variant="secondary"
+                size="md"
+                onPress={takePhoto}
+                title={t('track.modal.takePhoto')}
+                style={{ marginTop: tokens.spacing.md }}
+              />
             )}
           </View>
 
@@ -601,21 +626,31 @@ export default function TrackScreen({ onBackPress }: TrackScreenProps) {
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <Container flex={1} backgroundColor={tokens.colors.primary[500]} safeArea>
       <ExpoStatusBar style="light" backgroundColor="#007AFF" />
-      
-      <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={onBackPress}>
-          <Text style={styles.backButtonText}>🏠</Text>
-        </TouchableOpacity>
-        <View style={styles.headerContent}>
-          <Text style={styles.title}>{t('track.title')}</Text>
-          <Text style={styles.subtitle}>{t('track.subtitle')}</Text>
-        </View>
-        <View style={styles.headerSpacer} />
-      </View>
 
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+      <Section
+        flexDirection="row"
+        alignItems="center"
+        padding="md"
+        backgroundColor={tokens.colors.primary[500]}
+        noDivider
+      >
+        <Button
+          variant="tertiary"
+          size="sm"
+          onPress={onBackPress}
+          title="🏠"
+          style={{ backgroundColor: 'transparent' }}
+        />
+        <View style={{ flex: 1, alignItems: 'center' }}>
+          <Text style={[styles.title, { color: tokens.colors.text.onDark }]}>{t('track.title')}</Text>
+          <Text style={[styles.subtitle, { color: tokens.colors.text.onDark }]}>{t('track.subtitle')}</Text>
+        </View>
+        <View style={{ width: 50 }} />
+      </Section>
+
+      <Container flex={1} backgroundColor={tokens.colors.background.primary} scrollable>
         {/* Today's Meals */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>{t('track.todaysPlannedMeals')}</Text>
@@ -648,17 +683,22 @@ export default function TrackScreen({ onBackPress }: TrackScreenProps) {
           ))}
         </View>
 
-        {/* Weight Tracking */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>{t('track.weightProgress')}</Text>
-            <TouchableOpacity
-              style={styles.weighInButton}
+        <Section spacing="md">
+          <Section
+            flexDirection="row"
+            justifyContent="space-between"
+            alignItems="center"
+            noDivider
+            style={{ marginBottom: tokens.spacing.md }}
+          >
+            <Text style={[styles.sectionTitle, { color: tokens.colors.text.primary }]}>{t('track.weightProgress')}</Text>
+            <Button
+              variant="secondary"
+              size="sm"
               onPress={() => setWeighInModal({ visible: true })}
-            >
-              <Text style={styles.weighInButtonText}>{t('track.weighIn')}</Text>
-            </TouchableOpacity>
-          </View>
+              title={t('track.weighIn')}
+            />
+          </Section>
 
           {renderWeightChart()}
 
@@ -686,7 +726,7 @@ export default function TrackScreen({ onBackPress }: TrackScreenProps) {
             />
           </View>
         )}
-      </ScrollView>
+      </Container>
 
       <MarkMealEatenModal
         visible={markMealModal.visible}
@@ -700,7 +740,7 @@ export default function TrackScreen({ onBackPress }: TrackScreenProps) {
         onClose={() => setWeighInModal({ visible: false })}
         onConfirm={handleWeighIn}
       />
-    </SafeAreaView>
+    </Container>
   );
 }
 

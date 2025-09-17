@@ -76,5 +76,20 @@ export type {
   SpacerDirection
 } from './Layout';
 
+// Performance Loading Components
+export {
+  OCRProcessingLoader,
+  FastSkeleton,
+  PerformanceButton
+} from './PerformanceLoader';
+
+// Performance Monitoring Components (Development)
+export {
+  PerformanceMonitor,
+  useRenderPerformance,
+  useMemoryLeak,
+  useTouchPerformance
+} from './PerformanceMonitor';
+
 // Design Tokens (for component consumers)
 export { tokens } from '../../styles/tokens';
