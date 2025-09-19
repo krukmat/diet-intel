@@ -7,11 +7,7 @@ import {
   RefreshControl,
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
-import { Container } from '../components/ui/Container';
-import { Section } from '../components/ui/Section';
-import { Button } from '../components/ui/Button';
-import { Card } from '../components/ui/Card';
-import { tokens } from '../theme/tokens';
+import { Container, Section, Button, Card, tokens } from '../components/ui';
 import {
   RecipeHeader,
   InteractiveIngredients,

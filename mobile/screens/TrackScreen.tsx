@@ -710,7 +710,7 @@ export default function TrackScreen({ onBackPress }: TrackScreenProps) {
               </Text>
             </View>
           )}
-        </View>
+        </Section>
 
         {/* Photo Logs */}
         {photoLogs.length > 0 && (

@@ -941,7 +941,7 @@ export default function SmartDietScreen({ onBackPress, navigationContext, naviga
       </ScrollView>
 
       <PreferencesModal />
-    </Container>
+    </SafeAreaView>
   );
 }
 
