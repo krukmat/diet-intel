@@ -78,6 +78,9 @@ export const changeLanguage = async (language: string) => {
 
   await i18n.changeLanguage(language);
 
+  // MISSING: Save to AsyncStorage
+  await AsyncStorage.setItem(LANGUAGE_STORAGE_KEY, language);
+
   console.log('🌐 i18n.language after change:', i18n.language);
   console.log('🌐 Language change completed successfully');
 };

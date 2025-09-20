@@ -56,8 +56,8 @@ export const RecipeLanguageToggle: React.FC<RecipeLanguageToggleProps> = ({
     console.log('🌐 Current language before change:', i18n.language);
 
     try {
-      // Change language using i18n directly for immediate effect
-      await i18n.changeLanguage(language);
+      // Use helper function that saves to AsyncStorage
+      await changeLanguage(language);
       console.log('🌐 Language changed successfully to:', language);
       console.log('🌐 i18n.language after change:', i18n.language);
 

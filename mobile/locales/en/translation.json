@@ -630,6 +630,12 @@
     "recipeHome": {
       "title": "🍳 Recipe AI",
       "home": "🏠 Home",
+      "statsTitle": "📊 Your Recipe Statistics",
+      "loadingStats": "Loading stats...",
+      "totalRecipes": "Total Recipes",
+      "favorites": "Favorites",
+      "recent": "Recent",
+      "quickActions": "🚀 Quick Actions",
       "randomRecipe": "🎲 Random Recipe",
       "randomComingSoon": "Random recipe generation will be available in the next update!",
       "generateRecipe": "🔧 Generate Recipe",

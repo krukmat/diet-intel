@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { RecipeLanguageToggle } from '../components/RecipeLanguageToggle';
+import i18n from '../i18n/config';
 
 interface RecipeHomeScreenProps {
   onBackPress: () => void;
@@ -29,7 +30,15 @@ export default function RecipeHomeScreen({
   navigateToMyRecipes,
   navigationContext,
 }: RecipeHomeScreenProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation('translation', { useSuspense: false });
+
+  // Force re-render when language changes
+  React.useEffect(() => {
+    console.log('🌐 RecipeHomeScreen mounted - Current language:', i18n.language);
+    console.log('🌐 RecipeHomeScreen - statsTitle result:', t('recipeHome.statsTitle'));
+    console.log('🌐 RecipeHomeScreen - Spanish test:', t('navigation.recipes'));
+  }, [i18n.language, t]);
+
   const [loading, setLoading] = useState(false);
   const [stats, setStats] = useState({
     totalRecipes: 0,
@@ -118,22 +127,22 @@ export default function RecipeHomeScreen({
   const contextModes = [
     {
       id: 'generate',
-      title: t('recipeHome.generateRecipe', '🔧 Generate Recipe'),
-      description: t('recipeHome.generateDescription', 'Create new recipes with AI'),
+      title: t('recipeHome.generateRecipe', '🔧 Generar recetas'),
+      description: t('recipeHome.generateDescription', 'Crear nuevas recetas con IA'),
       color: '#007AFF',
       action: () => handleQuickAction('generate'),
     },
     {
       id: 'search',
-      title: t('recipeHome.searchRecipes', '🔍 Search Recipes'),
+      title: t('recipeHome.searchRecipes', '🔍 Buscar Recetas'),
       description: t('recipeHome.searchDescription', 'Find recipes by ingredients'),
       color: '#34C759',
       action: () => handleQuickAction('search'),
     },
     {
       id: 'my-recipes',
-      title: t('recipeHome.myRecipes', '📚 My Recipes'),
-      description: t('recipeHome.myRecipesDescription', 'View saved & generated recipes'),
+      title: t('recipeHome.myRecipes', '📚 Mis Recetas'),
+      description: t('recipeHome.myRecipesDescription', 'Ver recetas guardadas y generadas'),
       color: '#FF9500',
       action: () => handleQuickAction('my-recipes'),
     },
@@ -147,13 +156,13 @@ export default function RecipeHomeScreen({
   ];
 
   return (
-    <ScrollView style={styles.container}>
+    <ScrollView key={i18n.language} style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity style={styles.backButton} onPress={onBackPress}>
           <Text style={styles.backButtonText}>{t('recipeHome.home', '🏠 Home')}</Text>
         </TouchableOpacity>
-        <Text style={styles.title}>{t('recipeHome.title', '🍳 Recipe AI')}</Text>
+        <Text style={styles.title}>{t('recipeHome.title', '🍳 Receta AI')}</Text>
         <RecipeLanguageToggle
           style={styles.languageToggle}
           onLanguageChange={handleLanguageChange}
@@ -162,25 +171,25 @@ export default function RecipeHomeScreen({
 
       {/* Quick Stats */}
       <View style={styles.statsContainer}>
-        <Text style={styles.statsTitle}>📊 Your Recipe Statistics</Text>
+        <Text style={styles.statsTitle}>{t('recipeHome.statsTitle', '📊 Estadísticas')}</Text>
         {loading ? (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="small" color="#007AFF" />
-            <Text style={styles.loadingText}>Loading stats...</Text>
+            <Text style={styles.loadingText}>{t('recipeHome.loadingStats', 'Cargando estadísticas...')}</Text>
           </View>
         ) : (
           <View style={styles.statsGrid}>
             <View style={styles.statCard}>
               <Text style={styles.statNumber}>{stats.totalRecipes}</Text>
-              <Text style={styles.statLabel}>Total Recipes</Text>
+              <Text style={styles.statLabel}>{t('recipeHome.totalRecipes', 'Total recetas')}</Text>
             </View>
             <View style={styles.statCard}>
               <Text style={styles.statNumber}>{stats.favoriteRecipes}</Text>
-              <Text style={styles.statLabel}>Favorites</Text>
+              <Text style={styles.statLabel}>{t('recipeHome.favorites', 'Favoritos')}</Text>
             </View>
             <View style={styles.statCard}>
               <Text style={styles.statNumber}>{stats.recentGenerations}</Text>
-              <Text style={styles.statLabel}>Recent</Text>
+              <Text style={styles.statLabel}>{t('recipeHome.recent', 'Recientes')}</Text>
             </View>
           </View>
         )}
@@ -188,7 +197,7 @@ export default function RecipeHomeScreen({
 
       {/* Context Selection */}
       <View style={styles.contextSection}>
-        <Text style={styles.sectionTitle}>🚀 Quick Actions</Text>
+        <Text style={styles.sectionTitle}>{t('recipeHome.quickActions', '🚀 Quick Actions')}</Text>
         <View style={styles.contextGrid}>
           {contextModes.map((mode) => (
             <TouchableOpacity
@@ -208,19 +217,19 @@ export default function RecipeHomeScreen({
       <View style={styles.recentSection}>
         <Text style={styles.sectionTitle}>⏰ Recent Activity</Text>
         <View style={styles.recentCard}>
-          <Text style={styles.recentTitle}>🍝 Mediterranean Pasta</Text>
-          <Text style={styles.recentDescription}>Generated 2 hours ago • 4.8⭐</Text>
-          <Text style={styles.recentMeta}>Vegetarian • 25 min cook time</Text>
+          <Text style={styles.recentTitle}>🍝 {t('recipeHome.mediterraneanPasta', 'Mediterranean Pasta')}</Text>
+          <Text style={styles.recentDescription}>{t('recipeHome.generated', 'Generated 2 hours ago')} • 4.8⭐</Text>
+          <Text style={styles.recentMeta}>{t('recipeHome.vegetarian', 'Vegetarian')} • 25 min cook time</Text>
         </View>
         <View style={styles.recentCard}>
-          <Text style={styles.recentTitle}>🥗 Quinoa Power Bowl</Text>
-          <Text style={styles.recentDescription}>Generated yesterday • 4.6⭐</Text>
-          <Text style={styles.recentMeta}>Vegan • High Protein</Text>
+          <Text style={styles.recentTitle}>🥗 {t('recipeHome.quinoaPowerBowl', 'Quinoa Power Bowl')}</Text>
+          <Text style={styles.recentDescription}>{t('recipeHome.generatedYesterday', 'Generated yesterday')} • 4.6⭐</Text>
+          <Text style={styles.recentMeta}>{t('recipeHome.vegan', 'Vegan')} • {t('recipeHome.highProtein', 'High Protein')}</Text>
         </View>
         <View style={styles.recentCard}>
-          <Text style={styles.recentTitle}>🍲 Chicken Curry</Text>
-          <Text style={styles.recentDescription}>Generated 3 days ago • 4.9⭐</Text>
-          <Text style={styles.recentMeta}>Gluten-Free • 40 min cook time</Text>
+          <Text style={styles.recentTitle}>🍲 {t('recipeHome.chickenCurry', 'Chicken Curry')}</Text>
+          <Text style={styles.recentDescription}>{t('recipeHome.generatedDaysAgo', { days: 3 })} • 4.9⭐</Text>
+          <Text style={styles.recentMeta}>{t('recipeHome.glutenFree', 'Gluten-Free')} • 40 min cook time</Text>
         </View>
       </View>
 

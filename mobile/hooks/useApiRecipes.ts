@@ -56,7 +56,7 @@ export function useRecipeGeneration() {
 
     try {
       // Start the generation request
-      const response = await recipeApi.generateRecipe(request);
+      const response = await recipeApi.generateRecipeWithLanguage(request);
       
       // If we get an immediate response, we're done
       if (response.generationMetadata.processingTime < 5) {
