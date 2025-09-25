@@ -3,6 +3,7 @@ import jwt
 import time
 from datetime import datetime, timedelta
 from typing import Optional, Dict, Any
+from dataclasses import dataclass
 from fastapi import HTTPException, status, Depends
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from app.models.user import User, UserCreate, UserLogin, Token, TokenData, UserSession, UserRole
@@ -18,6 +19,31 @@ ACCESS_TOKEN_EXPIRE_MINUTES = 15
 REFRESH_TOKEN_EXPIRE_DAYS = 30
 
 security = HTTPBearer()
+optional_security = HTTPBearer(auto_error=False)
+
+
+@dataclass
+class RequestContext:
+    """Context extracted from authenticated requests"""
+    user: Optional[User]
+    session_id: Optional[str]
+    token: Optional[str]
+
+    @property
+    def user_id(self) -> Optional[str]:
+        return self.user.id if self.user else None
+
+    @property
+    def email(self) -> Optional[str]:
+        return self.user.email if self.user else None
+
+    @property
+    def role(self) -> Optional[UserRole]:
+        return self.user.role if self.user else None
+
+    @property
+    def is_authenticated(self) -> bool:
+        return self.user is not None
 
 
 class AuthService:
@@ -279,8 +305,18 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
     return await auth_service.get_current_user_from_token(credentials.credentials)
 
 
+async def get_current_request_context(
+    credentials: HTTPAuthorizationCredentials = Depends(security)
+) -> RequestContext:
+    """FastAPI dependency returning user and session context (requires auth)"""
+    user = await auth_service.get_current_user_from_token(credentials.credentials)
+    session = await db_service.get_session_by_access_token(credentials.credentials)
+    session_id = session.id if session else None
+    return RequestContext(user=user, session_id=session_id, token=credentials.credentials)
+
+
 # FastAPI dependency for optional user (allows anonymous access)
-async def get_optional_user(credentials: Optional[HTTPAuthorizationCredentials] = Depends(HTTPBearer(auto_error=False))) -> Optional[User]:
+async def get_optional_user(credentials: Optional[HTTPAuthorizationCredentials] = Depends(optional_security)) -> Optional[User]:
     """FastAPI dependency to optionally get current user (allows anonymous access)"""
     if not credentials:
         return None
@@ -290,6 +326,23 @@ async def get_optional_user(credentials: Optional[HTTPAuthorizationCredentials] 
     except HTTPException:
         # Invalid token, but allow anonymous access
         return None
+
+
+async def get_optional_request_context(
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(optional_security)
+) -> RequestContext:
+    """FastAPI dependency to retrieve request context when auth is optional"""
+    if not credentials:
+        return RequestContext(user=None, session_id=None, token=None)
+
+    try:
+        user = await auth_service.get_current_user_from_token(credentials.credentials)
+    except HTTPException:
+        return RequestContext(user=None, session_id=None, token=None)
+
+    session = await db_service.get_session_by_access_token(credentials.credentials)
+    session_id = session.id if session else None
+    return RequestContext(user=user, session_id=session_id, token=credentials.credentials)
 
 
 # FastAPI dependency for developer-only access

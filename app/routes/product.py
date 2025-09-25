@@ -3,7 +3,7 @@ import os
 import tempfile
 from datetime import datetime
 from typing import Union
-from fastapi import APIRouter, HTTPException, status, UploadFile, File
+from fastapi import APIRouter, HTTPException, status, UploadFile, File, Depends
 from app.models.product import (
     BarcodeRequest, ProductResponse, ErrorResponse,
     ScanResponse, LowConfidenceScanResponse, Nutriments
@@ -12,6 +12,7 @@ from app.services.openfoodfacts import openfoodfacts_service
 from app.services.cache import cache_service
 from app.services.nutrition_ocr import extract_nutrients_from_image, call_external_ocr
 from app.services.database import db_service
+from app.services.auth import RequestContext, get_optional_request_context
 import httpx
 import aiofiles
 
@@ -28,7 +29,10 @@ router = APIRouter()
         503: {"model": ErrorResponse, "description": "Service unavailable"}
     }
 )
-async def get_product_by_barcode(request: BarcodeRequest):
+async def get_product_by_barcode(
+    request: BarcodeRequest,
+    context: RequestContext = Depends(get_optional_request_context)
+):
     barcode = request.barcode.strip()
     start_time = datetime.now()
     
@@ -38,9 +42,9 @@ async def get_product_by_barcode(request: BarcodeRequest):
             detail="Barcode cannot be empty"
         )
     
-    # Extract user context (would be from JWT in real implementation)
-    user_id = None  # TODO: Extract from JWT when auth is implemented
-    session_id = None  # TODO: Extract from session when implemented
+    # Extract user context (optional authentication)
+    user_id = context.user_id
+    session_id = context.session_id
     
     try:
         # Check database first
@@ -182,7 +186,10 @@ async def get_product_by_barcode(request: BarcodeRequest):
         500: {"model": ErrorResponse, "description": "Processing error"}
     }
 )
-async def scan_nutrition_label(image: UploadFile = File(...)):
+async def scan_nutrition_label(
+    image: UploadFile = File(...),
+    context: RequestContext = Depends(get_optional_request_context)
+):
     """
     Scan nutrition label from uploaded image using OCR
     """
@@ -201,8 +208,8 @@ async def scan_nutrition_label(image: UploadFile = File(...)):
         )
     
     # Extract user context
-    user_id = None  # TODO: Extract from JWT when auth is implemented
-    session_id = None  # TODO: Extract from session when implemented
+    user_id = context.user_id
+    session_id = context.session_id
     
     temp_file_path = None
     start_time = datetime.now()
@@ -318,7 +325,10 @@ async def scan_nutrition_label(image: UploadFile = File(...)):
         503: {"model": ErrorResponse, "description": "External OCR service unavailable"}
     }
 )
-async def scan_label_with_external_ocr(image: UploadFile = File(...)):
+async def scan_label_with_external_ocr(
+    image: UploadFile = File(...),
+    context: RequestContext = Depends(get_optional_request_context)
+):
     """
     Scan nutrition label using external OCR service (when available)
     Falls back to local OCR if external service is unavailable
@@ -331,8 +341,8 @@ async def scan_label_with_external_ocr(image: UploadFile = File(...)):
         )
     
     # Extract user context
-    user_id = None  # TODO: Extract from JWT when auth is implemented
-    session_id = None  # TODO: Extract from session when implemented
+    user_id = context.user_id
+    session_id = context.session_id
     
     temp_file_path = None
     start_time = datetime.now()

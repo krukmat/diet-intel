@@ -1,5 +1,6 @@
 import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios';
 import { getEnvironmentConfig } from '../config/environments';
+import { authService } from './AuthService';
 
 class ApiService {
   private axiosInstance: AxiosInstance;
@@ -21,13 +22,24 @@ class ApiService {
       },
     });
 
-    // Request interceptor for logging and potential auth tokens
+    // Request interceptor for logging and attaching auth tokens when available
     instance.interceptors.request.use(
-      (config) => {
+      async (config) => {
         console.log(`API Request: ${config.method?.toUpperCase()} ${config.url}`, {
           environment: this.currentEnvironment,
           baseURL: this.axiosInstance.defaults.baseURL
         });
+
+        try {
+          const storedTokens = await authService.getStoredTokens();
+          if (storedTokens?.access_token && !authService.isTokenExpired(storedTokens.expires_at)) {
+            config.headers = config.headers ?? {};
+            config.headers.Authorization = `Bearer ${storedTokens.access_token}`;
+          }
+        } catch (error) {
+          console.warn('API Request Token Attach Error:', error);
+        }
+
         return config;
       },
       (error) => {
@@ -132,6 +144,10 @@ class ApiService {
 
   public async getMealPlanConfig() {
     return this.get('/plan/config');
+  }
+
+  public async addProductToPlan(data: { barcode: string; meal_type?: string; serving_size?: string }) {
+    return this.post('/plan/add-product', data);
   }
 
   // Smart recommendations endpoints

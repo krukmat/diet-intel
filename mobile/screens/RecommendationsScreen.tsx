@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import { StatusBar as ExpoStatusBar } from 'expo-status-bar';
 import { apiService } from '../services/ApiService';
+import { useAuth } from '../contexts/AuthContext';
 import { translateFoodNameSync } from '../utils/foodTranslation';
 
 interface NutritionalScore {
@@ -90,6 +91,7 @@ export default function RecommendationsScreen({ onBackPress }: RecommendationsSc
     caloreBudget: 2000,
     maxRecommendations: 10,
   });
+  const { user } = useAuth();
 
   const availableDietaryRestrictions = [
     'vegetarian', 'vegan', 'gluten-free', 'dairy-free', 'nut-free', 'low-sodium'
@@ -101,11 +103,12 @@ export default function RecommendationsScreen({ onBackPress }: RecommendationsSc
 
   useEffect(() => {
     generateRecommendations();
-  }, [selectedMeal]);
+  }, [selectedMeal, user?.id]);
 
   const generateRecommendations = async () => {
     setLoading(true);
     try {
+      const userId = user?.id;
       const requestData = {
         meal_context: selectedMeal,
         max_recommendations: preferences.maxRecommendations,
@@ -117,6 +120,12 @@ export default function RecommendationsScreen({ onBackPress }: RecommendationsSc
         include_history: true,
       };
 
+      if (userId) {
+        (requestData as any).user_id = userId;
+      } else {
+        requestData.include_history = false;
+      }
+
       const response = await apiService.generateSmartRecommendations(requestData);
       setRecommendations(response.data);
     } catch (error) {
@@ -127,32 +136,50 @@ export default function RecommendationsScreen({ onBackPress }: RecommendationsSc
     }
   };
 
-  const handleAddToMeal = async (item: RecommendationItem, mealType: string) => {
-    try {
-      // TODO: Integrate with meal plan customization
-      Alert.alert(
-        'Add to Meal Plan', 
-        `Would you like to add ${translateFoodNameSync(item.name)} to your ${mealType}?`,
-        [
-          { text: 'Cancel', style: 'cancel' },
-          { 
-            text: 'Add', 
-            onPress: () => {
-              Alert.alert('Success', `${translateFoodNameSync(item.name)} added to your ${mealType} plan!`);
-              // TODO: Actually add to meal plan via API
+  const handleAddToMeal = (item: RecommendationItem, mealType: string) => {
+    if (!user?.id) {
+      Alert.alert('Sign In Required', 'Please log in to modify your meal plan.');
+      return;
+    }
+
+    Alert.alert(
+      'Add to Meal Plan', 
+      `Would you like to add ${translateFoodNameSync(item.name)} to your ${mealType}?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { 
+          text: 'Add', 
+          onPress: async () => {
+            try {
+              const response = await apiService.addProductToPlan({
+                barcode: item.barcode,
+                meal_type: mealType,
+                serving_size: item.serving_size,
+              });
+              const result = response.data;
+              Alert.alert(
+                result.success ? 'Added to Plan!' : 'Unable to add',
+                result.message || `${translateFoodNameSync(item.name)} could not be added.`
+              );
+            } catch (error) {
+              console.error('Failed to add item to meal plan:', error);
+              Alert.alert('Error', 'Failed to add item to meal plan.');
             }
           }
-        ]
-      );
-    } catch (error) {
-      Alert.alert('Error', 'Failed to add item to meal plan.');
-    }
+        }
+      ]
+    );
   };
 
   const handleProvideFeedback = async (item: RecommendationItem, accepted: boolean) => {
     try {
+      if (!user?.id) {
+        Alert.alert('Sign In Required', 'Please log in to share feedback.');
+        return;
+      }
+
       const feedbackData = {
-        user_id: recommendations?.user_id || 'anonymous',
+        user_id: user.id,
         recommendation_id: `rec_${Date.now()}`,
         barcode: item.barcode,
         accepted: accepted,

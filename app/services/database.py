@@ -419,7 +419,7 @@ class DatabaseService:
             cursor = conn.cursor()
             cursor.execute("SELECT * FROM user_sessions WHERE refresh_token = ?", (refresh_token,))
             row = cursor.fetchone()
-            
+
             if row:
                 return UserSession(
                     id=row['id'],
@@ -431,7 +431,26 @@ class DatabaseService:
                     created_at=datetime.fromisoformat(row['created_at'])
                 )
             return None
-    
+
+    async def get_session_by_access_token(self, access_token: str) -> Optional[UserSession]:
+        """Get session details using the access token"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT * FROM user_sessions WHERE access_token = ?", (access_token,))
+            row = cursor.fetchone()
+
+            if row:
+                return UserSession(
+                    id=row['id'],
+                    user_id=row['user_id'],
+                    access_token=row['access_token'],
+                    refresh_token=row['refresh_token'],
+                    expires_at=datetime.fromisoformat(row['expires_at']),
+                    device_info=row['device_info'],
+                    created_at=datetime.fromisoformat(row['created_at']) if row['created_at'] else None
+                )
+            return None
+
     async def update_session(self, session_id: str, access_token: str, refresh_token: str, expires_at: datetime):
         """Update session tokens"""
         with self.get_connection() as conn:

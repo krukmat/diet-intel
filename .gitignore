@@ -158,6 +158,7 @@ webapp/package-lock.json
 reports/
 mobile/TODO-PRIORITY-REPORT.md
 ASYNCSTORAGE-FIX-TEST-REPORT.md
+manual-user-tests.md
 MEAL-PLAN-ID-MANUAL-TESTS.md
 dietintel.db-shm
 .gitignore

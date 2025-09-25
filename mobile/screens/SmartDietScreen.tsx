@@ -19,7 +19,6 @@ import {
   SmartDietContext, 
   type SmartDietResponse,
   type SmartSuggestion,
-  type SuggestionFeedback,
   type SmartDietInsights
 } from '../services/SmartDietService';
 
@@ -32,8 +31,7 @@ import { apiService } from '../services/ApiService';
 import { translateFoodNameSync, translateFoodName } from '../utils/foodTranslation';
 import { getCurrentMealPlanId } from '../utils/mealPlanUtils';
 import { notificationService, NotificationConfig } from '../services/NotificationService';
-import axios from 'axios';
-import { API_BASE_URL } from '../config/environment';
+import { useAuth } from '../contexts/AuthContext';
 
 // Legacy interfaces for backward compatibility
 interface LegacySmartSuggestion {
@@ -127,6 +125,7 @@ type ContextType = SmartDietContext;
 
 export default function SmartDietScreen({ onBackPress, navigationContext, navigateToTrack, navigateToPlan }: SmartDietScreenProps) {
   const { t, i18n } = useTranslation();
+  const { user } = useAuth();
   
   // Performance-optimized state management with proper TypeScript types
   const [smartData, setSmartData] = useState<SmartDietResponse | null>(null);
@@ -155,7 +154,7 @@ export default function SmartDietScreen({ onBackPress, navigationContext, naviga
 
   useEffect(() => {
     generateSmartSuggestions();
-  }, [selectedContext]);
+  }, [selectedContext, user?.id]);
 
   // Handle navigation context (e.g., coming from meal plan optimization)
   useEffect(() => {
@@ -209,9 +208,10 @@ export default function SmartDietScreen({ onBackPress, navigationContext, naviga
       }
 
       // Use the performance-optimized SmartDietService
+      const activeUserId = user?.id ?? 'anonymous';
       const response = await smartDietService.getSmartSuggestions(
         selectedContext,
-        'anonymous', // TODO: Get actual user ID
+        activeUserId,
         options
       );
       
@@ -233,6 +233,10 @@ export default function SmartDietScreen({ onBackPress, navigationContext, naviga
             excluded_ingredients: preferences.excludedIngredients,
             include_history: preferences.includeHistory,
           };
+
+          if (user?.id) {
+            legacyRequest.user_id = user.id;
+          }
 
           const legacyResponse = await apiService.generateSmartRecommendations(legacyRequest);
           
@@ -345,6 +349,14 @@ export default function SmartDietScreen({ onBackPress, navigationContext, naviga
         );
         return;
       }
+
+      if (!user?.id) {
+        Alert.alert(
+          'Sign In Required',
+          'Please log in to modify your meal plan.'
+        );
+        return;
+      }
       
       // Determine meal type from meal_context or category
       let mealType = 'lunch'; // default
@@ -360,9 +372,10 @@ export default function SmartDietScreen({ onBackPress, navigationContext, naviga
         else if (cat.includes('lunch')) mealType = 'lunch';
       }
       
-      const response = await axios.post(`${API_BASE_URL}/plan/add-product`, {
-        barcode: barcode,
+      const response = await apiService.addProductToPlan({
+        barcode,
         meal_type: mealType,
+        serving_size: suggestion.suggested_item?.serving_size || suggestion.metadata?.serving_size,
       });
       
       const result = response.data;
@@ -383,10 +396,10 @@ export default function SmartDietScreen({ onBackPress, navigationContext, naviga
       console.error('Add recommendation to plan failed:', error);
       
       let errorMessage = 'Failed to add recommendation to meal plan. Please try again.';
-      if (error.response?.data?.message) {
-        errorMessage = error.response.data.message;
-      } else if (error.response?.data?.detail) {
-        errorMessage = error.response.data.detail;
+      if ((error as any).response?.data?.message) {
+        errorMessage = (error as any).response.data.message;
+      } else if ((error as any).response?.data?.detail) {
+        errorMessage = (error as any).response.data.detail;
       }
       
       Alert.alert('Error', errorMessage, [{ text: 'OK' }]);
@@ -438,8 +451,14 @@ export default function SmartDietScreen({ onBackPress, navigationContext, naviga
 
   const handleProvideFeedback = async (suggestion: ExtendedSmartSuggestion, helpful: boolean) => {
     try {
+      if (!user?.id) {
+        Alert.alert('Sign In Required', 'Please log in to share feedback.');
+        return;
+      }
+
+      const feedbackUserId = user.id;
       const feedbackData = {
-        user_id: smartData?.user_id || 'anonymous',
+        user_id: feedbackUserId,
         suggestion_id: suggestion.id,
         feedback_type: helpful ? 'helpful' : 'not_helpful',
         context: selectedContext,
