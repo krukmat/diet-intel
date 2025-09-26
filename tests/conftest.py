@@ -1,8 +1,67 @@
 import pytest
 import asyncio
+import inspect
 from unittest.mock import AsyncMock, MagicMock
 from fastapi.testclient import TestClient
 from httpx import AsyncClient
+import httpx
+
+
+# Compatibility patch: Starlette's TestClient still passes `app=` to httpx.Client,
+# but newer httpx releases removed that argument. Re-introduce support so existing
+# tests keep working without rewriting all fixtures.
+if 'app' not in inspect.signature(httpx.Client.__init__).parameters:
+    _httpx_client_init = httpx.Client.__init__
+
+    def _patched_httpx_client_init(self, *args, app=None, **kwargs):
+        if app is not None:
+            kwargs.setdefault('transport', httpx.ASGITransport(app=app))
+        return _httpx_client_init(self, *args, **kwargs)
+
+    httpx.Client.__init__ = _patched_httpx_client_init
+
+if 'app' not in inspect.signature(httpx.AsyncClient.__init__).parameters:
+    _httpx_async_client_init = httpx.AsyncClient.__init__
+
+    def _patched_httpx_async_client_init(self, *args, app=None, **kwargs):
+        if app is not None:
+            kwargs.setdefault('transport', httpx.ASGITransport(app=app))
+        return _httpx_async_client_init(self, *args, **kwargs)
+
+    httpx.AsyncClient.__init__ = _patched_httpx_async_client_init
+
+if not hasattr(httpx.AsyncClient, '__enter__'):
+    async_client_aenter = httpx.AsyncClient.__aenter__
+    async_client_aexit = httpx.AsyncClient.__aexit__
+
+    class _SyncAsyncClientAdapter:
+        def __init__(self, client, loop):
+            self._client = client
+            self._loop = loop
+
+        def __getattr__(self, name):
+            attr = getattr(self._client, name)
+            if callable(attr):
+                def _wrapped(*args, **kwargs):
+                    result = attr(*args, **kwargs)
+                    if asyncio.iscoroutine(result):
+                        return self._loop.run_until_complete(result)
+                    return result
+                return _wrapped
+            return attr
+
+    def _async_client_enter(self):
+        loop = asyncio.get_event_loop()
+        self.__conftest_loop = loop
+        loop.run_until_complete(async_client_aenter(self))
+        return _SyncAsyncClientAdapter(self, loop)
+
+    def _async_client_exit(self, exc_type, exc_val, exc_tb):
+        loop = getattr(self, '__conftest_loop', asyncio.get_event_loop())
+        return loop.run_until_complete(async_client_aexit(self, exc_type, exc_val, exc_tb))
+
+    httpx.AsyncClient.__enter__ = _async_client_enter
+    httpx.AsyncClient.__exit__ = _async_client_exit
 from app.services.cache import CacheService
 from app.services.recommendation_engine import RecommendationEngine
 

@@ -6,10 +6,12 @@ Provides multi-provider translation with caching and fallback mechanisms.
 import asyncio
 import logging
 from typing import Dict, List, Optional, Tuple
+import httpx
 from deep_translator import GoogleTranslator, MicrosoftTranslator, YandexTranslator
 from deep_translator.exceptions import TranslationNotFound, TooManyRequests, RequestError
 
 from .cache import CacheService
+from app.config import config
 
 logger = logging.getLogger(__name__)
 
@@ -44,7 +46,9 @@ class TranslationService:
     def __init__(self, cache_service: CacheService):
         self.cache = cache_service
         self._translation_cache_ttl = 7 * 24 * 60 * 60  # 7 days in seconds
-        
+        self.libretranslate_url = config.libretranslate_url.rstrip('/') if config.libretranslate_url else None
+        self.libretranslate_api_key = config.libretranslate_api_key
+
     def _get_cache_key(self, text: str, source_lang: str, target_lang: str) -> str:
         """Generate cache key for translation."""
         return f"translation:{source_lang}:{target_lang}:{text.lower().strip()}"
@@ -91,7 +95,14 @@ class TranslationService:
         if cached_translation:
             logger.debug(f"Cache hit for translation: {text} -> {cached_translation}")
             return cached_translation
-        
+
+        # Try LibreTranslate first if configured
+        libre_translation = await self._translate_with_libretranslate(text, source_lang, target_lang)
+        if libre_translation:
+            await self.cache.set(cache_key, libre_translation, ttl=self._translation_cache_ttl)
+            logger.info(f"Translated via LibreTranslate: {text[:50]}... -> {libre_translation[:50]}...")
+            return libre_translation
+
         # Try translation providers in order
         translation = await self._translate_with_providers(text, source_lang, target_lang)
         
@@ -103,7 +114,7 @@ class TranslationService:
         
         logger.warning(f"Failed to translate text: {text}")
         return None
-    
+
     async def _translate_with_providers(
         self, 
         text: str, 
@@ -132,6 +143,62 @@ class TranslationService:
                 continue
         
         return None
+
+    async def _translate_with_libretranslate(
+        self,
+        text: str,
+        source_lang: str,
+        target_lang: str
+    ) -> Optional[str]:
+        """Attempt translation via LibreTranslate if configured."""
+
+        if not self.libretranslate_url:
+            return None
+
+        payload = {
+            "q": text,
+            "source": source_lang,
+            "target": target_lang,
+            "format": "text"
+        }
+
+        if self.libretranslate_api_key:
+            payload["api_key"] = self.libretranslate_api_key
+
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                response = await client.post(f"{self.libretranslate_url}/translate", json=payload)
+                response.raise_for_status()
+                data = response.json()
+
+                if isinstance(data, dict):
+                    translation = data.get("translatedText") or data.get("translated_text")
+                else:
+                    translation = data
+
+                if translation and translation.strip():
+                    return translation.strip()
+
+                logger.warning("LibreTranslate responded without translated text")
+        except Exception as exc:
+            logger.warning(f"LibreTranslate request failed: {exc}")
+
+        return None
+
+    async def libretranslate_health(self) -> str:
+        """Return health status string for LibreTranslate endpoint."""
+
+        if not self.libretranslate_url:
+            return "disabled"
+
+        try:
+            async with httpx.AsyncClient(timeout=5.0) as client:
+                response = await client.get(f"{self.libretranslate_url}/languages")
+                response.raise_for_status()
+            return "available"
+        except Exception as exc:
+            logger.warning(f"LibreTranslate health probe failed: {exc}")
+            return f"error: {exc}".split('\n')[0]
     
     def _translate_sync(
         self, 

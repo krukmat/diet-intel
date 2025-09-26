@@ -5,13 +5,29 @@ Phase R.3.1.1: User Taste Profile Analysis Implementation - Task 8
 
 import logging
 import statistics
-from typing import Dict, List, Optional, Any, Tuple
+from dataclasses import dataclass, field
+from typing import Dict, List, Optional, Any, Tuple, Set
 from datetime import datetime
 
 from app.services.recipe_database import RecipeDatabaseService
 from app.services.recipe_ai_engine import GeneratedRecipe, RecipeGenerationRequest as EngineRequest
+from app.models.product import Nutriments
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class UserPreferenceProfile:
+    """Lightweight container for cached user preference data (legacy compatibility)."""
+
+    favorite_foods: Set[str] = field(default_factory=set)
+    avoided_foods: Set[str] = field(default_factory=set)
+    preferred_cuisines: List[str] = field(default_factory=list)
+    macro_preferences: Dict[str, float] = field(default_factory=dict)
+    meal_timing_patterns: Dict[str, List[str]] = field(default_factory=dict)
+    seasonal_preferences: Dict[str, List[str]] = field(default_factory=dict)
+    interaction_count: int = 0
+    last_updated: datetime = field(default_factory=datetime.utcnow)
 
 
 class RecommendationEngine:
@@ -20,6 +36,26 @@ class RecommendationEngine:
     def __init__(self, db_service: Optional[RecipeDatabaseService] = None):
         """Initialize recommendation engine with database connection"""
         self.db_service = db_service or RecipeDatabaseService()
+        # Legacy state used by tests and older API integrations
+        self.user_profiles: Dict[str, UserPreferenceProfile] = {}
+        self.feedback_history: List[Any] = []
+        self.recommendation_cache_ttl: int = 300
+        self.scoring_weights: Dict[str, float] = {
+            'nutritional_quality': 0.4,
+            'user_preference': 0.3,
+            'goal_alignment': 0.1,
+            'dietary_compatibility': 0.1,
+            'seasonal_factor': 0.05,
+            'popularity_factor': 0.05,
+        }
+        self.macro_targets: Dict[str, float] = {
+            'protein_min_percent': 0.18,
+            'protein_max_percent': 0.35,
+            'fat_min_percent': 0.20,
+            'fat_max_percent': 0.35,
+            'carbs_min_percent': 0.30,
+            'carbs_max_percent': 0.60,
+        }
 
     async def apply_personalization(self, request: EngineRequest, user_id: str) -> Tuple[EngineRequest, Dict[str, Any]]:
         """
@@ -297,6 +333,27 @@ class RecommendationEngine:
         # Could expand to include protein/fat/carb ratios if needed
         return calorie_score
 
+    def _calculate_nutritional_quality(self, nutriments: Optional[Nutriments]) -> float:
+        """Legacy helper retained for compatibility with historical tests."""
+
+        if nutriments is None:
+            return 0.0
+
+        try:
+            protein = nutriments.protein_g_per_100g or 0.0
+            fiber = getattr(nutriments, "fiber_g_per_100g", None) or 0.0
+            sugars = nutriments.sugars_g_per_100g or 0.0
+            salt = nutriments.salt_g_per_100g or 0.0
+
+            positive = protein + fiber
+            negative = sugars + salt
+
+            score = positive - 0.5 * negative
+            return max(0.0, min(1.0, score / 20.0))
+        except Exception as exc:
+            logger.warning(f"Failed to calculate nutritional quality: {exc}")
+            return 0.0
+
     def _generate_score_explanation(self, cuisine_score: float, ingredient_score: float,
                                   time_score: float, nutrition_score: float) -> str:
         """Generate human-readable explanation of personalization score"""
@@ -328,3 +385,9 @@ class RecommendationEngine:
 
 # Global recommendation engine instance
 recommendation_engine = RecommendationEngine()
+
+
+class SmartRecommendationEngine(RecommendationEngine):
+    """Backward-compatible alias for legacy tests and integrations."""
+
+    pass

@@ -96,6 +96,16 @@ class Config(BaseSettings):
         default="INFO",
         description="Logging level (DEBUG, INFO, WARNING, ERROR)"
     )
+
+    libretranslate_url: Optional[str] = Field(
+        default=None,
+        description="Optional LibreTranslate base URL (e.g., http://localhost:5000)"
+    )
+
+    libretranslate_api_key: Optional[str] = Field(
+        default=None,
+        description="Optional LibreTranslate API key if authentication is enabled"
+    )
     
     class Config:
         env_prefix = ""  # No prefix, use direct env var names

@@ -309,18 +309,24 @@ async def translation_health_check(
             except Exception as e:
                 providers_status[provider_class.__name__] = f"error: {str(e)}"
         
+        libre_status = await translation_service.libretranslate_health()
+        providers_status["LibreTranslate"] = libre_status
+
         # Determine overall status
         available_providers = sum(1 for status in providers_status.values() if status == "available")
         overall_status = "healthy" if available_providers > 0 and cache_available else "degraded"
         
         if available_providers == 0:
             overall_status = "unhealthy"
-        
+
+        fallback_available = True  # Recipe translation service always exposes dictionary-based fallback
+
         return TranslationHealthResponse(
             status=overall_status,
             supported_languages_count=len(translation_service.get_supported_languages()),
             cache_available=cache_available,
-            providers_status=providers_status
+            providers_status=providers_status,
+            fallback_available=fallback_available
         )
         
     except Exception as e:
@@ -329,7 +335,8 @@ async def translation_health_check(
             status="error",
             supported_languages_count=0,
             cache_available=False,
-            providers_status={"error": str(e)}
+            providers_status={"error": str(e)},
+            fallback_available=True
         )
 
 

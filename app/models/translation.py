@@ -130,6 +130,7 @@ class TranslationHealthResponse(BaseModel):
     supported_languages_count: int = Field(..., description="Number of supported languages")
     cache_available: bool = Field(..., description="Whether caching is available")
     providers_status: Dict[str, str] = Field(..., description="Status of translation providers")
+    fallback_available: bool = Field(default=True, description="Whether offline fallback dictionaries are available")
 
 
 # Error response models

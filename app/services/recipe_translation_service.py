@@ -1,9 +1,7 @@
-"""
-Recipe Translation Service for Spanish language support.
-Integrates with existing translation service to provide recipe-specific translations.
-"""
+"""Recipe translation helpers with graceful fallback behaviour."""
 
 import logging
+import re
 from typing import Dict, List, Optional, Any
 from datetime import datetime, timedelta
 
@@ -85,6 +83,52 @@ class RecipeTranslationService:
             "pinch": "pizca",
         }
 
+        # General fallback phrases used when external providers are unavailable
+        self.general_terminology_es = {
+            "minute": "minuto",
+            "minutes": "minutos",
+            "second": "segundo",
+            "seconds": "segundos",
+            "hour": "hora",
+            "hours": "horas",
+            "serving": "porción",
+            "servings": "porciones",
+            "bowl": "tazón",
+            "recipe": "receta",
+            "recipes": "recetas",
+            "dinner": "cena",
+            "lunch": "almuerzo",
+            "breakfast": "desayuno",
+            "snack": "merienda",
+            "healthy": "saludable",
+            "delicious": "delicioso",
+            "flavor": "sabor",
+            "flavors": "sabores",
+            "bold": "intenso",
+            "vegetable": "verdura",
+            "vegetables": "verduras",
+            "mix": "mezclar",
+            "combine": "combinar",
+            "add": "añadir",
+            "stir": "remover",
+            "cook": "cocinar",
+            "heat": "calentar",
+            "simmer": "cocer a fuego lento",
+            "serve": "servir",
+            "serves": "sirve",
+            "with": "con",
+            "and": "y",
+            "in": "en",
+            "over": "sobre",
+            "easy": "fácil",
+            "simple": "sencillo",
+            "fresh": "fresco",
+            "quick": "rápido",
+            "warm": "caliente",
+            "enjoy": "disfruta",
+            "garnish": "adornar"
+        }
+
     def _get_cache_key(self, content: str, content_type: str) -> str:
         """Generate cache key for translated content."""
         import hashlib
@@ -109,7 +153,7 @@ class RecipeTranslationService:
         # Apply pre-translation food terminology improvements
         enhanced_text = text
         for en_term, es_term in self.food_terminology_es.items():
-            enhanced_text = enhanced_text.replace(en_term, es_term)
+            enhanced_text = self._replace_case_insensitive(enhanced_text, en_term, es_term)
 
         try:
             # Translate using the existing translation service
@@ -128,13 +172,18 @@ class RecipeTranslationService:
 
                 logger.info(f"Successfully translated {context_type}: {text[:50]}... -> {translated[:50]}...")
                 return translated
-            else:
-                logger.error(f"Translation failed for {context_type}: {text[:50]}...")
-                return text  # Return original if translation fails
 
         except Exception as e:
             logger.error(f"Translation error for {context_type}: {e}")
-            return text  # Return original text on error
+
+        # Provider translation failed, attempt graceful fallback
+        fallback_translation = self._fallback_translate(enhanced_text, context_type)
+        if fallback_translation and fallback_translation != text:
+            logger.info(f"Using fallback translation for {context_type}: {text[:50]}... -> {fallback_translation[:50]}...")
+            return fallback_translation
+
+        logger.error(f"Translation failed for {context_type}: {text[:50]}...")
+        return text  # Return original text if fallback cannot improve
 
     async def translate_recipe_name(self, name: str) -> str:
         """Translate recipe name to Spanish."""
@@ -194,6 +243,49 @@ class RecipeTranslationService:
             translated_tag = await self._translate_with_food_context(tag, "tag")
             translated_tags.append(translated_tag or tag)
         return translated_tags
+
+    def _replace_case_insensitive(self, text: str, search: str, replacement: str) -> str:
+        """Replace occurrences of `search` in `text` regardless of case, preserving capitalization."""
+
+        if not text or not search:
+            return text
+
+        escaped = re.escape(search)
+        if re.fullmatch(r"[A-Za-z\s]+", search):
+            pattern = re.compile(rf"\b{escaped}\b", re.IGNORECASE)
+        else:
+            pattern = re.compile(escaped, re.IGNORECASE)
+
+        def _replacer(match: re.Match) -> str:
+            original = match.group(0)
+            if original.isupper():
+                return replacement.upper()
+            if original[0].isupper():
+                return replacement.capitalize()
+            return replacement
+
+        return pattern.sub(_replacer, text)
+
+    def _fallback_translate(self, text: str, context_type: str) -> str:
+        """Apply dictionary-based replacements as a graceful fallback."""
+
+        if not text:
+            return text
+
+        # Combine food terminology with general phrases (sorted to replace longer phrases first)
+        # Ensure food-specific terminology overrides general terms when duplicates exist
+        fallback_terms = {**self.general_terminology_es, **self.food_terminology_es}
+        sorted_terms = sorted(fallback_terms.items(), key=lambda item: len(item[0]), reverse=True)
+
+        translated_text = text
+        for english, spanish in sorted_terms:
+            translated_text = self._replace_case_insensitive(translated_text, english, spanish)
+
+        # Additional tweaks for descriptions/instructions to make sentences feel natural
+        if context_type in {"description", "instruction"}:
+            translated_text = translated_text.replace(". ", ". ")  # noop but placeholder for future rules
+
+        return translated_text
 
     async def translate_complete_recipe(self, recipe: GeneratedRecipeResponse) -> GeneratedRecipeResponse:
         """Translate a complete recipe to Spanish."""

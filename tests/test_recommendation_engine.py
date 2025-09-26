@@ -23,8 +23,11 @@ class TestSmartRecommendationEngine:
     def mock_product(self):
         """Sample product for testing."""
         return ProductResponse(
-            code="1234567890123",
-            product_name="Greek Yogurt",
+            source="openfoodfacts",
+            barcode="1234567890123",
+            name="Greek Yogurt",
+            brand="TestBrand",
+            serving_size="100 g",
             nutriments=Nutriments(
                 energy_kcal_per_100g=59,
                 protein_g_per_100g=10,
@@ -33,9 +36,7 @@ class TestSmartRecommendationEngine:
                 sugars_g_per_100g=4,
                 salt_g_per_100g=0.1
             ),
-            brands="TestBrand",
-            categories="Dairy products",
-            found=True
+            fetched_at=datetime.now()
         )
     
     @pytest.fixture
@@ -76,8 +77,11 @@ class TestSmartRecommendationEngine:
         """Test basic recommendation generation."""
         with patch.object(engine, '_load_available_products') as mock_products:
             mock_products.return_value = [ProductResponse(
-                code="1234567890123",
-                product_name="Greek Yogurt",
+                source="openfoodfacts",
+                barcode="1234567890123",
+                name="Greek Yogurt",
+                brand="TestBrand",
+                serving_size="100 g",
                 nutriments=Nutriments(
                     energy_kcal_per_100g=59,
                     protein_g_per_100g=10,
@@ -86,9 +90,7 @@ class TestSmartRecommendationEngine:
                     sugars_g_per_100g=4,
                     salt_g_per_100g=0.1
                 ),
-                brands="TestBrand",
-                categories="Dairy products",
-                found=True
+                fetched_at=datetime.now()
             )]
             
             response = await engine.generate_recommendations(sample_request)
@@ -221,8 +223,11 @@ class TestSmartRecommendationEngine:
         
         with patch.object(engine, '_load_available_products') as mock_products:
             mock_products.return_value = [ProductResponse(
-                code="1234567890123",
-                product_name="Test Product",
+                source="openfoodfacts",
+                barcode="1234567890123",
+                name="Test Product",
+                brand="TestBrand",
+                serving_size="100 g",
                 nutriments=Nutriments(
                     energy_kcal_per_100g=100,
                     protein_g_per_100g=15,
@@ -231,9 +236,7 @@ class TestSmartRecommendationEngine:
                     sugars_g_per_100g=5,
                     salt_g_per_100g=0.1
                 ),
-                brands="TestBrand",
-                categories="Test Category", 
-                found=True
+                fetched_at=datetime.now()
             )]
             
             responses = {}

@@ -36,6 +36,8 @@ app.include_router(plan_router, prefix="/plan", tags=["meal-planning"])
 app.include_router(recommendations_router, prefix="/recommendations", tags=["smart-recommendations"])
 app.include_router(smart_diet_router, prefix="/smart-diet", tags=["smart-diet"])
 app.include_router(recipe_ai_router, prefix="/recipe-ai", tags=["recipe-ai"])
+# Legacy alias to preserve `/recipe` endpoints used by older clients/tests
+app.include_router(recipe_ai_router, prefix="/recipe", tags=["recipe-ai"], include_in_schema=False)
 app.include_router(track_router, prefix="/track", tags=["tracking"])
 app.include_router(reminder_router, prefix="/reminder", tags=["reminders"])
 app.include_router(analytics_router, prefix="/analytics", tags=["analytics"])
