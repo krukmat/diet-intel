@@ -1,12 +1,21 @@
 from fastapi import APIRouter, HTTPException, status, Depends
+from fastapi.security import HTTPAuthorizationCredentials
 from app.models.user import UserCreate, UserLogin, UserResponse, Token, RefreshToken, ChangePassword, UserUpdate
-from app.services.auth import auth_service, get_current_user
+from app.services import auth as auth_module
 from app.services.database import db_service
 import logging
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
+
+auth_service = auth_module.auth_service
+
+
+async def _get_current_user_dependency(
+    credentials: HTTPAuthorizationCredentials = Depends(auth_module.security),
+):
+    return await auth_module.get_current_user(credentials)
 
 
 @router.post("/register", response_model=Token, status_code=status.HTTP_201_CREATED)
@@ -91,7 +100,7 @@ async def logout_user(refresh_data: RefreshToken):
 
 
 @router.get("/me", response_model=UserResponse)
-async def get_current_user_profile(current_user = Depends(get_current_user)):
+async def get_current_user_profile(current_user = Depends(_get_current_user_dependency)):
     """
     Get current user profile information
     
@@ -113,7 +122,7 @@ async def get_current_user_profile(current_user = Depends(get_current_user)):
 @router.put("/me", response_model=UserResponse)
 async def update_user_profile(
     user_updates: UserUpdate,
-    current_user = Depends(get_current_user)
+    current_user = Depends(_get_current_user_dependency)
 ):
     """
     Update current user profile
@@ -176,7 +185,7 @@ async def update_user_profile(
 @router.post("/change-password", status_code=status.HTTP_204_NO_CONTENT)
 async def change_password(
     password_data: ChangePassword,
-    current_user = Depends(get_current_user)
+    current_user = Depends(_get_current_user_dependency)
 ):
     """
     Change user password

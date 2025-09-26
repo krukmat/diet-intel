@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from typing import List, Optional, Dict, Any
 from datetime import datetime
 from enum import Enum
@@ -71,6 +71,10 @@ class SmartRecommendationRequest(BaseModel):
     """Request for smart meal recommendations"""
     user_id: Optional[str] = Field(None, description="User identifier for personalized recommendations")
     current_meal_plan_id: Optional[str] = Field(None, description="Current meal plan to enhance")
+    context: Optional[str] = Field("general", description="Recommendation context identifier")
+    recommendation_type: RecommendationType = Field(RecommendationType.SIMILAR_NUTRITION, description="Primary recommendation strategy")
+    preferences: Dict[str, Any] = Field(default_factory=dict, description="Additional preference signals")
+    limit: int = Field(10, ge=1, le=50, description="Legacy limit field for compatibility")
     
     # Context for recommendations
     meal_context: Optional[str] = Field(None, description="Specific meal to recommend for (breakfast/lunch/dinner)")
@@ -89,15 +93,21 @@ class SmartRecommendationRequest(BaseModel):
 
 class SmartRecommendationResponse(BaseModel):
     """Response containing smart meal recommendations"""
+    model_config = ConfigDict(extra='allow')
+
     user_id: Optional[str] = Field(None, description="User identifier")
     generated_at: datetime = Field(default_factory=datetime.now, description="When recommendations were generated")
-    
+    context: Optional[str] = Field(None, description="Context that generated the recommendations")
+    status: str = Field("success", description="Outcome status for the recommendation request")
+    response_time_ms: Optional[float] = Field(None, description="Time taken to generate recommendations")
+
     # Meal-specific recommendations
     meal_recommendations: List[MealRecommendation] = Field(..., description="Recommendations by meal")
-    
+
     # Global recommendations
     daily_additions: List[RecommendationItem] = Field(default_factory=list, description="Items to add anywhere in the day")
     snack_recommendations: List[RecommendationItem] = Field(default_factory=list, description="Healthy snack options")
+    recommendations: List[RecommendationItem] = Field(default_factory=list, description="Legacy flattened recommendation list")
     
     # Insights and analytics
     nutritional_insights: Dict[str, Any] = Field(..., description="Nutritional analysis and insights")
@@ -128,6 +138,8 @@ class RecommendationFeedback(BaseModel):
 
 class RecommendationMetrics(BaseModel):
     """Analytics metrics for recommendation performance"""
+    model_config = ConfigDict(extra='allow')
+
     total_recommendations: int = Field(..., description="Total recommendations generated")
     acceptance_rate: float = Field(..., ge=0.0, le=1.0, description="Overall acceptance rate")
     avg_confidence: float = Field(..., ge=0.0, le=1.0, description="Average confidence score")
@@ -142,3 +154,6 @@ class RecommendationMetrics(BaseModel):
     # Quality metrics
     avg_nutritional_score: float = Field(..., ge=0.0, le=1.0, description="Average nutritional quality")
     goal_alignment_score: float = Field(..., ge=0.0, le=1.0, description="Average goal alignment")
+    feedback_count: int = Field(0, description="Legacy feedback count field")
+    user_satisfaction_score: float = Field(0.0, ge=0.0, le=1.0, description="Legacy satisfaction metric")
+    avg_confidence_score: float = Field(0.0, ge=0.0, le=1.0, description="Legacy naming for avg confidence")

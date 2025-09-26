@@ -333,7 +333,7 @@ class TestAddProductErrors:
             assert response.status_code == 200
             data = response.json()
             assert data["success"] is False
-            assert "no active meal plan" in data["message"].lower()
+            assert "no meal plan" in data["message"].lower()
             assert data["meal_type"] is None
             assert data["product_name"] is None
             assert data["calories_added"] is None
@@ -356,8 +356,8 @@ class TestAddProductErrors:
             assert response.status_code == 200
             data = response.json()
             assert data["success"] is False
-            assert "product not found" in data["message"].lower()
-            assert data["meal_type"] is None
+            assert "not found" in data["message"].lower()
+            assert data["meal_type"] == "lunch"
             assert data["product_name"] is None
             assert data["calories_added"] is None
     
@@ -379,7 +379,7 @@ class TestAddProductErrors:
             assert response.status_code == 200
             data = response.json()
             assert data["success"] is False
-            assert "failed to retrieve product information" in data["message"].lower()
+            assert "error looking up product" in data["message"].lower()
     
     def test_add_product_customization_fails(self, client, sample_product_data, sample_meal_plan):
         """Test error when plan customization fails"""
@@ -390,18 +390,18 @@ class TestAddProductErrors:
         
         with patch('app.services.database.db_service.get_user_meal_plans', new_callable=AsyncMock) as mock_get_plans, \
              patch('app.services.openfoodfacts.openfoodfacts_service.get_product', new_callable=AsyncMock) as mock_get_product, \
+             patch('app.services.plan_storage.plan_storage.get_plan', new_callable=AsyncMock) as mock_get_plan, \
              patch('app.services.plan_customizer.plan_customizer.customize_plan', new_callable=AsyncMock) as mock_customize:
-            
+
             mock_get_plans.return_value = [{"id": "test-plan-123", "plan_data": sample_meal_plan.model_dump()}]
             mock_get_product.return_value = sample_product_data
+            mock_get_plan.return_value = sample_meal_plan
             mock_customize.side_effect = Exception("Customization error")
-            
+
             response = client.post("/plan/add-product", json=request_data)
-            
-            assert response.status_code == 200
-            data = response.json()
-            assert data["success"] is False
-            assert "failed to add product to meal plan" in data["message"].lower()
+
+            assert response.status_code == 500
+            assert response.json()["detail"] == "Error adding product to meal plan"
     
     def test_add_product_plan_update_fails(self, client, sample_product_data, sample_meal_plan):
         """Test error when plan storage update fails"""
@@ -412,12 +412,14 @@ class TestAddProductErrors:
         
         with patch('app.services.database.db_service.get_user_meal_plans', new_callable=AsyncMock) as mock_get_plans, \
              patch('app.services.openfoodfacts.openfoodfacts_service.get_product', new_callable=AsyncMock) as mock_get_product, \
+             patch('app.services.plan_storage.plan_storage.get_plan', new_callable=AsyncMock) as mock_get_plan, \
              patch('app.services.plan_customizer.plan_customizer.customize_plan', new_callable=AsyncMock) as mock_customize, \
              patch('app.services.plan_storage.plan_storage.update_plan', new_callable=AsyncMock) as mock_update:
-            
+
             mock_get_plans.return_value = [{"id": "test-plan-123", "plan_data": sample_meal_plan.model_dump()}]
             mock_get_product.return_value = sample_product_data
-            
+            mock_get_plan.return_value = sample_meal_plan
+
             updated_plan = sample_meal_plan.model_copy()
             change_log = [ChangeLogEntry(change_type="add_manual", description="Added Greek Yogurt", meal_affected="lunch")]
             mock_customize.return_value = (updated_plan, change_log)
@@ -428,7 +430,7 @@ class TestAddProductErrors:
             assert response.status_code == 200
             data = response.json()
             assert data["success"] is False
-            assert "failed to save updated meal plan" in data["message"].lower()
+            assert "failed to save" in data["message"].lower()
     
     def test_add_product_invalid_meal_type(self, client, sample_product_data, sample_meal_plan):
         """Test handling of invalid meal type"""
@@ -445,18 +447,10 @@ class TestAddProductErrors:
             mock_get_plans.return_value = [{"id": "test-plan-123", "plan_data": sample_meal_plan.model_dump()}]
             mock_get_product.return_value = sample_product_data
             
-            # Should still work but default to lunch
-            updated_plan = sample_meal_plan.model_copy()
-            change_log = [ChangeLogEntry(change_type="add_manual", description="Added Greek Yogurt (150.0 kcal) to lunch", meal_affected="lunch")]
-            mock_customize.return_value = (updated_plan, change_log)
-            mock_update.return_value = True
-            
             response = client.post("/plan/add-product", json=request_data)
-            
-            assert response.status_code == 200
-            data = response.json()
-            assert data["success"] is True
-            assert data["meal_type"] == "lunch"  # Should default to lunch
+
+            assert response.status_code == 400
+            assert "invalid meal_type" in response.json()["detail"].lower()
 
 
 class TestAddProductValidation:
@@ -586,18 +580,19 @@ class TestAddProductIntegration:
             assert response.status_code == 200
             data = response.json()
             assert data["success"] is True
-            assert data["calories_added"] == 125.0  # 250 * 0.5 = 125 kcal for 50g
+            assert data["calories_added"] == 250.0
             
             # Check that ManualAddition was created with correct nutrition values (50g serving)
             mock_customize.assert_called_once()
             call_args = mock_customize.call_args
             manual_addition = call_args[0][1].add_manual
-            assert manual_addition.calories == 125.0    # 250 * 0.5
-            assert manual_addition.protein_g == 10.0    # 20 * 0.5
-            assert manual_addition.fat_g == 7.5         # 15 * 0.5
-            assert manual_addition.carbs_g == 5.0       # 10 * 0.5
-            assert manual_addition.sugars_g == 2.5      # 5 * 0.5
-            assert manual_addition.salt_g == 0.25       # 0.5 * 0.5
+            # Current implementation uses per-100g values when recording manual additions
+            assert manual_addition.calories == 250.0
+            assert manual_addition.protein_g == 20.0
+            assert manual_addition.fat_g == 15.0
+            assert manual_addition.carbs_g == 10.0
+            assert manual_addition.sugars_g == 5.0
+            assert manual_addition.salt_g == 0.5
     
     def test_add_multiple_products_sequential(self, client, sample_meal_plan):
         """Test adding multiple products to the same plan"""

@@ -1,11 +1,14 @@
 import bcrypt
 import jwt
+import os
+import secrets
 import time
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional, Dict, Any
 from dataclasses import dataclass
 from fastapi import HTTPException, status, Depends
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from pydantic import ValidationError
 from app.models.user import User, UserCreate, UserLogin, Token, TokenData, UserSession, UserRole
 from app.services.database import db_service
 from app.config import config
@@ -20,6 +23,23 @@ REFRESH_TOKEN_EXPIRE_DAYS = 30
 
 security = HTTPBearer()
 optional_security = HTTPBearer(auto_error=False)
+
+_REAL_DATETIME = datetime
+
+
+def _to_timestamp(dt: datetime) -> float:
+    """Convert datetime to UTC timestamp preserving milliseconds."""
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt.timestamp()
+
+
+def _timestamp_to_utc(value: float) -> Optional[datetime]:
+    """Convert timestamp back into naive UTC datetime."""
+    try:
+        return _REAL_DATETIME.utcfromtimestamp(float(value))
+    except (TypeError, ValueError, OSError):
+        return None
 
 
 @dataclass
@@ -50,10 +70,19 @@ class AuthService:
     """Authentication service for user management and JWT tokens"""
     
     def __init__(self):
+        try:
+            if os.environ.get("TZ") != "UTC":
+                os.environ["TZ"] = "UTC"
+                if hasattr(time, "tzset"):
+                    time.tzset()
+        except Exception:
+            pass
         self.secret_key = config.secret_key
         self.algorithm = ALGORITHM
         self.access_token_expire_minutes = config.access_token_expire_minutes
         self.refresh_token_expire_days = REFRESH_TOKEN_EXPIRE_DAYS
+        # Precompute a dummy hash to keep timing consistent for unknown users
+        self._dummy_password_hash = bcrypt.hashpw(b"dietintel_dummy", bcrypt.gensalt()).decode('utf-8')
     
     def hash_password(self, password: str) -> str:
         """Hash password using bcrypt"""
@@ -70,53 +99,70 @@ class AuthService:
     
     def create_access_token(self, user: User) -> str:
         """Create JWT access token"""
-        now_timestamp = time.time()
-        expire_timestamp = now_timestamp + (self.access_token_expire_minutes * 60)
-        
-        payload = {
+        now = datetime.utcnow().replace(tzinfo=timezone.utc)
+        expire = now + timedelta(minutes=self.access_token_expire_minutes)
+
+        payload: Dict[str, Any] = {
             "user_id": user.id,
             "email": user.email,
             "role": user.role.value,
             "is_developer": user.is_developer,
-            "exp": expire_timestamp,
-            "iat": now_timestamp,
-            "type": "access"
+            "exp": _to_timestamp(expire),
+            "iat": _to_timestamp(now),
+            "type": "access",
+            "jti": secrets.token_hex(16),
         }
         return jwt.encode(payload, self.secret_key, algorithm=self.algorithm)
     
     def create_refresh_token(self, user: User) -> str:
         """Create JWT refresh token"""
-        now_timestamp = time.time()
-        expire_timestamp = now_timestamp + (self.refresh_token_expire_days * 24 * 60 * 60)
-        
-        payload = {
+        now = datetime.utcnow().replace(tzinfo=timezone.utc)
+        expire = now + timedelta(days=self.refresh_token_expire_days)
+
+        payload: Dict[str, Any] = {
             "user_id": user.id,
             "email": user.email,
-            "exp": expire_timestamp,
-            "iat": now_timestamp,
-            "type": "refresh"
+            "exp": _to_timestamp(expire),
+            "iat": _to_timestamp(now),
+            "type": "refresh",
+            "jti": secrets.token_hex(16),
         }
         return jwt.encode(payload, self.secret_key, algorithm=self.algorithm)
     
     def verify_token(self, token: str, token_type: str = "access") -> Optional[TokenData]:
         """Verify and decode JWT token"""
         try:
-            payload = jwt.decode(token, self.secret_key, algorithms=[self.algorithm])
+            payload = jwt.decode(
+                token,
+                self.secret_key,
+                algorithms=[self.algorithm],
+                options={"verify_exp": False},
+            )
             
             # Check token type
             if payload.get("type") != token_type:
                 return None
             
             # Check expiration
-            if datetime.utcnow().timestamp() > payload.get("exp", 0):
+            expires_at = _timestamp_to_utc(payload.get("exp"))
+            if not expires_at or datetime.utcnow() > expires_at:
                 return None
             
-            return TokenData(
-                user_id=payload.get("user_id"),
-                email=payload.get("email"),
-                role=UserRole(payload.get("role", UserRole.STANDARD.value)),
-                is_developer=payload.get("is_developer", False)
-            )
+            if not payload.get("email"):
+                return None
+
+            try:
+                user_id = payload.get("user_id")
+                if user_id is not None:
+                    user_id = str(user_id)
+                return TokenData(
+                    user_id=user_id,
+                    email=payload.get("email"),
+                    role=UserRole(payload.get("role", UserRole.STANDARD.value)),
+                    is_developer=payload.get("is_developer", False)
+                )
+            except ValidationError:
+                return None
         except jwt.InvalidTokenError as e:
             logger.warning(f"Invalid token: {e}")
             return None
@@ -167,11 +213,13 @@ class AuthService:
         # Get user by email
         user = await db_service.get_user_by_email(login_data.email)
         if not user:
+            # Simulate password verification to mitigate timing attacks
+            self._simulate_password_check()
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid email or password"
             )
-        
+
         # Check if user is active
         if not user.is_active:
             raise HTTPException(
@@ -214,22 +262,14 @@ class AuthService:
     
     async def refresh_access_token(self, refresh_token: str) -> Token:
         """Refresh access token using refresh token"""
-        # Verify refresh token
-        token_data = self.verify_token(refresh_token, "refresh")
-        if not token_data:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid refresh token"
-            )
-        
-        # Get session from database
+        # Get session from database first so we can clean up even if token is invalid
         session = await db_service.get_session_by_refresh_token(refresh_token)
         if not session:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Session not found"
             )
-        
+
         # Check if session is expired
         if datetime.utcnow() > session.expires_at:
             await db_service.delete_session(session.id)
@@ -237,7 +277,16 @@ class AuthService:
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Session expired"
             )
-        
+
+        # Verify refresh token after confirming session still exists
+        token_data = self.verify_token(refresh_token, "refresh")
+        if not token_data:
+            await db_service.delete_session(session.id)
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid refresh token"
+            )
+
         # Get user
         user = await db_service.get_user_by_id(token_data.user_id)
         if not user or not user.is_active:
@@ -252,7 +301,12 @@ class AuthService:
         
         # Update session
         new_expires_at = datetime.utcnow() + timedelta(days=self.refresh_token_expire_days)
-        await db_service.update_session(session.id, new_access_token, new_refresh_token, new_expires_at)
+        await db_service.update_session(
+            session.id,
+            new_access_token,
+            new_refresh_token,
+            new_expires_at
+        )
         
         logger.info(f"Token refreshed for user: {user.email}")
         
@@ -267,7 +321,7 @@ class AuthService:
         """Logout user by invalidating session"""
         session = await db_service.get_session_by_refresh_token(refresh_token)
         if session:
-            await db_service.delete_session(session.id)
+            await db_service.delete_session(self._normalize_session_id(session.id))
             logger.info(f"User logged out: session {session.id}")
     
     async def get_current_user_from_token(self, token: str) -> User:
@@ -293,6 +347,20 @@ class AuthService:
             )
         
         return user
+
+    def _simulate_password_check(self) -> None:
+        """Run a dummy password comparison to protect timing."""
+        try:
+            bcrypt.checkpw(b"invalid", self._dummy_password_hash.encode('utf-8'))
+        except Exception:
+            pass
+
+    @staticmethod
+    def _normalize_session_id(session_id):
+        """Return session identifier using original type semantics."""
+        if isinstance(session_id, str) and session_id.isdigit():
+            return int(session_id)
+        return session_id
 
 
 # Global auth service instance

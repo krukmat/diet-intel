@@ -1,6 +1,6 @@
 from datetime import datetime
 from typing import Optional
-from pydantic import BaseModel, Field, EmailStr
+from pydantic import BaseModel, Field, EmailStr, validator
 from enum import Enum
 
 
@@ -13,8 +13,8 @@ class UserRole(str, Enum):
 class User(BaseModel):
     """User model for authentication and profile management"""
     id: Optional[str] = Field(None, description="User unique identifier")
-    email: EmailStr = Field(..., description="User email address")
-    full_name: str = Field(..., min_length=2, max_length=100, description="User full name")
+    email: str = Field(..., description="User email address")
+    full_name: str = Field(..., min_length=2, max_length=2048, description="User full name")
     avatar_url: Optional[str] = Field(None, description="User avatar image URL")
     is_developer: bool = Field(default=False, description="Developer access flag")
     role: UserRole = Field(default=UserRole.STANDARD, description="User role")
@@ -22,6 +22,17 @@ class User(BaseModel):
     email_verified: bool = Field(default=False, description="Email verification status")
     created_at: Optional[datetime] = Field(None, description="Account creation timestamp")
     updated_at: Optional[datetime] = Field(None, description="Last update timestamp")
+
+    @validator('email')
+    def validate_email(cls, value: str) -> str:
+        if not isinstance(value, str):
+            raise TypeError('Email must be a string')
+        if '@' not in value or value.count('@') != 1:
+            raise ValueError('Invalid email address')
+        local_part, domain = value.split('@')
+        if not local_part or '.' not in domain:
+            raise ValueError('Invalid email address')
+        return value
 
 
 class UserCreate(BaseModel):
@@ -73,7 +84,7 @@ class Token(BaseModel):
 
 class TokenData(BaseModel):
     """Token payload data model"""
-    user_id: str = Field(..., description="User ID from token")
+    user_id: Optional[str] = Field(None, description="User ID from token")
     email: str = Field(..., description="User email from token")
     role: UserRole = Field(..., description="User role from token")
     is_developer: bool = Field(..., description="Developer flag from token")

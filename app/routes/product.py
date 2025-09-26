@@ -41,37 +41,23 @@ async def get_product_by_barcode(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Barcode cannot be empty"
         )
-    
+    if len(barcode) > 128:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Barcode is too long"
+        )
+
+    if not all(ch.isalnum() or ch in {"-", "_"} for ch in barcode):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Barcode contains invalid characters"
+        )
+
     # Extract user context (optional authentication)
     user_id = context.user_id
     session_id = context.session_id
     
     try:
-        # Check database first
-        db_product = await db_service.get_product(barcode)
-        if db_product:
-            response_time = int((datetime.now() - start_time).total_seconds() * 1000)
-            await db_service.log_product_lookup(
-                user_id, session_id, barcode, db_product['name'], 
-                True, response_time, "Database"
-            )
-            await db_service.log_user_product_interaction(
-                user_id, session_id, barcode, "lookup", "database_hit"
-            )
-            logger.info(f"Returning database product for barcode: {barcode}")
-            
-            # Convert to ProductResponse format
-            return ProductResponse(
-                source="Database",
-                barcode=db_product['barcode'],
-                name=db_product['name'],
-                brand=db_product['brand'],
-                nutriments=Nutriments(**db_product['nutriments']),
-                serving_size=db_product['serving_size'],
-                image_url=db_product['image_url'],
-                fetched_at=datetime.now()
-            )
-        
         # Check cache
         cache_key = f"product:{barcode}"
         cached_product = await cache_service.get(cache_key)
@@ -83,15 +69,75 @@ async def get_product_by_barcode(
             )
             logger.info(f"Returning cached product for barcode: {barcode}")
             return ProductResponse(**cached_product)
+
+        # Check persistent storage fallback
+        try:
+            db_product = await db_service.get_product(barcode)
+        except Exception as db_error:
+            logger.warning(f"Database lookup failed for barcode {barcode}: {db_error}")
+            db_product = None
+
+        if db_product:
+            response_time = int((datetime.now() - start_time).total_seconds() * 1000)
+            await db_service.log_product_lookup(
+                user_id,
+                session_id,
+                barcode,
+                db_product.get('name'),
+                True,
+                response_time,
+                "Database",
+            )
+            await db_service.log_user_product_interaction(
+                user_id,
+                session_id,
+                barcode,
+                "lookup",
+                "database_hit",
+            )
+            logger.info(f"Returning database product for barcode: {barcode}")
+
+            return ProductResponse(
+                source=db_product.get('source', 'Database'),
+                barcode=db_product['barcode'],
+                name=db_product.get('name'),
+                brand=db_product.get('brand'),
+                nutriments=Nutriments(**db_product.get('nutriments', {})),
+                serving_size=db_product.get('serving_size'),
+                image_url=db_product.get('image_url'),
+                fetched_at=db_product.get('fetched_at', datetime.now()),
+            )
         
         # Fetch from external API
         try:
             product = await openfoodfacts_service.get_product(barcode)
+        except httpx.TimeoutException:
+            response_time = int((datetime.now() - start_time).total_seconds() * 1000)
+            await db_service.log_product_lookup(
+                user_id, session_id, barcode, None,
+                False, response_time, "OpenFoodFacts", "Timeout"
+            )
+            logger.error(f"Timeout fetching product for barcode: {barcode}")
+            raise HTTPException(
+                status_code=status.HTTP_408_REQUEST_TIMEOUT,
+                detail="Request timeout while fetching product data"
+            )
+        except httpx.RequestError as e:
+            response_time = int((datetime.now() - start_time).total_seconds() * 1000)
+            await db_service.log_product_lookup(
+                user_id, session_id, barcode, None,
+                False, response_time, "OpenFoodFacts", f"Network error: {str(e)}"
+            )
+            logger.error(f"Network error fetching product for barcode {barcode}: {e}")
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Unable to connect to product database"
+            )
         except Exception as api_error:
             # Log API error and convert to appropriate HTTP status
             response_time = int((datetime.now() - start_time).total_seconds() * 1000)
             await db_service.log_product_lookup(
-                user_id, session_id, barcode, None, 
+                user_id, session_id, barcode, None,
                 False, response_time, "OpenFoodFacts", f"API error: {str(api_error)}"
             )
             logger.warning(f"OpenFoodFacts API error for barcode {barcode}: {api_error}")
@@ -138,29 +184,6 @@ async def get_product_by_barcode(
         
         logger.info(f"Successfully fetched, stored, and cached product for barcode: {barcode}")
         return product
-        
-    except httpx.TimeoutException:
-        response_time = int((datetime.now() - start_time).total_seconds() * 1000)
-        await db_service.log_product_lookup(
-            user_id, session_id, barcode, None, 
-            False, response_time, "OpenFoodFacts", "Timeout"
-        )
-        logger.error(f"Timeout fetching product for barcode: {barcode}")
-        raise HTTPException(
-            status_code=status.HTTP_408_REQUEST_TIMEOUT,
-            detail="Request timeout while fetching product data"
-        )
-    except httpx.RequestError as e:
-        response_time = int((datetime.now() - start_time).total_seconds() * 1000)
-        await db_service.log_product_lookup(
-            user_id, session_id, barcode, None, 
-            False, response_time, "OpenFoodFacts", f"Network error: {str(e)}"
-        )
-        logger.error(f"Network error fetching product for barcode {barcode}: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Unable to connect to product database"
-        )
     except HTTPException:
         # Re-raise HTTPException to preserve intended status codes (like 404)
         raise

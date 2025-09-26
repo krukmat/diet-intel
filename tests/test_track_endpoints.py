@@ -63,34 +63,59 @@ class TestTrackMealEndpoint:
         assert "photo_url" in data
     
     @patch('app.services.cache.cache_service.set')
-    def test_track_meal_multiple_items(self, mock_cache_set):
+    @patch('app.services.database.db_service.get_meal_by_id')
+    @patch('app.services.database.db_service.create_meal')
+    def test_track_meal_multiple_items(self, mock_create_meal, mock_get_meal, mock_cache_set):
         """Test tracking meal with multiple items"""
         mock_cache_set.return_value = None
-        
-        payload = {
+
+        meal_id = "meal_test_123"
+        mock_create_meal.return_value = meal_id
+        now = datetime.fromisoformat("2024-08-30T09:00:00")
+        mock_get_meal.return_value = {
+            "id": meal_id,
+            "meal_name": "Breakfast",
             "items": [
                 {
-                    "product_name": "Greek Yogurt",
+                    "barcode": "111",
+                    "name": "Greek Yogurt",
+                    "serving": "1 cup",
                     "calories": 150,
-                    "protein": 15.0,
-                    "carbohydrates": 12.0,
-                    "fat": 8.0,
-                    "fiber": 2.0,
-                    "sugar": 10.0,
-                    "sodium": 100.0
+                    "macros": {"protein": 15.0, "carbohydrates": 12.0, "fat": 8.0}
                 },
                 {
-                    "product_name": "Granola",
+                    "barcode": "222",
+                    "name": "Granola",
+                    "serving": "1/2 cup",
                     "calories": 200,
-                    "protein": 5.0,
-                    "carbohydrates": 30.0,
-                    "fat": 10.0,
-                    "fiber": 3.0,
-                    "sugar": 8.0,
-                    "sodium": 50.0
+                    "macros": {"protein": 5.0, "carbohydrates": 30.0, "fat": 10.0}
                 }
             ],
-            "meal_type": "breakfast"
+            "total_calories": 350,
+            "photo_url": None,
+            "timestamp": now,
+            "created_at": now
+        }
+
+        payload = {
+            "meal_name": "Breakfast",
+            "items": [
+                {
+                    "barcode": "111",
+                    "name": "Greek Yogurt",
+                    "serving": "1 cup",
+                    "calories": 150,
+                    "macros": {"protein": 15.0, "carbohydrates": 12.0, "fat": 8.0}
+                },
+                {
+                    "barcode": "222",
+                    "name": "Granola",
+                    "serving": "1/2 cup",
+                    "calories": 200,
+                    "macros": {"protein": 5.0, "carbohydrates": 30.0, "fat": 10.0}
+                }
+            ],
+            "timestamp": "2024-08-30T09:00:00Z"
         }
         
         response = client.post("/track/meal", json=payload)
@@ -103,8 +128,9 @@ class TestTrackMealEndpoint:
     def test_track_meal_invalid_data(self):
         """Test meal tracking with invalid data"""
         payload = {
-            "items": [],  # Empty items array should fail
-            "meal_type": "breakfast"
+            "meal_name": "Breakfast",
+            "items": [],
+            "timestamp": "2024-08-30T08:00:00Z"
         }
         
         response = client.post("/track/meal", json=payload)
@@ -113,19 +139,17 @@ class TestTrackMealEndpoint:
     def test_track_meal_invalid_meal_type(self):
         """Test meal tracking with invalid meal type"""
         payload = {
+            "meal_name": "",
             "items": [
                 {
-                    "product_name": "Test Food",
+                    "barcode": "123",
+                    "name": "Test Food",
+                    "serving": "1 cup",
                     "calories": 100,
-                    "protein": 10.0,
-                    "carbohydrates": 10.0,
-                    "fat": 5.0,
-                    "fiber": 2.0,
-                    "sugar": 5.0,
-                    "sodium": 50.0
+                    "macros": {"protein": 10.0}
                 }
             ],
-            "meal_type": "invalid_meal"  # Invalid meal type
+            "timestamp": "2024-08-30T08:00:00Z"
         }
         
         response = client.post("/track/meal", json=payload)
@@ -157,31 +181,40 @@ class TestTrackWeightEndpoint:
         assert "photo_url" in data
     
     @patch('app.services.cache.cache_service.set')
-    def test_track_weight_without_photo(self, mock_cache_set):
+    @patch('app.services.database.db_service.get_weight_entry_by_id')
+    @patch('app.services.database.db_service.create_weight_entry')
+    def test_track_weight_without_photo(self, mock_create_weight, mock_get_weight, mock_cache_set):
         """Test weight tracking without photo"""
         mock_cache_set.return_value = None
-        
-        payload = {
-            "weight": 165.0,
-            "unit": "lbs",
-            "notes": "Evening weigh-in"
+        weight_id = "weight_test_123"
+        now = datetime.fromisoformat("2024-08-30T20:00:00")
+        mock_create_weight.return_value = weight_id
+        mock_get_weight.return_value = {
+            "id": weight_id,
+            "weight": 75.0,
+            "date": now,
+            "photo_url": None,
+            "created_at": now
         }
-        
+
+        payload = {
+            "weight": 75.0,
+            "date": "2024-08-30T20:00:00Z"
+        }
+
         response = client.post("/track/weight", json=payload)
-        
+
         assert response.status_code == 200
         data = response.json()
-        assert data["weight"] == 165.0
-        assert data["unit"] == "lbs"
+        assert data["weight"] == 75.0
         assert data["photo_url"] is None
     
-    def test_track_weight_invalid_unit(self):
-        """Test weight tracking with invalid unit"""
+    def test_track_weight_missing_date(self):
+        """Test weight tracking without required date field"""
         payload = {
-            "weight": 75.5,
-            "unit": "invalid_unit"
+            "weight": 75.5
         }
-        
+
         response = client.post("/track/weight", json=payload)
         assert response.status_code == 422  # Validation error
     
@@ -189,7 +222,7 @@ class TestTrackWeightEndpoint:
         """Test weight tracking with negative weight"""
         payload = {
             "weight": -5.0,
-            "unit": "kg"
+            "date": "2024-08-30T08:00:00Z"
         }
         
         response = client.post("/track/weight", json=payload)
@@ -199,195 +232,140 @@ class TestTrackWeightEndpoint:
 class TestWeightHistoryEndpoint:
     """Test suite for GET /track/weight/history endpoint"""
     
-    @patch('app.services.cache.cache_service.get')
-    @patch('app.services.cache.cache_service.set')
-    def test_get_weight_history_success(self, mock_cache_set, mock_cache_get):
+    @patch('app.services.database.db_service.get_user_weight_history')
+    def test_get_weight_history_success(self, mock_get_history):
         """Test successful weight history retrieval"""
-        mock_history = {
-            "entries": [
-                {
-                    "weight_id": str(uuid.uuid4()),
-                    "weight": 75.5,
-                    "unit": "kg",
-                    "date": datetime.now().isoformat(),
-                    "notes": "Morning weigh-in",
-                    "photo_url": "/uploads/weight_123.jpg"
-                },
-                {
-                    "weight_id": str(uuid.uuid4()),
-                    "weight": 76.0,
-                    "unit": "kg", 
-                    "date": datetime.now().isoformat(),
-                    "notes": "Evening weigh-in",
-                    "photo_url": None
-                }
-            ],
-            "total_entries": 2
-        }
-        mock_cache_get.return_value = json.dumps(mock_history)
+        now = datetime.now()
+        mock_get_history.return_value = [
+            {
+                "id": str(uuid.uuid4()),
+                "weight": 75.5,
+                "date": now,
+                "photo_url": "/uploads/weight_123.jpg",
+                "created_at": now
+            },
+            {
+                "id": str(uuid.uuid4()),
+                "weight": 76.0,
+                "date": now,
+                "photo_url": None,
+                "created_at": now
+            }
+        ]
         
         response = client.get("/track/weight/history")
         
         assert response.status_code == 200
         data = response.json()
-        assert len(data["entries"]) == 2
-        assert data["total_entries"] == 2
+        assert data["count"] == 2
         assert data["entries"][0]["weight"] == 75.5
+        assert "date_range" in data
     
-    @patch('app.services.cache.cache_service.get')
-    def test_get_weight_history_with_limit(self, mock_cache_get):
+    @patch('app.services.database.db_service.get_user_weight_history')
+    def test_get_weight_history_with_limit(self, mock_get_history):
         """Test weight history with limit parameter"""
-        mock_history = {
-            "entries": [
-                {
-                    "weight_id": str(uuid.uuid4()),
-                    "weight": 75.5,
-                    "unit": "kg",
-                    "date": datetime.now().isoformat(),
-                    "notes": "Recent entry",
-                    "photo_url": None
-                }
-            ],
-            "total_entries": 1
-        }
-        mock_cache_get.return_value = json.dumps(mock_history)
-        
+        now = datetime.now()
+        mock_get_history.return_value = [
+            {
+                "id": str(uuid.uuid4()),
+                "weight": 75.5,
+                "date": now,
+                "photo_url": None,
+                "created_at": now
+            }
+        ]
+
         response = client.get("/track/weight/history?limit=1")
-        
+
         assert response.status_code == 200
         data = response.json()
-        assert len(data["entries"]) == 1
-    
-    @patch('app.services.cache.cache_service.get')
-    def test_get_weight_history_empty(self, mock_cache_get):
+        mock_get_history.assert_called()
+        assert data["count"] == 1
+
+    @patch('app.services.database.db_service.get_user_weight_history')
+    def test_get_weight_history_empty(self, mock_get_history):
         """Test weight history when no entries exist"""
-        mock_cache_get.return_value = None
-        
+        mock_get_history.return_value = []
+
         response = client.get("/track/weight/history")
-        
+
         assert response.status_code == 200
         data = response.json()
         assert data["entries"] == []
-        assert data["total_entries"] == 0
-    
+        assert data["count"] == 0
+
     def test_get_weight_history_invalid_limit(self):
-        """Test weight history with invalid limit"""
-        response = client.get("/track/weight/history?limit=-1")
+        """Test weight history with non-integer limit"""
+        response = client.get("/track/weight/history?limit=abc")
         assert response.status_code == 422  # Validation error
 
 
 class TestPhotoLogsEndpoint:
     """Test suite for GET /track/photos endpoint"""
-    
-    @patch('app.services.cache.cache_service.get')
-    def test_get_photo_logs_success(self, mock_cache_get):
+
+    @patch('app.services.database.db_service.get_user_weight_history')
+    @patch('app.services.database.db_service.get_user_meals')
+    def test_get_photo_logs_success(self, mock_get_meals, mock_get_weights):
         """Test successful photo logs retrieval"""
-        mock_photos = {
-            "photos": [
-                {
-                    "photo_id": str(uuid.uuid4()),
-                    "type": "meal",
-                    "meal_type": "breakfast",
-                    "timestamp": datetime.now().isoformat(),
-                    "photo_url": "/uploads/meal_123.jpg",
-                    "description": "Greek yogurt with berries"
-                },
-                {
-                    "photo_id": str(uuid.uuid4()),
-                    "type": "weight",
-                    "timestamp": datetime.now().isoformat(),
-                    "photo_url": "/uploads/weight_456.jpg",
-                    "description": "Morning weigh-in"
-                }
-            ],
-            "total_photos": 2
-        }
-        mock_cache_get.return_value = json.dumps(mock_photos)
-        
-        response = client.get("/track/photos")
-        
-        assert response.status_code == 200
-        data = response.json()
-        assert len(data["photos"]) == 2
-        assert data["total_photos"] == 2
-        assert data["photos"][0]["type"] == "meal"
-        assert data["photos"][1]["type"] == "weight"
-    
-    @patch('app.services.cache.cache_service.get')
-    def test_get_photo_logs_with_type_filter(self, mock_cache_get):
-        """Test photo logs with type filter"""
-        mock_photos = {
-            "photos": [
-                {
-                    "photo_id": str(uuid.uuid4()),
-                    "type": "meal",
-                    "meal_type": "lunch",
-                    "timestamp": datetime.now().isoformat(),
-                    "photo_url": "/uploads/meal_789.jpg",
-                    "description": "Grilled chicken salad"
-                }
-            ],
-            "total_photos": 1
-        }
-        mock_cache_get.return_value = json.dumps(mock_photos)
-        
-        response = client.get("/track/photos?type=meal")
-        
-        assert response.status_code == 200
-        data = response.json()
-        assert len(data["photos"]) == 1
-        assert data["photos"][0]["type"] == "meal"
-    
-    @patch('app.services.cache.cache_service.get')
-    def test_get_photo_logs_empty(self, mock_cache_get):
-        """Test photo logs when no photos exist"""
-        mock_cache_get.return_value = None
-        
-        response = client.get("/track/photos")
-        
-        assert response.status_code == 200
-        data = response.json()
-        assert data["photos"] == []
-        assert data["total_photos"] == 0
-    
-    def test_get_photo_logs_invalid_type(self):
-        """Test photo logs with invalid type filter"""
-        response = client.get("/track/photos?type=invalid_type")
-        assert response.status_code == 422  # Validation error
-
-
-@pytest.fixture
-def mock_cache():
-    """Fixture to mock cache service"""
-    with patch('app.services.cache.cache_service') as mock:
-        yield mock
-
-
-@pytest.fixture 
-def sample_meal_data():
-    """Fixture for sample meal data"""
-    return {
-        "items": [
+        now = datetime.now()
+        mock_get_meals.return_value = [
             {
-                "product_name": "Test Food",
-                "calories": 200,
-                "protein": 20.0,
-                "carbohydrates": 15.0,
-                "fat": 10.0,
-                "fiber": 3.0,
-                "sugar": 8.0,
-                "sodium": 120.0
+                "id": str(uuid.uuid4()),
+                "created_at": now,
+                "photo_url": "/uploads/meal_123.jpg",
+                "meal_name": "Breakfast",
+                "total_calories": 500
             }
-        ],
-        "meal_type": "lunch"
-    }
+        ]
+        mock_get_weights.return_value = [
+            {
+                "id": str(uuid.uuid4()),
+                "created_at": now,
+                "photo_url": "/uploads/weight_456.jpg",
+                "weight": 75.5
+            }
+        ]
 
+        response = client.get("/track/photos")
 
-@pytest.fixture
-def sample_weight_data():
-    """Fixture for sample weight data"""
-    return {
-        "weight": 70.0,
-        "unit": "kg",
-        "notes": "Test weigh-in"
-    }
+        assert response.status_code == 200
+        data = response.json()
+        assert data["count"] == 2
+        assert data["logs"][0]["photo_url"]
+
+    @patch('app.services.database.db_service.get_user_weight_history')
+    @patch('app.services.database.db_service.get_user_meals')
+    def test_get_photo_logs_empty(self, mock_get_meals, mock_get_weights):
+        """Test photo logs when no photos exist"""
+        mock_get_meals.return_value = []
+        mock_get_weights.return_value = []
+
+        response = client.get("/track/photos")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["logs"] == []
+        assert data["count"] == 0
+
+    @patch('app.services.database.db_service.get_user_weight_history')
+    @patch('app.services.database.db_service.get_user_meals')
+    def test_get_photo_logs_with_limit(self, mock_get_meals, mock_get_weights):
+        """Test photo logs respecting limit parameter"""
+        now = datetime.now()
+        mock_get_meals.return_value = [
+            {
+                "id": str(uuid.uuid4()),
+                "created_at": now,
+                "photo_url": f"/uploads/meal_{i}.jpg",
+                "meal_name": "Meal",
+                "total_calories": 400 + i
+            }
+            for i in range(3)
+        ]
+        mock_get_weights.return_value = []
+
+        response = client.get("/track/photos?limit=2")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["count"] == 2

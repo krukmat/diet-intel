@@ -2,8 +2,13 @@ import logging
 import random
 from typing import List, Dict, Optional, Tuple
 from app.models.meal_plan import (
-    MealPlanRequest, MealPlanResponse, MealPlanConfig, 
-    Meal, MealItem, MealItemMacros, DailyMacros
+    MealPlanRequest,
+    MealPlanResponse,
+    MealPlanConfig,
+    Meal,
+    MealItem,
+    MealItemMacros,
+    DailyMacros,
 )
 from app.models.product import ProductResponse, Nutriments
 from app.services.nutrition_calculator import nutrition_calculator
@@ -11,6 +16,7 @@ from app.services.cache import cache_service
 from app.services.product_discovery import product_discovery_service
 
 logger = logging.getLogger(__name__)
+cached_products: List[ProductResponse] = []
 
 
 class MealPlannerService:
@@ -142,7 +148,8 @@ class MealPlannerService:
             for product in discovered_products:
                 if product.barcode not in existing_barcodes:
                     products.append(product)
-            
+                    existing_barcodes.add(product.barcode)
+
         except Exception as e:
             logger.error(f"Error with product discovery service: {e}")
             # Fallback to emergency products if discovery fails
@@ -152,6 +159,18 @@ class MealPlannerService:
                 for product in emergency_products:
                     if product.barcode not in existing_barcodes:
                         products.append(product)
+                        existing_barcodes.add(product.barcode)
+
+        # Legacy compatibility: include cached_products module attribute if populated
+        if cached_products:
+            existing_barcodes = {p.barcode for p in products}
+            for product in cached_products:
+                try:
+                    if product.barcode not in existing_barcodes:
+                        products.append(product)
+                        existing_barcodes.add(product.barcode)
+                except AttributeError:
+                    logger.debug("Skipping cached product without barcode attribute")
         
         logger.info(f"Loaded {len(products)} products for meal planning")
         return products

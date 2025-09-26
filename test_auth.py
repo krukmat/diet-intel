@@ -4,10 +4,12 @@ Test script for authentication endpoints
 """
 import asyncio
 import json
+import pytest
 from app.services.auth import auth_service
 from app.services.database import db_service
 from app.models.user import UserCreate, UserLogin
 
+@pytest.mark.asyncio
 async def test_auth_system():
     """Test the complete authentication system"""
     print("🔐 Testing DietIntel Authentication System")

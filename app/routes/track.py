@@ -7,9 +7,15 @@ from fastapi import APIRouter, HTTPException, status, Request
 from fastapi.responses import JSONResponse
 
 from app.models.tracking import (
-    MealTrackingRequest, MealTrackingResponse, 
-    WeightTrackingRequest, WeightTrackingResponse,
-    WeightHistoryResponse, PhotoLogsResponse, PhotoLogEntry
+    MealTrackingRequest,
+    MealTrackingResponse,
+    MealHistoryResponse,
+    WeightTrackingRequest,
+    WeightTrackingResponse,
+    WeightHistoryResponse,
+    PhotoLogsResponse,
+    PhotoLogEntry,
+    MealItem,
 )
 from app.services.cache import cache_service
 from app.services.database import db_service
@@ -82,8 +88,6 @@ async def track_meal(request: MealTrackingRequest, req: Request):
             )
         
         # Convert to response model
-        from app.models.tracking import MealItem
-        
         meal_record = MealTrackingResponse(
             id=meal_data['id'],
             meal_name=meal_data['meal_name'],
@@ -115,7 +119,7 @@ async def track_meal(request: MealTrackingRequest, req: Request):
         logger.info(f"Successfully tracked meal {meal_id} for user {user_id}: {meal_data['total_calories']} calories")
         
         return meal_record
-    
+
     except HTTPException:
         # Re-raise HTTPException to preserve intended status codes
         raise
@@ -190,6 +194,52 @@ async def track_weight(request: WeightTrackingRequest, req: Request):
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to track weight: {str(e)}"
         )
+
+@router.get("/meals", response_model=MealHistoryResponse)
+async def get_meal_history(req: Request, limit: Optional[int] = 50):
+    """Return tracked meals for the current session/user."""
+    try:
+        user_id = await get_session_user_id(req)
+
+        # Pull meals from persistent storage
+        meals_raw = await db_service.get_user_meals(user_id, limit or 50)
+
+        meals: List[MealTrackingResponse] = []
+        for record in meals_raw:
+            items = [
+                MealItem(
+                    barcode=item.get('barcode', ''),
+                    name=item.get('name', ''),
+                    serving=item.get('serving', ''),
+                    calories=item.get('calories', 0.0),
+                    macros=item.get('macros', {}),
+                )
+                for item in record.get('items', [])
+            ]
+
+            meals.append(
+                MealTrackingResponse(
+                    id=record['id'],
+                    meal_name=record['meal_name'],
+                    items=items,
+                    total_calories=record.get('total_calories', 0.0),
+                    photo_url=record.get('photo_url'),
+                    timestamp=record['timestamp'],
+                    created_at=record['created_at'],
+                )
+            )
+
+        return MealHistoryResponse(meals=meals, count=len(meals))
+
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.error(f"Failed to fetch meal history: {exc}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error retrieving meal history",
+        )
+
 
 @router.get("/weight/history", response_model=WeightHistoryResponse)
 async def get_weight_history(req: Request, limit: Optional[int] = 30):

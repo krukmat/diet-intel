@@ -58,6 +58,12 @@ class WeightHistoryResponse(BaseModel):
     count: int
     date_range: dict
 
+class MealHistoryResponse(BaseModel):
+    """Response model for meal history lookups"""
+    meals: List[MealTrackingResponse]
+    count: int
+
+
 class PhotoLogEntry(BaseModel):
     """Individual photo log entry"""
     id: str

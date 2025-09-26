@@ -181,7 +181,7 @@ class MealPlanConfig(BaseModel):
 
 
 class AddProductRequest(BaseModel):
-    barcode: str = Field(..., description="Product barcode to add to meal plan")
+    barcode: str = Field(..., min_length=1, description="Product barcode to add to meal plan")
     meal_type: Optional[str] = Field("lunch", description="Target meal (breakfast, lunch, dinner)")
     serving_size: Optional[str] = Field(None, description="Custom serving size (e.g., '150g', '1 cup')")
 

@@ -54,7 +54,8 @@ def mock_nutrition_image():
 @pytest.fixture
 def mock_high_confidence_ocr_response():
     return {
-        'nutrition_data': {
+        'raw_text': "Energy: 250 kcal Protein: 12.5g Fat: 8.0g Carbohydrates: 35.2g Sugars: 5.1g Salt: 1.2g",
+        'parsed_nutriments': {
             'energy_kcal': 250.0,
             'protein_g': 12.5,
             'fat_g': 8.0,
@@ -63,23 +64,26 @@ def mock_high_confidence_ocr_response():
             'salt_g': 1.2
         },
         'serving_size': '100g',
-        'confidence': 1.0  # All fields found
+        'confidence': 1.0,
+        'processing_details': {'ocr_engine': 'mock'}
     }
 
 
 @pytest.fixture
 def mock_low_confidence_ocr_response():
     return {
-        'nutrition_data': {
+        'raw_text': "Energy: 250 kcal Protein: 12.5g",
+        'parsed_nutriments': {
             'energy_kcal': 250.0,
             'protein_g': 12.5,
-            'fat_g': None,  # Missing fields
+            'fat_g': None,
             'carbs_g': None,
             'sugars_g': None,
             'salt_g': None
         },
         'serving_size': None,
-        'confidence': 0.33  # Only 2 out of 6 fields found
+        'confidence': 0.33,
+        'processing_details': {'ocr_engine': 'mock'}
     }
 
 
@@ -87,8 +91,7 @@ def mock_low_confidence_ocr_response():
 async def test_scan_label_high_confidence(client, mock_nutrition_image, mock_high_confidence_ocr_response):
     """Test successful OCR scan with high confidence (>=0.7)"""
     
-    with patch('app.services.ocr.ocr_service.extract_text', return_value="Energy: 250 kcal Protein: 12.5g Fat: 8.0g Carbohydrates: 35.2g Sugars: 5.1g Salt: 1.2g"), \
-         patch('app.services.ocr.nutrition_parser.parse_nutrition_text', return_value=mock_high_confidence_ocr_response):
+    with patch('app.routes.product.extract_nutrients_from_image', return_value=mock_high_confidence_ocr_response):
         
         response = client.post(
             "/product/scan-label",
@@ -122,8 +125,7 @@ async def test_scan_label_high_confidence(client, mock_nutrition_image, mock_hig
 async def test_scan_label_low_confidence(client, mock_nutrition_image, mock_low_confidence_ocr_response):
     """Test OCR scan with low confidence (<0.7)"""
     
-    with patch('app.services.ocr.ocr_service.extract_text', return_value="Energy: 250 kcal Protein: 12.5g unclear text..."), \
-         patch('app.services.ocr.nutrition_parser.parse_nutrition_text', return_value=mock_low_confidence_ocr_response):
+    with patch('app.routes.product.extract_nutrients_from_image', return_value=mock_low_confidence_ocr_response):
         
         response = client.post(
             "/product/scan-label",
@@ -167,7 +169,13 @@ async def test_scan_label_invalid_file_type(client):
 async def test_scan_label_no_text_extracted(client, mock_nutrition_image):
     """Test when OCR cannot extract any text"""
     
-    with patch('app.services.ocr.ocr_service.extract_text', return_value=""):
+    with patch('app.routes.product.extract_nutrients_from_image', return_value={
+        'raw_text': '',
+        'parsed_nutriments': {},
+        'confidence': 0.0,
+        'serving_size': None,
+        'processing_details': {'ocr_engine': 'mock'}
+    }):
         response = client.post(
             "/product/scan-label",
             files={"image": ("nutrition_label.png", mock_nutrition_image, "image/png")}
@@ -182,7 +190,7 @@ async def test_scan_label_no_text_extracted(client, mock_nutrition_image):
 async def test_scan_label_processing_error(client, mock_nutrition_image):
     """Test error handling during image processing"""
     
-    with patch('app.services.ocr.ocr_service.extract_text', side_effect=Exception("OCR processing failed")):
+    with patch('app.routes.product.extract_nutrients_from_image', side_effect=Exception("OCR processing failed")):
         response = client.post(
             "/product/scan-label",
             files={"image": ("nutrition_label.png", mock_nutrition_image, "image/png")}
@@ -199,8 +207,15 @@ async def test_scan_label_external_ocr_success(client, mock_nutrition_image, moc
     
     external_ocr_text = "NUTRITION FACTS Energy: 250 kcal Protein: 12.5g Fat: 8.0g Carbohydrates: 35.2g Sugars: 5.1g Salt: 1.2g"
     
-    with patch('app.services.ocr.call_external_ocr', return_value=external_ocr_text), \
-         patch('app.services.ocr.nutrition_parser.parse_nutrition_text', return_value=mock_high_confidence_ocr_response):
+    external_result = {
+        'raw_text': external_ocr_text,
+        'parsed_nutriments': mock_high_confidence_ocr_response['parsed_nutriments'],
+        'serving_size': mock_high_confidence_ocr_response['serving_size'],
+        'confidence': 1.0,
+        'processing_details': {'ocr_engine': 'external_api'}
+    }
+
+    with patch('app.routes.product.call_external_ocr', return_value=external_result):
         
         response = client.post(
             "/product/scan-label-external",
@@ -221,9 +236,11 @@ async def test_scan_label_external_ocr_fallback(client, mock_nutrition_image, mo
     
     local_ocr_text = "Energy: 250 kcal Protein: 12.5g Fat: 8.0g Carbohydrates: 35.2g Sugars: 5.1g Salt: 1.2g"
     
-    with patch('app.services.ocr.call_external_ocr', return_value=None), \
-         patch('app.services.ocr.ocr_service.extract_text', return_value=local_ocr_text), \
-         patch('app.services.ocr.nutrition_parser.parse_nutrition_text', return_value=mock_high_confidence_ocr_response):
+    fallback_result = mock_high_confidence_ocr_response.copy()
+    fallback_result['raw_text'] = local_ocr_text
+
+    with patch('app.routes.product.call_external_ocr', return_value={'raw_text': '', 'parsed_nutriments': {}, 'confidence': 0.0, 'serving_size': None, 'processing_details': {'ocr_engine': 'external_api'}}), \
+         patch('app.routes.product.extract_nutrients_from_image', return_value=fallback_result):
         
         response = client.post(
             "/product/scan-label-external",

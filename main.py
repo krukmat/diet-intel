@@ -1,5 +1,7 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, status
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
 from app.routes.product import router as product_router
 from app.routes.plan import router as plan_router
 from app.routes.track import router as track_router
@@ -19,6 +21,22 @@ app = FastAPI(
     version="1.0.0",
     description="A comprehensive nutrition tracking API with authentication, meal planning, and progress tracking"
 )
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request, exc: RequestValidationError):
+    sanitized_errors = []
+    for error in exc.errors():
+        sanitized_errors.append({
+            "loc": error.get("loc", []),
+            "msg": error.get("msg", "Invalid request"),
+            "type": f"validation error.{error.get('type', 'unknown')}"
+        })
+
+    return JSONResponse(
+        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        content={"detail": sanitized_errors}
+    )
 
 # CORS middleware for web/mobile clients
 app.add_middleware(
