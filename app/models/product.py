@@ -1,10 +1,24 @@
 from datetime import datetime
 from typing import Optional
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, validator
 
 
 class BarcodeRequest(BaseModel):
-    barcode: str = Field(..., description="Product barcode to lookup")
+    barcode: str = Field(..., description="Product barcode to lookup", max_length=128)
+
+    @validator("barcode")
+    def validate_barcode(cls, value: str) -> str:
+        if value is None:
+            raise ValueError("Barcode cannot be empty")
+
+        sanitized = value.strip()
+        if not sanitized:
+            raise ValueError("Barcode cannot be empty")
+
+        if not sanitized.isdigit():
+            raise ValueError("Barcode must contain only digits")
+
+        return sanitized
 
 
 class Nutriments(BaseModel):

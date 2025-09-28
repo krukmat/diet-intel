@@ -381,7 +381,8 @@ class BarcodeAPIClient:
                 
                 # Parse JSON response
                 try:
-                    data = await response.json()
+                    parsed = response.json()
+                    data = await parsed if asyncio.iscoroutine(parsed) else parsed
                 except json.JSONDecodeError as e:
                     raise OpenFoodFactsAPIError(f"Invalid JSON response from OFF API: {e}")
                 

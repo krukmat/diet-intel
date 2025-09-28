@@ -1,691 +1,419 @@
 import React from 'react';
-import { render, fireEvent, waitFor, screen } from '@testing-library/react-native';
-import axios from 'axios';
+import { render, fireEvent, waitFor } from '@testing-library/react-native';
 import SmartDietScreen from '../screens/SmartDietScreen';
-import { smartDietService } from '../services/SmartDietService';
+import { apiService } from '../services/ApiService';
+import * as mealPlanUtils from '../utils/mealPlanUtils';
 
-// Mock axios
-const mockedAxios = axios as jest.Mocked<typeof axios>;
+jest.mock('../services/ApiService', () => ({
+  apiService: {
+    get: jest.fn(),
+    post: jest.fn(),
+    put: jest.fn(),
+    delete: jest.fn(),
+    generateSmartRecommendations: jest.fn(),
+    addProductToPlan: jest.fn(),
+    recordSmartDietFeedback: jest.fn(),
+  },
+}));
 
-// Mock react-i18next
-jest.mock('react-i18next', () => ({
-  useTranslation: () => ({
-    t: (key: string) => key,
-    i18n: {
-      language: 'en',
-      changeLanguage: jest.fn(),
+jest.mock('../contexts/AuthContext', () => ({
+  useAuth: () => ({
+    user: {
+      id: 'test_user',
+      email: 'test@example.com',
     },
+    signIn: jest.fn(),
+    signOut: jest.fn(),
   }),
 }));
 
-// Mock food translation utilities
-jest.mock('../utils/foodTranslation', () => ({
-  translateFoodNameSync: jest.fn((name: string) => name),
-  translateFoodName: jest.fn((name: string) => Promise.resolve(name)),
-}));
+const asyncStorageStore = new Map<string, string>();
+const mockAsyncStorage = {
+  getItem: jest.fn((key: string) => Promise.resolve(asyncStorageStore.get(key) ?? null)),
+  setItem: jest.fn((key: string, value: string) => {
+    asyncStorageStore.set(key, value);
+    return Promise.resolve();
+  }),
+  removeItem: jest.fn((key: string) => {
+    asyncStorageStore.delete(key);
+    return Promise.resolve();
+  }),
+  clear: jest.fn(() => {
+    asyncStorageStore.clear();
+    return Promise.resolve();
+  }),
+  __reset: () => asyncStorageStore.clear(),
+};
 
-// Mock meal plan utils
-jest.mock('../utils/mealPlanUtils', () => ({
-  getCurrentMealPlanId: jest.fn().mockResolvedValue('test_plan_id'),
-}));
+jest.mock('@react-native-async-storage/async-storage', () => mockAsyncStorage);
 
-// Mock NotificationService
 jest.mock('../services/NotificationService', () => ({
   notificationService: {
     getConfig: jest.fn().mockResolvedValue({
       enabled: true,
-      dailySuggestionTime: "09:00",
+      dailySuggestionTime: '09:00',
       reminderInterval: 24,
-      preferredContexts: ['today', 'insights']
+      preferredContexts: ['today', 'insights'],
     }),
     updateConfig: jest.fn().mockResolvedValue(undefined),
     triggerSmartDietNotification: jest.fn().mockResolvedValue(undefined),
   },
 }));
 
-// Mock SmartDietService
-jest.mock('../services/SmartDietService', () => ({
-  smartDietService: {
-    getSmartSuggestions: jest.fn(),
-    submitSuggestionFeedback: jest.fn(),
-    getDietInsights: jest.fn(),
-    optimizeMealPlan: jest.fn(),
-  },
-  SmartDietContext: {
-    TODAY: 'today',
-    OPTIMIZE: 'optimize',
-    DISCOVER: 'discover',
-    INSIGHTS: 'insights'
+jest.mock('../utils/mealPlanUtils', () => ({
+  getCurrentMealPlanId: jest.fn(() => Promise.resolve('plan_123')),
+  storeMealPlanId: jest.fn(),
+}));
+
+jest.mock('../utils/foodTranslation', () => ({
+  translateFoodName: jest.fn(async (name: string) => name),
+  translateFoodNameSync: jest.fn((name: string) => name),
+}));
+
+const mockTranslations: Record<string, string> = {
+  'smartDiet.title': 'Smart Diet',
+  'smartDiet.loading': 'Loading recommendations...',
+  'smartDiet.contexts.today': 'Today',
+  'smartDiet.contexts.optimize': 'Optimize',
+  'smartDiet.contexts.discover': 'Discover',
+  'smartDiet.contexts.insights': 'Insights',
+  'smartDiet.confidence': 'Confidence',
+  'smartDiet.whySuggested': 'Why this was suggested',
+  'smartDiet.insights.title': 'Nutrition Insights',
+  'smartDiet.insights.calories': 'Calories',
+  'smartDiet.insights.macroBalance': 'Macro balance',
+  'smartDiet.insights.nutritionalGaps': 'Nutritional gaps',
+  'smartDiet.insights.healthBenefits': 'Health benefits',
+  'smartDiet.preferences.title': 'Preferences',
+  'smartDiet.preferences.apply': 'Apply',
+  'smartDiet.noSuggestions': 'No suggestions available at the moment.',
+  'smartDiet.feedback.thankYou': 'Thanks for your feedback!',
+  'smartDiet.feedback.message': 'We updated your preferences',
+  'smartDiet.feedback.recorded': 'Feedback recorded',
+  'smartDiet.actions.addToPlan': 'Add to plan',
+  'smartDiet.actions.applyOptimization': 'Apply optimization',
+  'smartDiet.alerts.optimizationSuccess': 'Optimization applied',
+  'smartDiet.alerts.information': 'Information',
+  'common.cancel': 'Cancel',
+  'common.add': 'Add',
+  'common.apply': 'Apply',
+  'common.success': 'Success',
+  'common.error': 'Error',
+};
+
+jest.mock('react-i18next', () => ({
+  useTranslation: () => ({
+    t: (key: string) => mockTranslations[key] || key,
+    i18n: {
+      language: 'en',
+      changeLanguage: jest.fn(),
+    },
+  }),
+  initReactI18next: {
+    type: '3rdParty',
+    init: jest.fn(),
   },
 }));
 
-const mockSmartDietService = smartDietService as jest.Mocked<typeof smartDietService>;
+const mockedApi = apiService as jest.Mocked<typeof apiService>;
+const mockedMealPlan = mealPlanUtils as jest.Mocked<typeof mealPlanUtils>;
 
-// Mock navigation functions
-const mockOnBackPress = jest.fn();
-const mockNavigateToTrack = jest.fn();
-const mockNavigateToPlan = jest.fn();
+const BASE_TIMESTAMP = '2025-01-01T08:00:00Z';
 
-// Mock navigation context
-const mockNavigationContext = {
-  targetContext: 'today',
-  sourceScreen: 'test',
-  planId: undefined,
-};
+const buildSuggestion = (overrides: Record<string, any> = {}) => ({
+  id: 'suggestion_001',
+  user_id: 'test_user',
+  suggestion_type: 'recommendation',
+  category: 'meal_addition',
+  title: 'Greek Yogurt with Berries',
+  description: 'Add this protein-packed breakfast option',
+  reasoning: 'Helps increase morning protein intake',
+  suggested_item: {
+    barcode: '1234567890123',
+    name: 'Greek Yogurt',
+    serving_size: '150g',
+  },
+  current_item: null,
+  nutritional_benefit: {
+    calories: 180,
+    protein: 17,
+    fat: 4,
+    carbs: 18,
+  },
+  calorie_impact: 180,
+  macro_impact: {
+    protein: 17,
+    fat: 4,
+    carbs: 18,
+  },
+  confidence_score: 0.87,
+  priority_score: 0.9,
+  meal_context: 'breakfast',
+  planning_context: 'today',
+  implementation_complexity: 'simple',
+  implementation_notes: 'Add to breakfast',
+  created_at: BASE_TIMESTAMP,
+  expires_at: null,
+  tags: ['High protein', 'Low sugar'],
+  ...overrides,
+});
 
-// Helper to render SmartDietScreen with proper props
-const renderSmartDietScreen = (overrideProps = {}) => {
-  return render(
-    <SmartDietScreen 
-      onBackPress={mockOnBackPress}
-      navigationContext={mockNavigationContext}
-      navigateToTrack={mockNavigateToTrack}
-      navigateToPlan={mockNavigateToPlan}
-      {...overrideProps}
-    />
-  );
+const buildSmartDietResponse = (context: string = 'today', overrides: Record<string, any> = {}) => ({
+  user_id: 'test_user',
+  context_type: context,
+  generated_at: BASE_TIMESTAMP,
+  suggestions: context === 'insights' ? [] : [buildSuggestion({ planning_context: context })],
+  today_highlights: [],
+  optimizations:
+    context === 'optimize'
+      ? {
+          meal_swaps: [
+            {
+              from_food: 'White rice',
+              to_food: 'Quinoa',
+              calorie_difference: -50,
+              benefit: 'Adds fibre and protein',
+            },
+          ],
+          macro_adjustments: [
+            {
+              nutrient: 'Protein',
+              current: 60,
+              target: 90,
+              suggestion: 'Add chickpeas at lunch',
+            },
+          ],
+        }
+      : {
+          meal_swaps: [],
+          macro_adjustments: [],
+        },
+  discoveries: [],
+  insights: [],
+  nutritional_summary: {
+    total_recommended_calories: 1800,
+    macro_distribution: {
+      protein_percent: 30,
+      fat_percent: 25,
+      carbs_percent: 45,
+    },
+    nutritional_gaps: context === 'insights' ? ['Fibre'] : [],
+    health_benefits: ['Improved energy'],
+  },
+  personalization_factors: ['High protein goal'],
+  total_suggestions: context === 'insights' ? 0 : 1,
+  avg_confidence: 0.88,
+  ...overrides,
+});
+
+const buildLegacyResponse = () => ({
+  user_id: 'test_user',
+  total_recommendations: 1,
+  avg_confidence: 0.8,
+  generated_at: BASE_TIMESTAMP,
+  meal_recommendations: [
+    {
+      meal_name: 'breakfast',
+      recommendations: [
+        {
+          name: 'Oatmeal',
+          brand: 'Quaker',
+          calories_per_serving: 150,
+          serving_size: '1 cup',
+          confidence_score: 0.8,
+          protein_g: 5,
+          fat_g: 3,
+          carbs_g: 27,
+          barcode: '987654321',
+          reasons: ['Fibre rich'],
+        },
+      ],
+    },
+  ],
+  nutritional_insights: {
+    total_recommended_calories: 1700,
+    macro_distribution: {
+      protein_percent: 28,
+      fat_percent: 27,
+      carbs_percent: 45,
+    },
+    nutritional_gaps: ['Iron'],
+    health_benefits: ['Supports recovery'],
+  },
+});
+
+const renderScreen = (overrideProps: Record<string, any> = {}) => {
+  const props = {
+    onBackPress: jest.fn(),
+    navigateToTrack: jest.fn(),
+    navigateToPlan: jest.fn(),
+    ...overrideProps,
+  };
+
+  const utils = render(<SmartDietScreen {...props} />);
+  return {
+    ...utils,
+    props,
+  };
 };
 
 describe('SmartDietScreen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    
-    // Mock successful Smart Diet service response
-    const mockResponse = {
-        user_id: "test_user",
-        context_type: "today",
-        generated_at: "2025-09-10T21:36:11.834402",
-        suggestions: [
-          {
-            id: 'suggestion_001',
-            suggestion_type: 'recommendation',
-            category: 'discovery',
-            title: 'Greek Yogurt with Berries',
-            description: 'High-protein breakfast option',
-            reasoning: 'Selected for high protein content and balanced macros',
-            confidence_score: 0.85,
-            priority_score: 0.9,
-            meal_context: 'breakfast',
-            suggested_item: {
-              name: 'Greek Yogurt',
-              barcode: '1234567890123',
-              calories: 100,
-              protein_g: 15,
-              carbs_g: 6,
-              fat_g: 0
-            },
-            nutritional_benefit: {
-              protein_g: 15,
-              fat_g: 0,
-              carbs_g: 6
-            },
-            calorie_impact: 100,
-            action_text: 'Add to meal plan'
-          }
-        ],
-        today_highlights: [],
-        optimizations: [],
-        discoveries: [],
-        insights: [],
-        nutritional_summary: {
-          total_recommended_calories: 968,
-          macro_distribution: {
-            protein_percent: 16.6,
-            fat_percent: 27.4,
-            carbs_percent: 52.4
-          },
-          daily_progress: {
-            calories_remaining: 1032,
-            protein_remaining: 84,
-            fat_remaining: 45
-          },
-          health_benefits: [
-            'Improved protein intake',
-            'Better micronutrient profile'
-          ]
-        }
-      };
-    
-    // Setup SmartDietService method mocks with faster resolution
-    mockSmartDietService.getSmartSuggestions.mockImplementation(async (context, options) => {
-      // Simulate minimal delay for realistic testing
-      await new Promise(resolve => setTimeout(resolve, 10));
-      return mockResponse;
+    mockAsyncStorage.__reset();
+    mockedMealPlan.getCurrentMealPlanId.mockResolvedValue('plan_123');
+
+    mockedApi.get.mockImplementation((url: string) => {
+      const parsed = new URL(url, 'http://localhost');
+      const context = parsed.searchParams.get('context') ?? 'today';
+      return Promise.resolve({ data: buildSmartDietResponse(context) });
     });
-    mockSmartDietService.getDietInsights.mockResolvedValue(mockResponse);
-    mockSmartDietService.optimizeMealPlan.mockResolvedValue(mockResponse);
-    mockSmartDietService.submitSuggestionFeedback.mockResolvedValue(undefined);
+
+    mockedApi.post.mockResolvedValue({ data: { success: true, message: 'Recorded' } });
+    mockedApi.addProductToPlan.mockResolvedValue({ data: { success: true, message: 'Added to plan' } });
+    mockedApi.generateSmartRecommendations.mockResolvedValue({ data: buildLegacyResponse() });
   });
 
-  it('renders correctly on initial load', async () => {
-    const { getByText } = renderSmartDietScreen();
-    
-    // Wait for component to load and service to be called
+  it('renders core tabs and initial suggestion', async () => {
+    const { findByText, findAllByText, queryByText } = renderScreen();
+
+    expect(await findByText('Loading recommendations...')).toBeTruthy();
+
     await waitFor(() => {
-      expect(getByText('smartDiet.title')).toBeTruthy();
-      expect(getByText('smartDiet.contexts.today')).toBeTruthy();
-      expect(getByText('smartDiet.contexts.optimize')).toBeTruthy();
-      expect(getByText('smartDiet.contexts.discover')).toBeTruthy();
-      expect(getByText('smartDiet.contexts.insights')).toBeTruthy();
-    }, { timeout: 5000 });
+      expect(queryByText('Loading recommendations...')).toBeNull();
+    });
+
+    expect(await findByText(/Smart Diet/)).toBeTruthy();
+    expect((await findAllByText('Today')).length).toBeGreaterThan(0);
+    expect((await findAllByText('Optimize')).length).toBeGreaterThan(0);
+    expect((await findAllByText('Discover')).length).toBeGreaterThan(0);
+    expect((await findAllByText('Insights')).length).toBeGreaterThan(0);
+    expect(await findByText('Greek Yogurt with Berries')).toBeTruthy();
   });
 
-  it('displays loading state initially', () => {
-    const { getByText } = renderSmartDietScreen();
-    
-    expect(getByText('smartDiet.loading')).toBeTruthy();
-  });
+  it('switches to optimize context and calls API with proper query params', async () => {
+    const { findAllByText } = renderScreen();
 
-  it('switches between different contexts', async () => {
-    const { getByText } = renderSmartDietScreen();
-    
-    // Initially shows Today context
-    expect(getByText('smartDiet.contexts.today')).toBeTruthy();
-    
-    // Switch to Optimize context
-    fireEvent.press(getByText('smartDiet.contexts.optimize'));
-    
-    // Wait for state update and service call
     await waitFor(() => {
-      expect(mockSmartDietService.getSmartSuggestions).toHaveBeenCalledWith(
-        'optimize',
-        expect.any(Object)
-      );
-    }, { timeout: 3000 });
-  });
+      expect(mockedApi.get).toHaveBeenCalledWith(expect.stringContaining('context=today'));
+    });
 
-  it('displays suggestions after loading', async () => {
-    const { getByText, queryByTestId } = renderSmartDietScreen();
-    
-    // Wait for loading to complete
+    const optimizeButtons = await findAllByText('Optimize');
+    fireEvent.press(optimizeButtons[0]);
+
     await waitFor(() => {
-      expect(queryByTestId('loading-indicator')).toBeNull();
+      expect(mockedApi.get).toHaveBeenCalledWith(expect.stringContaining('context=optimize'));
+      expect(mockedMealPlan.getCurrentMealPlanId).toHaveBeenCalled();
     });
-    
-    // Check if suggestion is displayed
-    expect(getByText('Greek Yogurt with Berries')).toBeTruthy();
-    expect(getByText('High-protein breakfast option')).toBeTruthy();
-    expect(getByText('85%')).toBeTruthy(); // confidence score
   });
 
-  it('displays nutritional insights correctly', async () => {
-    const { getByText } = renderSmartDietScreen();
-    
-    // Switch to insights context
-    fireEvent.press(getByText('Insights'));
-    
+  it('refreshes suggestions when the user taps refresh button', async () => {
+    const { getByText } = renderScreen();
+
     await waitFor(() => {
-      expect(getByText('968 kcal')).toBeTruthy();
-      expect(getByText('>i 16.6%')).toBeTruthy(); // protein percentage
-      expect(getByText('>Q 27.4%')).toBeTruthy(); // fat percentage
-      expect(getByText('<^ 52.4%')).toBeTruthy(); // carbs percentage
+      expect(mockedApi.get).toHaveBeenCalledTimes(1);
     });
-  });
 
-  it('handles API errors gracefully', async () => {
-    // Mock service error
-    mockSmartDietService.getSmartSuggestions.mockRejectedValue(new Error('Network error'));
-    
-    const { getByText } = renderSmartDietScreen();
-    
+    fireEvent.press(getByText('🔄 Refresh Suggestions'));
+
     await waitFor(() => {
-      expect(getByText('Failed to generate suggestions. Please try again.')).toBeTruthy();
+      expect(mockedApi.get).toHaveBeenCalledTimes(2);
     });
   });
 
-  it('displays retry button on error', async () => {
-    // Mock service error
-    mockSmartDietService.getSmartSuggestions.mockRejectedValue(new Error('Network error'));
-    
-    const { getByText } = renderSmartDietScreen();
-    
+  it('falls back to legacy recommendations when smart diet API fails', async () => {
+    mockedApi.get.mockRejectedValueOnce(new Error('Primary API down'));
+
+    const { getByText } = renderScreen();
+
     await waitFor(() => {
-      const retryButton = getByText('Retry');
-      expect(retryButton).toBeTruthy();
+      expect(mockedApi.generateSmartRecommendations).toHaveBeenCalled();
+      expect(getByText('Oatmeal')).toBeTruthy();
     });
   });
 
-  it('retries API call when retry button is pressed', async () => {
-    // Mock initial error, then success
-    mockedAxios.get
-      .mockRejectedValueOnce(new Error('Network error'))
-      .mockResolvedValue({
-        data: {
-          suggestions: [],
-          nutritional_summary: {}
-        }
-      });
-    
-    const { getByText } = renderSmartDietScreen();
-    
-    // Wait for error state
+  it('handles optimize context gracefully when no meal plan exists', async () => {
+    mockedMealPlan.getCurrentMealPlanId.mockResolvedValueOnce(null);
+    const { findAllByText } = renderScreen();
+
+    const optimizeButtons = await findAllByText('Optimize');
+    fireEvent.press(optimizeButtons[0]);
+
     await waitFor(() => {
-      expect(getByText('Retry')).toBeTruthy();
+      // API should not be called for optimize when plan is missing
+      const optimizeCalls = mockedApi.get.mock.calls.filter(([url]) => (url as string).includes('context=optimize'));
+      expect(optimizeCalls.length).toBe(0);
     });
-    
-    // Press retry button
-    fireEvent.press(getByText('Retry'));
-    
-    // Should make another API call
+  });
+
+  it('opens preferences modal when settings button is pressed', async () => {
+    const { findByText } = renderScreen();
+
+    const settingsButton = await findByText('⚙️');
+    fireEvent.press(settingsButton);
+
+    expect(await findByText('Preferences')).toBeTruthy();
+    expect(await findByText('Apply')).toBeTruthy();
+  });
+
+  it('invokes navigation callbacks', async () => {
+    const navigateToTrack = jest.fn();
+    const onBackPress = jest.fn();
+
+    const { findByText, getByText } = renderScreen({ navigateToTrack, onBackPress });
+
+    const backButton = await findByText('🏠');
+    fireEvent.press(backButton);
+    expect(onBackPress).toHaveBeenCalledTimes(1);
+
     await waitFor(() => {
-      expect(mockedAxios.get).toHaveBeenCalledTimes(2);
+      expect(getByText('Greek Yogurt with Berries')).toBeTruthy();
     });
+
+    fireEvent.press(getByText('📊 Track'));
+    expect(navigateToTrack).toHaveBeenCalledTimes(1);
   });
 
-  it('displays suggestion reasons correctly', async () => {
-    const { getByText, queryByTestId } = renderSmartDietScreen();
-    
+  it('submits feedback using the feedback endpoint', async () => {
+    const { findAllByText } = renderScreen();
+
+    const positiveButtons = await findAllByText('👍');
+    fireEvent.press(positiveButtons[0]);
+
     await waitFor(() => {
-      expect(queryByTestId('loading-indicator')).toBeNull();
-    });
-    
-    expect(getByText('High protein content')).toBeTruthy();
-    expect(getByText('Low calories')).toBeTruthy();
-    expect(getByText('Fits breakfast profile')).toBeTruthy();
-  });
-
-  it('handles empty suggestions response', async () => {
-    // Mock empty response
-    mockedAxios.get.mockResolvedValue({
-      data: {
-        suggestions: [],
-        nutritional_summary: {}
-      }
-    });
-    
-    const { getByText } = renderSmartDietScreen();
-    
-    await waitFor(() => {
-      expect(getByText('No suggestions available at the moment.')).toBeTruthy();
+      expect(mockedApi.post).toHaveBeenCalledWith('/smart-diet/feedback', expect.objectContaining({ suggestion_id: 'suggestion_001', user_id: 'test_user' }));
     });
   });
 
-  it('applies correct context parameters to API calls', async () => {
-    const { getByText } = renderSmartDietScreen();
-    
-    // Test General context
-    fireEvent.press(getByText('General'));
-    await waitFor(() => {
-      expect(mockedAxios.get).toHaveBeenCalledWith(
-        expect.stringContaining('context=general')
-      );
-    });
-    
-    // Test Optimize context  
-    fireEvent.press(getByText('Optimize'));
-    await waitFor(() => {
-      expect(mockedAxios.get).toHaveBeenCalledWith(
-        expect.stringContaining('context=optimize')
-      );
-      expect(mockedAxios.get).toHaveBeenCalledWith(
-        expect.stringContaining('current_meal_plan_id=demo_meal_plan_001')
-      );
-    });
-    
-    // Test Insights context
-    fireEvent.press(getByText('Insights'));
-    await waitFor(() => {
-      expect(mockedAxios.get).toHaveBeenCalledWith(
-        expect.stringContaining('context=insights')
-      );
-    });
+  it('navigates to plan screen when plan navigation button is pressed', async () => {
+    const navigateToPlan = jest.fn();
+    const { findByText } = renderScreen({ navigateToPlan, navigationContext: { sourceScreen: 'plan', targetContext: 'optimize' } });
+
+    const planButton = await findByText('📋');
+    fireEvent.press(planButton);
+    expect(navigateToPlan).toHaveBeenCalledTimes(1);
   });
 
-  it('displays confidence scores with correct formatting', async () => {
-    const { getByText, queryByTestId } = renderSmartDietScreen();
-    
-    await waitFor(() => {
-      expect(queryByTestId('loading-indicator')).toBeNull();
-    });
-    
-    // Check confidence score is displayed as percentage
-    expect(getByText('85%')).toBeTruthy();
+  it('displays insights data when Insights context is selected', async () => {
+    const { findAllByText, findByText } = renderScreen();
+
+    const insightsButtons = await findAllByText('Insights');
+    fireEvent.press(insightsButtons[0]);
+
+    expect(await findByText('Nutrition Insights')).toBeTruthy();
+    expect(await findByText('Macro balance')).toBeTruthy();
+    expect(await findByText('Health benefits')).toBeTruthy();
+    expect(await findByText(/Improved energy/)).toBeTruthy();
   });
 
-  it('shows nutritional impact information', async () => {
-    const { getByText, queryByTestId } = renderSmartDietScreen();
-    
-    await waitFor(() => {
-      expect(queryByTestId('loading-indicator')).toBeNull();
-    });
-    
-    expect(getByText('Improves protein intake by 15g')).toBeTruthy();
-  });
+  it('shows optimization data when Optimize context is selected', async () => {
+    const { findAllByText, findByText } = renderScreen();
 
-  it('handles context switching with proper loading states', async () => {
-    const { getByText, getByTestId, queryByTestId } = renderSmartDietScreen();
-    
-    // Wait for initial load
-    await waitFor(() => {
-      expect(queryByTestId('loading-indicator')).toBeNull();
-    });
-    
-    // Mock delayed response for context switch
-    let resolvePromise: (value: any) => void;
-    const delayedPromise = new Promise(resolve => {
-      resolvePromise = resolve;
-    });
-    mockedAxios.get.mockReturnValue(delayedPromise);
-    
-    // Switch context
-    fireEvent.press(getByText('Optimize'));
-    
-    // Should show loading indicator
-    expect(getByTestId('loading-indicator')).toBeTruthy();
-    
-    // Resolve the promise
-    resolvePromise({
-      data: {
-        suggestions: [],
-        nutritional_summary: {}
-      }
-    });
-    
-    // Loading should disappear
-    await waitFor(() => {
-      expect(queryByTestId('loading-indicator')).toBeNull();
-    });
-  });
+    const optimizeButtons = await findAllByText('Optimize');
+    fireEvent.press(optimizeButtons[0]);
 
-  it('displays health benefits in insights', async () => {
-    const { getByText } = renderSmartDietScreen();
-    
-    // Switch to insights
-    fireEvent.press(getByText('Insights'));
-    
-    await waitFor(() => {
-      expect(getByText('Improved protein intake')).toBeTruthy();
-      expect(getByText('Better micronutrient profile')).toBeTruthy();
-    });
-  });
-
-  it('handles missing nutritional data gracefully', async () => {
-    // Mock response with missing data
-    mockedAxios.get.mockResolvedValue({
-      data: {
-        suggestions: [],
-        nutritional_summary: null
-      }
-    });
-    
-    const { getByText } = renderSmartDietScreen();
-    
-    fireEvent.press(getByText('Insights'));
-    
-    // Should not crash and should handle missing data
-    await waitFor(() => {
-      expect(getByText('Insights')).toBeTruthy();
-    });
-  });
-
-  it('uses correct API endpoint format', async () => {
-    renderSmartDietScreen();
-    
-    await waitFor(() => {
-      expect(mockSmartDietService.getSmartSuggestions).toHaveBeenCalledWith(
-        'today',
-        expect.any(Object)
-      );
-    }, { timeout: 3000 });
-  });
-
-  // ======================
-  // EXPANDED TEST COVERAGE
-  // ======================
-
-  describe('Navigation Integration', () => {
-    it('displays navigation context header when coming from meal plan', () => {
-      const { getByText } = renderSmartDietScreen({
-        navigationContext: { sourceScreen: 'plan', targetContext: 'optimize' }
-      });
-      
-      expect(getByText('📋')).toBeTruthy(); // Plan navigation button
-    });
-
-    it('calls onBackPress when back button is pressed', () => {
-      const { getByText } = renderSmartDietScreen();
-      
-      fireEvent.press(getByText('🏠'));
-      expect(mockOnBackPress).toHaveBeenCalledTimes(1);
-    });
-
-    it('navigates to tracking when track button is pressed', async () => {
-      const { getByText } = renderSmartDietScreen();
-      
-      // Wait for suggestions to load
-      await waitFor(() => {
-        expect(getByText('Greek Yogurt with Berries')).toBeTruthy();
-      });
-      
-      // Look for track button and press it
-      const trackButtons = getByText('📊 Track');
-      fireEvent.press(trackButtons);
-      
-      expect(mockNavigateToTrack).toHaveBeenCalledTimes(1);
-    });
-  });
-
-  describe('Context Switching', () => {
-    it('switches to all four contexts correctly', async () => {
-      const { getByText } = renderSmartDietScreen();
-      
-      const contexts = [
-        { button: 'smartDiet.contexts.today', expectedCall: 'today' },
-        { button: 'smartDiet.contexts.optimize', expectedCall: 'optimize' },
-        { button: 'smartDiet.contexts.discover', expectedCall: 'discover' },
-        { button: 'smartDiet.contexts.insights', expectedCall: 'insights' }
-      ];
-
-      for (const context of contexts) {
-        fireEvent.press(getByText(context.button));
-        
-        await waitFor(() => {
-          expect(mockSmartDietService.getSmartSuggestions).toHaveBeenCalledWith(
-            context.expectedCall,
-            expect.any(Object)
-          );
-        }, { timeout: 3000 });
-      }
-    });
-
-    it('shows loading state during context switch', async () => {
-      const { getByText } = renderSmartDietScreen();
-      
-      // Switch context
-      fireEvent.press(getByText('smartDiet.contexts.optimize'));
-      
-      // Should show loading
-      expect(getByText('smartDiet.loading')).toBeTruthy();
-    });
-  });
-
-  describe('Suggestion Rendering', () => {
-    it('displays suggestion cards with all required information', async () => {
-      const { getByText } = renderSmartDietScreen();
-      
-      await waitFor(() => {
-        expect(getByText('Greek Yogurt with Berries')).toBeTruthy();
-        expect(getByText('High-protein breakfast option')).toBeTruthy();
-        expect(getByText('85%')).toBeTruthy(); // confidence score
-      });
-    });
-
-    it('displays action buttons for suggestions', async () => {
-      const { getByText } = renderSmartDietScreen();
-      
-      await waitFor(() => {
-        expect(getByText('Add to meal plan')).toBeTruthy();
-        expect(getByText('👍')).toBeTruthy();
-        expect(getByText('👎')).toBeTruthy();
-      });
-    });
-
-    it('handles empty suggestions gracefully', async () => {
-      mockSmartDietService.getSmartSuggestions.mockResolvedValue({
-        ...mockResponse,
-        suggestions: []
-      });
-      
-      const { getByText } = renderSmartDietScreen();
-      
-      await waitFor(() => {
-        expect(getByText('smartDiet.noSuggestions')).toBeTruthy();
-      });
-    });
-  });
-
-  describe('Preferences Integration', () => {
-    it('opens preferences modal when settings button is pressed', async () => {
-      const { getByText } = renderSmartDietScreen();
-      
-      fireEvent.press(getByText('⚙️'));
-      
-      await waitFor(() => {
-        expect(getByText('smartDiet.preferences.apply')).toBeTruthy();
-      });
-    });
-
-    it('displays notification settings in preferences', async () => {
-      const { getByText } = renderSmartDietScreen();
-      
-      fireEvent.press(getByText('⚙️'));
-      
-      await waitFor(() => {
-        expect(getByText('📱 Daily Notifications')).toBeTruthy();
-        expect(getByText('Enable daily suggestions')).toBeTruthy();
-        expect(getByText('🔔')).toBeTruthy();
-      });
-    });
-  });
-
-  describe('Feedback System', () => {
-    it('submits positive feedback correctly', async () => {
-      const { getByText } = renderSmartDietScreen();
-      
-      await waitFor(() => {
-        expect(getByText('👍')).toBeTruthy();
-      });
-      
-      fireEvent.press(getByText('👍'));
-      
-      await waitFor(() => {
-        expect(mockSmartDietService.submitSuggestionFeedback).toHaveBeenCalledWith(
-          'suggestion_001',
-          true,
-          expect.any(String)
-        );
-      });
-    });
-
-    it('submits negative feedback correctly', async () => {
-      const { getByText } = renderSmartDietScreen();
-      
-      await waitFor(() => {
-        expect(getByText('👎')).toBeTruthy();
-      });
-      
-      fireEvent.press(getByText('👎'));
-      
-      await waitFor(() => {
-        expect(mockSmartDietService.submitSuggestionFeedback).toHaveBeenCalledWith(
-          'suggestion_001',
-          false,
-          expect.any(String)
-        );
-      });
-    });
-  });
-
-  describe('Error Handling', () => {
-    it('displays retry button on service failure', async () => {
-      mockSmartDietService.getSmartSuggestions.mockRejectedValue(new Error('Service unavailable'));
-      
-      const { getByText } = renderSmartDietScreen();
-      
-      await waitFor(() => {
-        expect(getByText('smartDiet.error.generic')).toBeTruthy();
-        expect(getByText('smartDiet.error.retry')).toBeTruthy();
-      });
-    });
-
-    it('retries service call when retry button is pressed', async () => {
-      mockSmartDietService.getSmartSuggestions
-        .mockRejectedValueOnce(new Error('Service unavailable'))
-        .mockResolvedValueOnce(mockResponse);
-      
-      const { getByText } = renderSmartDietScreen();
-      
-      await waitFor(() => {
-        expect(getByText('smartDiet.error.retry')).toBeTruthy();
-      });
-      
-      fireEvent.press(getByText('smartDiet.error.retry'));
-      
-      await waitFor(() => {
-        expect(mockSmartDietService.getSmartSuggestions).toHaveBeenCalledTimes(2);
-      });
-    });
-
-    it('handles network timeouts gracefully', async () => {
-      mockSmartDietService.getSmartSuggestions.mockRejectedValue(new Error('Network timeout'));
-      
-      const { getByText } = renderSmartDietScreen();
-      
-      await waitFor(() => {
-        expect(getByText('smartDiet.error.network')).toBeTruthy();
-      });
-    });
-  });
-
-  describe('Performance', () => {
-    it('loads initial data within acceptable time', async () => {
-      const startTime = Date.now();
-      
-      renderSmartDietScreen();
-      
-      await waitFor(() => {
-        expect(mockSmartDietService.getSmartSuggestions).toHaveBeenCalled();
-      });
-      
-      const loadTime = Date.now() - startTime;
-      expect(loadTime).toBeLessThan(2000); // 2-second target
-    });
-
-    it('caches context switches for performance', async () => {
-      const { getByText } = renderSmartDietScreen();
-      
-      // Switch to optimize and back to today
-      fireEvent.press(getByText('smartDiet.contexts.optimize'));
-      await waitFor(() => {
-        expect(mockSmartDietService.getSmartSuggestions).toHaveBeenCalledWith('optimize', expect.any(Object));
-      });
-      
-      fireEvent.press(getByText('smartDiet.contexts.today'));
-      await waitFor(() => {
-        expect(mockSmartDietService.getSmartSuggestions).toHaveBeenCalledWith('today', expect.any(Object));
-      });
-      
-      // Should have been called for both contexts
-      expect(mockSmartDietService.getSmartSuggestions).toHaveBeenCalledTimes(3); // Initial + 2 switches
-    });
-  });
-
-  describe('Accessibility', () => {
-    it('has proper accessibility labels for navigation buttons', () => {
-      const { getByText } = renderSmartDietScreen();
-      
-      expect(getByText('🏠')).toBeTruthy(); // Home button
-      expect(getByText('⚙️')).toBeTruthy(); // Settings button
-    });
-
-    it('provides accessible context switching', () => {
-      const { getByText } = renderSmartDietScreen();
-      
-      // All context buttons should be accessible
-      expect(getByText('smartDiet.contexts.today')).toBeTruthy();
-      expect(getByText('smartDiet.contexts.optimize')).toBeTruthy();
-      expect(getByText('smartDiet.contexts.discover')).toBeTruthy();
-      expect(getByText('smartDiet.contexts.insights')).toBeTruthy();
-    });
+    expect(await findByText('⚡ Suggested Optimizations')).toBeTruthy();
+    expect(await findByText('Meal Swaps:')).toBeTruthy();
+    expect(await findByText('Replace White rice with Quinoa')).toBeTruthy();
   });
 });

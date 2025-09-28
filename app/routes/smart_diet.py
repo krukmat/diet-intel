@@ -13,7 +13,7 @@ from app.models.smart_diet import (
 )
 from app.models.product import ErrorResponse
 from app.services.smart_diet import smart_diet_engine
-from app.utils.auth_context import get_session_user_id
+from app.utils import auth_context
 
 # Import legacy models for backward compatibility during migration
 from app.models.recommendation import (
@@ -24,6 +24,17 @@ from app.models.recommendation import (
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
+
+
+async def _require_authenticated_user(request: Request, error_detail: str) -> str:
+    """Resolve authenticated user ID or raise HTTP 401."""
+    user_id = await auth_context.get_session_user_id(request)
+    if not user_id or user_id.startswith("anon_"):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=error_detail
+        )
+    return user_id
 
 
 @router.get(
@@ -84,12 +95,10 @@ async def get_smart_diet_suggestions(
     """
     try:
         # Get authenticated user
-        user_id = await get_session_user_id(req)
-        if not user_id:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Authentication required for personalized Smart Diet suggestions"
-            )
+        user_id = await _require_authenticated_user(
+            req,
+            "Authentication required for personalized Smart Diet suggestions"
+        )
         
         # Validate context
         try:
@@ -212,12 +221,10 @@ async def submit_smart_diet_feedback(
     """
     try:
         # Get authenticated user and validate
-        user_id = await get_session_user_id(req)
-        if not user_id:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Authentication required to submit feedback"
-            )
+        user_id = await _require_authenticated_user(
+            req,
+            "Authentication required to submit feedback"
+        )
         
         if user_id != feedback.user_id:
             raise HTTPException(
@@ -316,12 +323,10 @@ async def get_diet_insights(
     """
     try:
         # Get authenticated user
-        user_id = await get_session_user_id(req)
-        if not user_id:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Authentication required for personalized insights"
-            )
+        user_id = await _require_authenticated_user(
+            req,
+            "Authentication required for personalized insights"
+        )
         
         # Validate period
         if period not in ["day", "week", "month"]:
@@ -388,12 +393,10 @@ async def apply_optimization_suggestion(
     """
     try:
         # Get authenticated user
-        user_id = await get_session_user_id(req)
-        if not user_id:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Authentication required to apply optimizations"
-            )
+        user_id = await _require_authenticated_user(
+            req,
+            "Authentication required to apply optimizations"
+        )
         
         # Validate suggestion_id
         if not suggestion_id or len(suggestion_id.strip()) == 0:
@@ -455,7 +458,7 @@ async def generate_smart_recommendations_legacy(
     
     try:
         # Get user context
-        user_id = await get_session_user_id(req)
+        user_id = await auth_context.get_session_user_id(req)
         if not user_id and request.include_history:
             request.include_history = False
         
