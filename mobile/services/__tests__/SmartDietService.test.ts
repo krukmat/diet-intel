@@ -13,6 +13,7 @@ import {
   type SmartSuggestion,
   type SuggestionFeedback,
   type SmartDietInsights,
+  type OptimizationSuggestion,
 } from '../SmartDietService';
 import { apiService } from '../ApiService';
 import {
@@ -57,38 +58,124 @@ describe('SmartDietService', () => {
 
   describe('getSmartSuggestions', () => {
     const mockSuggestion: SmartSuggestion = {
-      id: 'test_suggestion_1',
+      id: 'today_suggestion_1',
       suggestion_type: SuggestionType.RECOMMENDATION,
-      category: SuggestionCategory.DISCOVERY,
+      category: SuggestionCategory.MEAL_ADDITION,
       title: 'Greek Yogurt with Berries',
-      description: 'High-protein breakfast option',
-      reasoning: 'Great source of protein and probiotics',
-      suggested_item: { name: 'Greek Yogurt', barcode: '123456789' },
-      nutritional_benefit: { protein_g: 15, calories: 100 },
-      calorie_impact: 100,
-      macro_impact: { protein_percent: 25 },
+      description: 'Swap a sugary cereal for Greek yogurt topped with berries to boost protein and antioxidants.',
+      reasoning: 'Keeps breakfast protein high while adding fiber-rich berries.',
+      suggested_item: {
+        name: 'Plain Greek Yogurt',
+        barcode: '123456789',
+        serving_size: '170g cup',
+      },
+      current_item: {
+        name: 'Sweetened Yogurt',
+        barcode: '987654321',
+      },
+      nutritional_benefit: {
+        calories: 250,
+        protein: 22,
+        fat: 4,
+        carbs: 29,
+        fiber: 5,
+      },
+      calorie_impact: -60,
+      macro_impact: {
+        protein: 9,
+        fat: -3,
+        carbs: -15,
+      },
       confidence_score: 0.85,
       priority_score: 0.8,
+      meal_context: 'breakfast',
       planning_context: SmartDietContext.TODAY,
       implementation_complexity: 'simple',
+      implementation_notes: 'Prepare the bowl the night before for easier mornings.',
       created_at: '2025-09-10T12:00:00Z',
-      tags: ['high_protein', 'breakfast']
+      expires_at: '2025-09-11T12:00:00Z',
+      tags: ['high_protein', 'antioxidants'],
+    };
+
+    const mockHighlight: SmartSuggestion = {
+      ...mockSuggestion,
+      id: 'highlight_today_1',
+      title: 'Smoked Salmon Toast',
+      description: 'Add smoked salmon to whole-grain toast for extra omega-3s at breakfast.',
+      nutritional_benefit: {
+        calories: 320,
+        protein: 24,
+        fat: 10,
+        carbs: 32,
+      },
+      tags: ['omega_3', 'heart_health'],
+    };
+
+    const mockOptimization: OptimizationSuggestion = {
+      ...mockSuggestion,
+      id: 'optimization_today_1',
+      suggestion_type: SuggestionType.OPTIMIZATION,
+      category: SuggestionCategory.FOOD_SWAP,
+      title: 'Swap granola for mixed nuts',
+      description: 'Replace sugary granola with a portion of mixed nuts to improve fat quality.',
+      reasoning: 'Reduces added sugars while improving healthy fat intake.',
+      planning_context: SmartDietContext.OPTIMIZE,
+      implementation_complexity: 'moderate',
+      implementation_notes: 'Make the swap for afternoon snacks three times this week.',
+      tags: ['food_swap', 'healthy_fats'],
+      optimization_type: 'food_swap',
+      target_improvement: {
+        carbs: -18,
+        fat: 9,
+        protein: 4,
+      },
+    };
+
+    const mockDiscovery: SmartSuggestion = {
+      ...mockSuggestion,
+      id: 'discover_snack_1',
+      suggestion_type: SuggestionType.RECOMMENDATION,
+      category: SuggestionCategory.DISCOVERY,
+      title: 'Roasted Edamame Snack',
+      description: 'Try roasted edamame for a crunchy, protein-rich afternoon snack.',
+      planning_context: SmartDietContext.DISCOVER,
+      tags: ['snack', 'fiber'],
+    };
+
+    const mockInsight: SmartSuggestion = {
+      ...mockSuggestion,
+      id: 'insight_macro_1',
+      suggestion_type: SuggestionType.INSIGHT,
+      category: SuggestionCategory.NUTRITIONAL_GAP,
+      title: 'Increase daily omega-3 intake',
+      description: 'Omega-3 intake has been below target for four consecutive days.',
+      planning_context: SmartDietContext.INSIGHTS,
+      tags: ['insight', 'trend'],
     };
 
     const mockResponse: SmartDietResponse = {
       user_id: testUserId,
       context_type: SmartDietContext.TODAY,
-      generated_at: '2025-09-10T12:00:00Z',
+      generated_at: '2025-09-10T12:05:00Z',
       suggestions: [mockSuggestion],
-      today_highlights: [mockSuggestion],
-      optimizations: [],
-      discoveries: [],
-      insights: [],
-      nutritional_summary: { total_calories: 100 },
-      personalization_factors: ['dietary_preferences'],
+      today_highlights: [mockHighlight],
+      optimizations: [mockOptimization],
+      discoveries: [mockDiscovery],
+      insights: [mockInsight],
+      nutritional_summary: {
+        total_recommended_calories: 2100,
+        macro_distribution: {
+          protein_percent: 30,
+          fat_percent: 30,
+          carbs_percent: 40,
+        },
+        nutritional_gaps: ['omega-3', 'fiber'],
+        health_benefits: ['Supports lean muscle', 'Improves satiety'],
+      },
+      personalization_factors: ['high_protein_focus', 'balanced_breakfasts'],
       total_suggestions: 1,
       avg_confidence: 0.85,
-      generation_time_ms: 150
+      generation_time_ms: 150,
     };
 
     it('should fetch suggestions from API when cache miss', async () => {
@@ -155,15 +242,29 @@ describe('SmartDietService', () => {
     it('supports flexible options object signature with camelCase keys', async () => {
       mockedAsyncStorage.getItem.mockResolvedValue(null);
 
+      const optimizeSuggestion: OptimizationSuggestion = {
+        ...mockOptimization,
+        id: 'optimize_primary_1',
+        title: 'Rebalance lunch macros',
+        description: 'Shift 15g of carbs to protein at lunch for better satiety.',
+        target_improvement: {
+          protein: 15,
+          carbs: -20,
+        },
+        tags: ['macro_balance'],
+      };
+
       const optimizeResponse: SmartDietResponse = {
         ...mockResponse,
         context_type: SmartDietContext.OPTIMIZE,
-        optimizations: [{
-          ...mockSuggestion,
-          id: 'optimize_suggestion_1',
-          suggestion_type: SuggestionType.OPTIMIZATION,
-          planning_context: SmartDietContext.OPTIMIZE,
-        }],
+        suggestions: [optimizeSuggestion],
+        today_highlights: [],
+        optimizations: [optimizeSuggestion],
+        discoveries: [],
+        insights: [],
+        personalization_factors: ['optimize_plan_focus'],
+        total_suggestions: 1,
+        avg_confidence: optimizeSuggestion.confidence_score,
       };
 
       mockedApiService.get.mockResolvedValue({ data: optimizeResponse });
