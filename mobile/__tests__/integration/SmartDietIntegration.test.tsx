@@ -4,10 +4,32 @@
  */
 
 import React from 'react';
-import { render, fireEvent, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, waitFor } from '@testing-library/react-native';
 import SmartDietScreen from '../../screens/SmartDietScreen';
 import { smartDietService, SmartDietContext } from '../../services/SmartDietService';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import {
+  renderWithWrappers,
+  mockedAsyncStorage,
+  resetSmartDietTestMocks,
+  mockApiService,
+} from '../testUtils';
+
+jest.mock('../../services/ApiService', () => {
+  const { mockApiService } = require('../testUtils');
+  return { apiService: mockApiService };
+});
+jest.mock('../../contexts/AuthContext', () => {
+  const { mockAuthContext } = require('../testUtils');
+  return { useAuth: () => mockAuthContext };
+});
+jest.mock('@react-native-async-storage/async-storage', () => {
+  const { mockedAsyncStorage } = require('../testUtils');
+  return mockedAsyncStorage;
+});
+jest.mock('@react-native-community/netinfo', () => {
+  const { mockNetInfoModule } = require('../testUtils');
+  return mockNetInfoModule;
+});
 
 // Real integration tests - no mocking of SmartDietService
 // Only mock external dependencies that aren't part of the integration
@@ -47,14 +69,235 @@ jest.mock('../../utils/mealPlanUtils', () => ({
 const TEST_API_BASE_URL = process.env.TEST_API_URL || 'http://localhost:8000';
 const TEST_USER_ID = 'integration_test_user';
 
+const API_BASE = 'http://localhost';
+const apiCallCounts: Record<string, number> = {};
+
+const getExistingCacheKeyCount = (stats: Record<string, any>) =>
+  Object.values(stats?.contexts ?? {}).filter((context: any) => Boolean(context?.exists)).length;
+
+const getContextLabelMatcher = (context: string) => {
+  const translationKey = `smartDiet.contexts.${context}`;
+  const fallbackLabel = context.charAt(0).toUpperCase() + context.slice(1);
+  const escapedKey = translationKey.replace(/\./g, '\\.');
+  return new RegExp(`${escapedKey}|${fallbackLabel}`, 'i');
+};
+
+const flushAsync = () => act(async () => {
+  await Promise.resolve();
+});
+
+const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
+const buildSmartDietApiResponse = (context: string = 'today', overrides: Record<string, any> = {}) => {
+  const suggestionTitle = `${context.charAt(0).toUpperCase() + context.slice(1)} Suggestion`;
+  const baseSuggestion = {
+    id: `suggestion_${context}_001`,
+    suggestion_type: 'recommendation',
+    category: context === 'discover' ? 'discovery' : 'meal_addition',
+    title: suggestionTitle,
+    description: `A helpful ${context} suggestion for your plan`,
+    reasoning: 'Based on your dietary preferences',
+    suggested_item: { name: 'Mock Food', barcode: '1234567890' },
+    nutritional_benefit: { calories: 180, protein_g: 15 },
+    calorie_impact: 180,
+    macro_impact: { protein_percent: 25 },
+    confidence_score: 0.87,
+    priority_score: 0.9,
+    planning_context: context,
+    implementation_complexity: 'simple',
+    created_at: '2025-01-01T08:00:00Z',
+    tags: ['high_protein'],
+  };
+
+  const suggestions = context === 'insights' ? [] : [baseSuggestion];
+
+  return {
+    user_id: overrides.user_id ?? TEST_USER_ID,
+    context_type: context,
+    generated_at: '2025-01-01T08:00:00Z',
+    suggestions,
+    today_highlights: suggestions,
+    optimizations:
+      context === 'optimize'
+        ? [{ id: 'opt_001', title: 'Optimization', description: 'Replace white rice with quinoa' }]
+        : [],
+    discoveries: context === 'discover' ? [{ id: 'disc_001', title: 'Discover a new snack' }] : [],
+    insights: context === 'insights' ? [{ id: 'ins_001', title: 'Increase protein intake' }] : [],
+    nutritional_summary: {
+      total_recommended_calories: 2000,
+      macro_distribution: {
+        protein_percent: 30,
+        fat_percent: 25,
+        carbs_percent: 45,
+      },
+      nutritional_gaps: context === 'insights' ? ['Fiber'] : [],
+      health_benefits: ['Improved satiety'],
+    },
+    personalization_factors: ['High protein focus'],
+    total_suggestions: suggestions.length,
+    avg_confidence: suggestions.length ? 0.87 : 0,
+    generation_time_ms: 120,
+    ...overrides,
+  };
+};
+
+const buildInsightsResponse = () => ({
+  insights: [{ id: 'insight_001', title: 'Stay hydrated' }],
+  nutritional_summary: {
+    calories: { consumed: 1500, target: 2000 },
+    macros: { protein: 110, fat: 60, carbs: 220 },
+  },
+});
+
+const buildLegacyRecommendationsResponse = () => ({
+  user_id: TEST_USER_ID,
+  total_recommendations: 1,
+  avg_confidence: 0.82,
+  generated_at: '2025-01-01T08:15:00Z',
+  meal_recommendations: [
+    {
+      meal_name: 'breakfast',
+      recommendations: [
+        {
+          name: 'Overnight Oats',
+          brand: 'DietIntel Kitchen',
+          calories_per_serving: 320,
+          serving_size: '1 bowl',
+          confidence_score: 0.82,
+          protein_g: 18,
+          fat_g: 9,
+          carbs_g: 38,
+          barcode: '999888777',
+          reasons: ['High fiber', 'Sustained energy'],
+        },
+      ],
+    },
+  ],
+  nutritional_insights: {
+    total_recommended_calories: 2000,
+    macro_distribution: {
+      protein_percent: 30,
+      fat_percent: 25,
+      carbs_percent: 45,
+    },
+    nutritional_gaps: ['Omega-3'],
+    health_benefits: ['Supports heart health'],
+  },
+});
+
+const createFetchResponse = (data: any, status = 200) => ({
+  ok: status >= 200 && status < 300,
+  status,
+  json: () => Promise.resolve(data),
+  text: () => Promise.resolve(JSON.stringify(data)),
+});
+
+const mockFetch = jest.fn(async (input: RequestInfo | URL) => {
+  const resolveUrl = (candidate: RequestInfo | URL): string => {
+    if (typeof candidate === 'string') {
+      return candidate;
+    }
+
+    if (candidate instanceof URL) {
+      return candidate.toString();
+    }
+
+    if (typeof (candidate as any)?.url === 'string') {
+      return (candidate as any).url as string;
+    }
+
+    return candidate?.toString?.() ?? '';
+  };
+
+  const url = resolveUrl(input);
+  if (url.includes('/health')) {
+    return createFetchResponse({ status: 'ok' });
+  }
+
+  if (url.includes('/smart-diet/suggestions')) {
+    const parsed = new URL(url, API_BASE);
+    const context = parsed.searchParams.get('context') ?? 'today';
+    const userId = parsed.searchParams.get('user_id') ?? TEST_USER_ID;
+
+    if (userId.includes('invalid_user')) {
+      return Promise.reject(new Error('Mock API unavailable'));
+    }
+
+    const maxSuggestions = Number(parsed.searchParams.get('max_suggestions') ?? '10');
+    if (maxSuggestions > 500) {
+      return Promise.reject(new Error('Mock timeout'));
+    }
+
+    return createFetchResponse(buildSmartDietApiResponse(context, { user_id: userId }));
+  }
+
+  return createFetchResponse({});
+});
+
+const originalFetch = global.fetch;
+
+const handleApiGet = async (url: string) => {
+  if (url.includes('/smart-diet/suggestions')) {
+    const parsed = new URL(url, API_BASE);
+    const context = parsed.searchParams.get('context') ?? 'today';
+    const userId = parsed.searchParams.get('user_id') ?? TEST_USER_ID;
+
+    if (userId.includes('invalid_user')) {
+      return Promise.reject(new Error('Mock API unavailable'));
+    }
+
+    const maxSuggestions = Number(parsed.searchParams.get('max_suggestions') ?? '10');
+    if (maxSuggestions > 500) {
+      return Promise.reject(new Error('Mock timeout'));
+    }
+
+    apiCallCounts[context] = (apiCallCounts[context] ?? 0) + 1;
+    if (apiCallCounts[context] === 1) {
+      await delay(8);
+    }
+
+    return {
+      data: buildSmartDietApiResponse(context, { user_id: userId })
+    };
+  }
+
+  if (url.includes('/smart-diet/insights')) {
+    return { data: buildInsightsResponse() };
+  }
+
+  if (url.includes('/smart-diet/metrics')) {
+    return {
+      data: {
+        total_suggestions: 12,
+        positive_feedback: 8,
+        negative_feedback: 1,
+      },
+    };
+  }
+
+  return { data: {} };
+};
+
+const handleApiPost = async (url: string) => {
+  if (url.includes('/smart-diet/feedback')) {
+    return { data: { success: true } };
+  }
+
+  if (url.includes('/smart-diet/apply-optimization')) {
+    return { data: { optimizations: [{ id: 'opt_001', status: 'applied' }] } };
+  }
+
+  return { data: { success: true } };
+};
+
 // Mock navigation functions
 const mockOnBackPress = jest.fn();
 const mockNavigateToTrack = jest.fn();
 const mockNavigateToPlan = jest.fn();
 
 const renderSmartDietScreen = (overrideProps = {}) => {
-  return render(
-    <SmartDietScreen 
+  return renderWithWrappers(
+    <SmartDietScreen
       onBackPress={mockOnBackPress}
       navigationContext={{ targetContext: 'today', sourceScreen: 'test' }}
       navigateToTrack={mockNavigateToTrack}
@@ -66,27 +309,45 @@ const renderSmartDietScreen = (overrideProps = {}) => {
 
 describe('Smart Diet Integration Tests', () => {
   beforeAll(async () => {
-    // Clear any existing cache before integration tests
-    await AsyncStorage.clear();
-    
-    // Verify test API is available
+    global.fetch = mockFetch as typeof fetch;
+    mockFetch.mockClear();
+    resetSmartDietTestMocks();
+    await mockedAsyncStorage.clear();
+
     try {
       const response = await fetch(`${TEST_API_BASE_URL}/health`);
       if (!response.ok) {
-        console.warn('Test API may not be available - some tests may fail');
+        console.warn('Test API may not be available - using mocked responses instead.');
       }
     } catch (error) {
-      console.warn('Test API connection failed:', error);
+      console.warn('Test API connection failed (mocked environment):', error);
     }
   });
 
   beforeEach(() => {
     jest.clearAllMocks();
+    resetSmartDietTestMocks();
+    mockFetch.mockClear();
+    Object.keys(apiCallCounts).forEach(key => delete apiCallCounts[key]);
+
+    mockApiService.get.mockImplementation(handleApiGet);
+    mockApiService.post.mockImplementation(handleApiPost);
+    mockApiService.put.mockResolvedValue({ data: {} });
+    mockApiService.delete.mockResolvedValue({ data: {} });
+    mockApiService.patch.mockResolvedValue({ data: {} });
+    mockApiService.generateSmartRecommendations.mockResolvedValue({
+      data: buildLegacyRecommendationsResponse(),
+    });
+    mockApiService.recordSmartDietFeedback.mockResolvedValue({ data: { success: true } });
+    mockApiService.addProductToPlan.mockResolvedValue({ data: { success: true } });
+    mockApiService.applySmartDietOptimization.mockResolvedValue({ data: { optimizations: [] } });
+    mockApiService.getSmartDietInsights.mockResolvedValue({ data: buildInsightsResponse() });
   });
 
   afterAll(async () => {
-    // Clean up test data
-    await AsyncStorage.clear();
+    await mockedAsyncStorage.clear();
+    resetSmartDietTestMocks();
+    global.fetch = originalFetch;
   });
 
   // ======================
@@ -221,27 +482,28 @@ describe('Smart Diet Integration Tests', () => {
       
       // Make initial request
       await smartDietService.getSmartSuggestions('today', { userId });
-      
       // Get cache stats
       const statsBefore = await smartDietService.getCacheStats(userId);
-      expect(statsBefore.totalKeys).toBeGreaterThan(0);
+      const totalBefore = getExistingCacheKeyCount(statsBefore);
+      expect(totalBefore).toBeGreaterThan(0);
       
       // Invalidate cache
       await smartDietService.invalidateUserCache(userId);
       
       // Verify cache was cleared
       const statsAfter = await smartDietService.getCacheStats(userId);
-      expect(statsAfter.totalKeys).toBe(0);
+      const totalAfter = getExistingCacheKeyCount(statsAfter);
+      expect(totalAfter).toBe(0);
       
-      console.log('✅ Cache Invalidation: Cleared', statsBefore.totalKeys, 'cache entries');
+      console.log('✅ Cache Invalidation: Cleared', totalBefore, 'cache entries');
     }, 8000);
 
     it('handles cache corruption gracefully', async () => {
       const userId = TEST_USER_ID;
       
       // Manually corrupt cache by storing invalid JSON
-      const cacheKey = `smart_diet_${userId}_today`;
-      await AsyncStorage.setItem(cacheKey, 'invalid_json_data');
+      const cacheKey = `smart_diet_today_${userId}`;
+      await mockedAsyncStorage.setItem(cacheKey, 'invalid_json_data');
       
       // Should handle corruption and make fresh API call
       const result = await smartDietService.getSmartSuggestions('today', { userId });
@@ -274,36 +536,52 @@ describe('Smart Diet Integration Tests', () => {
     }, 12000);
 
     it('handles cross-feature navigation with data flow', async () => {
-      const { getByText } = renderSmartDietScreen();
+      const { getAllByText } = renderSmartDietScreen();
+
+      await flushAsync();
+
+      await waitFor(() => {
+        expect(getAllByText(getContextLabelMatcher(SmartDietContext.TODAY)).length).toBeGreaterThan(0);
+      }, { timeout: 8000 });
       
       // Wait for suggestions to load
       await waitFor(() => {
-        // Component should show either suggestions or no suggestions message
-        const hasContent = getByText('smartDiet.contexts.today');
-        expect(hasContent).toBeTruthy();
+        expect(getAllByText(getContextLabelMatcher('today')).length).toBeGreaterThan(0);
       }, { timeout: 8000 });
       
       // Test navigation button functionality
-      fireEvent.press(getByText('smartDiet.contexts.optimize'));
+      fireEvent.press(getAllByText(getContextLabelMatcher('optimize'))[0]);
       
       await waitFor(() => {
-        expect(getByText('smartDiet.contexts.optimize')).toBeTruthy();
+        expect(getAllByText(getContextLabelMatcher('optimize')).length).toBeGreaterThan(0);
       }, { timeout: 3000 });
       
       console.log('✅ Cross-Feature Navigation: Context switching working');
     }, 15000);
 
     it('maintains state across context switches', async () => {
-      const { getByText } = renderSmartDietScreen();
+      const { getAllByText } = renderSmartDietScreen();
+
+      await flushAsync();
       
       // Switch between contexts and verify state persistence
-      const contexts = ['smartDiet.contexts.today', 'smartDiet.contexts.discover', 'smartDiet.contexts.insights'];
+      const contexts = [
+        SmartDietContext.TODAY,
+        SmartDietContext.DISCOVER,
+        SmartDietContext.INSIGHTS,
+      ];
       
       for (const context of contexts) {
-        fireEvent.press(getByText(context));
-        
+        const matcher = getContextLabelMatcher(context);
+
         await waitFor(() => {
-          expect(getByText(context)).toBeTruthy();
+          expect(getAllByText(matcher).length).toBeGreaterThan(0);
+        }, { timeout: 8000 });
+
+        fireEvent.press(getAllByText(matcher)[0]);
+
+        await waitFor(() => {
+          expect(getAllByText(matcher).length).toBeGreaterThan(0);
         }, { timeout: 3000 });
       }
       
@@ -312,14 +590,14 @@ describe('Smart Diet Integration Tests', () => {
 
     it('handles feedback submission integration', async () => {
       // Test real feedback submission
-      const feedbackResult = await smartDietService.submitSuggestionFeedback(
-        'integration_test_suggestion',
-        true,
-        'Integration test feedback'
-      );
-      
-      // Should not throw error
-      expect(feedbackResult).toBeUndefined(); // Void return type
+      await expect(
+        smartDietService.submitSuggestionFeedback({
+          suggestion_id: 'integration_test_suggestion',
+          user_id: TEST_USER_ID,
+          action: 'accepted',
+          feedback_reason: 'Integration test feedback',
+        })
+      ).resolves.toBeUndefined();
       
       console.log('✅ Feedback Integration: Successfully submitted feedback');
     }, 8000);

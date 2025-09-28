@@ -184,10 +184,141 @@ export class SmartDietService {
    */
   async getSmartSuggestions(
     context: SmartDietContext,
-    userId: string,
+    userIdOrOptions: string | (Partial<SmartDietRequest> & { userId?: string }),
     options: Partial<SmartDietRequest> = {}
   ): Promise<SmartDietResponse> {
+    let userId: string = 'anonymous';
+    let mergedOptions: Partial<SmartDietRequest> = { ...options };
+
     try {
+      if (typeof userIdOrOptions === 'string') {
+        userId = userIdOrOptions;
+        mergedOptions = { ...options };
+      } else {
+        const {
+          userId: camelUserId,
+          user_id: snakeUserId,
+          ...restOptions
+        } = userIdOrOptions;
+
+        userId = camelUserId ?? snakeUserId ?? userId;
+        mergedOptions = { ...restOptions };
+      }
+
+      const normalizeOptions = (input: Partial<SmartDietRequest>): Partial<SmartDietRequest> => {
+        const normalized: Partial<SmartDietRequest> = { ...input };
+
+        // Always strip user identifiers from options to avoid duplication in requests
+        delete (normalized as any).userId;
+        delete (normalized as any).user_id;
+
+        const normalizeArrayField = (
+          candidate: unknown,
+          mapper?: (value: unknown) => string
+        ): string[] | undefined => {
+          if (!candidate) return undefined;
+          const convert = mapper ?? ((value: unknown) => String(value));
+          if (Array.isArray(candidate)) {
+            return candidate.map(convert);
+          }
+          return [convert(candidate)];
+        };
+
+        if ((normalized as any).maxSuggestions !== undefined) {
+          normalized.max_suggestions = Number((normalized as any).maxSuggestions);
+          delete (normalized as any).maxSuggestions;
+        }
+
+        if ((normalized as any).includeHistory !== undefined) {
+          normalized.include_optimizations = Boolean((normalized as any).includeHistory);
+          delete (normalized as any).includeHistory;
+        }
+
+        if ((normalized as any).includeOptimizations !== undefined) {
+          normalized.include_optimizations = Boolean((normalized as any).includeOptimizations);
+          delete (normalized as any).includeOptimizations;
+        }
+
+        if ((normalized as any).includeRecommendations !== undefined) {
+          normalized.include_recommendations = Boolean((normalized as any).includeRecommendations);
+          delete (normalized as any).includeRecommendations;
+        }
+
+        if ((normalized as any).dietaryRestrictions !== undefined) {
+          normalized.dietary_restrictions = normalizeArrayField((normalized as any).dietaryRestrictions);
+          delete (normalized as any).dietaryRestrictions;
+        }
+
+        if ((normalized as any).cuisinePreferences !== undefined) {
+          normalized.cuisine_preferences = normalizeArrayField((normalized as any).cuisinePreferences);
+          delete (normalized as any).cuisinePreferences;
+        }
+
+        if ((normalized as any).excludedIngredients !== undefined) {
+          normalized.excluded_ingredients = normalizeArrayField((normalized as any).excludedIngredients);
+          delete (normalized as any).excludedIngredients;
+        }
+
+        if ((normalized as any).mealContext !== undefined) {
+          normalized.meal_context = String((normalized as any).mealContext);
+          delete (normalized as any).mealContext;
+        }
+
+        if ((normalized as any).currentMealPlanId !== undefined) {
+          normalized.current_meal_plan_id = String((normalized as any).currentMealPlanId);
+          delete (normalized as any).currentMealPlanId;
+        }
+
+        if ((normalized as any).targetMacros !== undefined) {
+          normalized.target_macros = (normalized as any).targetMacros as Record<string, number>;
+          delete (normalized as any).targetMacros;
+        }
+
+        if ((normalized as any).calorieBudget !== undefined) {
+          normalized.calorie_budget = Number((normalized as any).calorieBudget);
+          delete (normalized as any).calorieBudget;
+        }
+
+        if ((normalized as any).minConfidence !== undefined) {
+          normalized.min_confidence = Number((normalized as any).minConfidence);
+          delete (normalized as any).minConfidence;
+        }
+
+        if ((normalized as any).preferences !== undefined) {
+          const preferences = (normalized as any).preferences as Record<string, unknown>;
+          const prefDietary = normalizeArrayField(preferences?.dietaryRestrictions);
+          const prefCuisine = normalizeArrayField(preferences?.cuisinePreferences);
+          const prefExcluded = normalizeArrayField(preferences?.excludedIngredients);
+
+          if (!normalized.dietary_restrictions && prefDietary) {
+            normalized.dietary_restrictions = prefDietary;
+          }
+          if (!normalized.cuisine_preferences && prefCuisine) {
+            normalized.cuisine_preferences = prefCuisine;
+          }
+          if (!normalized.excluded_ingredients && prefExcluded) {
+            normalized.excluded_ingredients = prefExcluded;
+          }
+
+          delete (normalized as any).preferences;
+        }
+
+        // Ensure array fields remain arrays of strings
+        if (normalized.dietary_restrictions) {
+          normalized.dietary_restrictions = normalizeArrayField(normalized.dietary_restrictions);
+        }
+        if (normalized.cuisine_preferences) {
+          normalized.cuisine_preferences = normalizeArrayField(normalized.cuisine_preferences);
+        }
+        if (normalized.excluded_ingredients) {
+          normalized.excluded_ingredients = normalizeArrayField(normalized.excluded_ingredients);
+        }
+
+        return normalized;
+      };
+
+      const normalizedOptions = normalizeOptions(mergedOptions);
+
       // Try cache first for performance
       const cachedResponse = await this.getCachedSuggestions(context, userId);
       if (cachedResponse) {
@@ -207,7 +338,7 @@ export class SmartDietService {
         include_optimizations: true,
         include_recommendations: true,
         lang: 'en',
-        ...options
+        ...normalizedOptions
       };
 
       console.log(`🧠 Fetching Smart Diet suggestions for context: ${context}`);
@@ -220,9 +351,17 @@ export class SmartDietService {
         include_history: request.include_optimizations?.toString() || 'true',
         ...(request.user_id && { user_id: request.user_id }),
         ...(request.lang && { lang: request.lang }),
+        ...(request.meal_context && { meal_context: request.meal_context }),
+        ...(request.current_meal_plan_id && { current_meal_plan_id: request.current_meal_plan_id }),
+        ...(request.min_confidence !== undefined && { min_confidence: request.min_confidence.toString() }),
+        ...(request.include_recommendations !== undefined && {
+          include_recommendations: request.include_recommendations.toString()
+        }),
+        ...(request.calorie_budget !== undefined && { calorie_budget: request.calorie_budget.toString() }),
         ...(request.dietary_restrictions?.length && { dietary_restrictions: request.dietary_restrictions.join(',') }),
         ...(request.cuisine_preferences?.length && { cuisine_preferences: request.cuisine_preferences.join(',') }),
-        ...(request.excluded_ingredients?.length && { excluded_ingredients: request.excluded_ingredients.join(',') })
+        ...(request.excluded_ingredients?.length && { excluded_ingredients: request.excluded_ingredients.join(',') }),
+        ...(request.target_macros && { target_macros: JSON.stringify(request.target_macros) })
       });
 
       const response = await apiService.get(`/smart-diet/suggestions?${params.toString()}`);

@@ -1,121 +1,80 @@
 import React from 'react';
-import { render, fireEvent, waitFor } from '@testing-library/react-native';
+import { fireEvent, waitFor } from '@testing-library/react-native';
 import SmartDietScreen from '../screens/SmartDietScreen';
 import { apiService } from '../services/ApiService';
 import * as mealPlanUtils from '../utils/mealPlanUtils';
+import {
+  mockApiService,
+  mockedAsyncStorage,
+  renderWithWrappers,
+  createTranslationMock,
+  resetSmartDietTestMocks,
+} from './testUtils';
 
-jest.mock('../services/ApiService', () => ({
-  apiService: {
-    get: jest.fn(),
-    post: jest.fn(),
-    put: jest.fn(),
-    delete: jest.fn(),
-    generateSmartRecommendations: jest.fn(),
-    addProductToPlan: jest.fn(),
-    recordSmartDietFeedback: jest.fn(),
-  },
-}));
-
-jest.mock('../contexts/AuthContext', () => ({
-  useAuth: () => ({
-    user: {
-      id: 'test_user',
-      email: 'test@example.com',
-    },
-    signIn: jest.fn(),
-    signOut: jest.fn(),
-  }),
-}));
-
-const asyncStorageStore = new Map<string, string>();
-const mockAsyncStorage = {
-  getItem: jest.fn((key: string) => Promise.resolve(asyncStorageStore.get(key) ?? null)),
-  setItem: jest.fn((key: string, value: string) => {
-    asyncStorageStore.set(key, value);
-    return Promise.resolve();
-  }),
-  removeItem: jest.fn((key: string) => {
-    asyncStorageStore.delete(key);
-    return Promise.resolve();
-  }),
-  clear: jest.fn(() => {
-    asyncStorageStore.clear();
-    return Promise.resolve();
-  }),
-  __reset: () => asyncStorageStore.clear(),
-};
-
-jest.mock('@react-native-async-storage/async-storage', () => mockAsyncStorage);
-
-jest.mock('../services/NotificationService', () => ({
-  notificationService: {
-    getConfig: jest.fn().mockResolvedValue({
-      enabled: true,
-      dailySuggestionTime: '09:00',
-      reminderInterval: 24,
-      preferredContexts: ['today', 'insights'],
-    }),
-    updateConfig: jest.fn().mockResolvedValue(undefined),
-    triggerSmartDietNotification: jest.fn().mockResolvedValue(undefined),
-  },
-}));
-
+jest.mock('../services/ApiService', () => {
+  const { mockApiService } = require('./testUtils');
+  return { apiService: mockApiService };
+});
+jest.mock('../contexts/AuthContext', () => {
+  const { mockAuthContext } = require('./testUtils');
+  return { useAuth: () => mockAuthContext };
+});
+jest.mock('@react-native-async-storage/async-storage', () => {
+  const { mockedAsyncStorage } = require('./testUtils');
+  return mockedAsyncStorage;
+});
+jest.mock('../services/NotificationService', () => {
+  const { mockNotificationService } = require('./testUtils');
+  return { notificationService: mockNotificationService };
+});
+jest.mock('@react-native-community/netinfo', () => {
+  const { mockNetInfoModule } = require('./testUtils');
+  return mockNetInfoModule;
+});
 jest.mock('../utils/mealPlanUtils', () => ({
   getCurrentMealPlanId: jest.fn(() => Promise.resolve('plan_123')),
   storeMealPlanId: jest.fn(),
 }));
-
 jest.mock('../utils/foodTranslation', () => ({
   translateFoodName: jest.fn(async (name: string) => name),
   translateFoodNameSync: jest.fn((name: string) => name),
 }));
 
-const mockTranslations: Record<string, string> = {
-  'smartDiet.title': 'Smart Diet',
-  'smartDiet.loading': 'Loading recommendations...',
-  'smartDiet.contexts.today': 'Today',
-  'smartDiet.contexts.optimize': 'Optimize',
-  'smartDiet.contexts.discover': 'Discover',
-  'smartDiet.contexts.insights': 'Insights',
-  'smartDiet.confidence': 'Confidence',
-  'smartDiet.whySuggested': 'Why this was suggested',
-  'smartDiet.insights.title': 'Nutrition Insights',
-  'smartDiet.insights.calories': 'Calories',
-  'smartDiet.insights.macroBalance': 'Macro balance',
-  'smartDiet.insights.nutritionalGaps': 'Nutritional gaps',
-  'smartDiet.insights.healthBenefits': 'Health benefits',
-  'smartDiet.preferences.title': 'Preferences',
-  'smartDiet.preferences.apply': 'Apply',
-  'smartDiet.noSuggestions': 'No suggestions available at the moment.',
-  'smartDiet.feedback.thankYou': 'Thanks for your feedback!',
-  'smartDiet.feedback.message': 'We updated your preferences',
-  'smartDiet.feedback.recorded': 'Feedback recorded',
-  'smartDiet.actions.addToPlan': 'Add to plan',
-  'smartDiet.actions.applyOptimization': 'Apply optimization',
-  'smartDiet.alerts.optimizationSuccess': 'Optimization applied',
-  'smartDiet.alerts.information': 'Information',
-  'common.cancel': 'Cancel',
-  'common.add': 'Add',
-  'common.apply': 'Apply',
-  'common.success': 'Success',
-  'common.error': 'Error',
-};
+jest.mock('react-i18next', () => {
+  const { createTranslationMock } = require('./testUtils');
+  return createTranslationMock({
+    'smartDiet.title': 'Smart Diet',
+    'smartDiet.loading': 'Loading recommendations...',
+    'smartDiet.contexts.today': 'Today',
+    'smartDiet.contexts.optimize': 'Optimize',
+    'smartDiet.contexts.discover': 'Discover',
+    'smartDiet.contexts.insights': 'Insights',
+    'smartDiet.confidence': 'Confidence',
+    'smartDiet.whySuggested': 'Why this was suggested',
+    'smartDiet.insights.title': 'Nutrition Insights',
+    'smartDiet.insights.calories': 'Calories',
+    'smartDiet.insights.macroBalance': 'Macro balance',
+    'smartDiet.insights.nutritionalGaps': 'Nutritional gaps',
+    'smartDiet.insights.healthBenefits': 'Health benefits',
+    'smartDiet.preferences.title': 'Preferences',
+    'smartDiet.preferences.apply': 'Apply',
+    'smartDiet.noSuggestions': 'No suggestions available at the moment.',
+    'smartDiet.feedback.thankYou': 'Thanks for your feedback!',
+    'smartDiet.feedback.message': 'We updated your preferences',
+    'smartDiet.feedback.recorded': 'Feedback recorded',
+    'smartDiet.actions.addToPlan': 'Add to plan',
+    'smartDiet.actions.applyOptimization': 'Apply optimization',
+    'smartDiet.alerts.optimizationSuccess': 'Optimization applied',
+    'smartDiet.alerts.information': 'Information',
+    'common.cancel': 'Cancel',
+    'common.add': 'Add',
+    'common.apply': 'Apply',
+    'common.success': 'Success',
+    'common.error': 'Error',
+  });
+});
 
-jest.mock('react-i18next', () => ({
-  useTranslation: () => ({
-    t: (key: string) => mockTranslations[key] || key,
-    i18n: {
-      language: 'en',
-      changeLanguage: jest.fn(),
-    },
-  }),
-  initReactI18next: {
-    type: '3rdParty',
-    init: jest.fn(),
-  },
-}));
-
-const mockedApi = apiService as jest.Mocked<typeof apiService>;
+const mockedApi = apiService as unknown as typeof mockApiService;
 const mockedMealPlan = mealPlanUtils as jest.Mocked<typeof mealPlanUtils>;
 
 const BASE_TIMESTAMP = '2025-01-01T08:00:00Z';
@@ -250,7 +209,7 @@ const renderScreen = (overrideProps: Record<string, any> = {}) => {
     ...overrideProps,
   };
 
-  const utils = render(<SmartDietScreen {...props} />);
+  const utils = renderWithWrappers(<SmartDietScreen {...props} />);
   return {
     ...utils,
     props,
@@ -260,7 +219,7 @@ const renderScreen = (overrideProps: Record<string, any> = {}) => {
 describe('SmartDietScreen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    mockAsyncStorage.__reset();
+    resetSmartDietTestMocks();
     mockedMealPlan.getCurrentMealPlanId.mockResolvedValue('plan_123');
 
     mockedApi.get.mockImplementation((url: string) => {
@@ -275,19 +234,17 @@ describe('SmartDietScreen', () => {
   });
 
   it('renders core tabs and initial suggestion', async () => {
-    const { findByText, findAllByText, queryByText } = renderScreen();
-
-    expect(await findByText('Loading recommendations...')).toBeTruthy();
+    const { findAllByText, queryByText, findByText } = renderScreen();
 
     await waitFor(() => {
       expect(queryByText('Loading recommendations...')).toBeNull();
     });
 
-    expect(await findByText(/Smart Diet/)).toBeTruthy();
-    expect((await findAllByText('Today')).length).toBeGreaterThan(0);
-    expect((await findAllByText('Optimize')).length).toBeGreaterThan(0);
-    expect((await findAllByText('Discover')).length).toBeGreaterThan(0);
-    expect((await findAllByText('Insights')).length).toBeGreaterThan(0);
+    expect((await findAllByText(/Smart Diet/i)).length).toBeGreaterThan(0);
+    expect((await findAllByText(/Today/i)).length).toBeGreaterThan(0);
+    expect((await findAllByText(/Optimize/i)).length).toBeGreaterThan(0);
+    expect((await findAllByText(/Discover/i)).length).toBeGreaterThan(0);
+    expect((await findAllByText(/Insights/i)).length).toBeGreaterThan(0);
     expect(await findByText('Greek Yogurt with Berries')).toBeTruthy();
   });
 
@@ -298,7 +255,7 @@ describe('SmartDietScreen', () => {
       expect(mockedApi.get).toHaveBeenCalledWith(expect.stringContaining('context=today'));
     });
 
-    const optimizeButtons = await findAllByText('Optimize');
+    const optimizeButtons = await findAllByText(/Optimize/i);
     fireEvent.press(optimizeButtons[0]);
 
     await waitFor(() => {
@@ -314,6 +271,7 @@ describe('SmartDietScreen', () => {
       expect(mockedApi.get).toHaveBeenCalledTimes(1);
     });
 
+    await mockedAsyncStorage.clear();
     fireEvent.press(getByText('🔄 Refresh Suggestions'));
 
     await waitFor(() => {

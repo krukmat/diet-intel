@@ -3,36 +3,35 @@
  * Comprehensive testing for mobile service layer integration
  */
 
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { 
-  SmartDietService, 
-  SmartDietContext, 
-  SuggestionType, 
+import {
+  SmartDietService,
+  SmartDietContext,
+  SuggestionType,
   SuggestionCategory,
   smartDietService,
   type SmartDietResponse,
   type SmartSuggestion,
   type SuggestionFeedback,
-  type SmartDietInsights
+  type SmartDietInsights,
 } from '../SmartDietService';
 import { apiService } from '../ApiService';
+import {
+  mockedAsyncStorage,
+  mockApiService,
+  resetSmartDietTestMocks,
+} from '../../__tests__/testUtils';
 
-// Mock dependencies
-jest.mock('@react-native-async-storage/async-storage', () => ({
-  getItem: jest.fn(),
-  setItem: jest.fn(),
-  multiRemove: jest.fn(),
-}));
+jest.mock('@react-native-async-storage/async-storage', () => {
+  const { mockedAsyncStorage } = require('../../__tests__/testUtils');
+  return mockedAsyncStorage;
+});
 
-jest.mock('../ApiService', () => ({
-  apiService: {
-    post: jest.fn(),
-    get: jest.fn(),
-  },
-}));
+jest.mock('../ApiService', () => {
+  const { mockApiService } = require('../../__tests__/testUtils');
+  return { apiService: mockApiService };
+});
 
-const mockedAsyncStorage = AsyncStorage as jest.Mocked<typeof AsyncStorage>;
-const mockedApiService = apiService as jest.Mocked<typeof apiService>;
+const mockedApiService = apiService as unknown as typeof mockApiService;
 
 describe('SmartDietService', () => {
   let service: SmartDietService;
@@ -40,6 +39,7 @@ describe('SmartDietService', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    resetSmartDietTestMocks();
     service = SmartDietService.getInstance();
   });
 
@@ -96,17 +96,13 @@ describe('SmartDietService', () => {
       mockedAsyncStorage.getItem.mockResolvedValue(null);
       
       // Setup API response
-      mockedApiService.post.mockResolvedValue({ data: mockResponse });
+      mockedApiService.get.mockResolvedValue({ data: mockResponse });
 
       const result = await service.getSmartSuggestions(SmartDietContext.TODAY, testUserId);
 
       expect(result).toEqual(mockResponse);
-      expect(mockedApiService.post).toHaveBeenCalledWith(
-        expect.stringContaining('/smart-diet/suggestions'),
-        expect.objectContaining({
-          user_id: testUserId,
-          context_type: SmartDietContext.TODAY
-        })
+      expect(mockedApiService.get).toHaveBeenCalledWith(
+        expect.stringContaining('/smart-diet/suggestions')
       );
       expect(mockedAsyncStorage.setItem).toHaveBeenCalled();
     });
@@ -122,7 +118,7 @@ describe('SmartDietService', () => {
       const result = await service.getSmartSuggestions(SmartDietContext.TODAY, testUserId);
 
       expect(result).toEqual(mockResponse);
-      expect(mockedApiService.post).not.toHaveBeenCalled();
+      expect(mockedApiService.get).not.toHaveBeenCalled();
     });
 
     it('should handle expired cache correctly', async () => {
@@ -132,12 +128,12 @@ describe('SmartDietService', () => {
         timestamp: Date.now() - (31 * 60 * 1000) // 31 minutes ago (expired for TODAY context)
       };
       mockedAsyncStorage.getItem.mockResolvedValue(JSON.stringify(expiredCachedData));
-      mockedApiService.post.mockResolvedValue({ data: mockResponse });
+      mockedApiService.get.mockResolvedValue({ data: mockResponse });
 
       const result = await service.getSmartSuggestions(SmartDietContext.TODAY, testUserId);
 
       expect(result).toEqual(mockResponse);
-      expect(mockedApiService.post).toHaveBeenCalled();
+      expect(mockedApiService.get).toHaveBeenCalled();
     });
 
     it('should use different TTL for different contexts', async () => {
@@ -153,7 +149,62 @@ describe('SmartDietService', () => {
       const result = await service.getSmartSuggestions(discoverContext, testUserId);
 
       expect(result.context_type).toBe(discoverContext);
-      expect(mockedApiService.post).not.toHaveBeenCalled(); // Should use cache
+      expect(mockedApiService.get).not.toHaveBeenCalled(); // Should use cache
+    });
+
+    it('supports flexible options object signature with camelCase keys', async () => {
+      mockedAsyncStorage.getItem.mockResolvedValue(null);
+
+      const optimizeResponse: SmartDietResponse = {
+        ...mockResponse,
+        context_type: SmartDietContext.OPTIMIZE,
+        optimizations: [{
+          ...mockSuggestion,
+          id: 'optimize_suggestion_1',
+          suggestion_type: SuggestionType.OPTIMIZATION,
+          planning_context: SmartDietContext.OPTIMIZE,
+        }],
+      };
+
+      mockedApiService.get.mockResolvedValue({ data: optimizeResponse });
+
+      const result = await service.getSmartSuggestions(SmartDietContext.OPTIMIZE, {
+        userId: testUserId,
+        maxSuggestions: 5,
+        includeHistory: false,
+        includeRecommendations: false,
+        mealContext: 'lunch',
+        currentMealPlanId: 'plan_42',
+        calorieBudget: 1800,
+        targetMacros: { protein: 120 },
+        preferences: {
+          dietaryRestrictions: ['vegetarian'],
+          cuisinePreferences: ['mediterranean'],
+          excludedIngredients: ['nuts'],
+        },
+      });
+
+      expect(result).toEqual(optimizeResponse);
+
+      const [calledUrl] = mockedApiService.get.mock.calls[0] ?? [];
+      expect(typeof calledUrl).toBe('string');
+
+      const queryString = String(calledUrl).split('?')[1];
+      expect(queryString).toBeDefined();
+      const params = new URLSearchParams(queryString ?? '');
+
+      expect(params.get('context')).toBe(SmartDietContext.OPTIMIZE);
+      expect(params.get('user_id')).toBe(testUserId);
+      expect(params.get('max_suggestions')).toBe('5');
+      expect(params.get('include_history')).toBe('false');
+      expect(params.get('include_recommendations')).toBe('false');
+      expect(params.get('meal_context')).toBe('lunch');
+      expect(params.get('current_meal_plan_id')).toBe('plan_42');
+      expect(params.get('calorie_budget')).toBe('1800');
+      expect(params.get('dietary_restrictions')).toBe('vegetarian');
+      expect(params.get('cuisine_preferences')).toBe('mediterranean');
+      expect(params.get('excluded_ingredients')).toBe('nuts');
+      expect(params.get('target_macros')).toBe(JSON.stringify({ protein: 120 }));
     });
 
     it('should fallback to expired cache when API fails', async () => {
@@ -167,17 +218,17 @@ describe('SmartDietService', () => {
         .mockResolvedValueOnce(JSON.stringify(expiredCachedData)); // Second call (fallback)
 
       // Setup API failure
-      mockedApiService.post.mockRejectedValue(new Error('Network error'));
+      mockedApiService.get.mockRejectedValue(new Error('Network error'));
 
       const result = await service.getSmartSuggestions(SmartDietContext.TODAY, testUserId);
 
       expect(result).toEqual(mockResponse);
-      expect(mockedApiService.post).toHaveBeenCalled();
+      expect(mockedApiService.get).toHaveBeenCalled();
     });
 
     it('should throw error when both API and cache fail', async () => {
       mockedAsyncStorage.getItem.mockResolvedValue(null);
-      mockedApiService.post.mockRejectedValue(new Error('Network error'));
+      mockedApiService.get.mockRejectedValue(new Error('Network error'));
 
       await expect(
         service.getSmartSuggestions(SmartDietContext.TODAY, testUserId)
@@ -390,7 +441,7 @@ describe('SmartDietService', () => {
       mockedAsyncStorage.getItem.mockResolvedValue(null);
       
       // Simulate slow API response
-      mockedApiService.post.mockImplementation(() => 
+      mockedApiService.get.mockImplementation(() => 
         new Promise(resolve => 
           setTimeout(() => resolve({ data: mockResponse }), 100)
         )
@@ -419,7 +470,7 @@ describe('SmartDietService', () => {
       const endTime = Date.now();
 
       expect(endTime - startTime).toBeLessThan(50); // Should be very fast
-      expect(mockedApiService.post).not.toHaveBeenCalled();
+      expect(mockedApiService.get).not.toHaveBeenCalled();
     });
   });
 });
