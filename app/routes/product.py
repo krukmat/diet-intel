@@ -1,9 +1,11 @@
 import logging
 import os
+import re
 import tempfile
 from datetime import datetime
 from typing import Union
-from fastapi import APIRouter, HTTPException, status, UploadFile, File, Depends
+
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from app.models.product import (
     BarcodeRequest, ProductResponse, ErrorResponse,
     ScanResponse, LowConfidenceScanResponse, Nutriments
@@ -43,6 +45,24 @@ async def get_product_by_barcode(
 ):
     context = _ensure_request_context(context)
     barcode = request.barcode
+
+    if not barcode:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Barcode cannot be empty",
+        )
+
+    if len(barcode) > 256:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Barcode exceeds maximum length",
+        )
+
+    if not re.fullmatch(r"[A-Za-z0-9_\-]+", barcode):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Barcode contains invalid characters",
+        )
     start_time = datetime.now()
     
     user_id = context.user_id

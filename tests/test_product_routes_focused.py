@@ -179,14 +179,14 @@ class TestProductBarcodeValidation:
     def test_empty_barcode_validation(self, client):
         """Test empty barcode is rejected"""
         response = client.post("/product/by-barcode", json={"barcode": ""})
-        
-        assert response.status_code == 422
-    
+
+        assert response.status_code == 400
+
     def test_whitespace_barcode_validation(self, client):
         """Test whitespace-only barcode is rejected"""
         response = client.post("/product/by-barcode", json={"barcode": "   "})
-        
-        assert response.status_code == 422
+
+        assert response.status_code == 400
     
     def test_missing_barcode_field(self, client):
         """Test missing barcode field is rejected"""
