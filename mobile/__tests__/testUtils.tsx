@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { type ComponentProps } from 'react';
 import { render, RenderOptions } from '@testing-library/react-native';
 import {
   SmartDietContext,
@@ -288,6 +288,167 @@ export const resetSmartDietTestMocks = () => {
   mockNotificationService.getConfig.mockClear();
   mockNotificationService.updateConfig.mockClear();
   mockNotificationService.triggerSmartDietNotification.mockClear();
+};
+
+export interface AsyncStorageSeedState {
+  photoLogs?: unknown;
+  weightHistory?: unknown;
+  reminders?: unknown;
+  custom?: Record<string, unknown>;
+}
+
+const asyncStorageKeyMap: Record<keyof AsyncStorageSeedState, string | null> = {
+  photoLogs: 'photo_logs',
+  weightHistory: 'weight_history',
+  reminders: 'reminders',
+  custom: null,
+};
+
+const resetAsyncStorageMocks = () => {
+  mockedAsyncStorage.__reset();
+  mockedAsyncStorage.getItem.mockClear();
+  mockedAsyncStorage.setItem.mockClear();
+  mockedAsyncStorage.removeItem.mockClear();
+  mockedAsyncStorage.multiRemove.mockClear();
+  mockedAsyncStorage.clear.mockClear();
+  mockedAsyncStorage.getAllKeys.mockClear();
+};
+
+const serializeStorageValue = (value: unknown): string => {
+  if (typeof value === 'string') {
+    return value;
+  }
+
+  if (value === undefined) {
+    return JSON.stringify(null);
+  }
+
+  return JSON.stringify(value);
+};
+
+const seedAsyncStorageEntries = async (entries: Array<[string, unknown]>) => {
+  for (const [key, value] of entries) {
+    const serialized = serializeStorageValue(value);
+    await mockedAsyncStorage.setItem(key, serialized);
+  }
+};
+
+export interface PrepareAsyncStorageOptions {
+  seed?: AsyncStorageSeedState;
+  reset?: boolean;
+}
+
+export const prepareAsyncStorageScenario = async (
+  options: PrepareAsyncStorageOptions = {},
+) => {
+  const { seed, reset = true } = options;
+
+  if (reset) {
+    resetAsyncStorageMocks();
+  }
+
+  if (!seed) {
+    return;
+  }
+
+  const mappedEntries: Array<[string, unknown]> = [];
+
+  (Object.keys(asyncStorageKeyMap) as Array<keyof AsyncStorageSeedState>).forEach(key => {
+    const storageKey = asyncStorageKeyMap[key];
+    const value = seed[key];
+
+    if (value === undefined || storageKey === null) {
+      return;
+    }
+
+    mappedEntries.push([storageKey, value]);
+  });
+
+  if (seed.custom) {
+    Object.entries(seed.custom).forEach(([key, value]) => {
+      if (value !== undefined) {
+        mappedEntries.push([key, value]);
+      }
+    });
+  }
+
+  await seedAsyncStorageEntries(mappedEntries);
+};
+
+export const inspectAsyncStorageKey = <T = unknown>(key: string): T | null => {
+  const stored = asyncStorageStore.get(key);
+  if (stored === undefined) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(stored) as T;
+  } catch {
+    return stored as unknown as T;
+  }
+};
+
+export const inspectAsyncStorageSnapshot = (): Record<string, unknown> => {
+  const snapshot: Record<string, unknown> = {};
+  asyncStorageStore.forEach((value, key) => {
+    snapshot[key] = inspectAsyncStorageKey(key);
+  });
+  return snapshot;
+};
+
+type TrackScreenComponent = typeof import('../screens/TrackScreen').default;
+type TrackScreenProps = ComponentProps<TrackScreenComponent>;
+
+export interface RenderTrackScreenOptions {
+  seed?: AsyncStorageSeedState;
+  props?: Partial<TrackScreenProps>;
+}
+
+export const renderTrackScreenForAsyncStorage = async (
+  options: RenderTrackScreenOptions = {},
+) => {
+  await prepareAsyncStorageScenario({ seed: options.seed });
+
+  const TrackScreen = require('../screens/TrackScreen').default as TrackScreenComponent;
+  const props: TrackScreenProps = {
+    onBackPress: jest.fn(),
+    ...(options.props as TrackScreenProps | undefined),
+  };
+
+  const utils = renderWithWrappers(<TrackScreen {...props} />);
+
+  return {
+    ...utils,
+    props,
+  };
+};
+
+type ReminderSnippetComponent = typeof import('../components/ReminderSnippet').default;
+type ReminderSnippetProps = ComponentProps<ReminderSnippetComponent>;
+
+export interface RenderReminderSnippetOptions {
+  seed?: AsyncStorageSeedState;
+  props?: Partial<ReminderSnippetProps>;
+}
+
+export const renderReminderSnippetForAsyncStorage = async (
+  options: RenderReminderSnippetOptions = {},
+) => {
+  await prepareAsyncStorageScenario({ seed: options.seed });
+
+  const ReminderSnippet = require('../components/ReminderSnippet').default as ReminderSnippetComponent;
+  const props: ReminderSnippetProps = {
+    visible: true,
+    onClose: jest.fn(),
+    ...(options.props as ReminderSnippetProps | undefined),
+  };
+
+  const utils = renderWithWrappers(<ReminderSnippet {...props} />);
+
+  return {
+    ...utils,
+    props,
+  };
 };
 
 const defaultNavigationContext: SmartDietScreenNavigationContext = {

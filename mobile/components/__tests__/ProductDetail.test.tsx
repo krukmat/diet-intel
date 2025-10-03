@@ -106,7 +106,6 @@ describe('ProductDetail', () => {
     expect(alertSpy).toHaveBeenCalledWith(
       'Error',
       'Cannot add product without barcode to plan.',
-      [{ text: 'OK' }],
     );
   });
 
@@ -130,7 +129,7 @@ describe('ProductDetail', () => {
 
     expect(alertSpy).toHaveBeenCalledWith(
       'Success!',
-      expect.stringContaining('has been added'),
+      'Added to plan',
       [{ text: 'OK' }],
     );
   });

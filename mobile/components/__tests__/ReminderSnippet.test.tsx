@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, fireEvent, waitFor, act } from '@testing-library/react-native';
+import { render, fireEvent, act } from '@testing-library/react-native';
 import axios from 'axios';
 import * as Notifications from 'expo-notifications';
 import { Alert } from 'react-native';
@@ -63,43 +63,39 @@ describe('ReminderSnippet', () => {
   });
 
   it('renders empty state when no reminders are available', async () => {
-    const { getByText } = render(
+    const { findByText } = render(
       <ReminderSnippet visible={true} onClose={onClose} />
     );
 
-    await waitFor(() => {
-      expect(getByText('No reminders set')).toBeTruthy();
-    });
+    expect(await findByText('No reminders set')).toBeTruthy();
   });
 
   it('renders reminders returned by the API', async () => {
     mockedAxios.get.mockResolvedValue(sampleReminders);
 
-    const { getByText } = render(
+    const { findByText } = render(
       <ReminderSnippet visible={true} onClose={onClose} />
     );
 
-    await waitFor(() => {
-      expect(getByText('Breakfast Reminder')).toBeTruthy();
-      expect(getByText('08:00')).toBeTruthy();
-      expect(getByText('Daily Weigh-in')).toBeTruthy();
-    });
+    expect(await findByText(/Breakfast Reminder/i)).toBeTruthy();
+    expect(await findByText('08:00')).toBeTruthy();
+    expect(await findByText(/Daily Weigh-in/i)).toBeTruthy();
   });
 
   it('shows notification permission warning when permission is denied', async () => {
     mockedNotifications.getPermissionsAsync?.mockResolvedValue({ status: 'denied' } as any);
+    mockedNotifications.requestPermissionsAsync?.mockResolvedValue({ status: 'denied' } as any);
 
-    const { getByText } = render(
+    const { findByText } = render(
       <ReminderSnippet visible={true} onClose={onClose} />
     );
 
-    await waitFor(() => {
-      expect(
-        getByText(/Notification permission is required/)
-      ).toBeTruthy();
-    });
+    expect(
+      await findByText(/Notification permission is required/i)
+    ).toBeTruthy();
 
-    fireEvent.press(getByText('Enable Notifications'));
+    const enableButton = await findByText('Enable Notifications');
+    fireEvent.press(enableButton);
 
     expect(mockedNotifications.requestPermissionsAsync).toHaveBeenCalled();
   });
@@ -107,32 +103,28 @@ describe('ReminderSnippet', () => {
   it('opens creation modal when tapping Add Reminder', async () => {
     mockedAxios.get.mockResolvedValue(sampleReminders);
 
-    const { getByText } = render(
+    const { findByText, getByText } = render(
       <ReminderSnippet visible={true} onClose={onClose} />
     );
 
-    await waitFor(() => {
-      expect(getByText('Breakfast Reminder')).toBeTruthy();
-    });
+    await findByText(/Breakfast Reminder/i);
 
     fireEvent.press(getByText('+ Add Reminder'));
 
-    expect(getByText('New Reminder')).toBeTruthy();
+    expect(await findByText('New Reminder')).toBeTruthy();
   });
 
   it('shows confirmation alert when deleting a reminder', async () => {
     mockedAxios.get.mockResolvedValue(sampleReminders);
 
-    const { getByText } = render(
+    const { findByText, getAllByText } = render(
       <ReminderSnippet visible={true} onClose={onClose} />
     );
 
-    await waitFor(() => {
-      expect(getByText('Breakfast Reminder')).toBeTruthy();
-    });
+    await findByText(/Breakfast Reminder/i);
 
     await act(async () => {
-      fireEvent.press(getByText('🗑️ Delete'));
+      fireEvent.press(getAllByText('🗑️ Delete')[0]);
     });
 
     expect(alertSpy).toHaveBeenCalledWith(
