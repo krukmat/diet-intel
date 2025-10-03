@@ -8,7 +8,7 @@ jest.mock('@react-native-async-storage/async-storage', () => {
   };
 });
 
-import { authService } from '../AuthService';
+import { authService, setAuthServiceStorage, resetAuthServiceStorage } from '../AuthService';
 import { User, LoginCredentials, RegisterData, AuthTokens } from '../../types/auth';
 
 // Mock AsyncStorage
@@ -18,6 +18,13 @@ const mockAsyncStorage = AsyncStorage as jest.Mocked<typeof AsyncStorage>;
 global.fetch = jest.fn();
 const mockFetch = global.fetch as jest.MockedFunction<typeof fetch>;
 
+beforeAll(() => {
+  setAuthServiceStorage(mockAsyncStorage);
+});
+
+afterAll(() => {
+  resetAuthServiceStorage();
+});
 describe('AuthService Integration Tests', () => {
   const mockUser: User = {
     id: '1',

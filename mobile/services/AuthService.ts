@@ -1,17 +1,36 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-
-if (process.env.JEST_WORKER_ID) {
-  const setItemRef = (AsyncStorage as unknown as { setItem?: unknown })?.setItem;
-  console.log('[AuthService] AsyncStorage.setItem is mocked:', Boolean((setItemRef as { mock?: unknown })?.mock));
-}
-import { User, LoginCredentials, RegisterData, AuthTokens, TokenStorage } from '../types/auth';
+import {
+  User,
+  LoginCredentials,
+  RegisterData,
+  AuthTokens,
+  TokenStorage,
+} from '../types/auth';
 
 const API_BASE_URL = 'http://10.0.2.2:8000'; // Android emulator localhost
 
-class AuthService {
+type AsyncStorageLike = Pick<typeof AsyncStorage, 'getItem' | 'setItem' | 'removeItem'>;
+
+let storageClient: AsyncStorageLike = AsyncStorage;
+
+export const setAuthServiceStorage = (customStorage: AsyncStorageLike) => {
+  storageClient = customStorage;
+};
+
+export const resetAuthServiceStorage = () => {
+  storageClient = AsyncStorage;
+};
+
+export class AuthService {
   private readonly STORAGE_KEY = '@dietintel_auth';
 
-  async login(credentials: LoginCredentials): Promise<{ user: User; tokens: AuthTokens }> {
+  private get storage(): AsyncStorageLike {
+    return storageClient;
+  }
+
+  async login(
+    credentials: LoginCredentials,
+  ): Promise<{ user: User; tokens: AuthTokens }> {
     try {
       const response = await fetch(`${API_BASE_URL}/auth/login`, {
         method: 'POST',
@@ -27,13 +46,11 @@ class AuthService {
       }
 
       const tokens: AuthTokens = await response.json();
-      
-      // Get user profile with the access token
+
       const user = await this.getCurrentUser(tokens.access_token);
-      
-      // Store tokens and user data
+
       await this.storeTokens(tokens, user);
-      
+
       return { user, tokens };
     } catch (error) {
       console.error('Login error:', error);
@@ -41,7 +58,9 @@ class AuthService {
     }
   }
 
-  async register(data: RegisterData): Promise<{ user: User; tokens: AuthTokens }> {
+  async register(
+    data: RegisterData,
+  ): Promise<{ user: User; tokens: AuthTokens }> {
     try {
       const response = await fetch(`${API_BASE_URL}/auth/register`, {
         method: 'POST',
@@ -57,13 +76,11 @@ class AuthService {
       }
 
       const tokens: AuthTokens = await response.json();
-      
-      // Get user profile with the access token
+
       const user = await this.getCurrentUser(tokens.access_token);
-      
-      // Store tokens and user data
+
       await this.storeTokens(tokens, user);
-      
+
       return { user, tokens };
     } catch (error) {
       console.error('Registration error:', error);
@@ -71,7 +88,9 @@ class AuthService {
     }
   }
 
-  async refreshToken(refreshToken: string): Promise<{ user: User; tokens: AuthTokens }> {
+  async refreshToken(
+    refreshToken: string,
+  ): Promise<{ user: User; tokens: AuthTokens }> {
     try {
       const response = await fetch(`${API_BASE_URL}/auth/refresh`, {
         method: 'POST',
@@ -87,13 +106,11 @@ class AuthService {
       }
 
       const tokens: AuthTokens = await response.json();
-      
-      // Get user profile with the new access token
+
       const user = await this.getCurrentUser(tokens.access_token);
-      
-      // Store new tokens and user data
+
       await this.storeTokens(tokens, user);
-      
+
       return { user, tokens };
     } catch (error) {
       console.error('Token refresh error:', error);
@@ -103,7 +120,6 @@ class AuthService {
 
   async logout(refreshToken?: string): Promise<void> {
     try {
-      // Call logout endpoint if we have a refresh token
       if (refreshToken) {
         await fetch(`${API_BASE_URL}/auth/logout`, {
           method: 'POST',
@@ -115,9 +131,7 @@ class AuthService {
       }
     } catch (error) {
       console.error('Logout API error:', error);
-      // Continue with local cleanup even if API call fails
     } finally {
-      // Always clear local storage
       await this.clearTokens();
     }
   }
@@ -127,7 +141,7 @@ class AuthService {
       const response = await fetch(`${API_BASE_URL}/auth/me`, {
         method: 'GET',
         headers: {
-          'Authorization': `Bearer ${accessToken}`,
+          Authorization: `Bearer ${accessToken}`,
           'Content-Type': 'application/json',
         },
       });
@@ -150,14 +164,17 @@ class AuthService {
       const expiresAt = new Date();
       expiresAt.setSeconds(expiresAt.getSeconds() + tokens.expires_in);
 
-      const storage: TokenStorage = {
+      const storagePayload: TokenStorage = {
         access_token: tokens.access_token,
         refresh_token: tokens.refresh_token,
         expires_at: expiresAt.toISOString(),
         user,
       };
 
-      await AsyncStorage.setItem(this.STORAGE_KEY, JSON.stringify(storage));
+      await this.storage.setItem(
+        this.STORAGE_KEY,
+        JSON.stringify(storagePayload),
+      );
     } catch (error) {
       console.error('Token storage error:', error);
       throw new Error('Failed to store authentication data');
@@ -166,8 +183,10 @@ class AuthService {
 
   async getStoredTokens(): Promise<TokenStorage | null> {
     try {
-      const stored = await AsyncStorage.getItem(this.STORAGE_KEY);
-      if (!stored) return null;
+      const stored = await this.storage.getItem(this.STORAGE_KEY);
+      if (!stored) {
+        return null;
+      }
 
       return JSON.parse(stored) as TokenStorage;
     } catch (error) {
@@ -178,7 +197,7 @@ class AuthService {
 
   async clearTokens(): Promise<void> {
     try {
-      await AsyncStorage.removeItem(this.STORAGE_KEY);
+      await this.storage.removeItem(this.STORAGE_KEY);
     } catch (error) {
       console.error('Token clear error:', error);
     }
@@ -190,9 +209,10 @@ class AuthService {
 
   async isAuthenticated(): Promise<boolean> {
     const stored = await this.getStoredTokens();
-    if (!stored) return false;
+    if (!stored) {
+      return false;
+    }
 
-    // Check if refresh token is still valid (we'll attempt refresh if access token is expired)
     return !this.isTokenExpired(stored.expires_at);
   }
 }
