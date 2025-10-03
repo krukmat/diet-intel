@@ -1,15 +1,13 @@
 import React from 'react';
 import { act, fireEvent, waitFor } from '@testing-library/react-native';
 import SmartDietScreen from '../../screens/SmartDietScreen';
-import {
-  SmartDietContext,
-  smartDietService,
-  type SmartDietResponse,
-} from '../../services/SmartDietService';
+import { SmartDietContext, smartDietService } from '../../services/SmartDietService';
 import {
   renderWithWrappers,
-  resetSmartDietTestMocks,
   mockApiService,
+  createSmartDietTestHarness,
+  buildSmartDietResponse,
+  type SmartDietScreenProps,
 } from '../testUtils';
 
 jest.mock('@react-native-async-storage/async-storage', () => {
@@ -19,7 +17,11 @@ jest.mock('@react-native-async-storage/async-storage', () => {
 
 jest.mock('../../services/ApiService', () => {
   const { mockApiService } = require('../testUtils');
-  return { apiService: mockApiService };
+  return {
+    __esModule: true,
+    apiService: mockApiService,
+    default: jest.fn(() => mockApiService),
+  };
 });
 
 jest.mock('../../contexts/AuthContext', () => {
@@ -53,6 +55,8 @@ jest.mock('../../utils/mealPlanUtils', () => ({
   storeCurrentMealPlanId: jest.fn(),
 }));
 
+const harness = createSmartDietTestHarness();
+
 const getContextLabelMatcher = (context: SmartDietContext) => {
   const translationKey = `smartDiet.contexts.${context}`;
   const fallbackLabel = context.charAt(0).toUpperCase() + context.slice(1);
@@ -60,109 +64,13 @@ const getContextLabelMatcher = (context: SmartDietContext) => {
   return new RegExp(`${escapedKey}|${fallbackLabel}`, 'i');
 };
 
-type NavigationHandlers = ReturnType<typeof createNavigationHandlers>;
+const renderSmartDietScreen = (
+  overrides: Partial<SmartDietScreenProps> = {},
+) => {
+  const props = harness.buildScreenProps(overrides);
+  const utils = renderWithWrappers(<SmartDietScreen {...props} />);
 
-const createNavigationHandlers = () => ({
-  onBackPress: jest.fn(),
-  navigateToTrack: jest.fn(),
-  navigateToPlan: jest.fn(),
-  navigationContext: {
-    targetContext: SmartDietContext.TODAY,
-    sourceScreen: 'smartDiet',
-    planId: undefined as string | undefined,
-  },
-});
-
-const buildMockResponse = (context: SmartDietContext): SmartDietResponse => {
-  const titles: Record<SmartDietContext, string> = {
-    [SmartDietContext.TODAY]: 'Today Suggestion',
-    [SmartDietContext.OPTIMIZE]: 'Optimize Suggestion',
-    [SmartDietContext.DISCOVER]: 'Discover Suggestion',
-    [SmartDietContext.INSIGHTS]: 'Insights Suggestion',
-  };
-
-  return {
-    user_id: 'test_user',
-    context_type: context,
-    generated_at: new Date().toISOString(),
-    suggestions: [
-      {
-        id: `${context}_suggestion_1`,
-        suggestion_type: context === SmartDietContext.OPTIMIZE ? 'optimization' : 'recommendation',
-        category: context === SmartDietContext.DISCOVER ? 'discovery' : 'meal_addition',
-        title: titles[context],
-        description: `Description for ${context}`,
-        reasoning: 'Based on your preferences',
-        suggested_item: {
-          name: 'Mock Food',
-          calories: 320,
-          serving_size: '1 bowl',
-        },
-        nutritional_benefit: {
-          calories: 320,
-          protein: 18,
-          fat: 9,
-          carbs: 38,
-        },
-        calorie_impact: 320,
-        macro_impact: {
-          protein: 18,
-          fat: 9,
-          carbs: 38,
-        },
-        confidence_score: 0.82,
-        priority_score: 0.7,
-        meal_context: 'breakfast',
-        planning_context: context,
-        implementation_complexity: 'simple',
-        implementation_notes: 'Enjoy this meal',
-        tags: ['high_protein', 'balanced'],
-        action_text: 'Add to meal plan',
-      },
-    ],
-    today_highlights: [],
-    optimizations: context === SmartDietContext.OPTIMIZE
-      ? [{
-          id: 'opt_1',
-          suggestion_type: 'optimization',
-          category: 'food_swap',
-          title: 'Swap refined grains',
-          description: 'Replace white rice with quinoa',
-          reasoning: 'Improves nutrient density',
-          suggested_item: { name: 'Quinoa' },
-          nutritional_benefit: { calories: -50, protein: 5, fat: 1, carbs: -10 },
-          calorie_impact: -50,
-          macro_impact: { protein: 5, fat: -1, carbs: -10 },
-          confidence_score: 0.78,
-          priority_score: 0.75,
-          planning_context: SmartDietContext.OPTIMIZE,
-          implementation_complexity: 'moderate',
-          tags: ['optimization'],
-        }]
-      : [],
-    discoveries: [],
-    insights: [],
-    nutritional_summary: {
-      total_recommended_calories: 2000,
-    },
-    personalization_factors: ['High protein focus'],
-    total_suggestions: 1,
-    avg_confidence: 0.82,
-  };
-};
-
-const renderSmartDietScreen = (overrides: Partial<NavigationHandlers> = {}) => {
-  const handlers = { ...createNavigationHandlers(), ...overrides };
-  const utils = renderWithWrappers(
-    <SmartDietScreen
-      onBackPress={handlers.onBackPress}
-      navigateToTrack={handlers.navigateToTrack}
-      navigateToPlan={handlers.navigateToPlan}
-      navigationContext={handlers.navigationContext}
-    />
-  );
-
-  return { ...utils, handlers };
+  return { ...utils, handlers: harness.navigation, props };
 };
 
 const flushAsync = () => act(async () => {
@@ -176,8 +84,8 @@ let invalidateUserCacheSpy: jest.SpiedFunction<typeof smartDietService.invalidat
 
 beforeEach(() => {
   jest.useRealTimers();
+  harness.reset();
   jest.clearAllMocks();
-  resetSmartDietTestMocks();
 
   mockApiService.get.mockResolvedValue({ data: {} });
   mockApiService.post.mockResolvedValue({ data: {} });
@@ -186,7 +94,7 @@ beforeEach(() => {
 
   getSmartSuggestionsSpy = jest
     .spyOn(smartDietService, 'getSmartSuggestions')
-    .mockImplementation(async (context: SmartDietContext) => buildMockResponse(context));
+    .mockImplementation(async (context: SmartDietContext) => buildSmartDietResponse(context));
   submitSuggestionFeedbackSpy = jest
     .spyOn(smartDietService, 'submitSuggestionFeedback')
     .mockResolvedValue(undefined);

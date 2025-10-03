@@ -51,18 +51,26 @@ jest.mock('expo-image-picker', () => ({
   MediaTypeOptions: { Images: 'Images' }
 }));
 
-jest.mock('expo-notifications', () => ({
-  setNotificationHandler: jest.fn(),
-  getPermissionsAsync: jest.fn(() => Promise.resolve({ status: 'granted' })),
-  requestPermissionsAsync: jest.fn(() => Promise.resolve({ status: 'granted' })),
-  scheduleNotificationAsync: jest.fn(),
-  cancelScheduledNotificationAsync: jest.fn(),
-  cancelAllScheduledNotificationsAsync: jest.fn(),
-  getAllScheduledNotificationsAsync: jest.fn(() => Promise.resolve([])),
-  addNotificationReceivedListener: jest.fn(() => ({ remove: jest.fn() })),
-  addNotificationResponseReceivedListener: jest.fn(() => ({ remove: jest.fn() })),
-  removeNotificationSubscription: jest.fn()
-}));
+jest.mock('expo-notifications', () => {
+  const api = {
+    setNotificationHandler: jest.fn(),
+    getPermissionsAsync: jest.fn(() => Promise.resolve({ status: 'granted' })),
+    requestPermissionsAsync: jest.fn(() => Promise.resolve({ status: 'granted' })),
+    scheduleNotificationAsync: jest.fn(),
+    cancelScheduledNotificationAsync: jest.fn(),
+    cancelAllScheduledNotificationsAsync: jest.fn(),
+    getAllScheduledNotificationsAsync: jest.fn(() => Promise.resolve([])),
+    addNotificationReceivedListener: jest.fn(() => ({ remove: jest.fn() })),
+    addNotificationResponseReceivedListener: jest.fn(() => ({ remove: jest.fn() })),
+    removeNotificationSubscription: jest.fn(),
+  };
+
+  return {
+    __esModule: true,
+    default: api,
+    ...api,
+  };
+});
 
 jest.mock('expo-image-manipulator', () => ({
   manipulateAsync: jest.fn(() => Promise.resolve({ uri: 'mock-uri' })),
@@ -118,18 +126,27 @@ jest.mock('react-i18next', () => ({
 
 // Mock TurboModuleRegistry before React Native loads
 jest.mock('react-native/Libraries/TurboModule/TurboModuleRegistry', () => ({
+  get: jest.fn(() => ({
+    settings: {},
+    get: jest.fn(),
+    set: jest.fn(),
+  })),
   getEnforcing: jest.fn(() => ({
     settings: {},
     get: jest.fn(),
-    set: jest.fn()
-  }))
+    set: jest.fn(),
+  })),
 }));
 
 // Mock Settings before React Native loads
 jest.mock('react-native/Libraries/Settings/NativeSettingsManager', () => ({
   settings: {},
   get: jest.fn(),
-  set: jest.fn()
+  set: jest.fn(),
+  getConstants: jest.fn(() => ({
+    ForceTouchCapability: 'unknown',
+    AppleTVRemoteEnabled: false,
+  })),
 }));
 
 // Mock NativeDeviceInfo before React Native loads
@@ -141,6 +158,34 @@ jest.mock('react-native/Libraries/Utilities/NativeDeviceInfo', () => ({
     },
     isIPhoneX_deprecated: false
   }))
+}));
+
+jest.mock('react-native/Libraries/Utilities/NativePlatformConstantsIOS', () => ({
+  __esModule: true,
+  default: {
+    getConstants: jest.fn(() => ({
+      interfaceIdiom: 'phone',
+      forceTouchAvailable: false,
+      systemName: 'iOS',
+      osVersion: '14.0',
+      constants: {},
+    })),
+  },
+}));
+
+jest.mock('react-native/Libraries/ReactNative/NativeI18nManager', () => ({
+  __esModule: true,
+  default: {
+    allowRTL: jest.fn(),
+    forceRTL: jest.fn(),
+    setPreferredLanguageRTL: jest.fn(),
+    swapLeftAndRightInRTL: jest.fn(),
+    getConstants: jest.fn(() => ({
+      allowRTL: false,
+      forceRTL: false,
+      doLeftAndRightSwapInRTL: false,
+    })),
+  },
 }));
 
 // Mock Dimensions native module
@@ -155,16 +200,26 @@ jest.mock('react-native/Libraries/Utilities/Dimensions', () => ({
 }));
 
 // Mock PixelRatio
-jest.mock('react-native/Libraries/Utilities/PixelRatio', () => ({
-  get: jest.fn(() => 2),
-  getFontScale: jest.fn(() => 1),
-  getPixelSizeForLayoutSize: jest.fn((size) => Math.round(size * 2)),
-  roundToNearestPixel: jest.fn((size) => Math.round(size * 2) / 2)
-}));
+jest.mock('react-native/Libraries/Utilities/PixelRatio', () => {
+  const pixelRatio = {
+    get: jest.fn(() => 2),
+    getFontScale: jest.fn(() => 1),
+    getPixelSizeForLayoutSize: jest.fn((size) => Math.round(size * 2)),
+    roundToNearestPixel: jest.fn((size) => Math.round(size * 2) / 2),
+  };
+
+  return {
+    __esModule: true,
+    default: pixelRatio,
+    ...pixelRatio,
+  };
+});
 
 // Enhanced React Native mocking for better component testing
 jest.mock('react-native', () => {
   const React = require('react');
+  const pixelRatioModule = require('react-native/Libraries/Utilities/PixelRatio');
+  const PixelRatio = pixelRatioModule.default || pixelRatioModule;
   
   // Create mock components that render properly
   const mockComponent = (name: string) => {
@@ -178,6 +233,21 @@ jest.mock('react-native', () => {
     MockedComponent.displayName = name;
     return MockedComponent;
   };
+
+  const ActivityIndicator = React.forwardRef((props: any, ref: any) => {
+    const { size = 'small', color = '#000', ...rest } = props || {};
+    return React.createElement('div', {
+      ...rest,
+      'data-testid': rest.testID || 'activity-indicator',
+      role: 'status',
+      'aria-busy': true,
+      'aria-label': rest.accessibilityLabel || 'loading',
+      'data-size': size,
+      'data-color': color,
+      ref,
+    }, rest.children);
+  });
+  ActivityIndicator.displayName = 'ActivityIndicator';
 
   return {
     // Basic UI components
@@ -200,7 +270,7 @@ jest.mock('react-native', () => {
         style: { display: props.visible !== false ? 'block' : 'none' }
       }, props.children);
     }),
-    ActivityIndicator: mockComponent('ActivityIndicator'),
+    ActivityIndicator,
     Switch: mockComponent('Switch'),
     Picker: mockComponent('Picker'),
     
@@ -222,6 +292,16 @@ jest.mock('react-native', () => {
     Keyboard: {
       dismiss: jest.fn()
     },
+
+    I18nManager: {
+      allowRTL: jest.fn(),
+      forceRTL: jest.fn(),
+      swapLeftAndRightInRTL: jest.fn(),
+      setPreferredLanguageRTL: jest.fn(),
+      isRTL: false,
+    },
+
+    PixelRatio,
     
     // Animated API
     Animated: {
@@ -296,11 +376,20 @@ jest.mock('react-native', () => {
       SettingsManager: {
         settings: {},
         get: jest.fn(),
-        set: jest.fn()
+        set: jest.fn(),
+        getConstants: jest.fn(() => ({
+          ForceTouchCapability: 'unknown',
+          AppleTVRemoteEnabled: false,
+        })),
       }
     },
     
     TurboModuleRegistry: {
+      get: jest.fn(() => ({
+        settings: {},
+        get: jest.fn(),
+        set: jest.fn(),
+      })),
       getEnforcing: jest.fn(() => ({
         settings: {},
         get: jest.fn(),
