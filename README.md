@@ -1446,6 +1446,7 @@ npx expo run:ios
 - **Shared Test Fixtures**: Reusable test data and mock configurations
 - **CI/CD Ready**: Automated test execution with detailed reporting
 - **Mock Strategies**: External APIs, React Native modules, authentication systems
+- **AsyncStorage Harness (Oct 2025)**: Dedicated seeding/render helpers (`renderTrackScreenForAsyncStorage`, `renderReminderSnippetForAsyncStorage`) with refactored Jest suites covering weigh-in persistence and reminder CRUD flows
 
 ### Running Tests
 

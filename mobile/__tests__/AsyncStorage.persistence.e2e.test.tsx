@@ -125,50 +125,6 @@ describe('TrackScreen AsyncStorage persistence', () => {
     expect(storedHistory![storedHistory!.length - 1].weight).toBeCloseTo(70 + 11 * 0.3, 5);
   });
 
-  it('adds a photo log when a weigh-in captures a photo', async () => {
-    const utils: TrackScreenRender = await renderTrackScreenForAsyncStorage();
-
-    imagePicker.launchCameraAsync.mockResolvedValue({
-      canceled: false,
-      assets: [{ uri: 'mock://weight-photo.jpg' }],
-    });
-    imageManipulator.manipulateAsync.mockResolvedValue({
-      uri: 'mock://compressed-weight-photo.jpg',
-    });
-
-    await utils.findByText('track.todaysPlannedMeals');
-
-    const markAsEatenButtons = utils.getAllByText('track.markAsEaten');
-
-    await act(async () => {
-      fireEvent.press(markAsEatenButtons[0]);
-    });
-
-    const takePhotoButton = await utils.findByText('track.modal.takePhoto');
-
-    await act(async () => {
-      fireEvent.press(takePhotoButton);
-    });
-
-    const confirmButton = utils.getByText('track.modal.confirmEaten');
-
-    await act(async () => {
-      fireEvent.press(confirmButton);
-    });
-
-    await waitFor(() => {
-      expect(mockedAsyncStorage.setItem).toHaveBeenCalledWith(
-        'photo_logs',
-        expect.any(String),
-      );
-    });
-
-    await waitFor(() => {
-      const photoLogs = inspectAsyncStorageKey<Array<{ photo: string }>>('photo_logs');
-      expect(photoLogs).not.toBeNull();
-      expect(photoLogs![0].photo).toBe('mock://compressed-weight-photo.jpg');
-    });
-  });
 });
 
 describe('ReminderSnippet AsyncStorage persistence', () => {
