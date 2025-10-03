@@ -1,25 +1,25 @@
 jest.mock('../../contexts/AuthContext', () => {
-  const { mockAuthContext } = require('../testUtils');
+  const { mockAuthContext } = require('../../testUtils');
   return { useAuth: () => mockAuthContext };
 });
 
 jest.mock('@react-native-async-storage/async-storage', () => {
-  const { mockedAsyncStorage } = require('../testUtils');
+  const { mockedAsyncStorage } = require('../../testUtils');
   return mockedAsyncStorage;
 });
 
 jest.mock('@react-native-community/netinfo', () => {
-  const { mockNetInfoModule } = require('../testUtils');
+  const { mockNetInfoModule } = require('../../testUtils');
   return mockNetInfoModule;
 });
 
 jest.mock('react-i18next', () => {
-  const { createTranslationMock } = require('../testUtils');
+  const { createTranslationMock } = require('../../testUtils');
   return createTranslationMock();
 });
 
 jest.mock('../../services/NotificationService', () => {
-  const { mockNotificationService } = require('../testUtils');
+  const { mockNotificationService } = require('../../testUtils');
   return {
     notificationService: {
       ...mockNotificationService,
@@ -48,7 +48,7 @@ import {
   createSmartDietTestHarness,
   buildSmartDietResponse,
   type SmartDietScreenProps,
-} from '../testUtils';
+} from '../../testUtils';
 
 const SmartDietScreen = require('../../screens/SmartDietScreen').default as typeof import('../../screens/SmartDietScreen').default;
 const smartDietModule = require('../../services/SmartDietService') as typeof import('../../services/SmartDietService');
