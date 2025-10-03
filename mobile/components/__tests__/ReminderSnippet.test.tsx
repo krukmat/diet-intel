@@ -5,13 +5,6 @@ import * as Notifications from 'expo-notifications';
 import { Alert } from 'react-native';
 import ReminderSnippet from '../ReminderSnippet';
 
-jest.mock('axios', () => ({
-  get: jest.fn(),
-  post: jest.fn(),
-  put: jest.fn(),
-  delete: jest.fn(),
-}));
-
 const mockedAxios = axios as jest.Mocked<typeof axios>;
 const mockedNotifications = Notifications as unknown as jest.Mocked<typeof Notifications>;
 

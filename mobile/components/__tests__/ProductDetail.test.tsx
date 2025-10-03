@@ -4,10 +4,6 @@ import axios from 'axios';
 import { Alert } from 'react-native';
 import ProductDetail from '../ProductDetail';
 
-jest.mock('axios', () => ({
-  post: jest.fn(),
-}));
-
 const mockedAxios = axios as jest.Mocked<typeof axios>;
 
 describe('ProductDetail', () => {

@@ -10,6 +10,59 @@ jest.mock('@react-native-async-storage/async-storage', () => {
   };
 });
 
+// Mock NetInfo with minimal connectivity helpers
+jest.mock('@react-native-community/netinfo', () => {
+  const defaultState = {
+    type: 'wifi',
+    isConnected: true,
+    isInternetReachable: true,
+    details: null,
+  };
+
+  let currentState = { ...defaultState };
+  const listeners = new Set<any>();
+
+  const notifyListeners = () => {
+    const snapshot = { ...currentState };
+    listeners.forEach(listener => listener(snapshot));
+  };
+
+  const addEventListener = jest.fn((listener?: any) => {
+    if (listener) {
+      listener({ ...currentState });
+      listeners.add(listener);
+    }
+
+    return () => {
+      if (listener) {
+        listeners.delete(listener);
+      }
+    };
+  });
+
+  const fetch = jest.fn(() => Promise.resolve({ ...currentState }));
+  const refresh = jest.fn(() => Promise.resolve({ ...currentState }));
+  const configure = jest.fn();
+  const useNetInfo = jest.fn(() => ({ ...currentState }));
+
+  return {
+    __esModule: true,
+    addEventListener,
+    fetch,
+    refresh,
+    configure,
+    useNetInfo,
+    __setState: (state: Record<string, any>) => {
+      currentState = { ...currentState, ...state };
+      notifyListeners();
+    },
+    __reset: () => {
+      currentState = { ...defaultState };
+      listeners.clear();
+    },
+  };
+});
+
 // Mock axios
 jest.mock('axios', () => ({
   create: jest.fn(() => ({
