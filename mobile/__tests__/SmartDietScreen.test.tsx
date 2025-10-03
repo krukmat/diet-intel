@@ -1,7 +1,6 @@
 import React from 'react';
 import { fireEvent, waitFor } from '@testing-library/react-native';
 import SmartDietScreen from '../screens/SmartDietScreen';
-import { apiService } from '../services/ApiService';
 import * as mealPlanUtils from '../utils/mealPlanUtils';
 import {
   mockApiService,
@@ -10,11 +9,7 @@ import {
   createTranslationMock,
   resetSmartDietTestMocks,
 } from './testUtils';
-
-jest.mock('../services/ApiService', () => {
-  const { mockApiService } = require('./testUtils');
-  return { apiService: mockApiService };
-});
+import { apiService } from '../services/ApiService';
 jest.mock('../contexts/AuthContext', () => {
   const { mockAuthContext } = require('./testUtils');
   return { useAuth: () => mockAuthContext };
@@ -220,6 +215,8 @@ describe('SmartDietScreen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     resetSmartDietTestMocks();
+
+    Object.assign(mockedApi, mockApiService);
     mockedMealPlan.getCurrentMealPlanId.mockResolvedValue('plan_123');
 
     mockedApi.get.mockImplementation((url: string) => {

@@ -12,8 +12,13 @@ import {
 
 jest.mock('../services/ApiService', () => {
   const { mockApiService } = require('./testUtils');
+  const serviceMock = { ...mockApiService };
+
   return {
-    apiService: { ...mockApiService },
+    __esModule: true,
+    apiService: serviceMock,
+    ApiService: jest.fn(() => serviceMock),
+    default: jest.fn(() => serviceMock),
   };
 });
 

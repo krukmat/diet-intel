@@ -6,15 +6,22 @@ import { apiService } from '../services/ApiService';
 import { environments } from '../config/environments';
 
 // Mock the API service
-jest.mock('../services/ApiService', () => ({
-  apiService: {
+jest.mock('../services/ApiService', () => {
+  const serviceMock = {
     getCurrentEnvironment: jest.fn(),
     switchEnvironment: jest.fn(),
     healthCheck: jest.fn(),
     generateMealPlan: jest.fn(),
-    scanNutritionLabel: jest.fn()
-  }
-}));
+    scanNutritionLabel: jest.fn(),
+  };
+
+  return {
+    __esModule: true,
+    apiService: serviceMock,
+    ApiService: jest.fn(() => serviceMock),
+    default: jest.fn(() => serviceMock),
+  };
+});
 
 describe('API Configuration End-to-End', () => {
   const mockApiService = apiService as jest.Mocked<typeof apiService>;

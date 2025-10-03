@@ -1,4 +1,9 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+
+if (process.env.JEST_WORKER_ID) {
+  const setItemRef = (AsyncStorage as unknown as { setItem?: unknown })?.setItem;
+  console.log('[AuthService] AsyncStorage.setItem is mocked:', Boolean((setItemRef as { mock?: unknown })?.mock));
+}
 import { User, LoginCredentials, RegisterData, AuthTokens, TokenStorage } from '../types/auth';
 
 const API_BASE_URL = 'http://10.0.2.2:8000'; // Android emulator localhost

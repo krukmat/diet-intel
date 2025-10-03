@@ -1,4 +1,13 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+jest.mock('@react-native-async-storage/async-storage', () => {
+  const { mockedAsyncStorage } = require('../../__tests__/testUtils');
+  return {
+    __esModule: true,
+    default: mockedAsyncStorage,
+    ...mockedAsyncStorage,
+  };
+});
+
 import { authService } from '../AuthService';
 import { User, LoginCredentials, RegisterData, AuthTokens } from '../../types/auth';
 

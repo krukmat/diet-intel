@@ -1,18 +1,14 @@
 import React from 'react';
 import { fireEvent, waitFor } from '@testing-library/react-native';
 import SmartDietScreen from '../screens/SmartDietScreen';
-import { apiService } from '../services/ApiService';
 import {
   renderWithWrappers,
   mockApiService,
   createTranslationMock,
   resetSmartDietTestMocks,
 } from './testUtils';
+import { apiService } from '../services/ApiService';
 
-jest.mock('../services/ApiService', () => {
-  const { mockApiService } = require('./testUtils');
-  return { apiService: mockApiService };
-});
 jest.mock('../contexts/AuthContext', () => {
   const { mockAuthContext } = require('./testUtils');
   return { useAuth: () => mockAuthContext };
@@ -109,6 +105,8 @@ const buildResponse = (overrides: Record<string, any> = {}) => ({
 beforeEach(() => {
   jest.clearAllMocks();
   resetSmartDietTestMocks();
+
+  Object.assign(mockedApi, mockApiService);
 
   mockedApi.get.mockResolvedValue({ data: buildResponse() });
   mockedApi.generateSmartRecommendations.mockResolvedValue({ data: buildResponse() });
