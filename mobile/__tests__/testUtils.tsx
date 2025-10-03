@@ -288,6 +288,7 @@ export const resetSmartDietTestMocks = () => {
   mockNotificationService.getConfig.mockClear();
   mockNotificationService.updateConfig.mockClear();
   mockNotificationService.triggerSmartDietNotification.mockClear();
+  defaultNavigationContext = undefined;
 };
 
 export interface AsyncStorageSeedState {
@@ -451,10 +452,18 @@ export const renderReminderSnippetForAsyncStorage = async (
   };
 };
 
-const defaultNavigationContext: SmartDietScreenNavigationContext = {
-  targetContext: SmartDietContext.TODAY,
-  sourceScreen: 'smartDiet',
-  planId: undefined,
+let defaultNavigationContext: SmartDietScreenNavigationContext;
+
+const getDefaultNavigationContext = (): SmartDietScreenNavigationContext => {
+  if (!defaultNavigationContext) {
+    defaultNavigationContext = {
+      targetContext: SmartDietContext.TODAY,
+      sourceScreen: 'smartDiet',
+      planId: undefined,
+    };
+  }
+
+  return defaultNavigationContext;
 };
 
 const resolveRequestUrl = (input: RequestInfo | URL): string => {
@@ -694,7 +703,7 @@ export const createSmartDietTestHarness = (
     navigateToTrack: overrides.navigateToTrack ?? navigation.navigateToTrack,
     navigateToPlan: overrides.navigateToPlan ?? navigation.navigateToPlan,
     navigationContext: {
-      ...defaultNavigationContext,
+      ...getDefaultNavigationContext(),
       ...options.navigationContext,
       ...overrides.navigationContext,
     },
