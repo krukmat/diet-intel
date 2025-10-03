@@ -3,7 +3,7 @@ import { render, RenderOptions } from '@testing-library/react-native';
 import {
   SmartDietContext,
   type SmartDietResponse,
-} from '../services/SmartDietService';
+} from './services/SmartDietService';
 
 type TranslationDictionary = Record<string, string>;
 
@@ -397,7 +397,7 @@ export const inspectAsyncStorageSnapshot = (): Record<string, unknown> => {
   return snapshot;
 };
 
-type TrackScreenComponent = typeof import('../screens/TrackScreen').default;
+type TrackScreenComponent = typeof import('./screens/TrackScreen').default;
 type TrackScreenProps = ComponentProps<TrackScreenComponent>;
 
 export interface RenderTrackScreenOptions {
@@ -410,7 +410,7 @@ export const renderTrackScreenForAsyncStorage = async (
 ) => {
   await prepareAsyncStorageScenario({ seed: options.seed });
 
-  const TrackScreen = require('../screens/TrackScreen').default as TrackScreenComponent;
+  const TrackScreen = require('./screens/TrackScreen').default as TrackScreenComponent;
   const props: TrackScreenProps = {
     onBackPress: jest.fn(),
     ...(options.props as TrackScreenProps | undefined),
@@ -424,7 +424,7 @@ export const renderTrackScreenForAsyncStorage = async (
   };
 };
 
-type ReminderSnippetComponent = typeof import('../components/ReminderSnippet').default;
+type ReminderSnippetComponent = typeof import('./components/ReminderSnippet').default;
 type ReminderSnippetProps = ComponentProps<ReminderSnippetComponent>;
 
 export interface RenderReminderSnippetOptions {
@@ -437,7 +437,7 @@ export const renderReminderSnippetForAsyncStorage = async (
 ) => {
   await prepareAsyncStorageScenario({ seed: options.seed });
 
-  const ReminderSnippet = require('../components/ReminderSnippet').default as ReminderSnippetComponent;
+  const ReminderSnippet = require('./components/ReminderSnippet').default as ReminderSnippetComponent;
   const props: ReminderSnippetProps = {
     visible: true,
     onClose: jest.fn(),

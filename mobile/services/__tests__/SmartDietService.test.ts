@@ -20,15 +20,15 @@ import {
   mockedAsyncStorage,
   mockApiService,
   resetSmartDietTestMocks,
-} from '../../__tests__/testUtils';
+} from '../../testUtils';
 
 jest.mock('@react-native-async-storage/async-storage', () => {
-  const { mockedAsyncStorage } = require('../../__tests__/testUtils');
+  const { mockedAsyncStorage } = require('../../testUtils');
   return mockedAsyncStorage;
 });
 
 jest.mock('../ApiService', () => {
-  const { mockApiService } = require('../../__tests__/testUtils');
+  const { mockApiService } = require('../../testUtils');
   return { apiService: mockApiService };
 });
 

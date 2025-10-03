@@ -1,4 +1,4 @@
-import { prepareAsyncStorageScenario, inspectAsyncStorageKey, inspectAsyncStorageSnapshot } from './testUtils';
+import { prepareAsyncStorageScenario, inspectAsyncStorageKey, inspectAsyncStorageSnapshot } from '../testUtils';
 
 describe('AsyncStorage scenario helpers', () => {
   beforeEach(async () => {

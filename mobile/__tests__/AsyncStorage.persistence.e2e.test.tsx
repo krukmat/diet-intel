@@ -8,10 +8,10 @@ import {
   inspectAsyncStorageKey,
   mockApiService,
   mockedAsyncStorage,
-} from './testUtils';
+} from '../testUtils';
 
 jest.mock('../services/ApiService', () => {
-  const { mockApiService } = require('./testUtils');
+  const { mockApiService } = require('../testUtils');
   const serviceMock = { ...mockApiService };
 
   return {
@@ -23,7 +23,7 @@ jest.mock('../services/ApiService', () => {
 });
 
 jest.mock('react-i18next', () => {
-  const { createTranslationMock } = require('./testUtils');
+  const { createTranslationMock } = require('../testUtils');
   return createTranslationMock();
 });
 

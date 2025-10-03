@@ -6,23 +6,23 @@ import {
   mockApiService,
   createTranslationMock,
   resetSmartDietTestMocks,
-} from './testUtils';
+} from '../testUtils';
 import { apiService } from '../services/ApiService';
 
 jest.mock('../contexts/AuthContext', () => {
-  const { mockAuthContext } = require('./testUtils');
+  const { mockAuthContext } = require('../testUtils');
   return { useAuth: () => mockAuthContext };
 });
 jest.mock('@react-native-async-storage/async-storage', () => {
-  const { mockedAsyncStorage } = require('./testUtils');
+  const { mockedAsyncStorage } = require('../testUtils');
   return mockedAsyncStorage;
 });
 jest.mock('../services/NotificationService', () => {
-  const { mockNotificationService } = require('./testUtils');
+  const { mockNotificationService } = require('../testUtils');
   return { notificationService: mockNotificationService };
 });
 jest.mock('@react-native-community/netinfo', () => {
-  const { mockNetInfoModule } = require('./testUtils');
+  const { mockNetInfoModule } = require('../testUtils');
   return mockNetInfoModule;
 });
 
@@ -41,7 +41,7 @@ jest.mock('../config/environment', () => ({
 }));
 
 jest.mock('react-i18next', () => {
-  const { createTranslationMock } = require('./testUtils');
+  const { createTranslationMock } = require('../testUtils');
   return createTranslationMock({
     'smartDiet.title': 'Smart Diet',
     'smartDiet.loading': 'Loading recommendations...',
