@@ -1,0 +1,20 @@
+node_modules/
+dist/
+build/
+coverage/
+public/**      # assets pesados
+*.png
+*.jpg
+*.svg
+*.pdf
+.venv/
+__pycache__/
+*.ipynb
+android/**     # RN/Android build
+ios/**         # RN/iOS build
+.gradle/
+Pods/
+DerivedData/
+.git/
+*.log
+.env*

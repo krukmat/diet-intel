@@ -1,8 +1,8 @@
 import pytest
 import json
-from httpx import AsyncClient
 from unittest.mock import patch, AsyncMock, MagicMock
 from datetime import datetime
+from fastapi.testclient import TestClient
 
 from main import app
 from app.services.recipe_ai_engine import GeneratedRecipe, RecipeIngredient, RecipeInstruction, RecipeNutrition
@@ -12,10 +12,12 @@ from app.models.user import User, UserRole
 class TestRecipeAIAPI:
     """Test Recipe AI API endpoints"""
 
-    @pytest.fixture
-    def client(self):
-        """Create async test client"""
-        return AsyncClient(app=app, base_url="http://testserver")
+    @pytest.fixture(autouse=True)
+    def _client(self):
+        """Provide synchronous TestClient for each test."""
+        with TestClient(app) as client:
+            self.client = client
+            yield
 
     def setup_method(self):
         """Set up test fixtures"""
@@ -96,10 +98,9 @@ class TestRecipeAIAPI:
             tags=["mediterranean", "healthy", "vegetarian", "high_protein"]
         )
     
-    def test_health_check(self, client):
+    def test_health_check(self):
         """Test Recipe AI health check endpoint"""
-        with client as c:
-            response = c.get("/recipe/health")
+        response = self.client.get("/recipe/health")
         
         assert response.status_code == 200
         health_data = response.json()
