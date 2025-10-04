@@ -607,7 +607,7 @@ class DatabaseService:
     async def get_user_meals(self, user_id: str, limit: int = 50) -> List[Dict]:
         """Get user's meal history"""
         import json
-        
+
         with self.get_connection() as conn:
             cursor = conn.cursor()
             
@@ -647,6 +647,26 @@ class DatabaseService:
                 })
             
             return meals
+
+    async def track_meal(
+        self,
+        user_id: str,
+        meal_data: 'MealTrackingRequest | Dict[str, Any]',
+        photo_url: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Persist a meal and return the stored record."""
+        from app.models.tracking import MealTrackingRequest
+
+        # Normalise payload to model instance
+        request_obj = meal_data if isinstance(meal_data, MealTrackingRequest) else MealTrackingRequest(**meal_data)
+
+        meal_id = await self.create_meal(user_id, request_obj, photo_url)
+        meal_record = await self.get_meal_by_id(meal_id)
+
+        if meal_record is None:
+            raise RuntimeError("Failed to retrieve persisted meal record")
+
+        return meal_record
     
     # ===== WEIGHT TRACKING METHODS =====
     
@@ -714,6 +734,59 @@ class DatabaseService:
                 })
             
             return entries
+
+    async def track_weight(
+        self,
+        user_id: str,
+        weight_data: 'WeightTrackingRequest | Dict[str, Any]',
+        photo_url: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Persist a weight entry and return the stored record."""
+        from app.models.tracking import WeightTrackingRequest
+
+        request_obj = weight_data if isinstance(weight_data, WeightTrackingRequest) else WeightTrackingRequest(**weight_data)
+        weight_id = await self.create_weight_entry(user_id, request_obj, photo_url)
+        weight_record = await self.get_weight_entry_by_id(weight_id)
+
+        if weight_record is None:
+            raise RuntimeError("Failed to retrieve persisted weight entry")
+
+        return weight_record
+
+    async def get_weight_history(self, user_id: str, limit: int = 30) -> List[Dict]:
+        """Wrapper used by tests – forwards to get_user_weight_history."""
+        return await self.get_user_weight_history(user_id, limit)
+
+    async def get_photo_logs(self, user_id: str, limit: int = 50) -> List[Dict[str, Any]]:
+        """Collect combined photo logs from meals and weight entries."""
+        logs: List[Dict[str, Any]] = []
+
+        meals = await self.get_user_meals(user_id, limit)
+        for meal in meals:
+            photo_url = meal.get('photo_url')
+            if photo_url:
+                logs.append({
+                    'id': meal['id'],
+                    'timestamp': meal['created_at'],
+                    'photo_url': photo_url,
+                    'type': 'meal',
+                    'description': f"{meal['meal_name']} - {meal['total_calories']:.0f} kcal",
+                })
+
+        weights = await self.get_user_weight_history(user_id, limit)
+        for weight in weights:
+            photo_url = weight.get('photo_url')
+            if photo_url:
+                logs.append({
+                    'id': weight['id'],
+                    'timestamp': weight['created_at'],
+                    'photo_url': photo_url,
+                    'type': 'weigh-in',
+                    'description': f"Weight: {weight['weight']} kg",
+                })
+
+        logs.sort(key=lambda entry: entry['timestamp'], reverse=True)
+        return logs[:limit]
     
     # ===== REMINDER METHODS =====
     
