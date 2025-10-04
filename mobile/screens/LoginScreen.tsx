@@ -41,10 +41,15 @@ export default function LoginScreen({ onLogin, onNavigateToRegister, isLoading }
     }
   };
 
-  const handleDemoLogin = () => {
-    setEmail('demo@dietintel.com');
-    setPassword('demo123');
-    setShowDemo(false);
+  const handleDemoLogin = async () => {
+    try {
+      await onLogin({ email: 'test@example.com', password: 'password123' });
+    } catch (error) {
+      Alert.alert(
+        'Demo Login Failed',
+        error instanceof Error ? error.message : 'Failed to login with demo account'
+      );
+    }
   };
 
   const isValidEmail = (email: string) => {
