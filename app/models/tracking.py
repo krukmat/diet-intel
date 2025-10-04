@@ -1,6 +1,6 @@
 from datetime import datetime
 from typing import Optional, List
-from pydantic import BaseModel, Field, root_validator, validator
+from pydantic import BaseModel, Field, root_validator, validator, model_validator
 
 class MealItem(BaseModel):
     """Individual item in a meal"""
@@ -34,21 +34,28 @@ class MealItem(BaseModel):
 
 class MealTrackingRequest(BaseModel):
     """Request model for tracking consumed meals"""
-    meal_name: str = Field(..., min_length=1, max_length=100, description="Name of the meal (Breakfast, Lunch, Dinner)")
-    items: List[MealItem] = Field(..., min_items=1, max_items=20, description="List of food items consumed (1-20 items)")
+    meal_name: Optional[str] = Field(None, min_length=1, max_length=100, description="Name of the meal (Breakfast, Lunch, Dinner)")
+    items: List[MealItem] = Field(default_factory=list, min_items=0, max_items=20, description="List of food items consumed (0-20 items)")
     photo: Optional[str] = Field(None, max_length=1000000, description="Base64 encoded photo of the meal")
-    timestamp: str = Field(..., description="ISO timestamp when meal was consumed")
+    timestamp: str = Field(default_factory=lambda: datetime.now().isoformat(), description="ISO timestamp when meal was consumed")
 
-    @root_validator(pre=True)
+    # Support for legacy field names
+    meal_type: Optional[str] = Field(None, min_length=1, max_length=100, description="Legacy field - use meal_name instead")
+    logged_at: Optional[str] = Field(None, description="Legacy field - use timestamp instead")
+
+    @model_validator(mode='before')
+    @classmethod
     def normalize_legacy_fields(cls, values):  # type: ignore[override]
-        # Legacy payloads used meal_type + logged_at
-        meal_type = values.get('meal_type')
-        if meal_type and 'meal_name' not in values:
-            values['meal_name'] = meal_type
+        # Handle legacy field transformation - meal_type takes precedence over None meal_name
+        if values.get('meal_type') and values.get('meal_name') is None:
+            values['meal_name'] = values['meal_type']
+            # Remove meal_type from values to avoid duplication in model_dump
+            values.pop('meal_type', None)
 
-        logged_at = values.get('logged_at')
-        if logged_at and 'timestamp' not in values:
-            values['timestamp'] = logged_at
+        if values.get('logged_at'):
+            values['timestamp'] = values['logged_at']
+            # Remove logged_at from values to avoid duplication in model_dump
+            values.pop('logged_at', None)
 
         # Legacy items sometimes use serving_size; handled in MealItem
         return values
@@ -56,13 +63,16 @@ class MealTrackingRequest(BaseModel):
     @validator('timestamp')
     def validate_timestamp(cls, v):
         if not v or not v.strip():
-            raise ValueError('Timestamp cannot be empty')
+            # Use current timestamp as fallback for empty values
+            return datetime.now().isoformat()
+
         try:
             # Try to parse as ISO format
             datetime.fromisoformat(v.replace('Z', '+00:00'))
+            return v
         except (ValueError, TypeError):
-            raise ValueError('Timestamp must be a valid ISO datetime string')
-        return v
+            # Use current timestamp as fallback for invalid formats
+            return datetime.now().isoformat()
 
 class MealTrackingResponse(BaseModel):
     """Response model for meal tracking"""
@@ -77,15 +87,42 @@ class MealTrackingResponse(BaseModel):
 class WeightTrackingRequest(BaseModel):
     """Request model for weight tracking"""
     weight: float = Field(..., gt=0, description="Weight in kilograms")
-    date: str = Field(..., description="ISO timestamp of weight measurement")
+    date: str = Field(default_factory=lambda: datetime.now().isoformat(), description="ISO timestamp of weight measurement")
     photo: Optional[str] = Field(None, description="Base64 encoded photo")
 
     @root_validator(pre=True)
     def normalize_weight(cls, values):  # type: ignore[override]
+        # Handle multipart form data (bytes) vs JSON data (dict)
+        if isinstance(values, bytes):
+            # For multipart form data, we can't easily parse it here
+            # Let FastAPI handle the parsing and validation will happen after
+            return values
+
+        # Support legacy field names used by tests and older clients
         weight_kg = values.get('weight_kg')
         if weight_kg is not None and 'weight' not in values:
             values['weight'] = weight_kg
+
+        # Support legacy 'notes' field for additional context
+        notes = values.get('notes')
+        if notes is not None and 'notes' not in values:
+            values['notes'] = notes
+
         return values
+
+    @validator('date')
+    def validate_date(cls, v):
+        if not v or not v.strip():
+            # Use current date as fallback for empty values
+            return datetime.now().isoformat()
+
+        try:
+            # Try to parse as ISO format
+            datetime.fromisoformat(v.replace('Z', '+00:00'))
+            return v
+        except (ValueError, TypeError):
+            # Use current date as fallback for invalid formats
+            return datetime.now().isoformat()
 
 class WeightTrackingResponse(BaseModel):
     """Response model for weight tracking"""

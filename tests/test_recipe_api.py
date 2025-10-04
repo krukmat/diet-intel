@@ -9,15 +9,15 @@ from app.services.recipe_ai_engine import GeneratedRecipe, RecipeIngredient, Rec
 from app.models.user import User, UserRole
 
 
+@pytest.fixture
+def client():
+    """Provide synchronous TestClient for each test."""
+    with TestClient(app) as test_client:
+        yield test_client
+
+
 class TestRecipeAIAPI:
     """Test Recipe AI API endpoints"""
-
-    @pytest.fixture(autouse=True)
-    def _client(self):
-        """Provide synchronous TestClient for each test."""
-        with TestClient(app) as client:
-            self.client = client
-            yield
 
     def setup_method(self):
         """Set up test fixtures"""
@@ -98,9 +98,9 @@ class TestRecipeAIAPI:
             tags=["mediterranean", "healthy", "vegetarian", "high_protein"]
         )
     
-    def test_health_check(self):
+    def test_health_check(self, client):
         """Test Recipe AI health check endpoint"""
-        response = self.client.get("/recipe/health")
+        response = client.get("/recipe/health")
         
         assert response.status_code == 200
         health_data = response.json()
@@ -114,15 +114,15 @@ class TestRecipeAIAPI:
     @patch('app.routes.recipe_ai.get_current_user')
     @patch('app.routes.recipe_ai.recipe_engine.generate_recipe')
     @patch('app.routes.recipe_ai.recipe_db_service.create_recipe')
-    def test_generate_recipe_success(self, mock_create_recipe, mock_generate, mock_auth):
+    def test_generate_recipe_success(self, mock_create_recipe, mock_generate, mock_auth, client):
         """Test successful recipe generation"""
         # Mock authentication
         mock_auth.return_value = self.mock_user
-        
+
         # Mock recipe generation
         mock_generate.return_value = self.sample_recipe
         mock_create_recipe.return_value = "test_recipe_api_123"
-        
+
         # Test request
         request_data = {
             "cuisine_preferences": ["mediterranean"],
@@ -132,8 +132,8 @@ class TestRecipeAIAPI:
             "target_calories_per_serving": 400,
             "cooking_skill_level": "beginner"
         }
-        
-        response = self.client.post(
+
+        response = client.post(
             "/recipe/generate",
             json=request_data,
             headers={"Authorization": "Bearer fake_token"}
@@ -151,26 +151,26 @@ class TestRecipeAIAPI:
         assert recipe_data["confidence_score"] == 0.88
     
     @patch('app.routes.recipe_ai.get_current_user')
-    def test_generate_recipe_unauthorized(self, mock_auth):
+    def test_generate_recipe_unauthorized(self, mock_auth, client):
         """Test recipe generation without authentication"""
-        response = self.client.post("/recipe/generate", json={})
-        
+        response = client.post("/recipe/generate", json={})
+
         assert response.status_code == 401
-    
+
     @patch('app.routes.recipe_ai.get_current_user')
     @patch('app.routes.recipe_ai.recipe_engine.optimize_existing_recipe')
     @patch('app.routes.recipe_ai.recipe_db_service.create_recipe')
-    def test_optimize_recipe_success(self, mock_create_recipe, mock_optimize, mock_auth):
+    def test_optimize_recipe_success(self, mock_create_recipe, mock_optimize, mock_auth, client):
         """Test successful recipe optimization"""
         # Mock authentication
         mock_auth.return_value = self.mock_user
-        
+
         # Mock recipe optimization
         optimized_recipe = self.sample_recipe
         optimized_recipe.tags.append("optimized")
         mock_optimize.return_value = optimized_recipe
         mock_create_recipe.return_value = "optimized_recipe_123"
-        
+
         request_data = {
             "recipe_data": {
                 "name": "Original Recipe",
@@ -179,8 +179,8 @@ class TestRecipeAIAPI:
             "optimization_goal": "weight_loss",
             "dietary_restrictions": ["vegetarian"]
         }
-        
-        response = self.client.post(
+
+        response = client.post(
             "/recipe/optimize",
             json=request_data,
             headers={"Authorization": "Bearer fake_token"}
@@ -192,11 +192,11 @@ class TestRecipeAIAPI:
     
     @patch('app.routes.recipe_ai.get_current_user')
     @patch('app.routes.recipe_ai.recipe_db_service.search_recipes')
-    def test_get_recipe_suggestions(self, mock_search, mock_auth):
+    def test_get_recipe_suggestions(self, mock_search, mock_auth, client):
         """Test getting recipe suggestions"""
         # Mock authentication
         mock_auth.return_value = self.mock_user
-        
+
         # Mock search results
         mock_search.return_value = [
             {
@@ -205,13 +205,13 @@ class TestRecipeAIAPI:
                 "cuisine_type": "mediterranean"
             },
             {
-                "id": "suggestion_2", 
+                "id": "suggestion_2",
                 "name": "Suggested Recipe 2",
                 "cuisine_type": "italian"
             }
         ]
-        
-        response = self.client.get(
+
+        response = client.get(
             "/recipe/suggestions?context=breakfast&limit=5",
             headers={"Authorization": "Bearer fake_token"}
         )
@@ -224,31 +224,31 @@ class TestRecipeAIAPI:
         assert len(suggestions_data["suggestions"]) == 2
     
     @patch('app.routes.recipe_ai.recipe_db_service.get_recipe')
-    def test_get_recipe_by_id_success(self, mock_get_recipe):
+    def test_get_recipe_by_id_success(self, mock_get_recipe, client):
         """Test getting recipe by ID"""
         # Mock recipe retrieval
         mock_get_recipe.return_value = self.sample_recipe
-        
-        response = self.client.get("/recipe/test_recipe_api_123")
-        
+
+        response = client.get("/recipe/test_recipe_api_123")
+
         assert response.status_code == 200
         recipe_data = response.json()
         assert recipe_data["id"] == "test_recipe_api_123"
         assert recipe_data["name"] == "API Test Mediterranean Bowl"
-    
+
     @patch('app.routes.recipe_ai.recipe_db_service.get_recipe')
-    def test_get_recipe_by_id_not_found(self, mock_get_recipe):
+    def test_get_recipe_by_id_not_found(self, mock_get_recipe, client):
         """Test getting non-existent recipe"""
         # Mock recipe not found
         mock_get_recipe.return_value = None
-        
-        response = self.client.get("/recipe/nonexistent_recipe")
-        
+
+        response = client.get("/recipe/nonexistent_recipe")
+
         assert response.status_code == 404
         assert "not found" in response.json()["detail"].lower()
-    
+
     @patch('app.routes.recipe_ai.recipe_db_service.search_recipes')
-    def test_search_recipes(self, mock_search):
+    def test_search_recipes(self, mock_search, client):
         """Test recipe search functionality"""
         # Mock search results
         mock_search.return_value = [
@@ -259,11 +259,11 @@ class TestRecipeAIAPI:
                 "difficulty_level": "easy"
             }
         ]
-        
-        response = self.client.get(
+
+        response = client.get(
             "/recipe/search?cuisine_type=mediterranean&difficulty_level=easy&page=1&page_size=10"
         )
-        
+
         assert response.status_code == 200
         search_data = response.json()
         assert "recipes" in search_data
@@ -274,36 +274,36 @@ class TestRecipeAIAPI:
     @patch('app.routes.recipe_ai.get_current_user')
     @patch('app.routes.recipe_ai.recipe_db_service.get_recipe')
     @patch('app.routes.recipe_ai.recipe_db_service.rate_recipe')
-    def test_rate_recipe_success(self, mock_rate_recipe, mock_get_recipe, mock_auth):
+    def test_rate_recipe_success(self, mock_rate_recipe, mock_get_recipe, mock_auth, client):
         """Test rating a recipe"""
         # Mock authentication
         mock_auth.return_value = self.mock_user
-        
+
         # Mock recipe exists
         mock_get_recipe.return_value = self.sample_recipe
         mock_rate_recipe.return_value = "rating_123"
-        
+
         rating_data = {
             "rating": 5,
             "review": "Excellent recipe!",
             "made_modifications": False,
             "would_make_again": True
         }
-        
-        response = self.client.post(
+
+        response = client.post(
             "/recipe/test_recipe_api_123/rate",
             json=rating_data,
             headers={"Authorization": "Bearer fake_token"}
         )
-        
+
         assert response.status_code == 200
         result = response.json()
         assert result["rating"] == 5
         assert result["recipe_id"] == "test_recipe_api_123"
         assert "successfully" in result["message"]
-    
+
     @patch('app.routes.recipe_ai.recipe_db_service.get_recipe_ratings')
-    def test_get_recipe_ratings(self, mock_get_ratings):
+    def test_get_recipe_ratings(self, mock_get_ratings, client):
         """Test getting recipe ratings statistics"""
         # Mock rating statistics
         mock_get_ratings.return_value = {
@@ -311,23 +311,23 @@ class TestRecipeAIAPI:
             "average_rating": 4.5,
             "would_make_again_percentage": 80.0
         }
-        
-        response = self.client.get("/recipe/test_recipe_api_123/ratings")
-        
+
+        response = client.get("/recipe/test_recipe_api_123/ratings")
+
         assert response.status_code == 200
         ratings_data = response.json()
         assert ratings_data["total_ratings"] == 10
         assert ratings_data["average_rating"] == 4.5
         assert ratings_data["would_make_again_percentage"] == 80.0
-    
+
     @patch('app.routes.recipe_ai.get_current_user')
     @patch('app.routes.recipe_ai.recipe_engine.generate_shopping_list')
     @patch('app.routes.recipe_ai.recipe_db_service.create_shopping_list')
-    def test_generate_shopping_list(self, mock_create_list, mock_generate_list, mock_auth):
+    def test_generate_shopping_list(self, mock_create_list, mock_generate_list, mock_auth, client):
         """Test shopping list generation"""
         # Mock authentication
         mock_auth.return_value = self.mock_user
-        
+
         # Mock shopping list generation
         mock_generate_list.return_value = {
             "ingredients": [
@@ -337,25 +337,25 @@ class TestRecipeAIAPI:
             "estimated_cost": 8.50
         }
         mock_create_list.return_value = "shopping_list_123"
-        
+
         request_data = {
             "name": "Weekly Shopping List",
             "recipe_ids": ["recipe_1", "recipe_2"]
         }
-        
-        response = self.client.post(
+
+        response = client.post(
             "/recipe/shopping-list",
             json=request_data,
             headers={"Authorization": "Bearer fake_token"}
         )
-        
+
         assert response.status_code == 200
         shopping_data = response.json()
         assert shopping_data["name"] == "Weekly Shopping List"
         assert len(shopping_data["recipe_ids"]) == 2
         assert "ingredients" in shopping_data
-    
-    def test_analyze_recipe_nutrition(self):
+
+    def test_analyze_recipe_nutrition(self, client):
         """Test recipe nutrition analysis"""
         recipe_data = {
             "name": "Test Recipe",
@@ -363,9 +363,9 @@ class TestRecipeAIAPI:
                 {"name": "ingredient1", "quantity": 100, "unit": "g"}
             ]
         }
-        
-        response = self.client.post("/recipe/nutrition-analysis", json=recipe_data)
-        
+
+        response = client.post("/recipe/nutrition-analysis", json=recipe_data)
+
         assert response.status_code == 200
         analysis_data = response.json()
         assert "analysis" in analysis_data

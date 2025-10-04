@@ -28,11 +28,16 @@ router = APIRouter()
 async def track_meal(request: MealTrackingRequest, req: Request):
     """
     Track a consumed meal with optional photo attachment
+    Supports both new format (meal_name, timestamp) and legacy format (meal_type, logged_at)
     """
     try:
         # Get user context (authenticated or session-based anonymous)
         user_id = await get_session_user_id(req)
         logger.info(f"Tracking meal for user {user_id}: {request.meal_name} with {len(request.items)} items")
+
+        # Log additional context for debugging legacy field usage
+        if hasattr(request, '_meal_type_original'):
+            logger.info(f"Legacy meal_type '{request._meal_type_original}' converted to meal_name '{request.meal_name}'")
         
         # Save photo if provided
         photo_url = None
@@ -82,9 +87,13 @@ async def track_meal(request: MealTrackingRequest, req: Request):
         raise
     except Exception as e:
         logger.error(f"Failed to track meal: {str(e)}")
+        # Provide more specific error messages for debugging
+        error_detail = f"Failed to track meal: {str(e)}"
+        if "meal_name" in str(e):
+            error_detail = f"Meal tracking failed - check meal_name field: {str(e)}"
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to track meal: {str(e)}"
+            detail=error_detail
         )
 
 @router.post("/weight", response_model=WeightTrackingResponse)
