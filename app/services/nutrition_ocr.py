@@ -1,5 +1,6 @@
 import os
 import re
+import time
 import logging
 from typing import Dict, Any, Optional, Tuple, List
 import cv2
@@ -212,6 +213,17 @@ class NutritionTextParser:
         ]
     }
     
+    OUTPUT_KEY_MAP = {
+        'energy_kcal': 'energy_kcal_per_100g',
+        'energy_kj': 'energy_kj_per_100g',
+        'protein_g': 'protein_g_per_100g',
+        'fat_g': 'fat_g_per_100g',
+        'carbs_g': 'carbs_g_per_100g',
+        'sugars_g': 'sugars_g_per_100g',
+        'salt_g': 'salt_g_per_100g',
+        'fiber_g': 'fiber_g_per_100g',
+    }
+
     def __init__(self):
         self.required_nutrients = ['energy_kcal', 'protein_g', 'fat_g', 'carbs_g']
         self.optional_nutrients = ['sugars_g', 'salt_g', 'fiber_g']
@@ -228,13 +240,16 @@ class NutritionTextParser:
         """
         # Normalize text for better parsing
         normalized_text = self._normalize_text(text)
-        
+
+        # Extract serving information before nutrient parsing
+        serving_size = self._extract_serving_size(normalized_text)
+
         # Extract individual nutrients
         nutrients = {}
         extraction_details = {}
-        
+
         for nutrient, patterns in self.NUTRIENT_KEYWORDS.items():
-            value, confidence, matched_pattern = self._extract_nutrient_value(normalized_text, patterns, nutrient)
+            value, confidence, matched_text = self._extract_nutrient_value(normalized_text, patterns, nutrient)
             
             if value is not None:
                 # Convert units if needed
@@ -249,45 +264,76 @@ class NutritionTextParser:
                         extraction_details['energy_kcal'] = {
                             'original_value': value,
                             'original_unit': 'kJ',
-                            'pattern': matched_pattern,
+                            'pattern': matched_text,
                             'confidence': confidence
                         }
                         logger.debug(f"Converted {value} kJ to {kcal_value} kcal")
                     else:
                         logger.debug(f"Kept existing kcal value instead of converting {value} kJ")
-                elif nutrient.endswith('_mg') and 'sodium' in matched_pattern.lower():
+                elif nutrient.endswith('_mg') and matched_text and 'sodium' in matched_text.lower():
                     # Convert sodium mg to salt g (approximate: sodium_mg * 2.5 / 1000)
                     salt_g = round(value * 2.5 / 1000, 2)
                     nutrients['salt_g'] = salt_g
                     extraction_details['salt_g'] = {
                         'original_value': value,
                         'original_unit': 'mg_sodium',
-                        'pattern': matched_pattern,
+                        'pattern': matched_text,
                         'confidence': confidence
                     }
                 else:
                     nutrients[nutrient] = value
                     extraction_details[nutrient] = {
-                        'pattern': matched_pattern,
+                        'pattern': matched_text,
                         'confidence': confidence
                     }
-        
         # Calculate overall confidence
         confidence_score = self._calculate_confidence(nutrients, extraction_details, normalized_text)
-        
+
+        # Map nutrient keys to expected output (per_100g naming)
+        normalized_nutrients: Dict[str, Optional[float]] = {}
+        normalized_details: Dict[str, Dict[str, Any]] = {}
+        for key, value in nutrients.items():
+            output_key = self.OUTPUT_KEY_MAP.get(key, key)
+            normalized_nutrients[output_key] = value
+            detail = extraction_details.get(key, {}).copy()
+            if detail:
+                detail['original_key'] = key
+                normalized_details[output_key] = detail
+
+        missing_required = []
+        for required in self.required_nutrients:
+            output_key = self.OUTPUT_KEY_MAP.get(required, required)
+            if output_key not in normalized_nutrients:
+                missing_required.append(output_key)
+
+        if serving_size:
+            parts = serving_size.split()
+            unit = parts[1] if len(parts) > 1 else None
+        else:
+            unit = None
+        serving_info = {
+            'detected': serving_size,
+            'unit': unit,
+        }
+
         result = {
             'raw_text': text,
             'normalized_text': normalized_text,
             'parsed_nutriments': nutrients,
+            'nutrition_data': normalized_nutrients,
+            'nutrients': normalized_nutrients,
             'confidence': confidence_score,
+            'serving_size': serving_size,
+            'serving_info': serving_info,
             'extraction_details': extraction_details,
-            'found_nutrients': list(nutrients.keys()),
-            'missing_required': [n for n in self.required_nutrients if n not in nutrients]
+            'normalized_extraction_details': normalized_details,
+            'found_nutrients': list(normalized_nutrients.keys()),
+            'missing_required': missing_required,
         }
-        
+
         logger.info(f"Parsed {len(nutrients)} nutrients with confidence {confidence_score:.2f}")
-        logger.debug(f"Found: {list(nutrients.keys())}")
-        
+        logger.debug(f"Found: {list(normalized_nutrients.keys())}")
+
         return result
     
     def _normalize_text(self, text: str) -> str:
@@ -331,27 +377,58 @@ class NutritionTextParser:
         # Normalize punctuation
         normalized = re.sub(r'[,.](\d)', r'.\1', normalized)  # Normalize decimal separators
         normalized = re.sub(r'\s+', ' ', normalized)  # Normalize whitespace
-        
+
         return normalized.strip()
+
+    def _extract_serving_size(self, text: str) -> Optional[str]:
+        """Extract serving size declarations (e.g., "Serving Size: 100g", "Per 250 ml")."""
+        if not text:
+            return None
+
+        # Common units across English and Spanish labels
+        unit_pattern = r"(?:g|gramos?|grams?|ml|mililitros?|oz|ounces?|servings?|porciones?)"
+        number_pattern = r"\d+(?:\.\d+)?"
+
+        patterns = [
+            rf"serving\s+size[:\s]*({number_pattern}\s*{unit_pattern})",
+            rf"porci[oó]n[:\s]*({number_pattern}\s*{unit_pattern})",
+            rf"per\s+({number_pattern}\s*{unit_pattern})",
+            rf"por\s+({number_pattern}\s*{unit_pattern})",
+            rf"({number_pattern}\s*{unit_pattern})\s+per\s+serving",
+        ]
+
+        for pattern in patterns:
+            match = re.search(pattern, text, flags=re.IGNORECASE)
+            if match:
+                return match.group(1).strip()
+
+        # Capture plain "100g" mentions near nutrition headers as a fallback
+        fallback_match = re.search(r"(\d+(?:\.\d+)?\s*(?:g|ml))", text)
+        if fallback_match:
+            return fallback_match.group(1).strip()
+
+        return None
     
     def _extract_nutrient_value(self, text: str, patterns: List[str], nutrient_name: str) -> Tuple[Optional[float], float, str]:
         """
         Extract a single nutrient value using multiple patterns.
         
         Returns:
-            Tuple of (value, confidence, matched_pattern)
+            Tuple of (value, confidence, matched_text)
         """
         best_value = None
         best_confidence = 0.0
+        best_match_text = ""
         best_pattern = ""
-        
+
         for pattern in patterns:
             try:
                 matches = re.finditer(pattern, text, re.IGNORECASE)
-                
+
                 for match in matches:
                     # Extract numeric value
                     value_str = match.group(1)
+                    matched_text = match.group(0)
                     
                     try:
                         # Handle decimal separators
@@ -364,10 +441,11 @@ class NutritionTextParser:
                         
                         # Calculate confidence based on pattern specificity and context
                         confidence = self._calculate_pattern_confidence(match, pattern, text)
-                        
+
                         if confidence > best_confidence:
                             best_value = value
                             best_confidence = confidence
+                            best_match_text = matched_text
                             best_pattern = pattern
                             
                     except ValueError:
@@ -377,7 +455,7 @@ class NutritionTextParser:
                 logger.warning(f"Invalid regex pattern '{pattern}': {e}")
                 continue
         
-        return best_value, best_confidence, best_pattern
+        return best_value, best_confidence, best_match_text
     
     def _is_reasonable_value(self, value: float, nutrient_name: str) -> bool:
         """
@@ -437,9 +515,15 @@ class NutritionTextParser:
         if not nutrients:
             return 0.0
         
+        # Normalize keys so both raw and per_100g identifiers count
+        inverse_key_map = {v: k for k, v in self.OUTPUT_KEY_MAP.items()}
+        normalized_keys = set()
+        for key in nutrients.keys():
+            normalized_keys.add(inverse_key_map.get(key, key))
+
         # Base score from found nutrients
-        required_found = len([n for n in self.required_nutrients if n in nutrients])
-        total_found = len(nutrients)
+        required_found = len([n for n in self.required_nutrients if n in normalized_keys])
+        total_found = len(normalized_keys)
         
         # Score based on completeness
         completeness_score = required_found / len(self.required_nutrients)
@@ -572,7 +656,11 @@ class LocalOCREngine:
                     if score > len(best_text.strip()) * best_confidence:
                         best_text = text
                         best_confidence = confidence
-                        
+
+                    # Stop early if we extracted meaningful text with confidence
+                    if best_text.strip() and best_confidence > 0:
+                        break
+
                 except Exception as e:
                     logger.debug(f"Tesseract config '{config}' failed: {e}")
                     continue
@@ -616,56 +704,55 @@ class LocalOCREngine:
 def extract_nutrients_from_image(image_path: str, debug: bool = False) -> Dict[str, Any]:
     """
     Extract nutrition information from image using local OCR.
-    
-    This is the main function for local-first nutrition extraction:
-    1. Preprocess image for optimal OCR
-    2. Extract text using Tesseract and/or EasyOCR
-    3. Parse text for nutrition values with tolerance
-    4. Calculate confidence score
-    5. Return structured results
-    
+
     Args:
         image_path: Path to nutrition label image
-        debug: Whether to save debug preprocessing images
-        
+        debug: Whether to return detailed timing/debug information
+
     Returns:
-        Dict with structure:
-        {
-            'raw_text': str,
-            'parsed_nutriments': Dict[str, float],
-            'confidence': float (0.0-1.0),
-            'processing_details': Dict[str, Any]
-        }
+        Structured dictionary containing nutrition data, confidence, and metadata.
     """
-    start_time = time.time() if 'time' in globals() else None
+    start_time = time.perf_counter()
     
     try:
         logger.info(f"Starting nutrition extraction from: {image_path}")
         
         # Step 1: Preprocess image
         preprocessor = ImagePreprocessor()
+        preprocess_start = time.perf_counter()
         processed_image_path = preprocessor.preprocess_image(image_path, save_debug=debug)
-        
+        preprocess_duration = time.perf_counter() - preprocess_start
+
         # Step 2: Extract text using OCR
         ocr_engine = LocalOCREngine(use_easyocr=True)
+        ocr_start = time.perf_counter()
         raw_text, ocr_confidence = ocr_engine.extract_text(processed_image_path, method='auto')
+        ocr_duration = time.perf_counter() - ocr_start
         
         if not raw_text.strip():
             logger.warning("No text extracted from image")
             return {
+                'source': 'Local OCR',
                 'raw_text': '',
+                'nutrients': {},
+                'nutrition_data': {},
                 'parsed_nutriments': {},
                 'confidence': 0.0,
+                'serving_size': None,
+                'serving_info': {'detected': None},
                 'processing_details': {
                     'ocr_confidence': 0.0,
                     'parsing_confidence': 0.0,
                     'error': 'No text extracted'
-                }
+                },
+                'error': 'No text extracted'
             }
         
         # Step 3: Parse nutrition information
         parser = NutritionTextParser()
+        parse_start = time.perf_counter()
         parse_result = parser.parse_nutrition_text(raw_text)
+        parse_duration = time.perf_counter() - parse_start
         
         # Step 4: Combine confidences
         final_confidence = (ocr_confidence * 0.4 + parse_result['confidence'] * 0.6)
@@ -677,36 +764,64 @@ def extract_nutrients_from_image(image_path: str, debug: bool = False) -> Dict[s
             except OSError:
                 pass
         
-        processing_time = time.time() - start_time if start_time else 0
-        
+        total_duration = time.perf_counter() - start_time
+
+        nutrients = parse_result['nutrition_data']
+        processing_details = {
+            'ocr_confidence': round(ocr_confidence, 2),
+            'parsing_confidence': parse_result['confidence'],
+            'found_nutrients': parse_result['found_nutrients'],
+            'missing_required': parse_result['missing_required'],
+            'processing_time_seconds': round(total_duration, 2),
+            'processed_image_path': processed_image_path if debug else None,
+            'ocr_engine': 'auto'
+        }
+
         result = {
+            'source': 'Local OCR',
             'raw_text': raw_text,
+            'normalized_text': parse_result['normalized_text'],
+            'nutrients': nutrients,
+            'nutrition_data': nutrients,
             'parsed_nutriments': parse_result['parsed_nutriments'],
             'confidence': round(final_confidence, 2),
-            'processing_details': {
-                'ocr_confidence': round(ocr_confidence, 2),
-                'parsing_confidence': parse_result['confidence'],
-                'found_nutrients': parse_result['found_nutrients'],
-                'missing_required': parse_result['missing_required'],
-                'processing_time_seconds': round(processing_time, 2) if processing_time else None,
-                'processed_image_path': processed_image_path if debug else None
-            }
+            'serving_size': parse_result.get('serving_size'),
+            'serving_info': parse_result.get('serving_info'),
+            'extraction_details': parse_result['extraction_details'],
+            'found_nutrients': parse_result['found_nutrients'],
+            'missing_required': parse_result['missing_required'],
+            'processing_details': processing_details,
         }
-        
+
+        if debug:
+            result['debug_info'] = {
+                'total_time': round(total_duration, 4),
+                'preprocessing_time': round(preprocess_duration, 4),
+                'ocr_time': round(ocr_duration, 4),
+                'parsing_time': round(parse_duration, 4),
+                'processed_image_path': processed_image_path,
+            }
+
         logger.info(f"Extraction completed: {len(result['parsed_nutriments'])} nutrients found, "
                    f"confidence: {result['confidence']:.2f}")
         
         return result
-        
+    
     except Exception as e:
         logger.error(f"Error extracting nutrients from {image_path}: {e}")
         return {
+            'source': 'Local OCR',
             'raw_text': '',
+            'nutrients': {},
+            'nutrition_data': {},
             'parsed_nutriments': {},
             'confidence': 0.0,
+            'serving_size': None,
+            'serving_info': {'detected': None, 'unit': None},
             'processing_details': {
                 'error': str(e)
-            }
+            },
+            'error': str(e)
         }
 
 
@@ -856,7 +971,17 @@ def call_external_ocr(image_path: str, provider: str = 'mock') -> Dict[str, Any]
     
     if provider == 'mock':
         # High-confidence mock data for testing
+        nutrients = {
+            'energy_kcal_per_100g': 350.0,
+            'protein_g_per_100g': 12.5,
+            'fat_g_per_100g': 8.2,
+            'carbs_g_per_100g': 65.3,
+            'sugars_g_per_100g': 15.2,
+            'salt_g_per_100g': 1.1,
+            'fiber_g_per_100g': 4.2,
+        }
         return {
+            'source': 'External OCR (Mock)',
             'raw_text': '''NUTRITION FACTS
             Serving Size: 100g
             
@@ -868,6 +993,8 @@ def call_external_ocr(image_path: str, provider: str = 'mock') -> Dict[str, Any]
             Salt: 1.1g
             Fiber: 4.2g''',
             
+            'nutrients': nutrients,
+            'nutrition_data': nutrients,
             'parsed_nutriments': {
                 'energy_kcal': 350.0,
                 'protein_g': 12.5,
@@ -877,7 +1004,6 @@ def call_external_ocr(image_path: str, provider: str = 'mock') -> Dict[str, Any]
                 'salt_g': 1.1,
                 'fiber_g': 4.2
             },
-            
             'confidence': 0.95,
             
             'processing_details': {
@@ -885,22 +1011,26 @@ def call_external_ocr(image_path: str, provider: str = 'mock') -> Dict[str, Any]
                 'note': 'This is mock data for testing. Implement real provider integration above.',
                 'found_nutrients': ['energy_kcal', 'protein_g', 'fat_g', 'carbs_g', 'sugars_g', 'salt_g', 'fiber_g'],
                 'missing_required': []
-            }
+            },
+            'serving_size': '100g',
+            'serving_info': {'detected': '100g', 'unit': 'g'},
         }
     
     else:
         logger.warning(f"External OCR provider '{provider}' not implemented yet")
         return {
+            'source': f'External OCR ({provider})',
             'raw_text': '',
+            'nutrients': {},
+            'nutrition_data': {},
             'parsed_nutriments': {},
             'confidence': 0.0,
+            'serving_size': None,
+            'serving_info': {'detected': None, 'unit': None},
             'processing_details': {
-                'error': f'Provider {provider} not implemented',
+                'error': f"Unsupported provider '{provider}' not implemented",
                 'available_providers': ['mock'],
                 'implementation_guide': 'See function docstring for implementation examples'
-            }
+            },
+            'error': f"Unsupported provider '{provider}'"
         }
-
-
-# Import time module for processing time tracking
-import time

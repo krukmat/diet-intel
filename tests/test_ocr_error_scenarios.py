@@ -407,20 +407,32 @@ class TestNetworkRelatedErrors:
 class TestConcurrentAccessErrors:
     """Test handling of concurrent access errors"""
     
-    @patch('cv2.imwrite')
-    def test_file_write_permission_error(self, mock_imwrite):
+    def test_file_write_permission_error(self):
         """Test file write permission error during preprocessing"""
-        mock_imwrite.side_effect = PermissionError("Permission denied")
-        
         with tempfile.NamedTemporaryFile(suffix='.png', delete=False) as tmp:
             img = np.ones((100, 100, 3), dtype=np.uint8) * 255
             cv2.imwrite(tmp.name, img)
             
-            result = ImagePreprocessor.preprocess_image(tmp.name)
-            
-            # Should return original path as fallback
+            # Trigger the permission error only when the preprocessor attempts to write its output
+            with patch('cv2.imwrite', side_effect=PermissionError("Permission denied")):
+                result = ImagePreprocessor.preprocess_image(tmp.name)
+                ocr_result = extract_nutrients_from_image(tmp.name)
+
+            # Preprocessor falls back to the original path when saving fails
             assert result == tmp.name
-            
+
+            # Response preserves legacy keys plus new metadata under the error path
+            assert ocr_result['source'] == 'Local OCR'
+            assert ocr_result['raw_text'] == ''
+            assert isinstance(ocr_result['nutrients'], dict)
+            assert isinstance(ocr_result['nutrition_data'], dict)
+            assert ocr_result['confidence'] == 0.0
+            assert isinstance(ocr_result['serving_info'], dict)
+            assert ocr_result['serving_info'].get('detected') is None
+            assert isinstance(ocr_result['processing_details'], dict)
+            assert ocr_result['processing_details'].get('error') == 'No text extracted'
+            assert ocr_result['error'] == 'No text extracted'
+
             os.unlink(tmp.name)
     
     def test_temp_directory_access_error(self):

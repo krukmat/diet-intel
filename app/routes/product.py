@@ -2,8 +2,9 @@ import logging
 import os
 import re
 import tempfile
+import inspect
 from datetime import datetime
-from typing import Union
+from typing import Optional, Union
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from app.models.product import (
@@ -12,7 +13,92 @@ from app.models.product import (
 )
 from app.services.openfoodfacts import openfoodfacts_service
 from app.services.cache import cache_service
-from app.services.nutrition_ocr import extract_nutrients_from_image, call_external_ocr
+from app.services import nutrition_ocr
+
+
+def _normalize_legacy_ocr_result(payload: dict, *, default_engine: str) -> Optional[dict]:
+    if not isinstance(payload, dict):
+        return None
+
+    normalized = dict(payload)
+    raw_text = normalized.get('raw_text') or normalized.get('text') or ''
+
+    parsed = normalized.get('parsed_nutriments') or normalized.get('nutrition_data') or normalized.get('nutrients')
+    if not isinstance(parsed, dict):
+        parsed = {}
+    normalized['parsed_nutriments'] = parsed
+    if not raw_text and parsed:
+        raw_text = 'legacy_ocr_output'
+    normalized['raw_text'] = raw_text
+    normalized.setdefault('nutrients', parsed)
+    normalized.setdefault('nutrition_data', parsed)
+
+    serving_size = normalized.get('serving_size')
+    serving_info = normalized.get('serving_info')
+    if not isinstance(serving_info, dict):
+        serving_info = {'detected': serving_size, 'unit': None}
+    else:
+        serving_info = serving_info.copy()
+    serving_info.setdefault('detected', serving_size)
+    serving_info.setdefault('unit', None)
+    normalized['serving_info'] = serving_info
+    normalized.setdefault('serving_size', serving_info.get('detected'))
+
+    try:
+        normalized['confidence'] = float(normalized.get('confidence', 0.0))
+    except (TypeError, ValueError):
+        normalized['confidence'] = 0.0
+
+    processing_details = normalized.get('processing_details')
+    if not isinstance(processing_details, dict):
+        processing_details = {}
+    processing_details.setdefault('ocr_engine', default_engine)
+    normalized['processing_details'] = processing_details
+
+    found = normalized.get('found_nutrients')
+    if not isinstance(found, list):
+        found = list(parsed.keys())
+    normalized['found_nutrients'] = found
+    missing = normalized.get('missing_required')
+    if not isinstance(missing, list):
+        missing = []
+    normalized['missing_required'] = missing
+
+    return normalized
+
+
+async def _run_local_ocr(image_path: str, *, debug: bool = False) -> dict:
+    try:
+        from app.services import ocr as legacy_ocr
+    except ImportError:
+        legacy_ocr = None
+
+    legacy_output = None
+    if legacy_ocr is not None:
+        legacy_callable = getattr(legacy_ocr.ocr_service, 'extract_nutrients', None)
+        if legacy_callable:
+            try:
+                legacy_output = legacy_callable(image_path)
+                if inspect.isawaitable(legacy_output):
+                    legacy_output = await legacy_output
+            except Exception:
+                legacy_output = None
+
+    normalized = _normalize_legacy_ocr_result(legacy_output or {}, default_engine='legacy_ocr') if legacy_output else None
+    if normalized:
+        return normalized
+
+    return nutrition_ocr.extract_nutrients_from_image(image_path, debug=debug)
+
+
+def extract_nutrients_from_image(*args, **kwargs):
+    """Proxy to nutrition_ocr.extract_nutrients_from_image to ease patching in tests."""
+    return nutrition_ocr.extract_nutrients_from_image(*args, **kwargs)
+
+
+def call_external_ocr(*args, **kwargs):
+    """Proxy to nutrition_ocr.call_external_ocr to ease patching in tests."""
+    return nutrition_ocr.call_external_ocr(*args, **kwargs)
 from app.services.database import db_service
 from app.services.auth import RequestContext, get_optional_request_context
 import httpx
@@ -183,21 +269,30 @@ async def get_product_by_barcode(
     }
 )
 async def scan_nutrition_label(
-    image: UploadFile = File(...),
+    image: UploadFile = File(None, alias="image"),
+    legacy_file: UploadFile = File(None, alias="file"),
     context: RequestContext = Depends(get_optional_request_context)
 ):
     """
     Scan nutrition label from uploaded image using OCR
     """
+    upload = image or legacy_file
+
+    if upload is None:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Image file is required"
+        )
+
     # Validate file type
-    if not image.content_type or not image.content_type.startswith('image/'):
+    if not upload.content_type or not upload.content_type.startswith('image/'):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="File must be an image (JPEG, PNG, etc.)"
         )
     
     # Check file size (max 10MB)
-    if image.size and image.size > 10 * 1024 * 1024:
+    if upload.size and upload.size > 10 * 1024 * 1024:
         raise HTTPException(
             status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
             detail="Image file too large (max 10MB)"
@@ -214,24 +309,24 @@ async def scan_nutrition_label(
     
     try:
         # Save uploaded file to temporary storage
-        suffix = os.path.splitext(image.filename or '')[1] or '.jpg'
+        suffix = os.path.splitext(upload.filename or '')[1] or '.jpg'
         temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=suffix)
         temp_file_path = temp_file.name
         
         # Write uploaded content to temp file
-        content = await image.read()
+        content = await upload.read()
         async with aiofiles.open(temp_file_path, 'wb') as f:
             await f.write(content)
         
         logger.info(f"Image saved to temp file: {temp_file_path}")
         
         # Extract nutrients using enhanced OCR service
-        ocr_result = extract_nutrients_from_image(temp_file_path)
+        ocr_result = await _run_local_ocr(temp_file_path)
         
         if not ocr_result['raw_text'].strip():
             processing_time_ms = int((datetime.now() - start_time).total_seconds() * 1000)
             await db_service.log_ocr_scan(
-                user_id, session_id, image.size, 0.0, processing_time_ms,
+                user_id, session_id, upload.size, 0.0, processing_time_ms,
                 ocr_result.get('processing_details', {}).get('ocr_engine', 'tesseract'),
                 0, False, "No text extracted"
             )
@@ -253,7 +348,7 @@ async def scan_nutrition_label(
         # Log OCR analytics
         nutrients_extracted = len([v for v in nutrition_data.values() if v is not None])
         await db_service.log_ocr_scan(
-            user_id, session_id, image.size, confidence, processing_time_ms,
+            user_id, session_id, upload.size, confidence, processing_time_ms,
             ocr_result.get('processing_details', {}).get('ocr_engine', 'tesseract'),
             nutrients_extracted, True
         )
@@ -277,6 +372,7 @@ async def scan_nutrition_label(
                 raw_text=raw_text,
                 serving_size=serving_size,
                 nutriments=nutriments,
+                nutrients=nutriments,
                 scanned_at=scan_timestamp
             )
         
@@ -296,7 +392,7 @@ async def scan_nutrition_label(
     except Exception as e:
         processing_time_ms = int((datetime.now() - start_time).total_seconds() * 1000)
         await db_service.log_ocr_scan(
-            user_id, session_id, image.size or 0, 0.0, processing_time_ms,
+            user_id, session_id, upload.size or 0, 0.0, processing_time_ms,
             "tesseract", 0, False, f"Processing error: {str(e)}"
         )
         logger.error(f"Error processing image: {e}")
@@ -324,15 +420,24 @@ async def scan_nutrition_label(
     }
 )
 async def scan_label_with_external_ocr(
-    image: UploadFile = File(...),
+    image: UploadFile = File(None, alias="image"),
+    legacy_file: UploadFile = File(None, alias="file"),
     context: RequestContext = Depends(get_optional_request_context)
 ):
     """
     Scan nutrition label using external OCR service (when available)
     Falls back to local OCR if external service is unavailable
     """
+    upload = image or legacy_file
+
+    if upload is None:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Image file is required"
+        )
+
     # Similar validation as scan_label endpoint
-    if not image.content_type or not image.content_type.startswith('image/'):
+    if not upload.content_type or not upload.content_type.startswith('image/'):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="File must be an image"
@@ -349,11 +454,11 @@ async def scan_label_with_external_ocr(
     
     try:
         # Save uploaded file
-        suffix = os.path.splitext(image.filename or '')[1] or '.jpg'
+        suffix = os.path.splitext(upload.filename or '')[1] or '.jpg'
         temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=suffix)
         temp_file_path = temp_file.name
         
-        content = await image.read()
+        content = await upload.read()
         async with aiofiles.open(temp_file_path, 'wb') as f:
             await f.write(content)
         
@@ -366,13 +471,13 @@ async def scan_label_with_external_ocr(
             source = "External OCR"
         else:
             logger.info("External OCR unavailable, falling back to local OCR")
-            ocr_result = extract_nutrients_from_image(temp_file_path)
+            ocr_result = await _run_local_ocr(temp_file_path)
             source = "Local OCR (fallback)"
         
         if not ocr_result['raw_text'].strip():
             processing_time_ms = int((datetime.now() - start_time).total_seconds() * 1000)
             await db_service.log_ocr_scan(
-                user_id, session_id, image.size, 0.0, processing_time_ms,
+                user_id, session_id, upload.size, 0.0, processing_time_ms,
                 source.replace(" OCR", "").lower() + "_api", 0, False, "No text extracted"
             )
             raise HTTPException(
@@ -393,7 +498,7 @@ async def scan_label_with_external_ocr(
         # Log OCR analytics
         nutrients_extracted = len([v for v in nutrition_data.values() if v is not None])
         await db_service.log_ocr_scan(
-            user_id, session_id, image.size, confidence, processing_time_ms,
+            user_id, session_id, upload.size, confidence, processing_time_ms,
             ocr_result.get('processing_details', {}).get('ocr_engine', 'external_api'),
             nutrients_extracted, True
         )
@@ -416,6 +521,7 @@ async def scan_label_with_external_ocr(
                 raw_text=raw_text,
                 serving_size=serving_size,
                 nutriments=nutriments,
+                nutrients=nutriments,
                 scanned_at=scan_timestamp
             )
         else:

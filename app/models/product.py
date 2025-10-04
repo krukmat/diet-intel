@@ -48,7 +48,17 @@ class ScanResponse(BaseModel):
     raw_text: str = Field(..., description="Raw OCR extracted text")
     serving_size: Optional[str] = Field(None, description="Detected serving size")
     nutriments: Nutriments = Field(..., description="Parsed nutritional information")
+    nutrients: Optional[Nutriments] = Field(None, description="Legacy alias for nutriments")
     scanned_at: datetime = Field(..., description="Timestamp when image was processed")
+
+    def dict(self, *args, **kwargs):  # type: ignore[override]
+        data = super().dict(*args, **kwargs)
+        if 'nutriments' in data and 'nutrients' not in data:
+            data['nutrients'] = data['nutriments']
+        return data
+
+    def model_dump(self, *args, **kwargs):  # compatibility with pydantic v2 api
+        return self.dict(*args, **kwargs)
 
 
 class LowConfidenceScanResponse(BaseModel):

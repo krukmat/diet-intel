@@ -95,6 +95,20 @@ class ImageProcessor:
             logger.error(f"Error extracting text from image: {e}")
             return ""
 
+    async def extract_nutrients(self, image_path: str, *, debug: bool = False) -> dict:
+        """Compatibility wrapper that delegates to the enriched OCR service."""
+        try:
+            from app.services import nutrition_ocr
+        except ImportError as exc:
+            logger.error(f"Failed to import advanced nutrition OCR service: {exc}")
+            return {
+                'confidence': 0.0,
+                'parsed_nutriments': {},
+                'processing_details': {'error': 'nutrition_ocr_unavailable'}
+            }
+
+        return nutrition_ocr.extract_nutrients_from_image(image_path, debug=debug)
+
 
 class NutritionParser:
     """

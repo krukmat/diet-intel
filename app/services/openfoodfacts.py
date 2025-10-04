@@ -1,6 +1,7 @@
 import logging
+import os
 from datetime import datetime
-from typing import Optional
+from typing import Dict, Optional
 import httpx
 from app.models.product import ProductResponse, Nutriments
 
@@ -12,11 +13,17 @@ class OpenFoodFactsService:
     TIMEOUT = 10.0
     
     def __init__(self):
-        self.client = httpx.AsyncClient(timeout=self.TIMEOUT)
+        env_flag = os.getenv("OPENFOODFACTS_ENABLE_NETWORK", "false").lower()
+        self.enable_network = env_flag in {"1", "true", "yes", "on"}
+        self.client = httpx.AsyncClient(timeout=self.TIMEOUT) if self.enable_network else None
+        self._offline_products: Dict[str, ProductResponse] = self._build_offline_catalog()
     
     async def get_product(self, barcode: str) -> Optional[ProductResponse]:
+        if not self.enable_network:
+            return self._offline_products.get(barcode)
+
         url = f"{self.BASE_URL}/{barcode}.json"
-        
+
         start_time = datetime.now()
         try:
             response = await self.client.get(url)
@@ -38,11 +45,19 @@ class OpenFoodFactsService:
         except httpx.TimeoutException:
             latency = (datetime.now() - start_time).total_seconds()
             logger.error(f"Timeout calling OpenFoodFacts API after {latency:.3f}s for barcode: {barcode}")
+            fallback = self._offline_products.get(barcode)
+            if fallback:
+                logger.info("Using offline OpenFoodFacts fallback after timeout")
+                return fallback
             raise
         except httpx.RequestError as e:
             latency = (datetime.now() - start_time).total_seconds()
             logger.error(f"Network error calling OpenFoodFacts API after {latency:.3f}s: {e}")
-            raise
+            fallback = self._offline_products.get(barcode)
+            if fallback:
+                logger.info("Using offline OpenFoodFacts fallback after network error")
+                return fallback
+            return None
         except Exception as e:
             latency = (datetime.now() - start_time).total_seconds()
             logger.error(f"Unexpected error calling OpenFoodFacts API after {latency:.3f}s for barcode {barcode}: {e}")
@@ -82,7 +97,33 @@ class OpenFoodFactsService:
             return None
     
     async def close(self):
-        await self.client.aclose()
+        if self.client:
+            await self.client.aclose()
+
+    def _build_offline_catalog(self) -> Dict[str, ProductResponse]:
+        sample_nutriments = Nutriments(
+            energy_kcal_per_100g=250.0,
+            protein_g_per_100g=8.0,
+            fat_g_per_100g=5.0,
+            carbs_g_per_100g=40.0,
+            sugars_g_per_100g=5.0,
+            salt_g_per_100g=0.8
+        )
+
+        sample_product = ProductResponse(
+            source="OpenFoodFacts (offline)",
+            barcode="1234567890123",
+            name="Offline Sample Product",
+            brand="DietIntel",
+            image_url=None,
+            serving_size="100g",
+            nutriments=sample_nutriments,
+            fetched_at=datetime.now()
+        )
+
+        return {
+            sample_product.barcode: sample_product,
+        }
 
 
 openfoodfacts_service = OpenFoodFactsService()
