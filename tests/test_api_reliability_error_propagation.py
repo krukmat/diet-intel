@@ -29,47 +29,44 @@ def client():
 class TestExternalServiceFailures:
     """Test handling of external service failures"""
     
-    def test_openfoodfacts_timeout_handling(self, client):
+    def test_openfoodfacts_timeout_handling(self, client, product_service_overrides):
         """Test product lookup with external API timeout"""
-        with patch('app.services.openfoodfacts.OpenFoodFactsService.get_product') as mock_product:
-            # Simulate timeout
-            mock_product.side_effect = httpx.TimeoutException("Request timeout")
-            
-            response = client.post("/product/by-barcode", json={"barcode": "timeout_test"})
-            
-            # Should return proper 408 timeout error
-            assert response.status_code == 408
-            error_data = response.json()
-            assert "timeout" in error_data["detail"].lower()
-            assert error_data["detail"] == "Request timeout while fetching product data"
-    
-    def test_openfoodfacts_network_error_handling(self, client):
+        _, fake_openfoodfacts = product_service_overrides
+        fake_openfoodfacts.get_product = AsyncMock(side_effect=httpx.TimeoutException("Request timeout"))
+
+        response = client.post("/product/by-barcode", json={"barcode": "timeout_test"})
+
+        # Should return proper 408 timeout error
+        assert response.status_code == 408
+        error_data = response.json()
+        assert "timeout" in error_data["detail"].lower()
+        assert error_data["detail"] == "Request timeout while fetching product data"
+
+    def test_openfoodfacts_network_error_handling(self, client, product_service_overrides):
         """Test product lookup with network errors"""
-        with patch('app.services.openfoodfacts.OpenFoodFactsService.get_product') as mock_product:
-            # Simulate network error
-            mock_product.side_effect = httpx.RequestError("Connection failed")
-            
-            response = client.post("/product/by-barcode", json={"barcode": "network_error_test"})
-            
-            # Should return proper 503 service unavailable error
-            assert response.status_code == 503
-            error_data = response.json()
-            assert "connect" in error_data["detail"].lower()
-            assert error_data["detail"] == "Unable to connect to product database"
-    
-    def test_openfoodfacts_product_not_found(self, client):
+        _, fake_openfoodfacts = product_service_overrides
+        fake_openfoodfacts.get_product = AsyncMock(side_effect=httpx.RequestError("Connection failed"))
+
+        response = client.post("/product/by-barcode", json={"barcode": "network_error_test"})
+
+        # Should return proper 503 service unavailable error
+        assert response.status_code == 503
+        error_data = response.json()
+        assert "connect" in error_data["detail"].lower()
+        assert error_data["detail"] == "Unable to connect to product database"
+
+    def test_openfoodfacts_product_not_found(self, client, product_service_overrides):
         """Test product lookup with valid API but product not found"""
-        with patch('app.services.openfoodfacts.OpenFoodFactsService.get_product') as mock_product:
-            # Simulate product not found
-            mock_product.return_value = None
-            
-            response = client.post("/product/by-barcode", json={"barcode": "not_found_test"})
-            
-            # Should return proper 404 not found error
-            assert response.status_code == 404
-            error_data = response.json()
-            assert "not found" in error_data["detail"].lower()
-            assert "not_found_test" in error_data["detail"]
+        _, fake_openfoodfacts = product_service_overrides
+        fake_openfoodfacts.get_product = AsyncMock(return_value=None)
+
+        response = client.post("/product/by-barcode", json={"barcode": "not_found_test"})
+
+        # Should return proper 404 not found error
+        assert response.status_code == 404
+        error_data = response.json()
+        assert "not found" in error_data["detail"].lower()
+        assert "not_found_test" in error_data["detail"]
     
     def test_redis_cache_failure_graceful_degradation(self, client):
         """Test API continues working when Redis cache fails"""
@@ -438,3 +435,7 @@ class TestSystemRecoveryAndDegradation:
                 # Should have some structure even with limited products
                 assert "meals" in plan_data
                 assert "metrics" in plan_data
+@pytest.fixture(autouse=True)
+def _product_service_overrides(product_service_overrides):
+    """Ensure product route uses in-memory cache + OpenFoodFacts stub."""
+    return product_service_overrides

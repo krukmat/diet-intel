@@ -20,6 +20,11 @@ from app.services.database import db_service
 from app.services.cache import cache_service
 
 
+@pytest.fixture(autouse=True)
+def _product_service_overrides(product_service_overrides):
+    return product_service_overrides
+
+
 @pytest.fixture
 def client():
     """Test client fixture"""
@@ -226,38 +231,35 @@ class TestCompleteUserJourneys:
         assert flexible_plan["flexibility_used"] == True
         assert tracked_items > 0
     
-    def test_product_lookup_to_tracking_workflow(self, client):
+    def test_product_lookup_to_tracking_workflow(self, client, product_service_overrides):
         """Test product lookup → nutrition info → meal tracking workflow"""
         # Step 1: Look up a product by barcode (simulate external API)
-        with patch('app.services.openfoodfacts.OpenFoodFactsService.get_product') as mock_product:
-            from app.models.product import ProductResponse, Nutriments
-            
-            # Mock a successful product lookup
-            mock_product.return_value = ProductResponse(
-                source="OpenFoodFacts",
-                barcode="test_barcode_123",
-                name="Organic Banana",
-                brand="Test Brand",
-                nutriments=Nutriments(
-                    energy_kcal_per_100g=89,
-                    protein_g_per_100g=1.1,
-                    fat_g_per_100g=0.3,
-                    carbs_g_per_100g=22.8,
-                    sugars_g_per_100g=12.0,
-                    salt_g_per_100g=0.01
-                ),
-                fetched_at=datetime.now()
-            )
-            
-            # Look up product using POST with BarcodeRequest
-            barcode_response = client.post("/product/by-barcode", json={"barcode": "test_barcode_123"})
-            assert barcode_response.status_code == 200
-            product_data = barcode_response.json()
-            
-            # Verify product data structure
-            assert "name" in product_data
-            assert "nutriments" in product_data
-            assert product_data["nutriments"]["energy_kcal_per_100g"] > 0
+        from app.models.product import ProductResponse, Nutriments
+        _, fake_openfoodfacts = product_service_overrides
+        fake_openfoodfacts.get_product = AsyncMock(return_value=ProductResponse(
+            source="OpenFoodFacts",
+            barcode="test_barcode_123",
+            name="Organic Banana",
+            brand="Test Brand",
+            nutriments=Nutriments(
+                energy_kcal_per_100g=89,
+                protein_g_per_100g=1.1,
+                fat_g_per_100g=0.3,
+                carbs_g_per_100g=22.8,
+                sugars_g_per_100g=12.0,
+                salt_g_per_100g=0.01
+            ),
+            fetched_at=datetime.now()
+        ))
+
+        barcode_response = client.post("/product/by-barcode", json={"barcode": "test_barcode_123"})
+        assert barcode_response.status_code == 200
+        product_data = barcode_response.json()
+
+        # Verify product data structure
+        assert "name" in product_data
+        assert "nutriments" in product_data
+        assert product_data["nutriments"]["energy_kcal_per_100g"] > 0
         
         # Step 2: Use product data to create a meal entry
         meal_from_product = {
@@ -347,39 +349,38 @@ class TestServiceDependencyChains:
         assert 70.5 in weight_entries or 70.2 in weight_entries
         assert len(history3["entries"]) >= 1
     
-    def test_external_service_resilience_chain(self, client):
+    def test_external_service_resilience_chain(self, client, product_service_overrides):
         """Test API behavior when external services fail"""
         # Test 1: OpenFoodFacts API failure handling
-        with patch('app.services.openfoodfacts.OpenFoodFactsService.get_product') as mock_product:
-            # Simulate external API failure
-            mock_product.side_effect = Exception("External API timeout")
-            
-            # Product lookup should handle the failure gracefully
-            barcode_response = client.get("/product/by-barcode/failing_barcode")
-            
-            # Should return 404 or 503, not crash
-            assert barcode_response.status_code in [404, 500, 503]
-            
-            # API should remain functional for other operations
-            reminder_request = {
-                "type": "meal",
-                "label": "Test reminder during external failure",
-                "time": "14:00",
-                "days": [True, False, False, False, False, False, False],
-                "enabled": True
-            }
-            
-            reminder_response = client.post("/reminder", json=reminder_request)
-            assert reminder_response.status_code == 200
-            
-            # Core functionality should still work
-            weight_request = {
-                "weight": 68.9,
-                "date": datetime.now().isoformat()
-            }
-            
-            weight_response = client.post("/track/weight", json=weight_request)
-            assert weight_response.status_code == 200
+        _, fake_openfoodfacts = product_service_overrides
+        fake_openfoodfacts.get_product = AsyncMock(side_effect=Exception("External API timeout"))
+
+        # Product lookup should handle the failure gracefully
+        barcode_response = client.get("/product/by-barcode/failing_barcode")
+
+        # Should return 404 or 503, not crash
+        assert barcode_response.status_code in [404, 500, 503]
+
+        # API should remain functional for other operations
+        reminder_request = {
+            "type": "meal",
+            "label": "Test reminder during external failure",
+            "time": "14:00",
+            "days": [True, False, False, False, False, False, False],
+            "enabled": True
+        }
+
+        reminder_response = client.post("/reminder", json=reminder_request)
+        assert reminder_response.status_code == 200
+
+        # Core functionality should still work
+        weight_request = {
+            "weight": 68.9,
+            "date": datetime.now().isoformat()
+        }
+
+        weight_response = client.post("/track/weight", json=weight_request)
+        assert weight_response.status_code == 200
     
     def test_user_context_isolation_chain(self, client):
         """Test user data isolation across different sessions"""

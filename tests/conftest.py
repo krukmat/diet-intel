@@ -1,6 +1,7 @@
 import pytest
 import asyncio
 import inspect
+from typing import Any, Dict, Optional
 from unittest.mock import AsyncMock, MagicMock
 from fastapi.testclient import TestClient
 from httpx import AsyncClient
@@ -65,6 +66,46 @@ if not hasattr(httpx.AsyncClient, '__enter__'):
 from app.services.cache import CacheService
 from app.services.recommendation_engine import RecommendationEngine
 
+
+class InMemoryAsyncCacheService:
+    """Simple async cache stub that never touches Redis."""
+
+    def __init__(self):
+        self._store: Dict[str, Any] = {}
+
+    async def get(self, key: str) -> Optional[Any]:
+        return self._store.get(key)
+
+    async def set(self, key: str, value: Any, ttl: int = 86400) -> bool:
+        self._store[key] = value
+        return True
+
+    async def delete(self, key: str) -> bool:
+        self._store.pop(key, None)
+        return True
+
+    async def clear(self) -> bool:
+        self._store.clear()
+        return True
+
+    async def ping(self) -> bool:
+        return True
+
+
+class FakeOpenFoodFactsService:
+    """Async OpenFoodFacts stub with configurable responses."""
+
+    def __init__(self):
+        self.responses: Dict[str, Any] = {}
+        self.calls: Dict[str, int] = {}
+
+    async def get_product(self, barcode: str) -> Optional[Any]:
+        self.calls[barcode] = self.calls.get(barcode, 0) + 1
+        return self.responses.get(barcode)
+
+    def set_product(self, barcode: str, value: Any) -> None:
+        self.responses[barcode] = value
+
 @pytest.fixture(scope="session")
 def event_loop():
     """Create an instance of the default event loop for the test session."""
@@ -81,6 +122,30 @@ async def mock_cache_service():
     mock_cache.delete.return_value = True
     mock_cache.clear.return_value = True
     return mock_cache
+
+
+@pytest.fixture
+def fake_cache_service():
+    """In-memory async cache stub for tests that should avoid real Redis."""
+    return InMemoryAsyncCacheService()
+
+
+@pytest.fixture
+def fake_openfoodfacts_service():
+    """Configurable OpenFoodFacts stub for tests that run without network."""
+    return FakeOpenFoodFactsService()
+
+
+@pytest.fixture
+def product_service_overrides(fake_cache_service, fake_openfoodfacts_service, monkeypatch):
+    """Patch product route dependencies to use in-memory fakes."""
+    monkeypatch.setattr('app.services.cache.cache_service', fake_cache_service, raising=False)
+    monkeypatch.setattr('app.routes.product.cache_service', fake_cache_service, raising=False)
+    monkeypatch.setattr('app.services.openfoodfacts.openfoodfacts_service', fake_openfoodfacts_service, raising=False)
+    monkeypatch.setattr('app.routes.product.openfoodfacts_service', fake_openfoodfacts_service, raising=False)
+    monkeypatch.setattr('app.services.openfoodfacts.OpenFoodFactsService.get_product', fake_openfoodfacts_service.get_product, raising=False)
+    monkeypatch.setattr('app.routes.product.openfoodfacts_service.get_product', fake_openfoodfacts_service.get_product, raising=False)
+    return fake_cache_service, fake_openfoodfacts_service
 
 @pytest.fixture
 def mock_recommendation_engine(mock_cache_service):
