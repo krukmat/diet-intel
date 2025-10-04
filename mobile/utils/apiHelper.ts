@@ -1,4 +1,5 @@
 import axios, { AxiosInstance, AxiosRequestConfig, AxiosError } from 'axios';
+import { getEnvironmentConfig } from '../config/environments';
 
 interface ApiConfig {
   baseURL: string;
@@ -80,8 +81,11 @@ class ApiHelper {
   private config: ApiConfig;
 
   constructor(config: Partial<ApiConfig> = {}) {
+    // Get environment configuration
+    const envConfig = getEnvironmentConfig();
+
     this.config = {
-      baseURL: 'http://10.0.2.2:8000', // Android emulator API URL
+      baseURL: envConfig.apiBaseUrl,
       timeout: 10000,
       maxRetries: 3,
       retryDelay: 1000,
@@ -303,11 +307,8 @@ class ApiHelper {
   }
 }
 
-export const apiHelper = new ApiHelper({
-  baseURL: __DEV__ 
-    ? 'http://10.0.2.2:8000'  // Development - Android emulator
-    : 'https://your-production-api.com',  // Production
-});
+export const apiHelper = new ApiHelper();
+// The ApiHelper constructor now automatically uses the correct environment configuration
 
 export { ApiHelper };
 export type { 
