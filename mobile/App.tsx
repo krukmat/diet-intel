@@ -31,6 +31,7 @@ import ReminderSnippet from './components/ReminderSnippet';
 import ApiConfigModal from './components/ApiConfigModal';
 import DeveloperSettingsModal from './components/DeveloperSettingsModal';
 import LanguageSwitcher, { LanguageToggle } from './components/LanguageSwitcher';
+import QuickActions from './components/QuickActions';
 import { developerSettingsService, DeveloperConfig, FeatureToggle } from './services/DeveloperSettings';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { notificationService } from './services/NotificationService';
@@ -489,6 +490,44 @@ function MainApp({ user, onLogout }: { user: any; onLogout: () => void }) {
           </Text>
         </TouchableOpacity>
       </View>
+
+      {/* Quick Actions Section */}
+      <QuickActions
+        actions={[
+          {
+            id: 'scan',
+            title: 'Scan Product',
+            subtitle: 'Barcode scanner',
+            icon: '📷',
+            color: '#007AFF',
+            onPress: () => setCurrentScreen('scanner')
+          },
+          {
+            id: 'log',
+            title: 'Log Meal',
+            subtitle: 'Track food',
+            icon: '🍽️',
+            color: '#34C759',
+            onPress: () => setCurrentScreen('track')
+          },
+          {
+            id: 'plan',
+            title: 'View Plan',
+            subtitle: 'Today\'s meals',
+            icon: '📋',
+            color: '#FF9500',
+            onPress: () => setCurrentScreen('plan')
+          },
+          {
+            id: 'recipes',
+            title: 'Get Recipe',
+            subtitle: 'AI suggestions',
+            icon: '👨‍🍳',
+            color: '#AF52DE',
+            onPress: () => setCurrentScreen('recipes')
+          }
+        ]}
+      />
 
       {/* Scanner Status in Top Left Corner */}
       <View style={styles.statusIndicator}>
