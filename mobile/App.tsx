@@ -30,7 +30,8 @@ import ProductDetail from './components/ProductDetail';
 import ReminderSnippet from './components/ReminderSnippet';
 import ApiConfigModal from './components/ApiConfigModal';
 import DeveloperSettingsModal from './components/DeveloperSettingsModal';
-import LanguageSwitcher, { LanguageToggle } from './components/LanguageSwitcher';
+import LanguageSwitcher from './components/LanguageSwitcher';
+import AppHeader from './components/AppHeader';
 import QuickActions from './components/QuickActions';
 import { developerSettingsService, DeveloperConfig, FeatureToggle } from './services/DeveloperSettings';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
@@ -428,38 +429,14 @@ function MainApp({ user, onLogout }: { user: any; onLogout: () => void }) {
       <ExpoStatusBar style="light" backgroundColor="#007AFF" />
       
       {/* Header */}
-      <View style={styles.header}>
-        <View style={styles.headerContent}>
-          <Text style={styles.title}>{t('app.title')}</Text>
-          <Text style={styles.subtitle}>{t('auth.welcome', { name: user?.full_name || 'User' })}</Text>
-          <Text style={styles.version}>{t('app.version')}</Text>
-        </View>
-        <View style={styles.headerButtons}>
-          <LanguageToggle onPress={() => setShowLanguageSwitcher(true)} />
-          <TouchableOpacity 
-            style={styles.headerActionButton}
-            onPress={onLogout}
-          >
-            <Text style={styles.headerActionButtonText}>{t('auth.logout')}</Text>
-          </TouchableOpacity>
-          {(user?.is_developer || developerConfig?.isDeveloperModeEnabled) && (
-            <TouchableOpacity 
-              style={styles.headerActionButton}
-              onPress={() => setShowDeveloperSettings(true)}
-            >
-              <Text style={styles.headerActionButtonText}>{t('developer.settings')}</Text>
-            </TouchableOpacity>
-          )}
-          {featureToggles?.reminderNotifications && (
-            <TouchableOpacity 
-              style={styles.headerActionButton}
-              onPress={() => setShowReminders(true)}
-            >
-              <Text style={styles.headerActionButtonText}>{t('developer.notifications')}</Text>
-            </TouchableOpacity>
-          )}
-        </View>
-      </View>
+      <AppHeader
+        onLogout={onLogout}
+        onLanguageToggle={() => setShowLanguageSwitcher(true)}
+        onDeveloperSettings={() => setShowDeveloperSettings(true)}
+        onRemindersToggle={() => setShowReminders(true)}
+        developerConfig={developerConfig}
+        featureToggles={featureToggles}
+      />
 
       {/* Navigation */}
       <View style={styles.navigationSection}>
