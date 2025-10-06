@@ -111,6 +111,50 @@ function MainApp({ user, onLogout }: { user: any; onLogout: () => void }) {
   const [developerConfig, setDeveloperConfig] = useState<DeveloperConfig | null>(null);
   const [featureToggles, setFeatureToggles] = useState<FeatureToggle | null>(null);
   
+  // Map screens to feature toggles for simple gating (Option A)
+  const isScreenEnabled = (screen: ScreenType): boolean => {
+    switch (screen) {
+      case 'scanner':
+        return !!featureToggles?.barcodeScanner;
+      case 'upload':
+        return !!featureToggles?.uploadLabelFeature;
+      case 'plan':
+        return !!featureToggles?.mealPlanFeature;
+      case 'track':
+        return !!featureToggles?.trackingFeature;
+      // These screens currently have no feature toggle and remain available
+      case 'recommendations':
+      case 'recipes':
+      case 'recipe-generation':
+      case 'recipe-search':
+      case 'my-recipes':
+      case 'recipe-detail':
+      case 'taste-preferences':
+      case 'shopping-optimization':
+      default:
+        return true;
+    }
+  };
+
+  // Centralized navigation helper with feature toggle validation
+  const navigateToScreenSafely = (screen: ScreenType, context?: {
+    targetContext?: string;
+    sourceScreen?: string;
+    planId?: string;
+  }) => {
+    if (isScreenEnabled(screen)) {
+      setCurrentScreen(screen);
+      setNavigationContext(context || {});
+    } else {
+      console.warn(`Navigation to ${screen} blocked: feature toggle disabled`);
+      Alert.alert(
+        'Feature Disabled',
+        `The ${screen} feature is currently disabled in settings.`,
+        [{ text: 'OK' }]
+      );
+    }
+  };
+  
   // Debug logging
   console.log('Current screen:', currentScreen);
   
@@ -420,33 +464,33 @@ function MainApp({ user, onLogout }: { user: any; onLogout: () => void }) {
       {/* Navigation */}
       <View style={styles.navigationSection}>
         {featureToggles?.barcodeScanner && (
-          <TouchableOpacity 
+          <TouchableOpacity
             style={[styles.navButton, isActiveScreen('scanner') && styles.navButtonActive]}
-            onPress={() => setCurrentScreen('scanner')}
+            onPress={() => navigateToScreenSafely('scanner')}
           >
             <Text style={[styles.navButtonText, isActiveScreen('scanner') && styles.navButtonTextActive]}>
               {t('navigation.barcodeScanner')}
             </Text>
           </TouchableOpacity>
         )}
-        
+
         {featureToggles?.uploadLabelFeature && (
-          <TouchableOpacity 
+          <TouchableOpacity
             style={[styles.navButton, isActiveScreen('upload') && styles.navButtonActive]}
-            onPress={() => setCurrentScreen('upload')}
+            onPress={() => navigateToScreenSafely('upload')}
           >
             <Text style={[styles.navButtonText, isActiveScreen('upload') && styles.navButtonTextActive]}>
               {t('navigation.uploadLabel')}
             </Text>
           </TouchableOpacity>
         )}
-        
+
         {featureToggles?.mealPlanFeature && (
-          <TouchableOpacity 
+          <TouchableOpacity
             style={[styles.navButton, isActiveScreen('plan') && styles.navButtonActive]}
             onPress={() => {
               console.log('Meal Plan tab pressed!');
-              setCurrentScreen('plan');
+              navigateToScreenSafely('plan');
             }}
           >
             <Text style={[styles.navButtonText, isActiveScreen('plan') && styles.navButtonTextActive]}>
@@ -454,11 +498,11 @@ function MainApp({ user, onLogout }: { user: any; onLogout: () => void }) {
             </Text>
           </TouchableOpacity>
         )}
-        
+
         {featureToggles?.trackingFeature && (
-          <TouchableOpacity 
+          <TouchableOpacity
             style={[styles.navButton, isActiveScreen('track') && styles.navButtonActive]}
-            onPress={() => setCurrentScreen('track')}
+            onPress={() => navigateToScreenSafely('track')}
           >
             <Text style={[styles.navButtonText, isActiveScreen('track') && styles.navButtonTextActive]}>
               {t('navigation.track')}
@@ -491,43 +535,62 @@ function MainApp({ user, onLogout }: { user: any; onLogout: () => void }) {
         </TouchableOpacity>
       </View>
 
-      {/* Quick Actions Section */}
-      <QuickActions
-        actions={[
-          {
+      {/* Quick Actions Section (respect feature toggles) */}
+      {(() => {
+        const actions = [] as Array<{
+          id: string;
+          title: string;
+          subtitle: string;
+          icon: string;
+          color: string;
+          onPress: () => void;
+        }>;
+
+        if (isScreenEnabled('scanner')) {
+          actions.push({
             id: 'scan',
             title: 'Scan Product',
             subtitle: 'Barcode scanner',
             icon: '📷',
             color: '#007AFF',
-            onPress: () => setCurrentScreen('scanner')
-          },
-          {
+            onPress: () => navigateToScreenSafely('scanner')
+          });
+        }
+
+        if (isScreenEnabled('track')) {
+          actions.push({
             id: 'log',
             title: 'Log Meal',
             subtitle: 'Track food',
             icon: '🍽️',
             color: '#34C759',
-            onPress: () => setCurrentScreen('track')
-          },
-          {
+            onPress: () => navigateToScreenSafely('track')
+          });
+        }
+
+        if (isScreenEnabled('plan')) {
+          actions.push({
             id: 'plan',
             title: 'View Plan',
             subtitle: 'Today\'s meals',
             icon: '📋',
             color: '#FF9500',
-            onPress: () => setCurrentScreen('plan')
-          },
-          {
-            id: 'recipes',
-            title: 'Get Recipe',
-            subtitle: 'AI suggestions',
-            icon: '👨‍🍳',
-            color: '#AF52DE',
-            onPress: () => setCurrentScreen('recipes')
-          }
-        ]}
-      />
+            onPress: () => navigateToScreenSafely('plan')
+          });
+        }
+
+        // Recipes currently has no feature toggle in DeveloperSettings
+        actions.push({
+          id: 'recipes',
+          title: 'Get Recipe',
+          subtitle: 'AI suggestions',
+          icon: '👨‍🍳',
+          color: '#AF52DE',
+          onPress: () => setCurrentScreen('recipes')
+        });
+
+        return actions.length > 0 ? <QuickActions actions={actions} /> : null;
+      })()}
 
       {/* Scanner Status in Top Left Corner */}
       <View style={styles.statusIndicator}>
