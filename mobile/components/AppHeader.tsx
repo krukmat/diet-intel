@@ -8,7 +8,6 @@ import {
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../contexts/AuthContext';
-import LanguageSwitcher, { LanguageToggle } from './LanguageSwitcher';
 import { DeveloperConfig, FeatureToggle } from '../services/DeveloperSettings';
 
 interface AppHeaderProps {
@@ -17,7 +16,7 @@ interface AppHeaderProps {
   onDeveloperSettings: () => void;
   onRemindersToggle: () => void;
   developerConfig: DeveloperConfig | null;
-  featureToggles: FeatureToggle | null;
+  featureToggles: Partial<FeatureToggle> | null;
 }
 
 const AppHeader: React.FC<AppHeaderProps> = ({
@@ -48,15 +47,17 @@ const AppHeader: React.FC<AppHeaderProps> = ({
           style={styles.headerActionButton}
           onPress={onLanguageToggle}
           testID="language-toggle"
+          accessibilityRole="button"
+          accessibilityLabel={t('navigation.language')}
         >
-          <Text style={styles.headerActionButtonText}>
-            {developerConfig?.isDeveloperModeEnabled ? '🌐' : '🌐'}
-          </Text>
+          <Text style={styles.headerActionButtonText}>🌐</Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={styles.headerActionButton}
           onPress={onLogout}
           testID="logout-button"
+          accessibilityRole="button"
+          accessibilityLabel={t('auth.logout')}
         >
           <Text style={styles.headerActionButtonText}>{t('auth.logout')}</Text>
         </TouchableOpacity>
@@ -65,6 +66,8 @@ const AppHeader: React.FC<AppHeaderProps> = ({
             style={styles.headerActionButton}
             onPress={onDeveloperSettings}
             testID="developer-settings-button"
+            accessibilityRole="button"
+            accessibilityLabel={t('developer.settings')}
           >
             <Text style={styles.headerActionButtonText}>{t('developer.settings')}</Text>
           </TouchableOpacity>
@@ -74,6 +77,8 @@ const AppHeader: React.FC<AppHeaderProps> = ({
             style={styles.headerActionButton}
             onPress={onRemindersToggle}
             testID="notifications-button"
+            accessibilityRole="button"
+            accessibilityLabel={t('developer.notifications')}
           >
             <Text style={styles.headerActionButtonText}>{t('developer.notifications')}</Text>
           </TouchableOpacity>
