@@ -13,7 +13,10 @@
     "test:e2e": "jest --testPathPattern=e2e",
     "test:asyncstorage": "jest --testPathPattern=AsyncStorage.unit.e2e.test.tsx",
     "test:asyncstorage:verbose": "jest --testPathPattern=AsyncStorage.unit.e2e.test.tsx --verbose",
-    "test:asyncstorage:full": "jest --testPathPattern=AsyncStorage.persistence.e2e.test.tsx --verbose"
+    "test:asyncstorage:full": "jest --testPathPattern=AsyncStorage.persistence.e2e.test.tsx --verbose",
+    "lint": "jslint **/*.{js,jsx,ts,tsx} --config .jslintrc.json",
+    "lint:fix": "jslint **/*.{js,jsx,ts,tsx} --config .jslintrc.json --fix",
+    "lint:check": "jslint **/*.{js,jsx,ts,tsx} --config .jslintrc.json --checkstyle > jslint-report.xml"
   },
   "dependencies": {
     "@expo/webpack-config": "^19.0.0",
