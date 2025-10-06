@@ -16,7 +16,7 @@ interface AppHeaderProps {
   onDeveloperSettings: () => void;
   onRemindersToggle: () => void;
   developerConfig: DeveloperConfig | null;
-  featureToggles: Partial<FeatureToggle> | null;
+  featureToggles: FeatureToggle | null;
 }
 
 const AppHeader: React.FC<AppHeaderProps> = ({
@@ -50,7 +50,9 @@ const AppHeader: React.FC<AppHeaderProps> = ({
           accessibilityRole="button"
           accessibilityLabel={t('navigation.language')}
         >
-          <Text style={styles.headerActionButtonText}>🌐</Text>
+          <Text style={styles.headerActionButtonText}>
+            {developerConfig?.isDeveloperModeEnabled ? '🧪🌐' : '🌐'}
+          </Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={styles.headerActionButton}
