@@ -1,0 +1,704 @@
+{
+  "feature": "FEAT-PROPORTIONS",
+  "name": "Registro por Foto con Estimación de Porciones",
+  "version": "1.0.0",
+  "description": "Sistema integrado de análisis visual que aprovecha infraestructura existente (Recipe AI, Smart Diet) para proporcionar registro automático de comidas con sugerencias de ejercicio complementario",
+  "author": "DietIntel Team",
+  "created": "2025-01-07",
+  "lastModified": "2025-01-07",
+
+  "allowedPaths": {
+    "backend": [
+      "app/routes/food_vision.py",
+      "app/services/food_vision_service.py",
+      "app/services/vision_analyzer.py",
+      "app/services/exercise_calculator.py",
+      "app/models/food_vision.py",
+      "app/models/exercise_suggestion.py",
+      "app/utils/portion_estimator.py",
+      "app/utils/image_processor.py"
+    ],
+    "mobile": [
+      "mobile/screens/VisionLogScreen.tsx",
+      "mobile/components/VisionAnalysisModal.tsx",
+      "mobile/components/ExerciseSuggestionCard.tsx",
+      "mobile/services/VisionLogService.ts",
+      "mobile/utils/imageUtils.ts",
+      "mobile/types/visionLog.ts"
+    ],
+    "shared": [
+      "specs/FEAT-PROPORTIONS.DevSpec.json",
+      "specs/FEAT-PROPORTIONS.TestPlan.md",
+      "specs/FEAT-PROPORTIONS.OpenAPI.yaml"
+    ]
+  },
+
+  "apiContracts": {
+    "foodVisionLog": {
+      "endpoint": "POST /food/vision-log",
+      "method": "POST",
+      "description": "Registra una comida mediante análisis de imagen con estimación de porciones",
+      "request": {
+        "contentType": "multipart/form-data",
+        "parameters": {
+          "image": {
+            "type": "file",
+            "required": true,
+            "description": "Imagen de la comida (JPEG/PNG, máx 10MB)",
+            "constraints": {
+              "maxSize": "10MB",
+              "allowedTypes": ["image/jpeg", "image/png", "image/webp"]
+            }
+          },
+          "meal_type": {
+            "type": "string",
+            "required": false,
+            "description": "Tipo de comida (breakfast, lunch, dinner)",
+            "default": "lunch",
+            "enum": ["breakfast", "lunch", "dinner"]
+          },
+          "user_context": {
+            "type": "object",
+            "required": false,
+            "description": "Contexto adicional del usuario",
+            "properties": {
+              "current_weight_kg": { "type": "number" },
+              "activity_level": { "type": "string", "enum": ["sedentary", "lightly_active", "moderately_active", "very_active", "extra_active"] },
+              "goal": { "type": "string", "enum": ["lose_weight", "maintain", "gain_weight"] }
+            }
+          }
+        }
+      },
+      "responses": {
+        "200": {
+          "description": "Análisis exitoso con identificación precisa",
+          "schema": {
+            "$ref": "#/models/VisionLogResponse"
+          }
+        },
+        "201": {
+          "description": "Análisis completado con sugerencias de ejercicio",
+          "schema": {
+            "$ref": "#/models/VisionLogWithExerciseResponse"
+          }
+        },
+        "202": {
+          "description": "Análisis completado pero requiere corrección manual",
+          "schema": {
+            "$ref": "#/models/LowConfidenceVisionResponse"
+          }
+        },
+        "400": {
+          "description": "Datos de imagen inválidos",
+          "schema": {
+            "$ref": "#/models/ErrorResponse"
+          }
+        },
+        "413": {
+          "description": "Imagen demasiado grande",
+          "schema": {
+            "$ref": "#/models/ErrorResponse"
+          }
+        },
+        "500": {
+          "description": "Error interno del servidor",
+          "schema": {
+            "$ref": "#/models/ErrorResponse"
+          }
+        }
+      }
+    },
+
+    "getVisionHistory": {
+      "endpoint": "GET /food/vision-history",
+      "method": "GET",
+      "description": "Obtiene historial de análisis de visión del usuario",
+      "parameters": {
+        "query": {
+          "limit": {
+            "type": "integer",
+            "required": false,
+            "default": 20,
+            "description": "Número máximo de registros a devolver"
+          },
+          "offset": {
+            "type": "integer",
+            "required": false,
+            "default": 0,
+            "description": "Número de registros a saltar"
+          },
+          "date_from": {
+            "type": "string",
+            "format": "date",
+            "required": false,
+            "description": "Fecha de inicio (YYYY-MM-DD)"
+          },
+          "date_to": {
+            "type": "string",
+            "format": "date",
+            "required": false,
+            "description": "Fecha de fin (YYYY-MM-DD)"
+          }
+        }
+      },
+      "responses": {
+        "200": {
+          "description": "Historial obtenido exitosamente",
+          "schema": {
+            "type": "object",
+            "properties": {
+              "logs": {
+                "type": "array",
+                "items": { "$ref": "#/models/VisionLogResponse" }
+              },
+              "total_count": { "type": "integer" },
+              "has_more": { "type": "boolean" }
+            }
+          }
+        }
+      }
+    },
+
+    "correctVisionLog": {
+      "endpoint": "PUT /food/vision-log/{log_id}/correct",
+      "method": "PUT",
+      "description": "Corrige un análisis previo de visión para mejorar precisión futura",
+      "parameters": {
+        "path": {
+          "log_id": {
+            "type": "string",
+            "required": true,
+            "description": "ID del análisis a corregir"
+          }
+        },
+        "body": {
+          "type": "object",
+          "required": true,
+          "properties": {
+            "corrected_portions": {
+              "type": "object",
+              "properties": {
+                "ingredient_name": { "type": "string" },
+                "estimated_grams": { "type": "number" },
+                "actual_grams": { "type": "number" }
+              }
+            },
+            "feedback_type": {
+              "type": "string",
+              "enum": ["portion_correction", "ingredient_misidentification", "missing_ingredient"]
+            }
+          }
+        }
+      },
+      "responses": {
+        "200": {
+          "description": "Corrección aplicada exitosamente",
+          "schema": {
+            "type": "object",
+            "properties": {
+              "success": { "type": "boolean", "value": true },
+              "message": { "type": "string" },
+              "improvement_score": { "type": "number" }
+            }
+          }
+        }
+      }
+    }
+  },
+
+  "models": {
+    "VisionLogResponse": {
+      "type": "object",
+      "description": "Respuesta exitosa de análisis de visión",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "ID único del análisis"
+        },
+        "user_id": {
+          "type": "string",
+          "description": "ID del usuario"
+        },
+        "image_url": {
+          "type": "string",
+          "description": "URL de la imagen analizada"
+        },
+        "meal_type": {
+          "type": "string",
+          "enum": ["breakfast", "lunch", "dinner"],
+          "description": "Tipo de comida identificada"
+        },
+        "identified_ingredients": {
+          "type": "array",
+          "items": {
+            "$ref": "#/models/IdentifiedIngredient"
+          },
+          "description": "Lista de ingredientes identificados"
+        },
+        "estimated_portions": {
+          "type": "object",
+          "properties": {
+            "total_calories": { "type": "number" },
+            "total_protein_g": { "type": "number" },
+            "total_fat_g": { "type": "number" },
+            "total_carbs_g": { "type": "number" },
+            "confidence_score": { "type": "number" }
+          }
+        },
+        "nutritional_analysis": {
+          "$ref": "#/models/NutritionalAnalysis"
+        },
+        "exercise_suggestions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/models/ExerciseSuggestion"
+          }
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "processing_time_ms": {
+          "type": "number"
+        }
+      },
+      "required": ["id", "identified_ingredients", "estimated_portions", "created_at"]
+    },
+
+    "VisionLogWithExerciseResponse": {
+      "allOf": [
+        { "$ref": "#/models/VisionLogResponse" },
+        {
+          "type": "object",
+          "properties": {
+            "exercise_suggestions": {
+              "type": "array",
+              "items": { "$ref": "#/models/ExerciseSuggestion" },
+              "minItems": 1
+            },
+            "calorie_balance": {
+              "$ref": "#/models/CalorieBalance"
+            }
+          }
+        }
+      ]
+    },
+
+    "LowConfidenceVisionResponse": {
+      "type": "object",
+      "description": "Respuesta cuando el análisis tiene baja confianza",
+      "properties": {
+        "id": { "type": "string" },
+        "confidence_score": { "type": "number", "maximum": 0.7 },
+        "partial_identification": {
+          "type": "array",
+          "items": { "$ref": "#/models/IdentifiedIngredient" }
+        },
+        "suggested_corrections": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "requires_manual_review": { "type": "boolean", "value": true },
+        "created_at": { "type": "string", "format": "date-time" }
+      }
+    },
+
+    "IdentifiedIngredient": {
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "category": { "type": "string" },
+        "estimated_grams": { "type": "number" },
+        "confidence_score": { "type": "number" },
+        "visual_markers": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "nutrition_per_100g": {
+          "type": "object",
+          "properties": {
+            "calories": { "type": "number" },
+            "protein_g": { "type": "number" },
+            "fat_g": { "type": "number" },
+            "carbs_g": { "type": "number" }
+          }
+        }
+      }
+    },
+
+    "NutritionalAnalysis": {
+      "type": "object",
+      "properties": {
+        "total_calories": { "type": "number" },
+        "macro_distribution": {
+          "type": "object",
+          "properties": {
+            "protein_percent": { "type": "number" },
+            "fat_percent": { "type": "number" },
+            "carbs_percent": { "type": "number" }
+          }
+        },
+        "micronutrients": {
+          "type": "object",
+          "additionalProperties": { "type": "number" }
+        },
+        "food_quality_score": { "type": "number" },
+        "health_benefits": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+
+    "ExerciseSuggestion": {
+      "type": "object",
+      "properties": {
+        "activity_type": {
+          "type": "string",
+          "enum": ["walking", "running", "swimming", "cycling", "home_exercise"]
+        },
+        "duration_minutes": { "type": "number" },
+        "estimated_calories_burned": { "type": "number" },
+        "intensity_level": {
+          "type": "string",
+          "enum": ["low", "moderate", "high"]
+        },
+        "reasoning": { "type": "string" },
+        "health_benefits": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+
+    "CalorieBalance": {
+      "type": "object",
+      "properties": {
+        "consumed_calories": { "type": "number" },
+        "target_calories": { "type": "number" },
+        "calorie_deficit": { "type": "number" },
+        "exercise_needed": { "type": "boolean" },
+        "balance_status": {
+          "type": "string",
+          "enum": ["under_target", "at_target", "over_target"]
+        }
+      }
+    },
+
+    "ErrorResponse": {
+      "type": "object",
+      "properties": {
+        "error": { "type": "string" },
+        "detail": { "type": "string" },
+        "error_code": { "type": "string" }
+      }
+    }
+  },
+
+  "databaseModels": {
+    "vision_logs": {
+      "table": "vision_logs",
+      "description": "Almacena análisis de imágenes de comida",
+      "columns": {
+        "id": "VARCHAR(36) PRIMARY KEY",
+        "user_id": "VARCHAR(36) NOT NULL",
+        "image_url": "TEXT",
+        "meal_type": "VARCHAR(20)",
+        "identified_ingredients": "JSON",
+        "estimated_portions": "JSON",
+        "nutritional_analysis": "JSON",
+        "exercise_suggestions": "JSON",
+        "confidence_score": "FLOAT",
+        "processing_time_ms": "INTEGER",
+        "created_at": "TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
+        "updated_at": "TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP"
+      },
+      "indexes": [
+        "INDEX idx_vision_logs_user_id (user_id)",
+        "INDEX idx_vision_logs_created_at (created_at)",
+        "INDEX idx_vision_logs_meal_type (meal_type)"
+      ]
+    },
+
+    "vision_corrections": {
+      "table": "vision_corrections",
+      "description": "Almacena correcciones de usuarios para mejorar precisión",
+      "columns": {
+        "id": "VARCHAR(36) PRIMARY KEY",
+        "vision_log_id": "VARCHAR(36) NOT NULL",
+        "user_id": "VARCHAR(36) NOT NULL",
+        "correction_type": "VARCHAR(50)",
+        "original_data": "JSON",
+        "corrected_data": "JSON",
+        "improvement_score": "FLOAT",
+        "created_at": "TIMESTAMP DEFAULT CURRENT_TIMESTAMP"
+      },
+      "indexes": [
+        "INDEX idx_vision_corrections_log_id (vision_log_id)",
+        "INDEX idx_vision_corrections_user_id (user_id)"
+      ]
+    }
+  },
+
+  "serviceContracts": {
+    "VisionAnalyzer": {
+      "class": "VisionAnalyzer",
+      "module": "app.services.vision_analyzer",
+      "description": "Servicio principal de análisis de imágenes",
+      "methods": {
+        "analyze_image": {
+          "signature": "async analyze_image(image_path: str, user_context: dict) -> VisionAnalysisResult",
+          "description": "Analiza imagen y devuelve resultado completo",
+          "parameters": {
+            "image_path": "Ruta local a la imagen",
+            "user_context": "Contexto del usuario (peso, objetivos, etc.)"
+          }
+        },
+        "identify_ingredients": {
+          "signature": "async identify_ingredients(image_path: str) -> List[IdentifiedIngredient]",
+          "description": "Identifica ingredientes en la imagen"
+        },
+        "estimate_portions": {
+          "signature": "async estimate_portions(ingredients: List[IdentifiedIngredient], image_path: str) -> PortionsEstimate",
+          "description": "Estima porciones basado en análisis visual"
+        }
+      }
+    },
+
+    "ExerciseCalculator": {
+      "class": "ExerciseCalculator",
+      "module": "app.services.exercise_calculator",
+      "description": "Calcula sugerencias de ejercicio basadas en balance calórico",
+      "methods": {
+        "calculate_calorie_deficit": {
+          "signature": "calculate_calorie_deficit(consumed: float, target: float) -> float",
+          "description": "Calcula déficit calórico"
+        },
+        "suggest_exercise": {
+          "signature": "suggest_exercise(deficit_calories: float, user_profile: dict) -> List[ExerciseSuggestion]",
+          "description": "Sugiere actividades físicas para complementar nutrición"
+        },
+        "estimate_calories_burned": {
+          "signature": "estimate_calories_burned(activity: str, duration_minutes: int, user_weight_kg: float) -> float",
+          "description": "Estima calorías quemadas por actividad"
+        }
+      }
+    },
+
+    "PortionEstimator": {
+      "class": "PortionEstimator",
+      "module": "app.utils.portion_estimator",
+      "description": "Utilidades para estimación de porciones",
+      "methods": {
+        "estimate_from_visual_markers": {
+          "signature": "estimate_from_visual_markers(markers: List[str], reference_objects: List[str]) -> float",
+          "description": "Estima tamaño basado en marcadores visuales"
+        },
+        "calculate_nutritional_impact": {
+          "signature": "calculate_nutritional_impact(ingredient: str, grams: float) -> NutritionalImpact",
+          "description": "Calcula impacto nutricional de una porción"
+        }
+      }
+    }
+  },
+
+  "mobileContracts": {
+    "VisionLogScreen": {
+      "component": "VisionLogScreen",
+      "module": "mobile/screens/VisionLogScreen.tsx",
+      "description": "Pantalla principal de registro por foto",
+      "props": {
+        "onAnalysisComplete": "function",
+        "onExerciseSuggestion": "function",
+        "defaultMealType": "string"
+      },
+      "state": {
+        "selectedImage": "string|null",
+        "isAnalyzing": "boolean",
+        "analysisResult": "VisionLogResponse|null",
+        "showExerciseSuggestions": "boolean"
+      }
+    },
+
+    "VisionLogService": {
+      "class": "VisionLogService",
+      "module": "mobile/services/VisionLogService.ts",
+      "description": "Servicio móvil para comunicación con API de visión",
+      "methods": {
+        "uploadImageForAnalysis": {
+          "signature": "async uploadImageForAnalysis(imageUri: string, mealType: string) -> VisionLogResponse",
+          "description": "Sube imagen para análisis"
+        },
+        "getAnalysisHistory": {
+          "signature": "async getAnalysisHistory(limit?: number, offset?: number) -> VisionLogResponse[]",
+          "description": "Obtiene historial de análisis"
+        },
+        "submitCorrection": {
+          "signature": "async submitCorrection(logId: string, correction: CorrectionData) -> boolean",
+          "description": "Envía corrección para mejorar precisión"
+        }
+      }
+    }
+  },
+
+  "dependencies": {
+    "backend": {
+      "required": [
+        "fastapi>=0.100.0",
+        "opencv-python>=4.8.0",
+        "Pillow>=10.0.0",
+        "numpy>=1.24.0",
+        "scikit-image>=0.21.0",
+        "torch>=2.0.0",
+        "torchvision>=0.15.0"
+      ],
+      "optional": [
+        "tensorflow>=2.13.0",
+        "onnxruntime>=1.15.0"
+      ]
+    },
+    "mobile": {
+      "required": [
+        "expo-camera>=13.0.0",
+        "expo-image-manipulator>=11.0.0",
+        "react-native-vision-camera>=3.0.0"
+      ],
+      "optional": [
+        "react-native-tensorflow>=0.5.0"
+      ]
+    }
+  },
+
+  "performanceRequirements": {
+    "analysisTime": {
+      "target": "< 3 seconds",
+      "acceptable": "< 5 seconds",
+      "description": "Tiempo de análisis de imagen end-to-end"
+    },
+    "accuracy": {
+      "recipeRecognition": "> 85%",
+      "portionEstimation": "> 75%",
+      "calorieCalculation": "> 90%"
+    },
+    "concurrentUsers": {
+      "target": 50,
+      "acceptable": 25,
+      "description": "Usuarios concurrentes para MVP inicial"
+    }
+  },
+
+  "implementationPriority": {
+    "phase1": {
+      "name": "Recipe AI Integration",
+      "weeks": "1-2",
+      "tokens": "400-600",
+      "focus": "Integración con infraestructura existente",
+      "successCriteria": "Flujo Recipe AI → análisis visual → tracking funcional"
+    },
+    "phase2": {
+      "name": "Visual Analysis Engine",
+      "weeks": "3-4",
+      "tokens": "800-900",
+      "focus": "Identificación visual inteligente de ingredientes",
+      "successCriteria": "Precisión >80% en identificación de ingredientes comunes"
+    },
+    "phase3": {
+      "name": "Exercise Integration",
+      "weeks": "3-4",
+      "tokens": "850-950",
+      "focus": "Sugerencias ejercicio complementario",
+      "successCriteria": "Cálculo preciso de déficit calórico + actividades sugeridas"
+    }
+  },
+
+  "integrationPoints": {
+    "recipeAI": {
+      "description": "Integración con Recipe AI existente para reconocimiento de recetas preparadas",
+      "endpoints": ["/recipe/generate", "/recipe/{id}"],
+      "dataFlow": "Recipe AI → Image Analysis → Nutrition Calculation → Tracking"
+    },
+    "smartDiet": {
+      "description": "Uso de análisis visual para enriquecer recomendaciones Smart Diet",
+      "endpoints": ["/smart-diet/optimized", "/smart-diet/insights"],
+      "dataFlow": "Vision Analysis → Smart Diet Context → Enhanced Recommendations"
+    },
+    "mealPlanner": {
+      "description": "Registro automático en meal plan existente",
+      "endpoints": ["/plan/generate", "/plan/customize/{plan_id}"],
+      "dataFlow": "Vision Analysis → Automatic Registration → Plan Update"
+    }
+  },
+
+  "securityConsiderations": {
+    "imageStorage": "Imágenes almacenadas temporalmente, eliminadas después de procesamiento",
+    "userData": "Solo metadatos nutricionales almacenados, no imágenes originales",
+    "privacy": "Procesamiento local cuando posible, transmisión segura de datos",
+    "retention": "Logs retenidos máximo 90 días para análisis de mejora"
+  },
+
+  "implementationStrategy": {
+    "mvpScope": {
+      "primaryGoal": "Integración Recipe AI → análisis visual → tracking automático",
+      "keyFeature": "Registro automático de recetas preparadas con análisis visual",
+      "successMetric": "Usuario genera receta → prepara → fotografía → registro automático",
+      "timeline": "2-3 semanas"
+    },
+
+    "technicalApproach": {
+      "leverageExisting": [
+        "Recipe AI engine existente para reconocimiento de recetas",
+        "OCR pipeline ya desarrollado para análisis de etiquetas",
+        "Sistema de nutrición y base de datos existente",
+        "Smart Diet engine para recomendaciones",
+        "Autenticación y autorización JWT ya implementada"
+      ],
+      "newDevelopment": [
+        "Servicio de análisis visual integrado con Recipe AI",
+        "Algoritmo de reconocimiento de recetas preparadas",
+        "Sistema de sugerencias de ejercicio sin dispositivos",
+        "Interfaz móvil integrada con cámara existente"
+      ]
+    },
+
+    "riskMitigation": {
+      "technicalRisks": [
+        {
+          "risk": "Baja precisión en identificación visual inicial",
+          "mitigation": "Empezar con casos simples (recetas conocidas)",
+          "fallback": "Sistema de corrección simple para mejora progresiva"
+        },
+        {
+          "risk": "Performance pobre bajo carga",
+          "mitigation": "MVP con límites de usuarios concurrentes (25-50)",
+          "fallback": "Procesamiento asíncrono con cola"
+        }
+      ],
+      "businessRisks": [
+        {
+          "risk": "Usuarios no adoptan flujo integrado",
+          "mitigation": "Flujo natural desde receta hasta registro",
+          "fallback": "Funcionalidad independiente si es necesario"
+        }
+      ]
+    },
+
+    "successMetrics": {
+      "adoption": {
+        "target": "40-60% comidas registradas por foto vs manual",
+        "measurement": "Analytics de uso de cámara vs entrada manual"
+      },
+      "accuracy": {
+        "target": ">85% precisión en identificación de recetas preparadas",
+        "measurement": "Comparación análisis visual vs receta original"
+      },
+      "performance": {
+        "target": "<3 segundos tiempo de análisis end-to-end",
+        "measurement": "Tiempo desde foto hasta resultado"
+      },
+      "retention": {
+        "target": "25-35% mejora en adherencia nutricional",
+        "measurement": "Correlación uso análisis visual vs adherencia"
+      }
+    }
+  }
+}

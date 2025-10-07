@@ -1,0 +1,292 @@
+"""
+Food Vision Service - Main service for photo-based meal analysis
+
+Part of FEAT-PROPORTIONS implementation
+Orchestrates food analysis, exercise suggestions, and data persistence
+"""
+
+import logging
+import time
+import uuid
+from typing import Dict, Any, List, Optional
+from datetime import datetime
+
+from app.models.food_vision import (
+    VisionLogResponse, VisionLogWithExerciseResponse,
+    LowConfidenceVisionResponse, ErrorResponse
+)
+from app.services.vision_analyzer import VisionAnalyzer
+from app.services.exercise_calculator import ExerciseCalculator
+from app.models.exercise_suggestion import ExerciseRecommendation
+
+logger = logging.getLogger(__name__)
+
+class FoodVisionService:
+    """Main service for analyzing food images and providing nutritional insights"""
+
+    def __init__(self):
+        self.vision_analyzer = VisionAnalyzer()
+        self.exercise_calculator = ExerciseCalculator()
+
+    async def analyze_food_image(
+        self,
+        image_data: bytes,
+        user_id: str,
+        meal_type: str = "lunch",
+        user_context: Optional[Dict[str, Any]] = None
+    ) -> VisionLogResponse:
+        """
+        Analyze food image and return complete nutritional analysis
+
+        Args:
+            image_data: Raw image bytes
+            user_id: User identifier
+            meal_type: Type of meal (breakfast|lunch|dinner)
+            user_context: Additional user context (weight, goals, etc.)
+
+        Returns:
+            Complete analysis response
+        """
+
+        analysis_id = str(uuid.uuid4())
+        start_time = time.time()
+
+        try:
+            logger.info(f"Starting food analysis for user {user_id}, meal: {meal_type}")
+
+            # Analyze image using vision analyzer
+            analysis_result = await self.vision_analyzer.analyze_image(
+                image_data=image_data
+            )
+
+            # Calculate processing time
+            processing_time = int((time.time() - start_time) * 1000)
+
+            # Build nutritional analysis
+            nutritional_analysis = self._build_nutritional_analysis(analysis_result)
+
+            # Determine if exercise suggestions are needed
+            exercise_suggestions = []
+            calorie_balance = None
+
+            if user_context and nutritional_analysis["total_calories"] > 2000:  # Mock target
+                # Calculate deficit (assuming over target)
+                deficit = nutritional_analysis["total_calories"] - 2000
+                exercise_suggestions = await self._get_exercise_suggestions(deficit, user_context)
+
+                calorie_balance = {
+                    "consumed_calories": nutritional_analysis["total_calories"],
+                    "target_calories": 2000,  # Mock target
+                    "calorie_deficit": deficit,
+                    "exercise_needed": bool(exercise_suggestions),
+                    "balance_status": "over_target" if deficit > 0 else "under_target"
+                }
+
+            # Create response based on whether exercise suggestions are included
+            if exercise_suggestions:
+                response = VisionLogWithExerciseResponse(
+                    id=analysis_id,
+                    user_id=user_id,
+                    image_url=f"/api/v1/vision/image/{analysis_id}",
+                    meal_type=meal_type,
+                    identified_ingredients=analysis_result.get("identified_ingredients", []),
+                    estimated_portions=self._build_portions_estimate(analysis_result),
+                    nutritional_analysis=nutritional_analysis,
+                    exercise_suggestions=exercise_suggestions,
+                    calorie_balance=calorie_balance,
+                    created_at=datetime.utcnow().isoformat(),
+                    processing_time_ms=processing_time
+                )
+            else:
+                response = VisionLogResponse(
+                    id=analysis_id,
+                    user_id=user_id,
+                    image_url=f"/api/v1/vision/image/{analysis_id}",
+                    meal_type=meal_type,
+                    identified_ingredients=analysis_result.get("identified_ingredients", []),
+                    estimated_portions=self._build_portions_estimate(analysis_result),
+                    nutritional_analysis=nutritional_analysis,
+                    exercise_suggestions=[],
+                    created_at=datetime.utcnow().isoformat(),
+                    processing_time_ms=processing_time
+                )
+
+            # TODO: Persist analysis result to database
+            logger.info(f"Completed analysis {analysis_id} in {processing_time}ms")
+            return response
+
+        except Exception as e:
+            logger.error(f"Error in food image analysis: {e}", exc_info=True)
+            raise Exception(f"Analysis failed: {str(e)}")
+
+    async def get_analysis_history(
+        self,
+        user_id: str,
+        limit: int = 20,
+        offset: int = 0
+    ) -> Dict[str, Any]:
+        """
+        Get user's analysis history
+
+        MVP: Return empty list until BD is implemented
+        """
+        logger.info(f"Retrieving analysis history for user {user_id}")
+
+        # TODO: Implement database query when vision_logs table is available
+        return {
+            "logs": [],
+            "total_count": 0,
+            "has_more": False
+        }
+
+    async def submit_correction(
+        self,
+        log_id: str,
+        user_id: str,
+        correction_data: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """
+        Submit user correction for improved analysis
+
+        Args:
+            log_id: Analysis ID to correct
+            user_id: User making the correction
+            correction_data: Correction details
+        """
+        logger.info(f"Processing correction for analysis {log_id} by user {user_id}")
+
+        try:
+            # TODO: Validate correction data
+            # TODO: Store correction in vision_corrections table
+            # TODO: Calculate improvement score
+
+            # Mock implementation
+            improvement_score = 0.15  # 15% improvement assumed
+
+            correction_record = {
+                "id": str(uuid.uuid4()),
+                "vision_log_id": log_id,
+                "user_id": user_id,
+                "correction_type": correction_data.get("feedback_type", "general"),
+                "original_data": correction_data.get("original_data", {}),
+                "corrected_data": correction_data.get("corrected_data", {}),
+                "improvement_score": improvement_score,
+                "created_at": datetime.utcnow().isoformat()
+            }
+
+            # TODO: Persist correction_record to database
+
+            return {
+                "success": True,
+                "message": "Correction recorded for future improvements",
+                "improvement_score": improvement_score
+            }
+
+        except Exception as e:
+            logger.error(f"Error processing correction: {e}")
+            raise Exception(f"Correction failed: {str(e)}")
+
+    def _build_nutritional_analysis(self, analysis_result: Dict[str, Any]) -> Dict[str, Any]:
+        """Build complete nutritional analysis from raw results"""
+        identified = analysis_result.get("identified_ingredients", [])
+
+        if not identified:
+            return {
+                "total_calories": 0,
+                "macro_distribution": {"protein_percent": 0, "fat_percent": 0, "carbs_percent": 0},
+                "food_quality_score": 0.0,
+                "health_benefits": []
+            }
+
+        total_calories = analysis_result.get("estimated_portions", {}).get("total_calories", 0)
+
+        # Calculate macro distribution
+        protein_cal = analysis_result.get("estimated_portions", {}).get("total_protein_g", 0) * 4
+        fat_cal = analysis_result.get("estimated_portions", {}).get("total_fat_g", 0) * 9
+        carb_cal = analysis_result.get("estimated_portions", {}).get("total_carbs_g", 0) * 4
+
+        macro_distribution = {}
+        if total_calories > 0:
+            macro_distribution = {
+                "protein_percent": round((protein_cal / total_calories) * 100),
+                "fat_percent": round((fat_cal / total_calories) * 100),
+                "carbs_percent": round((carb_cal / total_calories) * 100)
+            }
+
+        # Determine health benefits based on identified foods
+        health_benefits = self._determine_health_benefits(identified)
+
+        # Quality score based on ingredient variety and nutrients
+        quality_score = min(0.9, len(identified) * 0.1 + 0.5)
+
+        return {
+            "total_calories": total_calories,
+            "macro_distribution": macro_distribution,
+            "food_quality_score": quality_score,
+            "health_benefits": health_benefits
+        }
+
+    def _build_portions_estimate(self, analysis_result: Dict[str, Any]) -> Dict[str, Any]:
+        """Build portions estimate from analysis"""
+        return analysis_result.get("portion_estimate", {
+            "total_calories": 0,
+            "total_protein_g": 0,
+            "total_fat_g": 0,
+            "total_carbs_g": 0,
+            "confidence_score": 0.0
+        })
+
+    async def _get_exercise_suggestions(
+        self,
+        deficit_calories: float,
+        user_context: Dict[str, Any]
+    ) -> List[ExerciseRecommendation]:
+        """Generate exercise suggestions based on caloric deficit"""
+        try:
+            suggestions = self.exercise_calculator.suggest_exercise(
+                abs(deficit_calories),
+                user_context
+            )
+
+            # Convert to ExerciseRecommendation model
+            return [
+                ExerciseRecommendation(
+                    activity=s["activity_type"],
+                    duration_min=s["duration_minutes"],
+                    calories_burn=s["estimated_calories_burned"],
+                    intensity=s["intensity_level"],
+                    reasoning=s["reasoning"],
+                    health_benefits=s["health_benefits"]
+                )
+                for s in suggestions
+            ]
+
+        except Exception as e:
+            logger.warning(f"Could not generate exercise suggestions: {e}")
+            return []
+
+    def _determine_health_benefits(self, identified_ingredients: List[Dict[str, Any]]) -> List[str]:
+        """Determine health benefits based on identified ingredients"""
+        benefits = set()
+
+        for ingredient in identified_ingredients:
+            name = ingredient.get("name", "").lower()
+            category = ingredient.get("category", "").lower()
+
+            if "pollo" in name or "chicken" in name or "proteína" in category:
+                benefits.add("Alto contenido de proteína")
+                benefits.add("Bajo en grasas saturadas")
+
+            if "vegetal" in category or "verdura" in category:
+                benefits.add("Rico en vitaminas y minerales")
+                benefits.add("Alto contenido de fibra")
+
+            if "fruta" in category or "fruit" in name:
+                benefits.add("Fuente natural de antioxidantes")
+                benefits.add("Ayuda a la digestión")
+
+        return list(benefits)
+
+
+# Singleton instance
+food_vision_service = FoodVisionService()

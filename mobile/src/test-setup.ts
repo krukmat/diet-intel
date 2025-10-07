@@ -1,3 +1,95 @@
+/**
+ * Test setup file with comprehensive mocking for React Native/Expo components
+ */
+
+// Mock expo-camera completely to avoid native module errors
+jest.mock('expo-camera', () => {
+  const React = require('react');
+  const mockComponent = require('../testUtils').createMockComponent || ((name: string) =>
+    React.forwardRef((props: any, ref: any) => React.createElement('div', {
+      ...props,
+      'data-testid': props.testID || name.toLowerCase(),
+      ref
+    }, props.children))
+  );
+
+  const CameraMockComponent = mockComponent('Camera');
+
+  // Add static methods to Camera component
+  CameraMockComponent.requestCameraPermissionsAsync = jest.fn(() => Promise.resolve({ status: 'granted' }));
+  CameraMockComponent.requestMicrophonePermissionsAsync = jest.fn(() => Promise.resolve({ status: 'granted' }));
+  CameraMockComponent.getCameraPermissionsAsync = jest.fn(() => Promise.resolve({ status: 'granted' }));
+  CameraMockComponent.getMicrophonePermissionsAsync = jest.fn(() => Promise.resolve({ status: 'granted' }));
+  CameraMockComponent.takePictureAsync = jest.fn(() => Promise.resolve({
+    uri: 'mock-camera-uri',
+    base64: undefined,
+    exif: {},
+    height: 3024,
+    width: 4032,
+    takenAt: Date.now(),
+    type: 'image' as const
+  }));
+  CameraMockComponent.Constants = {
+    BarCodeType: 'org.iso.Code128',
+    Type: { front: 'front', back: 'back' },
+    FlashMode: { on: 'on', off: 'off', auto: 'auto' },
+    CameraMode: { picture: 'picture', video: 'video' },
+    VideoQuality: { '2160p': '2160p' },
+    VideoCodec: { AppleProRes422: 'AppleProRes422' },
+    AutoFocus: { on: 'on', off: 'off' },
+    WhiteBalance: { auto: 'auto' },
+    VideoStabilization: { off: 'off' }
+  };
+
+  return {
+    __esModule: true,
+    Camera: CameraMockComponent,
+    CameraCapturedPicture: {},
+    requestCameraPermissionsAsync: jest.fn(() => Promise.resolve({ status: 'granted' })),
+    requestMicrophonePermissionsAsync: jest.fn(() => Promise.resolve({ status: 'granted' })),
+    getCameraPermissionsAsync: jest.fn(() => Promise.resolve({ status: 'granted' })),
+    getMicrophonePermissionsAsync: jest.fn(() => Promise.resolve({ status: 'granted' })),
+    takePictureAsync: jest.fn(() => Promise.resolve({
+      uri: 'mock-camera-uri',
+      base64: undefined,
+      exif: {},
+      height: 3024,
+      width: 4032,
+      takenAt: Date.now(),
+      type: 'image' as const
+    })),
+    CameraView: mockComponent('ExpoCameraView'),
+    useCameraPermissions: jest.fn(() => [null, jest.fn(), jest.fn()]),
+    useMicrophonePermissions: jest.fn(() => [null, jest.fn(), jest.fn()]),
+    BarcodeScanningResult: {
+      type: 'org.iso.Code128',
+      data: 'test-barcode',
+      cornerPoints: [],
+      bounds: null,
+    },
+    Constants: CameraMockComponent.Constants
+  };
+});
+
+// Mock expo-media-library
+jest.mock('expo-media-library', () => ({
+  requestPermissionsAsync: jest.fn(() => Promise.resolve({ status: 'granted' })),
+  getPermissionsAsync: jest.fn(() => Promise.resolve({ status: 'granted' })),
+  createAssetAsync: jest.fn(() => Promise.resolve({ id: 'mock-asset-id' })),
+  MediaLibraryPermissionResponse: {
+    canAskAgain: true,
+    expires: 'never',
+    granted: true,
+    status: 'granted'
+  }
+}));
+
+// Mock expo-screen-capture
+jest.mock('expo-screen-capture', () => ({
+  addScreenshotListener: jest.fn(() => ({ remove: jest.fn() })),
+  removeScreenshotListeners: jest.fn()
+}));
+
 // Simplified test setup without problematic React Native imports
 
 // Mock AsyncStorage
@@ -163,9 +255,12 @@ jest.mock('expo-localization', () => ({
 
 jest.mock('react-i18next', () => ({
   useTranslation: jest.fn(() => ({
-    t: jest.fn((key) => key),
+    t: jest.fn((key: string, fallback?: string) => {
+      // Return fallback if provided, otherwise return key for debugging
+      return fallback || key;
+    }),
     i18n: {
-      language: 'en',
+      language: 'es',
       changeLanguage: jest.fn(() => Promise.resolve())
     }
   })),
