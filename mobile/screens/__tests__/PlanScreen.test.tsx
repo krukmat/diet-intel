@@ -14,6 +14,62 @@ jest.mock('../../services/ApiService', () => ({
   }
 }));
 
+// Mock i18next and its plugins to prevent initialization issues
+jest.mock('i18next', () => ({
+  use: jest.fn().mockReturnThis(),
+  init: jest.fn().mockReturnThis(),
+  language: 'en',
+  changeLanguage: jest.fn(),
+}));
+
+jest.mock('react-i18next', () => ({
+  useTranslation: () => ({
+    t: jest.fn((key: string, options?: any) => {
+      const translations: Record<string, any> = {
+        'plan.title': '🍽️ Daily Meal Plan',
+        'plan.todaysCalories': options?.calories ? `Today's Plan (${options.calories} kcal)` : 'Today\'s Calories',
+        'plan.dailyProgress': 'Daily Progress',
+        'plan.calories': 'Calories',
+        'plan.protein': 'Protein',
+        'plan.fat': 'Fat',
+        'plan.carbs': 'Carbs',
+        'plan.plannedMeals': 'Planned Meals',
+        'plan.customize': 'Customize',
+        'plan.generating': 'Generating plan...',
+        'plan.failed': 'Failed to generate plan',
+        'plan.retry': 'Retry',
+        'plan.generateNewPlan': 'Generate New Plan',
+        'plan.optimize.button': 'Optimize Plan',
+        'plan.optimize.title': 'Optimize Plan',
+        'plan.optimize.noPlan': 'No plan available to optimize',
+        'common.cancel': 'Cancel',
+        'common.ok': 'OK'
+      };
+      return translations[key] || key;
+    }),
+    i18n: {
+      language: 'en',
+      changeLanguage: jest.fn(),
+    },
+  }),
+  initReactI18next: jest.fn(),
+}));
+
+// Mock food translation utility
+jest.mock('../../utils/foodTranslation', () => ({
+  translateFoodNameSync: jest.fn((name: string) => name),
+}));
+
+// Mock AsyncStorage for meal plan storage
+jest.mock('@react-native-async-storage/async-storage', () =>
+  require('@react-native-async-storage/async-storage/jest/async-storage-mock')
+);
+
+// Mock expo-localization
+jest.mock('expo-localization', () => ({
+  locale: 'en-US',
+}));
+
 describe('PlanScreen', () => {
   const mockOnBackPress = jest.fn();
   const mockApiService = apiService as jest.Mocked<typeof apiService>;
@@ -53,7 +109,11 @@ describe('PlanScreen', () => {
           total_fat: 40,
           total_carbs: 200
         }
-      }
+      },
+      status: 200,
+      statusText: 'OK',
+      headers: {},
+      config: {} as any,
     });
 
     // Mock product search
@@ -68,7 +128,11 @@ describe('PlanScreen', () => {
           fat_g_per_100g: 12,
           carbs_g_per_100g: 30
         }
-      }
+      },
+      status: 200,
+      statusText: 'OK',
+      headers: {},
+      config: {} as any,
     });
 
     mockApiService.searchProduct.mockResolvedValue({
@@ -80,7 +144,11 @@ describe('PlanScreen', () => {
           fat_g_per_100g: 10,
           carbs_g_per_100g: 25
         }
-      }
+      },
+      status: 200,
+      statusText: 'OK',
+      headers: {},
+      config: {} as any,
     });
   });
 
@@ -268,12 +336,18 @@ describe('PlanScreen', () => {
     });
 
     it('should handle empty meal plan responses', () => {
-      mockApiService.generateMealPlan.mockResolvedValue({ data: null });
-      
+      mockApiService.generateMealPlan.mockResolvedValue({
+        data: null,
+        status: 200,
+        statusText: 'OK',
+        headers: {},
+        config: {} as any
+      });
+
       const component = TestRenderer.create(
         <PlanScreen onBackPress={mockOnBackPress} />
       );
-      
+
       expect(component.toJSON()).toBeTruthy();
     });
   });
