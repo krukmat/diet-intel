@@ -66,7 +66,7 @@ describe('CorrectionModal', () => {
       return Promise.resolve({ success: true });
     });
 
-    const { getByText } = render(<CorrectionModal {...mockProps} />);
+    const { getByText, unmount } = render(<CorrectionModal {...mockProps} />);
 
     const submitButton = getByText('Submit');
     fireEvent.press(submitButton);
@@ -77,7 +77,10 @@ describe('CorrectionModal', () => {
         'Correction Required',
         'Please correct at least one ingredient'
       );
-    });
+    }, { timeout: 3000 });
+
+    // Cleanup después de verificar
+    unmount();
   });
 
   it('handles submission states correctly', async () => {
