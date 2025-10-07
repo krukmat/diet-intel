@@ -29,7 +29,7 @@ describe('PlanScreen', () => {
         daily_calorie_target: 2000,
         meals: [
           {
-            name: 'Breakfast',
+            name: 'Breakfast',           // ✅ Propiedad faltante
             target_calories: 500,
             actual_calories: 480,
             items: [
@@ -38,7 +38,11 @@ describe('PlanScreen', () => {
                 name: 'Oatmeal',
                 serving: '100g',
                 calories: 300,
-                macros: { protein_g: 10, fat_g: 5, carbs_g: 50 }
+                macros: {
+                  protein_g: 10,
+                  fat_g: 5,
+                  carbs_g: 50
+                }
               }
             ]
           }

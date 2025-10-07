@@ -548,6 +548,66 @@ jest.mock('react-native', () => {
 // Global React mock for component testing
 global.React = require('react');
 
+// Global test cleanup to prevent memory leaks and handle timers
+let activeTimeouts: Set<NodeJS.Timeout> = new Set();
+let activeIntervals: Set<NodeJS.Timeout> = new Set();
+
+// Override setTimeout/setInterval to track them
+const originalSetTimeout = global.setTimeout;
+const originalSetInterval = global.setInterval;
+const originalClearTimeout = global.clearTimeout;
+const originalClearInterval = global.clearInterval;
+
+global.setTimeout = ((handler: TimerHandler, timeout?: number, ...args: any[]) => {
+  const timeoutId = originalSetTimeout(handler, timeout, ...args) as any;
+  activeTimeouts.add(timeoutId);
+  return timeoutId;
+});
+
+global.setInterval = ((handler: TimerHandler, interval?: number, ...args: any[]) => {
+  const intervalId = originalSetInterval(handler, interval, ...args) as any;
+  activeIntervals.add(intervalId);
+  return intervalId;
+});
+
+global.clearTimeout = ((timeoutId: any) => {
+  activeTimeouts.delete(timeoutId);
+  return originalClearTimeout(timeoutId);
+});
+
+global.clearInterval = ((intervalId: any) => {
+  activeIntervals.delete(intervalId);
+  return originalClearInterval(intervalId);
+});
+
+// Global test cleanup
+const globalTestCleanup = () => {
+  // Clean up any remaining timers
+  for (const timeoutId of activeTimeouts) {
+    originalClearTimeout(timeoutId);
+  }
+  for (const intervalId of activeIntervals) {
+    originalClearInterval(intervalId);
+  }
+  activeTimeouts.clear();
+  activeIntervals.clear();
+
+  // Clean up SyncManager
+  try {
+    const syncManager = require('../services/SyncManager').syncManager;
+    if (syncManager && typeof syncManager.cleanupForTests === 'function') {
+      syncManager.cleanupForTests();
+    }
+  } catch (error) {
+    // Ignore errors during cleanup
+  }
+};
+
+// Add global cleanup after each test using Jest globals
+jest.useFakeTimers();
+afterEach(() => {
+  globalTestCleanup();
+});
 
 // Silence console during tests
 const originalConsole = global.console;
