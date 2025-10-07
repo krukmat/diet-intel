@@ -603,11 +603,8 @@ const globalTestCleanup = () => {
   }
 };
 
-// Add global cleanup after each test using Jest globals
-jest.useFakeTimers();
-afterEach(() => {
-  globalTestCleanup();
-});
+// Note: Removed global hook setup to prevent "Hooks cannot be defined inside tests" error
+// Tests should handle their own cleanup if needed
 
 // Silence console during tests
 const originalConsole = global.console;
