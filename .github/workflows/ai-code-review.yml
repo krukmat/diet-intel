@@ -39,7 +39,7 @@ jobs:
           # Construye el JSON sin problemas de quoting usando --rawfile
           jq -n --rawfile diff diff.patch '
           {
-            model: "gpt-5-codex-medium",
+            model: "gpt-5-codex-high",
             input: [
               {
                 "role": "system",
