@@ -17,6 +17,7 @@ from app.models.food_vision import (
 )
 from app.services.vision_analyzer import VisionAnalyzer
 from app.services.exercise_calculator import ExerciseCalculator
+from app.services.database import db_service
 from app.models.exercise_suggestion import ExerciseRecommendation
 
 logger = logging.getLogger(__name__)
@@ -286,6 +287,172 @@ class FoodVisionService:
                 benefits.add("Ayuda a la digestión")
 
         return list(benefits)
+
+
+    async def save_analysis(self, user_id: str, response: VisionLogResponse) -> VisionLogResponse:
+        """Persist analysis result to database"""
+        try:
+            # Map VisionLogResponse to dict for database storage
+            vision_log_dict = {
+                "id": response.id,
+                "user_id": user_id,
+                "image_url": response.image_url,
+                "meal_type": response.meal_type,
+                "identified_ingredients": [ingred.dict() for ingred in response.identified_ingredients],
+                "estimated_portions": response.estimated_portions.dict() if hasattr(response.estimated_portions, 'dict') else response.estimated_portions,
+                "nutritional_analysis": response.nutritional_analysis.dict(),
+                "exercise_suggestions": [ex.dict() for ex in response.exercise_suggestions],
+                "confidence_score": response.estimated_portions.get("confidence_score", 0.0),
+                "processing_time_ms": response.processing_time_ms,
+                "created_at": response.created_at,
+            }
+
+            persisted = await db_service.create_vision_log(vision_log_dict)
+
+            logger.info(f"Analysis {response.id} persisted for user {user_id}")
+            return VisionLogResponse(**persisted)
+
+        except Exception as e:
+            logger.error(f"Failed to persist analysis {response.id}: {e}")
+            raise
+
+    async def get_user_history(
+        self,
+        user_id: str,
+        limit: int = 20,
+        offset: int = 0,
+        date_from: Optional[str] = None,
+        date_to: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """
+        Get user history with date filtering
+        """
+        try:
+            # Get records from database
+            rows, total_count = await db_service.list_vision_logs(
+                user_id=user_id,
+                limit=limit,
+                offset=offset,
+                date_from=date_from,
+                date_to=date_to
+            )
+
+            # Convert to VisionLogResponse objects
+            logs = []
+            for row in rows:
+                # Parse identified_ingredients
+                identified_ingredients = []
+                if row.get("identified_ingredients"):
+                    if isinstance(row["identified_ingredients"], str):
+                        import json
+                        identified_ingredients = json.loads(row["identified_ingredients"])
+                    else:
+                        identified_ingredients = row["identified_ingredients"]
+
+                # Parse exercise_suggestions
+                exercise_suggestions = []
+                if row.get("exercise_suggestions"):
+                    if isinstance(row["exercise_suggestions"], str):
+                        import json
+                        exercise_suggestions = json.loads(row["exercise_suggestions"])
+                    else:
+                        exercise_suggestions = row["exercise_suggestions"]
+
+                log = VisionLogResponse(
+                    id=row["id"],
+                    user_id=row["user_id"],
+                    image_url=row["image_url"],
+                    meal_type=row["meal_type"],
+                    identified_ingredients=identified_ingredients,
+                    estimated_portions=row.get("estimated_portions", {}),
+                    nutritional_analysis=row.get("nutritional_analysis", {}),
+                    exercise_suggestions=exercise_suggestions,
+                    created_at=row["created_at"].isoformat() if isinstance(row["created_at"], datetime) else row["created_at"],
+                    processing_time_ms=row.get("processing_time_ms", 0)
+                )
+                logs.append(log)
+
+            has_more = offset + len(logs) < total_count
+
+            return {
+                "logs": [log.dict() for log in logs],
+                "total_count": total_count,
+                "has_more": has_more
+            }
+
+        except Exception as e:
+            logger.error(f"Failed to get user history for {user_id}: {e}")
+            raise
+
+    async def submit_correction(
+        self,
+        log_id: str,
+        user_id: str,
+        correction_data: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """
+        Submit correction and return processed result
+        """
+        try:
+            # Verify log belongs to user
+            log = await db_service.get_vision_log(log_id)
+            if not log:
+                raise Exception(f"Analysis log {log_id} not found")
+            if log["user_id"] != user_id:
+                raise Exception("Unauthorized to correct this analysis")
+
+            # Calculate improvement score
+            improvement_score = self._calculate_improvement_score(correction_data)
+
+            # Prepare correction record
+            correction_dict = {
+                "vision_log_id": log_id,
+                "user_id": user_id,
+                "correction_type": correction_data.get("feedback_type", "general"),
+                "original_data": correction_data.get("original_data", {}),
+                "corrected_data": correction_data.get("corrected_data", {}),
+                "improvement_score": improvement_score,
+                "created_at": datetime.utcnow(),
+            }
+
+            correction_result = await db_service.create_vision_correction(correction_dict)
+
+            # Log the correction
+            logger.info(f"Correction submitted for log {log_id} by user {user_id}, improvement: {improvement_score}")
+
+            return {
+                "success": True,
+                "correction_id": correction_result["id"],
+                "improvement_score": improvement_score,
+                "message": "Correction recorded for future improvements"
+            }
+
+        except Exception as e:
+            logger.error(f"Failed to submit correction for {log_id}: {e}")
+            raise Exception(f"Correction failed: {str(e)}")
+
+    def _calculate_improvement_score(self, correction_data: Dict[str, Any]) -> float:
+        """Calculate improvement score based on correction type and data"""
+        feedback_type = correction_data.get("feedback_type", "general")
+
+        # Base scores by feedback type
+        base_scores = {
+            "portion_correction": 0.3,
+            "ingredient_misidentification": 0.5,
+            "missing_ingredient": 0.4,
+            "general": 0.2
+        }
+
+        score = base_scores.get(feedback_type, 0.2)
+
+        # Bonus if specific corrections provided
+        if correction_data.get("corrected_portions"):
+            score += 0.2
+
+        if correction_data.get("correction_notes"):
+            score += 0.1
+
+        return min(0.9, score)  # Cap at 90% improvement
 
 
 # Singleton instance

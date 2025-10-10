@@ -29,7 +29,7 @@ async def analyze_food_image(
     current_weight_kg: Optional[float] = Form(None, description="Peso actual en kg"),
     activity_level: Optional[str] = Form(None, description="Nivel de actividad"),
     goal: Optional[str] = Form(None, description="Objetivo: lose_weight|maintain|gain_weight"),
-    credentials: HTTPAuthorizationCredentials = Depends(security)
+    current_context: auth_module.RequestContext = Depends(auth_module.get_current_request_context),
 ) -> VisionLogResponse:
     """
     Analyze food image and return nutritional breakdown with exercise suggestions
@@ -48,13 +48,10 @@ async def analyze_food_image(
     if file.content_type not in ["image/jpeg", "image/png", "image/webp"]:
         raise HTTPException(status_code=400, detail="Only JPEG, PNG, and WebP images are supported")
 
-    # Validate and process authentication
-    current_user = None
-    user_id = "anonymous_user"
-
-    # MVP: Simplified auth - accept anonymous users for now
-    # TODO: Implement proper authentication when auth system is ready
-    user_id = "anonymous_user"
+    # Enforce JWT authentication
+    user_id = current_context.user_id
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Authentication required for analysis")
 
     # Read and validate file
     try:
@@ -93,10 +90,18 @@ async def analyze_food_image(
             user_context=user_context if user_context else None
         )
 
-        # Log successful analysis
-        logger.info(f"Food analysis completed for user {user_id}: {len(result.identified_ingredients)} ingredients, {result.estimated_portions.get('total_calories', 0)} calories")
+        # Persistir análisis después de obtener resultado
+        try:
+            persisted_response = await food_vision_service.save_analysis(user_id, result)
+            logger.info(f"Analysis persisted for user {user_id}: {persisted_response.id}")
+        except Exception as persist_error:
+            logger.error(f"Failed to persist analysis but continuing: {persist_error}")
+            persisted_response = result
 
-        return result
+        # Log successful analysis
+        logger.info(f"Food analysis completed for user {user_id}: {len(persisted_response.identified_ingredients)} ingredients, {persisted_response.estimated_portions.get('total_calories', 0)} calories")
+
+        return persisted_response
 
     except Exception as e:
         logger.error(f"Error in food image analysis: {e}", exc_info=True)
@@ -110,7 +115,8 @@ async def get_user_analysis_history(
     limit: int = Query(20, ge=1, le=100, description="Number of records to return"),
     offset: int = Query(0, ge=0, description="Number of records to skip"),
     date_from: Optional[str] = Query(None, description="Start date (YYYY-MM-DD)"),
-    date_to: Optional[str] = Query(None, description="End date (YYYY-MM-DD)")
+    date_to: Optional[str] = Query(None, description="End date (YYYY-MM-DD)"),
+    current_context: auth_module.RequestContext = Depends(auth_module.get_current_request_context),
 ) -> Dict[str, Any]:
     """
     Retrieve user's food analysis history
@@ -120,20 +126,20 @@ async def get_user_analysis_history(
     - Supports basic pagination (no auth required for MVP)
     """
 
-    # MVP: No authentication required - return mock data
-    user_id = "anonymous_user"
+    # Enforce JWT authentication
+    user_id = current_context.user_id
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Authentication required for history")
 
     try:
-        # Get user history (currently returns mock data)
-        history = await food_vision_service.get_analysis_history(
+        # Get user history con filtering
+        history = await food_vision_service.get_user_history(
             user_id=user_id,
             limit=limit,
-            offset=offset
+            offset=offset,
+            date_from=date_from,
+            date_to=date_to
         )
-
-        # Apply date filtering if requested (TODO: implement in service)
-        if date_from or date_to:
-            logger.info(f"Date filtering requested but not yet implemented: {date_from} to {date_to}")
 
         logger.info(f"Retrieved analysis history for user {user_id}: {len(history.get('logs', []))} records")
 
@@ -154,7 +160,8 @@ async def submit_analysis_correction(
     corrected_fat_g: Optional[str] = Form(None, description="Corrected fat in grams"),
     corrected_carbs_g: Optional[str] = Form(None, description="Corrected carbs in grams"),
     correction_notes: Optional[str] = Form("", description="Additional correction notes"),
-    feedback_type: str = Form("portion_correction", description="Type of correction feedback")
+    feedback_type: str = Form("portion_correction", description="Type of correction feedback"),
+    current_context: auth_module.RequestContext = Depends(auth_module.get_current_request_context),
 ) -> Dict[str, Any]:
     """
     Submit user correction for improving future analysis
@@ -164,8 +171,17 @@ async def submit_analysis_correction(
     - Logs correction for future improvements (no auth required for MVP)
     """
 
-    # MVP: No authentication required
-    user_id = "anonymous_user"
+    # Cambiar ruta para requerir auth
+    user_id = current_context.user_id
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Authentication required for corrections")
+
+    # Validate log_id with uuid.UUID
+    try:
+        import uuid
+        uuid.UUID(log_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid analysis log ID format")
 
     # Validate log_id format (basic UUID check)
     import re
