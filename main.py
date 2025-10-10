@@ -12,6 +12,7 @@ from app.routes.recommendations import router as recommendations_router
 from app.routes.smart_diet import router as smart_diet_router
 from app.routes.recipe_ai import router as recipe_ai_router
 from app.routes.translation import router as translation_router
+from app.routes.food_vision import router as food_vision_router
 from app.services.smart_diet import smart_diet_engine
 from logging_config import setup_logging
 
@@ -60,6 +61,7 @@ app.include_router(recipe_ai_router, prefix="/recipe", tags=["recipe-ai"], inclu
 app.include_router(track_router, prefix="/track", tags=["tracking"])
 app.include_router(reminder_router, prefix="/reminder", tags=["reminders"])
 app.include_router(analytics_router, prefix="/analytics", tags=["analytics"])
+app.include_router(food_vision_router, tags=["food-vision"])
 app.include_router(translation_router)
 
 # Expose key services on the app instance for testing/inspection

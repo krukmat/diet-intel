@@ -19,6 +19,7 @@ import UploadLabel from './screens/UploadLabel';
 import PlanScreen from './screens/PlanScreen';
 import TrackScreen from './screens/TrackScreen';
 import SmartDietScreen from './screens/SmartDietScreen';
+import VisionLogScreen from './screens/VisionLogScreen';
 import RecipeHomeScreen from './screens/RecipeHomeScreen';
 import RecipeGenerationScreen from './screens/RecipeGenerationScreen';
 import RecipeSearchScreen from './screens/RecipeSearchScreen';
@@ -93,7 +94,7 @@ function MainApp({ user, onLogout }: { user: any; onLogout: () => void }) {
   const [hasPermission, setHasPermission] = useState<boolean | null>(null);
   const [scanned, setScanned] = useState(false);
   const [showCamera, setShowCamera] = useState(false);
-  type ScreenType = 'scanner' | 'upload' | 'plan' | 'track' | 'recommendations' | 'recipes' | 'recipe-generation' | 'recipe-search' | 'my-recipes' | 'recipe-detail' | 'taste-preferences' | 'shopping-optimization';
+  type ScreenType = 'scanner' | 'upload' | 'plan' | 'track' | 'recommendations' | 'recipes' | 'recipe-generation' | 'recipe-search' | 'my-recipes' | 'recipe-detail' | 'taste-preferences' | 'shopping-optimization' | 'vision';
   const [currentScreen, setCurrentScreen] = useState<ScreenType>('scanner');
   const [navigationContext, setNavigationContext] = useState<{
     targetContext?: string;
@@ -378,6 +379,13 @@ function MainApp({ user, onLogout }: { user: any; onLogout: () => void }) {
     />;
   }
 
+  if (currentScreen === 'vision') {
+    console.log('Rendering VisionLogScreen...');
+    return <VisionLogScreen
+      onBackPress={() => setCurrentScreen('scanner')}
+    />;
+  }
+
   return (
     <SafeAreaView style={styles.container}>
       <ExpoStatusBar style="light" backgroundColor="#007AFF" />
@@ -477,7 +485,7 @@ function MainApp({ user, onLogout }: { user: any; onLogout: () => void }) {
           </Text>
         </TouchableOpacity>
         
-        <TouchableOpacity 
+        <TouchableOpacity
           style={[styles.navButton, isActiveScreen('recipes') && styles.navButtonActive]}
           onPress={() => {
             console.log('Recipe AI tab pressed!');
@@ -486,6 +494,18 @@ function MainApp({ user, onLogout }: { user: any; onLogout: () => void }) {
         >
           <Text style={[styles.navButtonText, isActiveScreen('recipes') && styles.navButtonTextActive]}>
             {t('navigation.recipes')}
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.navButton, isActiveScreen('vision') && styles.navButtonActive]}
+          onPress={() => {
+            console.log('Food Vision tab pressed!');
+            setCurrentScreen('vision');
+          }}
+        >
+          <Text style={[styles.navButtonText, isActiveScreen('vision') && styles.navButtonTextActive]}>
+            {t('navigation.vision', 'Vision')}
           </Text>
         </TouchableOpacity>
       </View>

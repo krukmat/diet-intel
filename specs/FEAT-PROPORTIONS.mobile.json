@@ -1,0 +1,337 @@
+{
+  "feature": "FEAT-PROPORTIONS",
+  "platform": "mobile",
+  "name": "Registro por Foto con Estimación de Porciones - Móvil",
+  "version": "1.0.0",
+  "description": "Implementación móvil integrada de análisis visual que aprovecha infraestructura existente para proporcionar registro automático de comidas con sugerencias de ejercicio",
+  "author": "DietIntel Team",
+  "created": "2025-01-07",
+  "lastModified": "2025-01-07",
+
+  "mobileArchitecture": {
+    "integrationStrategy": "extension_existing",
+    "navigationIntegration": "new_tab_vision",
+    "serviceStrategy": "extend_existing_services",
+    "uiConsistency": "reuse_existing_patterns"
+  },
+
+  "modules": {
+    "VisionLogScreen": {
+      "component": "VisionLogScreen.tsx",
+      "module": "mobile/screens/VisionLogScreen.tsx",
+      "description": "Pantalla principal de registro por foto integrada con navegación existente",
+      "integration": {
+        "navigationTab": "Vision",
+        "position": 7,
+        "icon": "camera",
+        "existingPattern": "follow_existing_navigation"
+      },
+      "functionality": {
+        "cameraIntegration": "reuse_expo_camera",
+        "imageProcessing": "local_processing",
+        "apiCommunication": "existing_api_client",
+        "loadingStates": "existing_loading_patterns",
+        "errorHandling": "existing_error_handler"
+      }
+    },
+
+    "VisionAnalysisModal": {
+      "component": "VisionAnalysisModal.tsx",
+      "module": "mobile/components/VisionAnalysisModal.tsx",
+      "description": "Modal de análisis en tiempo real con resultados de identificación",
+      "integration": {
+        "uiPattern": "reuse_existing_modal_patterns",
+        "styling": "consistent_with_existing_ui",
+        "animations": "existing_animation_library"
+      }
+    },
+
+    "ExerciseSuggestionCard": {
+      "component": "ExerciseSuggestionCard.tsx",
+      "module": "mobile/components/ExerciseSuggestionCard.tsx",
+      "description": "Tarjetas de sugerencias de ejercicio complementario",
+      "integration": {
+        "designPattern": "reuse_existing_card_components",
+        "dataIntegration": "integrate_with_smart_diet_service"
+      }
+    },
+
+    "VisionHistoryScreen": {
+      "component": "VisionHistoryScreen.tsx",
+      "module": "mobile/screens/VisionHistoryScreen.tsx",
+      "description": "Pantalla de historial integrada con funcionalidad de tracking existente",
+      "integration": {
+        "navigationPattern": "modal_or_separate_screen",
+        "dataIntegration": "extend_existing_tracking_service",
+        "uiConsistency": "follow_track_screen_patterns"
+      }
+    },
+
+    "CorrectionModal": {
+      "component": "CorrectionModal.tsx",
+      "module": "mobile/components/CorrectionModal.tsx",
+      "description": "Modal para correcciones manuales de análisis",
+      "integration": {
+        "formPattern": "reuse_existing_form_components",
+        "validation": "existing_validation_patterns"
+      }
+    }
+  },
+
+  "services": {
+    "VisionLogService": {
+      "class": "VisionLogService",
+      "module": "mobile/services/VisionLogService.ts",
+      "description": "Servicio móvil para comunicación con API de visión",
+      "strategy": "extend_existing_api_service",
+      "integration": {
+        "baseService": "extend_ApiService_existing",
+        "errorHandling": "reuse_ErrorHandler_existing",
+        "authIntegration": "reuse_AuthService_existing"
+      },
+      "methods": {
+        "uploadImageForAnalysis": {
+          "signature": "async uploadImageForAnalysis(imageUri: string, mealType: string) -> VisionLogResponse",
+          "integration": "reuse_existing_api_patterns"
+        },
+        "getAnalysisHistory": {
+          "signature": "async getAnalysisHistory(limit?: number, offset?: number) -> VisionLogResponse[]",
+          "integration": "reuse_existing_data_patterns"
+        },
+        "submitCorrection": {
+          "signature": "async submitCorrection(logId: string, correction: CorrectionData) -> boolean",
+          "integration": "reuse_existing_form_patterns"
+        }
+      }
+    },
+
+    "ImageUtils": {
+      "class": "ImageUtils",
+      "module": "mobile/utils/imageUtils.ts",
+      "description": "Utilidades de procesamiento de imagen móvil",
+      "integration": {
+        "cameraIntegration": "reuse_expo_camera_existing",
+        "imageProcessing": "reuse_expo_image_manipulator_existing"
+      }
+    }
+  },
+
+  "types": {
+    "visionLog": {
+      "file": "mobile/types/visionLog.ts",
+      "description": "Tipos TypeScript específicos para análisis visual",
+      "integration": {
+        "baseTypes": "extend_existing_types",
+        "consistency": "follow_existing_type_patterns"
+      },
+      "interfaces": [
+        "VisionLogResponse",
+        "IdentifiedIngredient",
+        "ExerciseSuggestion",
+        "CorrectionData",
+        "VisionLogError"
+      ]
+    }
+  },
+
+  "integrationPoints": {
+    "existingServices": {
+      "ApiClient": {
+        "strategy": "extend_existing",
+        "description": "Reutilizar cliente HTTP ya configurado"
+      },
+      "AuthService": {
+        "strategy": "reuse_existing",
+        "description": "Integrar con autenticación ya implementada"
+      },
+      "ErrorHandler": {
+        "strategy": "reuse_existing",
+        "description": "Usar manejo de errores establecido"
+      },
+      "translationService": {
+        "strategy": "extend_existing",
+        "description": "Agregar textos específicos de visión"
+      }
+    },
+
+    "existingUI": {
+      "navigation": {
+        "strategy": "add_new_tab",
+        "pattern": "follow_existing_navigation_structure"
+      },
+      "components": {
+        "strategy": "reuse_existing_components",
+        "pattern": "maintain_ui_consistency"
+      },
+      "styling": {
+        "strategy": "follow_existing_styles",
+        "pattern": "consistent_with_current_design"
+      }
+    },
+
+    "existingFeatures": {
+      "SmartDiet": {
+        "integration": "enhance_existing_service",
+        "description": "Integrar sugerencias de ejercicio con Smart Diet"
+      },
+      "TrackScreen": {
+        "integration": "add_vision_history",
+        "description": "Agregar historial de análisis visual al tracking"
+      },
+      "RecipeAI": {
+        "integration": "enhance_with_vision",
+        "description": "Mejorar reconocimiento de recetas con análisis visual"
+      }
+    }
+  },
+
+  "implementationPlan": {
+    "phase1": {
+      "name": "Fundación Optimizada",
+      "duration": "1 semana",
+      "focus": "Tipos y servicios base reutilizando infraestructura existente",
+      "tasks": [
+        "Crear tipos TypeScript específicos (visionLog.ts)",
+        "Extender servicios existentes (ApiService, AuthService)",
+        "Crear utilidades de imagen básicas",
+        "Agregar pestaña Vision a navegación existente"
+      ],
+      "successCriteria": "Infraestructura base lista y navegación integrada"
+    },
+
+    "phase2": {
+      "name": "Pantalla Principal Optimizada",
+      "duration": "1-2 semanas",
+      "focus": "VisionLogScreen integrada con cámara existente",
+      "tasks": [
+        "Desarrollar VisionLogScreen integrada con navegación",
+        "Implementar captura de cámara reutilizando expo-camera",
+        "Crear modal de análisis siguiendo patrones existentes",
+        "Mostrar resultados usando componentes UI establecidos"
+      ],
+      "successCriteria": "Captura y análisis básico funcional integrado"
+    },
+
+    "phase3": {
+      "name": "Funcionalidades Avanzadas",
+      "duration": "2 semanas",
+      "focus": "Historial y correcciones integradas con servicios existentes",
+      "tasks": [
+        "Implementar historial integrado con TrackScreen",
+        "Desarrollar correcciones usando forms existentes",
+        "Agregar sugerencias ejercicio con SmartDietService",
+        "Implementar filtros usando componentes actuales"
+      ],
+      "successCriteria": "Funcionalidades completas integradas con ecosistema"
+    },
+
+    "phase4": {
+      "name": "Optimización y Testing",
+      "duration": "1 semana",
+      "focus": "Performance y testing usando infraestructura existente",
+      "tasks": [
+        "Optimizar usando cache Redis existente",
+        "Testing integrado con suite actual",
+        "Performance validation con herramientas existentes",
+        "Documentación siguiendo estándares establecidos"
+      ],
+      "successCriteria": "Sistema optimizado y completamente integrado"
+    }
+  },
+
+  "optimizationStrategy": {
+    "performance": {
+      "caching": "reuse_existing_redis_cache",
+      "monitoring": "reuse_existing_performance_monitor",
+      "optimization": "leverage_existing_optimizations"
+    },
+
+    "development": {
+      "timeReduction": "3-4_semanas_vs_6-8_originales",
+      "integration": "high_reuse_of_existing_code",
+      "riskReduction": "lower_bug_probability",
+      "consistency": "maintain_ui_patterns"
+    },
+
+    "maintenance": {
+      "codeReuse": "extend_existing_services",
+      "patternConsistency": "follow_established_patterns",
+      "testingIntegration": "use_existing_test_suite"
+    }
+  },
+
+  "successMetrics": {
+    "adoption": {
+      "target": "30-40% comidas registradas por foto",
+      "measurement": "analytics de uso cámara vs entrada manual",
+      "realistic": true
+    },
+
+    "integration": {
+      "target": "100% reutilización de servicios existentes",
+      "measurement": "análisis de código reutilizado",
+      "consistency": "100% adherencia a patrones UI existentes"
+    },
+
+    "performance": {
+      "target": "<2 segundos tiempo de análisis",
+      "measurement": "aprovechando infraestructura existente",
+      "optimization": "usar cache y monitoreo actuales"
+    },
+
+    "userExperience": {
+      "target": "experiencia consistente con aplicación existente",
+      "measurement": "feedback de usuarios sobre consistencia",
+      "integration": "navegación fluida entre funcionalidades"
+    }
+  },
+
+  "risksAndMitigations": {
+    "duplication": {
+      "risk": "Crear servicios similares a los existentes",
+      "mitigation": "Extender servicios actuales en lugar de crear nuevos",
+      "impact": "reducción significativa de tiempo de desarrollo"
+    },
+
+    "uiInconsistency": {
+      "risk": "Nueva UI podría no seguir patrones establecidos",
+      "mitigation": "Reutilizar componentes existentes y seguir guías de estilo",
+      "impact": "mejor experiencia de usuario consistente"
+    },
+
+    "performanceImpact": {
+      "risk": "Nueva funcionalidad podría afectar performance optimizado",
+      "mitigation": "Usar infraestructura de cache y monitoreo existente",
+      "impact": "mantener altos estándares de performance"
+    }
+  },
+
+  "dependencies": {
+    "existing": {
+      "expo-camera": "ya instalado y configurado",
+      "axios": "cliente HTTP ya disponible",
+      "react-navigation": "navegación ya implementada",
+      "auth-context": "autenticación ya configurada",
+      "i18next": "internacionalización ya integrada",
+      "error-handler": "manejo de errores ya disponible"
+    },
+
+    "new": {
+      "additional": "mínimas dependencias adicionales necesarias",
+      "strategy": "máximo aprovechamiento de dependencias existentes"
+    }
+  },
+
+  "testingStrategy": {
+    "integration": "usar suite de testing existente",
+    "components": "aprovechar testing library ya configurado",
+    "e2e": "integrar con tests end-to-end actuales",
+    "performance": "usar herramientas de validación existentes"
+  },
+
+  "documentation": {
+    "inline": "comentarios siguiendo estándares existentes",
+    "readme": "documentación integrada con README móvil actual",
+    "api": "documentación de servicios siguiendo patrones establecidos"
+  }
+}

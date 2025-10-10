@@ -1,0 +1,101 @@
+# 🚀 RUN_TESTS - Tests Específicos de FEAT-PROPORTIONS-vision-analysis Branch
+# Rama: feature/FEAT-PROPORTIONS-vision-analysis
+# Fecha: 07/10/2025
+# Descripción: Tests añadidos/modificados para feature de análisis de visión y porciones
+
+## 🔍 CONVENIOS DE EJECUCIÓN
+# Backend: python -m pytest [archivo] -v
+# Mobile: cd mobile && npm test -- --testPathPattern=[archivo] -v
+
+## 📁 BACKEND TESTS (Python/PyTest)
+
+### 🆕 TESTS NUEVOS AÑADIDOS EN ESTA RAMA
+# Estos tests NO existen en master - fueron creados específicamente
+
+# Tests de cálculo de ejercicios y nutrición por porciones
+python -m pytest tests/test_exercise_calculator.py -v
+python -m pytest tests/test_food_vision_models.py -v
+python -m pytest tests/test_portion_estimator.py -v
+
+### 🔄 TESTS MODIFICADOS EN ESTA RAMA
+# Estos tests existen en master pero fueron modificados
+
+# Tests existentes modificados (sin listado específico aquí)
+
+## 📱 MOBILE TESTS (React Native/Jest)
+
+### 🆕 TESTS NUEVOS AÑADIDOS EN ESTA RAMA
+# Tests de componentes de visión y logging de comidas
+
+# Componentes de corrección modal
+cd mobile && npm test -- --testPathPattern=CorrectionModal.test.tsx -v
+
+# Pantallas de historia de visión
+cd mobile && npm test -- --testPathPattern=VisionHistoryScreen.test.tsx -v
+
+# Pantalla principal de logging con visión
+cd mobile && npm test -- --testPathPattern=VisionLogScreen.test.tsx -v
+
+# Servicios de logging visual
+cd mobile && npm test -- --testPathPattern=VisionLogService.test.ts -v
+
+### 🔄 TESTS MODIFICADOS EN ESTA RAMA
+# Tests existentes que fueron corregidos/mejorados
+
+# Test de PlanScreen corregido (renderizado de objetos)
+cd mobile && npm test -- --testPathPattern=PlanScreen.test.tsx -v
+
+# Configuración de API mejorada
+cd mobile && npm test -- --testPathPattern=ApiConfigModal.test.tsx -v
+
+# Reminders mejorados
+cd mobile && npm test -- --testPathPattern=ReminderSnippet.test.tsx -v
+
+# Configuración de environment
+cd mobile && npm test -- --testPathPattern=environments.test.ts -v
+
+## 🚀 EJECUCIÓN RÁPIDA - COMANDOS COMPLETOS
+
+### Ejecutar TODOS los tests de backend únicos de esta rama
+python -m pytest tests/test_exercise_calculator.py tests/test_food_vision_models.py tests/test_portion_estimator.py -v
+
+### Ejecutar TODOS los tests de mobile únicos de esta rama
+cd mobile && npm test -- --testPathPattern="CorrectionModal.test.tsx|VisionHistoryScreen.test.tsx|VisionLogScreen.test.tsx|VisionLogService.test.ts" -v
+
+## 📊 COBERTURA TOTAL DE TESTS ÚNICOS
+
+### Backend (3 tests nuevos)
+- ✅ test_exercise_calculator.py
+- ✅ test_food_vision_models.py
+- ✅ test_portion_estimator.py
+
+### Mobile (4 tests nuevos + 1 documentación)
+- ✅ CorrectionModal.test.tsx
+- ✅ VisionHistoryScreen.test.tsx
+- ✅ VisionLogScreen.test.tsx
+- ✅ VisionLogService.test.ts
+- ✅ FIX_PlanScreen.test (documentación)
+
+### Tests modificados (5 total)
+- 🔄 PlanScreen.test.tsx (corregido objeto rendering)
+- 🔄 ApiConfigModal.test.tsx
+- 🔄 ReminderSnippet.test.tsx
+- 🔄 environments.test.ts
+- 🔄 test-setup.ts
+
+## 🎯 RESUMEN EJECUTIVO
+
+**TOTAL TESTS ÚNICOS DE ESTA RAMA:** 8 tests nuevos
+**TOTAL TESTS MODIFICADOS:** 5 tests existentes
+**FOCO DE FUNCIONALIDAD:** Análisis visual de comidas, estimación de porciones, logging con fotos
+
+### Comandos para ejecutar todo:
+```bash
+# Backend único
+python -m pytest tests/test_exercise_calculator.py tests/test_food_vision_models.py tests/test_portion_estimator.py -v
+
+# Mobile único
+cd mobile && npm test -- --testPathPattern="CorrectionModal.test.tsx|VisionHistoryScreen.test.tsx|VisionLogScreen.test.tsx|VisionLogService.test.ts" -v
+
+# Tests modificados
+cd mobile && npm test -- --testPathPattern="PlanScreen.test.tsx|ApiConfigModal.test.tsx|ReminderSnippet.test.tsx" -v

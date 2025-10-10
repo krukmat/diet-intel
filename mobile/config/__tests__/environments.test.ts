@@ -53,7 +53,7 @@ describe('Environment Configuration', () => {
 
     it('should use appropriate URLs for development environments', () => {
       expect(environments.dev.apiBaseUrl).toBe('http://localhost:8000');
-      expect(environments.android_dev.apiBaseUrl).toBe('http://192.168.1.136:8000');
+      expect(environments.android_dev.apiBaseUrl).toBe('http://192.168.1.57:8000');
       expect(environments.ios_dev.apiBaseUrl).toBe('http://localhost:8000');
     });
   });
