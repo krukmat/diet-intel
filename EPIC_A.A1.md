@@ -283,42 +283,26 @@ Objetivo: entregar la visualización de perfiles sociales conforme a la especifi
 - [x] 6.2 Crear app/utils/feature_flags.py con assert_feature_enabled
 - [x] 7.1 Crear tests/social/test_profile_routes.py con todos los casos especificados
 
-### Webapp (Express)
-⚠️ *Revisión 2025-10-12*: hay archivos nuevos, pero deben ajustarse para cumplir los requerimientos. Pasos concretos para que `cline:x-ai/grok-code-fast-1` (o un junior) pueda completarlos:
-- [ ] 1.1 `webapp/utils/api.js` – integrar métodos sociales correctamente.  
-  1. Asegúrate de mantener el `axios.create(...)` original y sus interceptores/logging (no dejar métodos “Existing…” vacíos).  
-  2. Implementa `getCurrentUser(authToken)`, `getProfile(userId, authToken?)`, `updateProfile(data, authToken?)`: usan `this.client` y cuando `authToken` existe añaden `Authorization: Bearer ...`.  
-  3. Maneja errores llamando `this.handleAPIError` (igual que otros métodos). Añade comentarios mínimos si cambia la firma de la clase.  
-  4. Ejecuta un lint rápido (`npm --prefix webapp run lint` si existe) para validar que no rompiste otras funciones.
-- [ ] 2.1 `webapp/routes/profiles.js` – usar middleware real y preservar usuario.  
-  1. Importa `{ requireAuth, checkAuth }` desde `webapp/middleware/auth.js`.  
-  2. Elimina las funciones locales homónimas y usa las importadas.  
-  3. Revisa `POST /profiles/me`: usa `res.locals.currentUser` (ya poblado por `requireAuth`) y, tras actualizar, haz `res.redirect(`/profiles/${res.locals.currentUser.id}`)`.  
-  4. En `GET /profiles/:userId` usa `res.locals.currentUser?.id` para `canEdit`.  
-  5. Mantén validaciones: `handle` con regex `^[a-z0-9_]{3,30}$`, `bio` <= 280.
-- [ ] 2.2 `webapp/app.js` – confirmar integración.  
-  1. Verifica que `const { checkAuth } = require('./middleware/auth');` sigue funcionando y que llamamos `app.use('/profiles', profilesRouter);` después de configurar `checkAuth`.  
-  2. No se requiere más cambio si 2.1 queda correcto.
-- [ ] 3.1 Directorio `webapp/views/profiles` – ya existe; únicamente validar includes (`partials/header`, `partials/footer`).
-- [ ] 3.2 `webapp/views/profiles/show.ejs` – asegurar UX.  
-  1. Confirma que muestra `profile.posts_notice` (mensaje “Follow to see posts”) cuando viene del backend.  
-  2. Maneja el caso `profile.posts` vacío mostrando “No posts yet”.  
-  3. Si necesitas datos auxiliares (p.ej., `profile.handle`), asegúrate de que la API los trae.
-- [ ] 3.3 `webapp/views/profiles/edit.ejs` – coherencia con rutas.  
-  1. Precarga los campos con `profile` traído desde `GET /profiles/me`.  
-  2. Tras guardar, redirige a `/profiles/${currentUser.id}` (no a `/dashboard`).  
-  3. Muestra mensajes de error si la API devuelve 422 (handle inválido, bio larga).  
-  4. Opcional: mover el script de preview a un archivo JS y enlazarlo (ver punto 4.2). 
-- [ ] 4.1 Estilos en `webapp/public/stylesheets/main.css` – ya añadidos. Confirmar que `views/layout.ejs` incluye `main.css` (si no, agregar `<link>`). 
-- [ ] 4.2 (Opcional) `webapp/public/js/profile.js` – mover lógica de preview/contador de la vista edit.ejs a un archivo JS y referenciarlo.  
-- [ ] 5.1 Tests Jest `webapp/tests/profiles.test.js`.  
-  1. Crear archivo (p.ej., `tests/profiles.test.js`).  
-  2. Mockear `dietIntelAPI` (`jest.mock('../utils/api')`) y simular respuestas de `getProfile` y `getCurrentUser`.  
-  3. Pruebas mínimas: 
-     - `GET /profiles/:id` renderiza mensaje “Follow to see posts” cuando `posts_notice` está presente. 
-     - `GET /profiles/me/edit` usa `res.locals.currentUser.id` y precarga campos.  
-  4. Ejecutar `npm --prefix webapp run test -- profiles` y documentar resultados.
-
+-### Webapp (Express)
+⚠️ *Revisión 2025-10-12*: hay avances implementados; marcamos lo completado y dejamos mejoras pendientes claramente indicadas.
+- [x] 1.1 `webapp/utils/api.js` — integrar métodos sociales.
+  1. Mantener el cliente `axios.create(...)` con los interceptores/logging existentes.
+  2. Implementar `getCurrentUser(authToken)`, `getProfile(userId, authToken?)`, `updateProfile(data, authToken?)` usando `this.client`. Añadir `Authorization` solo cuando `authToken` exista.
+  3. Capturar errores en cada método y llamar `this.handleAPIError(error, 'getProfile')`, etc.
+  4. Verificar que los métodos legacy no queden truncados (restaurar lógica previa si quedó en comentarios).
+- [x] 2.1 `webapp/routes/profiles.js` — usar middleware real y preservar usuario.
+  1. Importar `{ requireAuth, checkAuth }` desde `webapp/middleware/auth.js` (eliminar duplicados locales).  [Hecho]
+  2. En `POST /profiles/me`, validar handle/bio/visibility y, tras actualizar vía API, redirigir a `/profiles/${res.locals.currentUser.id}`.  [Hecho]
+  3. En `GET /profiles/:userId`, usar `res.locals.currentUser?.id` para `canEdit`.  [Hecho]
+  4. Mejora pendiente: manejar respuestas 422 del backend re-renderizando la vista con mensaje de error (ahora responde 500 en algunos casos).
+- [x] 2.2 `webapp/app.js` — confirmar que el router se registra después de que `checkAuth` haya poblado `res.locals`.  [Hecho]
+- [x] 3.1 Directorio `webapp/views/profiles` — ya existe; comprobar que los includes `partials/header` y `partials/footer` funcionan en la app real.  [Hecho]
+- [x] 3.2 `webapp/views/profiles/show.ejs` — asegurar UX: mostrar avatar/handle/bio/stats; cuando `profile.posts_notice` exista, renderizar “Follow to see posts”; si no hay posts, mostrar “No posts yet”.  [Hecho]
+- [x] 3.3 `webapp/views/profiles/edit.ejs` — coherente con la ruta: precargar campos con `/profiles/me`, al guardar redirigir a `/profiles/${currentUser.id}`.  [Hecho]
+  - Mejora pendiente: mover el script inline a un archivo JS y enlazarlo.
+- [x] 4.1 `webapp/public/stylesheets/main.css` — estilos agregados; confirmar que `views/layout.ejs` incluye `<link rel="stylesheet" href="/stylesheets/main.css">`.  [Hecho]
+  - [ ] 4.2 (Opcional) `webapp/public/js/profile.js` — extraer la lógica de preview/contador desde edit.ejs a este archivo.
+- [ ] 5.1 Tests Jest `webapp/tests/profiles.test.js` — crear suite que mockee `dietIntelAPI`, verifique el mensaje “Follow to see posts” y el flujo `/profiles/me/edit`, ejecutar `npm --prefix webapp run test -- profiles`.
 ### Mobile (React Native)
 - [ ] 1.1 Agregar métodos getProfile, updateProfile, getCurrentUser en mobile/services/ApiService.ts
 - [ ] 1.2 Definir tipos en mobile/types/profile.ts

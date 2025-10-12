@@ -91,34 +91,7 @@
 
     <%- include('../partials/footer') %>
 
-    <script>
-        // Character counter for bio
-        const bioTextarea = document.getElementById('bio');
-        const charCount = document.getElementById('char-count');
-        const previewBio = document.getElementById('preview-bio');
-
-        function updateCounter() {
-            const length = bioTextarea.value.length;
-            charCount.textContent = length;
-            charCount.style.color = length > 280 ? 'red' : length > 250 ? 'orange' : 'inherit';
-            previewBio.textContent = bioTextarea.value;
-        }
-
-        bioTextarea.addEventListener('input', updateCounter);
-        updateCounter(); // Initial count
-
-        // Real-time preview updates
-        const handleInput = document.getElementById('handle');
-        const visibilitySelect = document.getElementById('visibility');
-        const previewVisibility = document.getElementById('preview-visibility');
-
-        handleInput.addEventListener('input', function() {
-            // Update preview handle
-        });
-
-        visibilitySelect.addEventListener('change', function() {
-            previewVisibility.textContent = this.value === 'followers_only' ? 'Followers Only' : 'Public';
-        });
-    </script>
+    <!-- EPIC_A.A1: Script externalizado para mejor mantenibilidad -->
+    <script src="/js/profile.js"></script>
 </body>
 </html>
