@@ -1,4 +1,5 @@
 // EPIC_A.A1: Helper para montar app Express en tests (alta señal y reutilizable)
+// RESTAURADO: Fix aplicado - eliminada express-ejs-layouts que causaba "requires a middleware function"
 
 /**
  * Helper para crear app Express configurada para tests Jest
@@ -7,27 +8,24 @@
 function mountApp() {
   const express = require('express');
   const path = require('path');
-  const { expressLayouts } = require('express-ejs-layouts');
   const cookieParser = require('cookie-parser');
 
   // Crear app
   const app = express();
 
   // Middleware básico (igual que app.js principal)
+  app.use(cookieParser());
   app.use(express.json({ limit: '10mb' }));
   app.use(express.urlencoded({ extended: true, limit: '10mb' }));
-  app.use(cookieParser());
 
-  // View engine setup (EJS + layouts)
-  app.use(expressLayouts);
+  // View engine setup (EJS solo, sin layouts para evitar complicaciones en tests)
   app.set('view engine', 'ejs');
-  app.set('views', path.join(__dirname, '../..', 'views'));
-  app.set('layout', 'layout');
+  app.set('views', path.join(__dirname, '..', 'views')); // Correcta ruta relativa desde tests
 
-  // Static files (CSS, JS, img)
-  app.use(express.static(path.join(__dirname, '../..', 'public')));
+  // Static files (CSS, JS, img) - ruta correcta
+  app.use(express.static(path.join(__dirname, '..', 'public')));
 
-  // i18n mock mínimo para tests
+  // Globals necesarios para vistas EJS
   app.use((req, res, next) => {
     req.t = (key) => key; // Return key as-is for tests
     req.i18n = { language: 'en' };
@@ -40,7 +38,7 @@ function mountApp() {
     next();
   });
 
-  // Registrar router profiles
+  // Registrar router profiles (solo para rutas de perfil)
   const profilesRouter = require('../../routes/profiles');
   app.use('/profiles', profilesRouter);
 
