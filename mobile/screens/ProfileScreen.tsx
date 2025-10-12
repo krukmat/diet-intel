@@ -17,6 +17,7 @@ export const ProfileScreen: React.FC = () => {
     return (
       <View style={styles.centerContainer}>
         <ActivityIndicator size="large" color="#007AFF" />
+        <Text>Loading...</Text>
       </View>
     );
   }
@@ -32,7 +33,7 @@ export const ProfileScreen: React.FC = () => {
   if (!profile) {
     return (
       <View style={styles.centerContainer}>
-        <Text style={styles.emptyText}>Profile not available</Text>
+        <Text style={styles.emptyText}>No profile data</Text>
       </View>
     );
   }
@@ -44,7 +45,7 @@ export const ProfileScreen: React.FC = () => {
         {profile.avatar_url ? (
           <Image source={{ uri: profile.avatar_url }} style={styles.avatar} />
         ) : (
-          <View style={styles.avatarPlaceholder}>
+          <View testID="avatar-placeholder" style={styles.avatarPlaceholder}>
             <Text style={styles.avatarText}>👤</Text>
           </View>
         )}

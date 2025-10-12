@@ -1,3 +1,12 @@
+// Mock Navigation before importing anything
+jest.mock('@react-navigation/native', () => ({
+  useNavigation: () => ({
+    navigate: jest.fn(),
+  }),
+}));
+
+// Skip Alert mocking as it causes jest spy issues
+
 import React from 'react';
 import { render, screen, waitFor } from '@testing-library/react-native';
 import { ProfileScreen } from '../screens/ProfileScreen';
