@@ -33,11 +33,21 @@ router.post('/me', requireAuth, async (req, res) => {
         const { handle, bio, visibility } = req.body;
 
         if (handle && (!handle.match(/^[a-z0-9_]{3,30}$/))) {
-            return res.render('profiles/edit', { error: 'Invalid handle format' });
+            return res.render('profiles/edit', {
+                profile: { ...req.body, user_id: res.locals.currentUser.id },
+                currentUser: res.locals.currentUser,
+                canEdit: true,
+                error: 'Invalid handle format'
+            });
         }
 
         if (bio && bio.length > 280) {
-            return res.render('profiles/edit', { error: 'Bio too long' });
+            return res.render('profiles/edit', {
+                profile: { ...req.body, user_id: res.locals.currentUser.id },
+                currentUser: res.locals.currentUser,
+                canEdit: true,
+                error: 'Bio too long'
+            });
         }
 
         const updateData = {};
@@ -50,7 +60,24 @@ router.post('/me', requireAuth, async (req, res) => {
         res.redirect(`/profiles/${res.locals.currentUser.id}`);
     } catch (error) {
         console.error('Profile update error:', error);
-        res.status(500).send('Error updating profile');
+
+        // Handle 422 ValidationError responses from backend - MEJORA IMPLEMENTADA
+        if (error.response?.status === 422) {
+            return res.render('profiles/edit', {
+                profile: { ...req.body, user_id: res.locals.currentUser.id },
+                currentUser: res.locals.currentUser,
+                canEdit: true,
+                error: error.response.data.detail || 'Validation error'
+            });
+        }
+
+        // For other errors, still render edit form with error
+        return res.render('profiles/edit', {
+            profile: { ...req.body, user_id: res.locals.currentUser.id },
+            currentUser: res.locals.currentUser,
+            canEdit: true,
+            error: 'An error occurred while updating your profile'
+        });
     }
 });
 
