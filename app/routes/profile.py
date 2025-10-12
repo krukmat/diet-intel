@@ -21,16 +21,12 @@ async def get_current_user_optional(
 ) -> Optional[User]:
     """
     Optional authentication dependency that returns None if no valid auth.
+    Captures HTTPException and returns None instead.
     """
     try:
-        if token:
-            # For now, we can't set tokens via headers in testing
-            # In production this would be handled by auth middleware
-            pass
-        # For A1, we'll use a simplified approach
-        # In real implementation, this would extract user from JWT
-        return None
-    except Exception:
+        # Try to get current user - if it fails, return None
+        return await get_current_user(token)
+    except HTTPException:
         return None
 
 
@@ -76,7 +72,7 @@ async def update_my_profile(
     """
     assert_feature_enabled("social_enabled")
 
-    profile_service.update_profile(current_user.id, payload)
+    await profile_service.update_profile(current_user.id, payload)
     # Return updated profile
     updated_profile = await profile_service.get_profile(current_user.id, current_user.id)
     return updated_profile.dict()

@@ -59,7 +59,7 @@ class ProfileService:
             # Get user details for default handle
             user = await self.database_service.get_user_by_id(user_id)
             if not user:
-                raise ValueError(f"User {user_id} not found")
+                raise HTTPException(status_code=404, detail="User not found")
 
             # Generate handle from email if not provided
             if not handle:
@@ -111,7 +111,7 @@ class ProfileService:
 
             row = cursor.fetchone()
             if not row:
-                raise ValueError(f"Profile not found for user {user_id}")
+                raise HTTPException(status_code=404, detail="Profile not found")
 
         # Get gamification counters
         gamification_data = self.gamification_gateway.get_profile_counters(user_id)
@@ -172,7 +172,7 @@ class ProfileService:
         import re
         return bool(re.fullmatch(r'^[a-z0-9_]{3,30}$', handle))
 
-    def update_profile(self, user_id: str, payload: ProfileUpdateRequest) -> None:
+    async def update_profile(self, user_id: str, payload: ProfileUpdateRequest) -> None:
         """
         Update user profile with validation
 
@@ -183,7 +183,7 @@ class ProfileService:
         Raises:
             HTTPException: For validation errors
         """
-        self.ensure_profile_initialized(user_id)
+        await self.ensure_profile_initialized(user_id)
 
         # Validate handle if provided
         if payload.handle:
