@@ -106,6 +106,12 @@ class Config(BaseSettings):
         default=None,
         description="Optional LibreTranslate API key if authentication is enabled"
     )
+
+    # Social features configuration
+    social_enabled: bool = Field(
+        default=True,
+        description="Enable social features (profiles, following, gamification)"
+    )
     
     class Config:
         env_prefix = ""  # No prefix, use direct env var names

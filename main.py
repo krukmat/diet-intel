@@ -7,6 +7,7 @@ from app.routes.plan import router as plan_router
 from app.routes.track import router as track_router
 from app.routes.reminder import router as reminder_router
 from app.routes.auth import router as auth_router
+from app.routes.profile import router as profile_router
 from app.routes.analytics import router as analytics_router
 from app.routes.recommendations import router as recommendations_router
 from app.routes.smart_diet import router as smart_diet_router
@@ -50,6 +51,7 @@ app.add_middleware(
 
 # Include routers
 app.include_router(auth_router, prefix="/auth", tags=["authentication"])
+app.include_router(profile_router, tags=["profiles"])
 app.include_router(product_router, prefix="/product", tags=["products"])
 app.include_router(plan_router, prefix="/plan", tags=["meal-planning"])
 app.include_router(recommendations_router, prefix="/recommendations", tags=["smart-recommendations"])
