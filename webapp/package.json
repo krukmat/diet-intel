@@ -15,7 +15,8 @@
     "screenshots": "node ../scripts/capture-screenshots.js",
     "lint": "eslint .",
     "build": "npm run build:css",
-    "build:css": "tailwindcss -i ./public/css/input.css -o ./public/css/output.css --watch"
+    "build:css": "tailwindcss -i ./public/css/input.css -o ./public/css/output.css --watch",
+    "test:profiles": "jest -- profiles"
   },
   "keywords": [
     "nutrition",
@@ -53,7 +54,8 @@
     "nodemon": "^3.0.2",
     "postcss": "^8.4.32",
     "supertest": "^6.3.3",
-    "tailwindcss": "^3.3.6"
+    "tailwindcss": "^3.3.6",
+    "identity-obj-proxy": "^3.0.0"
   },
   "engines": {
     "node": ">=16.0.0",
