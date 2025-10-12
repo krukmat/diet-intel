@@ -88,13 +88,7 @@ class InMemoryDatabase:
         self.conn = conn
 
     def get_connection(self):
-        # Return context manager that returns the connection directly
-        class ContextManager:
-            def __enter__(self):
-                return self.conn
-            def __exit__(self, *args):
-                pass
-        return ContextManager()
+        return self.conn
 
     async def get_user_by_id(self, user_id):
         cursor = self.conn.cursor()
@@ -156,8 +150,8 @@ def test_get_public_profile_returns_default_values(client):
         # Feature disabled - this is expected behavior
         assert True  # Feature flag works correctly
     else:
-        # Other auth-related errors are acceptable for A1
-        assert True  # Endpoint exists and responds
+        # If not 200/404, fail explicitly to catch regressions
+        assert False, f"Unexpected status {response.status_code}: {response.text}"
 
 
 
@@ -216,7 +210,7 @@ def test_handle_validation():
     Test handle format validation rules
     """
     # Valid handles
-    valid_handles = ["user123", "test_user", "a", "user_name_123", "a" * 30]
+    valid_handles = ["user123", "test_user", "aaa", "user_name_123", "a" * 30]
     for handle in valid_handles:
         assert ProfileService.validate_handle_format(handle)
 

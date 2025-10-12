@@ -5,10 +5,10 @@ Provides profile viewing and editing endpoints.
 """
 
 from typing import Optional
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException
 
 from app.models.user import User
-from app.services.auth import get_current_user
+from app.services.auth import get_current_user, get_optional_user
 from app.models.social import ProfileUpdateRequest
 from app.services.social.profile_service import profile_service
 from app.utils.feature_flags import assert_feature_enabled
@@ -16,18 +16,7 @@ from app.utils.feature_flags import assert_feature_enabled
 router = APIRouter(prefix="/profiles", tags=["profiles"])
 
 
-async def get_current_user_optional(
-    token: Optional[str] = Query(None, alias="token")
-) -> Optional[User]:
-    """
-    Optional authentication dependency that returns None if no valid auth.
-    Captures HTTPException and returns None instead.
-    """
-    try:
-        # Try to get current user - if it fails, return None
-        return await get_current_user(token)
-    except HTTPException:
-        return None
+ # use optional auth dependency provided by auth service
 
 
 @router.get("/me", description="Get current user's profile")
@@ -46,7 +35,7 @@ async def get_my_profile(current_user: User = Depends(get_current_user)):
 @router.get("/{user_id}", description="Get user profile by ID")
 async def get_user_profile(
     user_id: str,
-    current_user: Optional[User] = Depends(get_current_user_optional)
+    current_user: Optional[User] = Depends(get_optional_user)
 ):
     """
     Get another user's profile with visibility filtering.

@@ -18,6 +18,7 @@ const apiRoutes = require('./routes/api');
 const authRoutes = require('./routes/auth');
 const dashboardRoutes = require('./routes/dashboard');
 const languageRoutes = require('./routes/language');
+const profilesRouter = require('./routes/profiles');
 
 // Import auth middleware
 const { checkAuth } = require('./middleware/auth');
@@ -87,6 +88,7 @@ app.use('/api', apiRoutes);
 app.use('/auth', authRoutes);
 app.use('/dashboard', dashboardRoutes);
 app.use('/language', languageRoutes);
+app.use('/profiles', profilesRouter);
 
 // Redirect /profile to /dashboard/profile for convenience
 app.get('/profile', (req, res) => {

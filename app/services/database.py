@@ -157,6 +157,7 @@ class DatabaseService:
                     points_total INTEGER NOT NULL DEFAULT 0,
                     level INTEGER NOT NULL DEFAULT 0,
                     badges_count INTEGER NOT NULL DEFAULT 0,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
             """)

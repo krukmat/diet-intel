@@ -10,7 +10,7 @@ class DietIntelAPI {
     });
   }
 
-  // Profile methods - EPIC_A.A1 implementation
+  // EPIC_A.A1: Agregados metodos para funcionalidad social
   async getProfile(userId, authToken) {
     const headers = authToken ? { Authorization: `Bearer ${authToken}` } : {};
     const response = await this.client.get(`/profiles/${userId}`, { headers });
