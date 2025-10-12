@@ -9,7 +9,6 @@ from app.routes.reminder import router as reminder_router
 from app.routes.auth import router as auth_router
 from app.routes.profile import router as profile_router
 from app.routes.analytics import router as analytics_router
-from app.routes.follow import router as follow_router
 from app.routes.recommendations import router as recommendations_router
 from app.routes.smart_diet import router as smart_diet_router
 from app.routes.recipe_ai import router as recipe_ai_router
@@ -20,7 +19,7 @@ from logging_config import setup_logging
 setup_logging()
 
 app = FastAPI(
-    title="DietIntel API", 
+    title="DietIntel API",
     version="1.0.0",
     description="A comprehensive nutrition tracking API with authentication, meal planning, and progress tracking"
 )
@@ -53,7 +52,6 @@ app.add_middleware(
 # Include routers
 app.include_router(auth_router, prefix="/auth", tags=["authentication"])
 app.include_router(profile_router, tags=["profiles"])
-app.include_router(follow_router, tags=["follows"])
 app.include_router(product_router, prefix="/product", tags=["products"])
 app.include_router(plan_router, prefix="/plan", tags=["meal-planning"])
 app.include_router(recommendations_router, prefix="/recommendations", tags=["smart-recommendations"])

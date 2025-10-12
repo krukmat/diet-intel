@@ -1,5 +1,40 @@
 # EPIC A – Profiles & Social Graph
 
+## Estado
+- A1 (View Profile): COMPLETADO ✅ (backend, webapp, mobile listos; validación local recomendada).
+- Próximo: A2 (Follow/Unfollow).
+
+## Estado de Tests y Cobertura (Webapp/Mobile)
+
+### Webapp (Express)
+- Suites disponibles: `webapp/tests/profiles.api.test.js`, `webapp/tests/profiles.routes.test.js`, `webapp/tests/profiles.views.test.js`, helper `tests/helpers/mountApp.js`.
+- Ejecución local:
+  - `npm --prefix webapp i`
+  - `npm --prefix webapp run test:profiles`
+  - (Cobertura) `npm --prefix webapp test -- --coverage`
+- Cobertura esperada (objetivo):
+  - `utils/api.js` ≥ 90%; rutas de profiles 70–85%; vistas validadas por contenido clave (no medibles como JS).
+- Incidencias conocidas/resueltas:
+  - Enlace CSS movido a `views/layout.ejs` (resuelto).
+  - Validación 422 en `POST /profiles/me` con re-render y mensaje (resuelto).
+  - identity-obj-proxy agregado para mapper de CSS en Jest (resuelto).
+- Riesgos de entorno:
+  - Si Jest reporta problemas con EJS o mappers, ajustar `moduleNameMapper` o desactivar cobertura sobre `views/**`.
+
+### Mobile (React Native)
+- Suites disponibles: `mobile/__tests__/ProfileScreen.test.tsx`, `mobile/__tests__/ProfileEditScreen.test.tsx`.
+- Ejecución local:
+  - `npm --prefix mobile test -- ProfileScreen`
+  - `npm --prefix mobile test -- ProfileEditScreen`
+  - (Cobertura) `npm --prefix mobile test -- --coverage`
+- Cobertura esperada (objetivo):
+  - Módulo perfiles (ProfileScreen + ProfileEditScreen + Context/Types) ≥ 90%.
+- Incidencias conocidas/resueltas:
+  - Textos UI alineados: "Loading...", "No profile data", testID `avatar-placeholder`, `posts_notice` (resuelto).
+  - EditScreen: validaciones (handle/bio) y flujo de guardado con refreshProfile (resuelto).
+- Riesgos de entorno:
+  - Si aparece error de RN Animated, mock: `jest.mock('react-native/Libraries/Animated/NativeAnimatedHelper')` en setup.
+
 ## 1. Contexto y alcance
 - **Historias cubiertas**: A1 _View Profile_, A2 _Follow/Unfollow_ según `specs/dietintel_social_gamification_spec_v1.json`.
 - **Objetivo**: habilitar perfiles sociales con privacidad básica y relaciones de seguimiento, preparando la base para el feed social y la gamificación.

@@ -8,7 +8,7 @@ jest.mock('@react-navigation/native', () => ({
 // Skip Alert mocking as it causes jest spy issues
 
 import React from 'react';
-import { render, screen, waitFor } from '@testing-library/react-native';
+import { render, screen, waitFor, fireEvent } from '@testing-library/react-native';
 import { ProfileScreen } from '../screens/ProfileScreen';
 
 // EPIC_A.A1: Tests completos para ProfileScreen con mocks y assertions de orden
@@ -28,11 +28,14 @@ const mockIsOwner = jest.fn();
 // Mock ApiService methods
 const mockGetCurrentUser = apiService.getCurrentUser as jest.MockedFunction<typeof apiService.getCurrentUser>;
 const mockGetProfile = apiService.getProfile as jest.MockedFunction<typeof apiService.getProfile>;
+const mockFollowUser = apiService.followUser as jest.MockedFunction<typeof apiService.followUser>;
+const mockUnfollowUser = apiService.unfollowUser as jest.MockedFunction<typeof apiService.unfollowUser>;
 
 describe('ProfileScreen', () => {
   beforeEach(() => {
     // Reset all mocks before each test
     jest.clearAllMocks();
+    mockIsOwner.mockReturnValue(true);
 
     // Setup default mock implementations
     mockUseProfile.mockReturnValue({
@@ -73,10 +76,11 @@ describe('ProfileScreen', () => {
         followers_count: 10,
         following_count: 5,
         posts_count: 3,
-        points_total: 100,
-        level: 2,
-        badges_count: 1,
-      },
+      points_total: 100,
+      level: 2,
+      badges_count: 1,
+    },
+      follow_relation: null,
       posts: [],
       posts_notice: null,
     };
@@ -113,10 +117,11 @@ describe('ProfileScreen', () => {
         followers_count: 0,
         following_count: 0,
         posts_count: 0,
-        points_total: 50,
-        level: 1,
-        badges_count: 0,
-      },
+      points_total: 50,
+      level: 1,
+      badges_count: 0,
+    },
+      follow_relation: null,
       posts: [],
       posts_notice: 'Follow to see posts',
     };
@@ -182,10 +187,11 @@ describe('ProfileScreen', () => {
         followers_count: 1,
         following_count: 1,
         posts_count: 1,
-        points_total: 1,
-        level: 1,
-        badges_count: 1,
-      },
+      points_total: 1,
+      level: 1,
+      badges_count: 1,
+    },
+      follow_relation: null,
       posts: [],
       posts_notice: null,
     };
@@ -217,10 +223,11 @@ describe('ProfileScreen', () => {
         followers_count: 50,
         following_count: 30,
         posts_count: 15,
-        points_total: 200,
-        level: 3,
-        badges_count: 2,
-      },
+      points_total: 200,
+      level: 3,
+      badges_count: 2,
+    },
+      follow_relation: null,
       posts: [],
       posts_notice: null,
     };
@@ -257,5 +264,162 @@ describe('ProfileScreen', () => {
 
     // Assert - refreshProfile should have been called
     expect(mockRefreshProfile).toHaveBeenCalledTimes(1);
+  });
+
+  test('shows Follow button for non-owner viewers', () => {
+    const mockProfile = {
+      user_id: 'other-user',
+      handle: 'someoneelse',
+      bio: null,
+      avatar_url: null,
+      visibility: 'public' as const,
+      stats: {
+        followers_count: 3,
+        following_count: 2,
+        posts_count: 1,
+        points_total: 20,
+        level: 1,
+        badges_count: 0,
+      },
+      follow_relation: null,
+      posts: [],
+      posts_notice: null,
+    };
+
+    mockIsOwner.mockReturnValue(false);
+    mockUseProfile.mockReturnValue({
+      profile: mockProfile,
+      loading: false,
+      error: null,
+      refreshProfile: mockRefreshProfile,
+      isOwner: mockIsOwner,
+    });
+
+    render(<ProfileScreen />);
+
+    expect(screen.getByTestId('follow-toggle-button')).toBeTruthy();
+    expect(screen.getByText('Follow')).toBeTruthy();
+    expect(screen.queryByText('Edit Profile')).toBeNull();
+  });
+
+  test('shows Unfollow button when viewer already follows', () => {
+    const mockProfile = {
+      user_id: 'other-user',
+      handle: 'followeduser',
+      bio: null,
+      avatar_url: null,
+      visibility: 'public' as const,
+      stats: {
+        followers_count: 8,
+        following_count: 4,
+        posts_count: 2,
+        points_total: 60,
+        level: 2,
+        badges_count: 0,
+      },
+      follow_relation: 'active' as const,
+      posts: [],
+      posts_notice: null,
+    };
+
+    mockIsOwner.mockReturnValue(false);
+    mockUseProfile.mockReturnValue({
+      profile: mockProfile,
+      loading: false,
+      error: null,
+      refreshProfile: mockRefreshProfile,
+      isOwner: mockIsOwner,
+    });
+
+    render(<ProfileScreen />);
+
+    expect(screen.getByTestId('follow-toggle-button')).toBeTruthy();
+    expect(screen.getByText('Unfollow')).toBeTruthy();
+  });
+
+  test('calls API followUser and refreshes profile on follow tap', async () => {
+    const mockProfile = {
+      user_id: 'other-user',
+      handle: 'newfriend',
+      bio: null,
+      avatar_url: null,
+      visibility: 'public' as const,
+      stats: {
+        followers_count: 0,
+        following_count: 0,
+        posts_count: 0,
+        points_total: 0,
+        level: 0,
+        badges_count: 0,
+      },
+      follow_relation: null,
+      posts: [],
+      posts_notice: 'Follow to see posts',
+    };
+
+    mockIsOwner.mockReturnValue(false);
+    mockFollowUser.mockResolvedValue({ data: { ok: true, status: 'active' } } as any);
+
+    mockUseProfile.mockReturnValue({
+      profile: mockProfile,
+      loading: false,
+      error: null,
+      refreshProfile: mockRefreshProfile,
+      isOwner: mockIsOwner,
+    });
+
+    render(<ProfileScreen />);
+
+    fireEvent.press(screen.getByTestId('follow-toggle-button'));
+
+    await waitFor(() => {
+      expect(mockFollowUser).toHaveBeenCalledWith('other-user');
+      expect(mockRefreshProfile).toHaveBeenCalled();
+    });
+
+    expect(screen.getByText('Unfollow')).toBeTruthy();
+  });
+
+  test('calls API unfollowUser and refreshes profile on unfollow tap', async () => {
+    const mockProfile = {
+      user_id: 'other-user',
+      handle: 'existingfriend',
+      bio: null,
+      avatar_url: null,
+      visibility: 'public' as const,
+      stats: {
+        followers_count: 4,
+        following_count: 2,
+        posts_count: 1,
+        points_total: 15,
+        level: 1,
+        badges_count: 0,
+      },
+      follow_relation: 'active' as const,
+      posts: [],
+      posts_notice: null,
+    };
+
+    mockIsOwner.mockReturnValue(false);
+    mockUnfollowUser.mockResolvedValue({ data: { ok: true } } as any);
+
+    mockUseProfile.mockReturnValue({
+      profile: mockProfile,
+      loading: false,
+      error: null,
+      refreshProfile: mockRefreshProfile,
+      isOwner: mockIsOwner,
+    });
+
+    render(<ProfileScreen />);
+
+    fireEvent.press(screen.getByTestId('follow-toggle-button'));
+
+    await waitFor(() => {
+      expect(mockUnfollowUser).toHaveBeenCalledWith('other-user');
+      expect(mockRefreshProfile).toHaveBeenCalled();
+    });
+
+    expect(screen.getByText('Follow')).toBeTruthy();
   });
 });

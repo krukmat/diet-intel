@@ -6,11 +6,14 @@ Provides profile viewing and editing endpoints.
 
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException
+from typing import Optional
 
 from app.models.user import User
 from app.services.auth import get_current_user, get_optional_user
 from app.models.social import ProfileUpdateRequest
+from app.models.social.follow import FollowActionRequest
 from app.services.social.profile_service import profile_service
+from app.services.social.follow_service import follow_service
 from app.utils.feature_flags import assert_feature_enabled
 
 router = APIRouter(prefix="/profiles", tags=["profiles"])
@@ -67,31 +70,63 @@ async def update_my_profile(
     return updated_profile.dict()
 
 
-@router.get("/{user_id}/followers", description="Get user followers")
-async def get_user_followers(user_id: str):
+@router.post("/{target_id}/follow", description="Follow or unfollow a user")
+async def follow_user_action(
+    target_id: str,
+    payload: FollowActionRequest,
+    current_user: User = Depends(get_current_user)
+):
     """
-    Get followers for a user - stub for A1.
+    Follow or unfollow a user with business logic validation.
 
-    TODO: Implement in A2 with real follow relationships.
+    Supported actions: 'follow', 'unfollow'
+    Returns updated follow relationship status and counters.
     """
     assert_feature_enabled("social_enabled")
 
-    return {
-        "items": [],
-        "next_cursor": None
-    }
+    if payload.action == "follow":
+        result = await follow_service.follow_user(current_user.id, target_id)
+    elif payload.action == "unfollow":
+        result = await follow_service.unfollow_user(current_user.id, target_id)
+    else:
+        raise HTTPException(status_code=400, detail="Invalid action. Use 'follow' or 'unfollow'.")
+
+    return result.dict()
+
+
+@router.get("/{user_id}/followers", description="Get user followers")
+async def get_user_followers(
+    user_id: str,
+    limit: int = 20,
+    cursor: Optional[str] = None,
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Get followers for a user with real follow relationships.
+
+    Returns paginated list of users following this user,
+    with their handle, avatar, and follow date.
+    """
+    assert_feature_enabled("social_enabled")
+
+    result = await follow_service.list_followers(user_id, limit, cursor)
+    return result.dict()
 
 
 @router.get("/{user_id}/following", description="Get users followed by user")
-async def get_user_following(user_id: str):
+async def get_user_following(
+    user_id: str,
+    limit: int = 20,
+    cursor: Optional[str] = None,
+    current_user: User = Depends(get_current_user)
+):
     """
-    Get users followed by this user - stub for A1.
+    Get users followed by this user with real follow relationships.
 
-    TODO: Implement in A2 with real follow relationships.
+    Returns paginated list of users being followed,
+    with their handle, avatar, and follow date.
     """
     assert_feature_enabled("social_enabled")
 
-    return {
-        "items": [],
-        "next_cursor": None
-    }
+    result = await follow_service.list_following(user_id, limit, cursor)
+    return result.dict()

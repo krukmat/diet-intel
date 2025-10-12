@@ -1,17 +1,77 @@
-import React, { useEffect } from 'react';
-import { View, Text, StyleSheet, ActivityIndicator, Image, TouchableOpacity, ScrollView } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { View, Text, StyleSheet, ActivityIndicator, Image, TouchableOpacity, ScrollView, Alert, ToastAndroid, Platform } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useProfile } from '../contexts/ProfileContext';
+import { apiService } from '../services/ApiService';
 
 // EPIC_A.A1: Pantalla principal de perfil con manejo de privacidad (~120 tokens)
 
 export const ProfileScreen: React.FC = () => {
-  const { profile, loading, error, refreshProfile } = useProfile();
+  const { profile, loading, error, refreshProfile, isOwner } = useProfile();
   const navigation = useNavigation();
+
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [isFollowing, setIsFollowing] = useState(false);
 
   useEffect(() => {
     refreshProfile();
   }, []);
+
+  useEffect(() => {
+    if (profile) {
+      setIsFollowing(profile.follow_relation === 'active');
+    } else {
+      setIsFollowing(false);
+    }
+  }, [profile]);
+
+  const showMessage = (message: string, title?: string) => {
+    if (Platform.OS === 'android') {
+      ToastAndroid.show(message, ToastAndroid.SHORT);
+    } else {
+      Alert.alert(title ?? 'Notice', message);
+    }
+  };
+
+  const handleFollowToggle = async () => {
+    if (!profile || isProcessing) {
+      return;
+    }
+
+    const wasFollowing = isFollowing;
+    setIsProcessing(true);
+
+    try {
+      if (wasFollowing) {
+        await apiService.unfollowUser(profile.user_id);
+        setIsFollowing(false);
+        showMessage('Unfollowed user');
+      } else {
+        const response = await apiService.followUser(profile.user_id);
+        const result = response.data;
+
+        if (!result?.ok) {
+          const blockedMessage = result?.status === 'blocked'
+            ? 'You cannot follow this user right now.'
+            : 'Unable to follow this user.';
+          showMessage(blockedMessage, 'Follow action');
+          return;
+        }
+
+        setIsFollowing(true);
+        showMessage('Now following user');
+      }
+
+      await refreshProfile();
+    } catch (err) {
+      console.error('ProfileScreen follow toggle error', err);
+      const errorMessage = wasFollowing ? 'Unable to unfollow user' : 'Unable to follow user';
+      showMessage(errorMessage, 'Follow action failed');
+      setIsFollowing(wasFollowing);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -37,6 +97,8 @@ export const ProfileScreen: React.FC = () => {
       </View>
     );
   }
+
+  const viewerIsOwner = isOwner(profile.user_id);
 
   return (
     <ScrollView style={styles.container}>
@@ -89,12 +151,34 @@ export const ProfileScreen: React.FC = () => {
 
       {/* Action Buttons */}
       <View style={styles.buttonContainer}>
-        <TouchableOpacity
-          style={styles.editButton}
-          onPress={() => navigation.navigate('ProfileEdit')}
-        >
-          <Text style={styles.editButtonText}>Edit Profile</Text>
-        </TouchableOpacity>
+        {viewerIsOwner ? (
+          <TouchableOpacity
+            style={styles.editButton}
+            onPress={() => navigation.navigate('profile-edit' as never)}
+          >
+            <Text style={styles.editButtonText}>Edit Profile</Text>
+          </TouchableOpacity>
+        ) : (
+          <TouchableOpacity
+            testID="follow-toggle-button"
+            style={[
+              styles.followButton,
+              isFollowing ? styles.followingButton : styles.followButtonPrimary,
+              isProcessing && styles.followButtonDisabled,
+            ]}
+            onPress={handleFollowToggle}
+            disabled={isProcessing}
+          >
+            <Text
+              style={[
+                styles.followButtonText,
+                isFollowing && styles.followingButtonText,
+              ]}
+            >
+              {isProcessing ? 'Processing...' : isFollowing ? 'Unfollow' : 'Follow'}
+            </Text>
+          </TouchableOpacity>
+        )}
       </View>
     </ScrollView>
   );
@@ -196,6 +280,29 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: '600',
+  },
+  followButton: {
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  followButtonPrimary: {
+    backgroundColor: '#007AFF',
+  },
+  followingButton: {
+    backgroundColor: '#e4e7eb',
+  },
+  followButtonDisabled: {
+    opacity: 0.6,
+  },
+  followButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#fff',
+  },
+  followingButtonText: {
+    color: '#1f2933',
   },
   errorText: {
     fontSize: 16,

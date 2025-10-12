@@ -7,6 +7,8 @@ const { mountApp } = require('./helpers/mountApp');
 // Mock API client
 jest.mock('../utils/api');
 const dietIntelAPI = require('../utils/api');
+jest.mock('axios');
+const axios = require('axios');
 
 // Fixtures
 const profilePublic = {
@@ -46,6 +48,10 @@ describe('Profiles Routes - Supertest Integration', () => {
     dietIntelAPI.getProfile = jest.fn();
     dietIntelAPI.getCurrentUser = jest.fn().mockResolvedValue(currentUser);
     dietIntelAPI.updateProfile = jest.fn();
+    dietIntelAPI.followUser = jest.fn();
+    dietIntelAPI.unfollowUser = jest.fn();
+    axios.get.mockResolvedValue({ data: currentUser });
+    axios.post.mockResolvedValue({ data: {} });
   });
 
   // Helper to simulate authenticated request - FIX aplicado: cookies correctas
@@ -180,6 +186,65 @@ describe('Profiles Routes - Supertest Integration', () => {
         .expect(302);
 
       expect(response.headers.location).toContain('/auth/login');
+    });
+  });
+
+  describe('POST /profiles/:targetId/follow', () => {
+    test('calls followUser API and returns JSON payload', async () => {
+      const followResult = {
+        ok: true,
+        follower_id: 'u1',
+        followee_id: 'u2',
+        status: 'active',
+        followers_count: 12,
+        following_count: 4
+      };
+      dietIntelAPI.followUser.mockResolvedValue(followResult);
+
+      const response = await authRequest(request.agent(app))
+        .post('/profiles/u2/follow')
+        .set('Accept', 'application/json')
+        .type('form')
+        .send({ action: 'follow' })
+        .expect(200);
+
+      expect(dietIntelAPI.followUser).toHaveBeenCalledWith('u2', 'mock_token');
+      expect(response.body).toEqual(followResult);
+    });
+
+    test('calls unfollowUser API when action=unfollow', async () => {
+      const unfollowResult = {
+        ok: true,
+        follower_id: 'u1',
+        followee_id: 'u2',
+        status: 'active',
+        followers_count: 11,
+        following_count: 3
+      };
+      dietIntelAPI.unfollowUser.mockResolvedValue(unfollowResult);
+
+      const response = await authRequest(request.agent(app))
+        .post('/profiles/u2/follow')
+        .set('Accept', 'application/json')
+        .type('form')
+        .send({ action: 'unfollow' })
+        .expect(200);
+
+      expect(dietIntelAPI.unfollowUser).toHaveBeenCalledWith('u2', 'mock_token');
+      expect(response.body).toEqual(unfollowResult);
+    });
+
+    test('rejects invalid follow action', async () => {
+      const response = await authRequest(request.agent(app))
+        .post('/profiles/u2/follow')
+        .set('Accept', 'application/json')
+        .type('form')
+        .send({ action: 'invalid' })
+        .expect(400);
+
+      expect(response.body.error).toMatch(/Invalid action/i);
+      expect(dietIntelAPI.followUser).not.toHaveBeenCalled();
+      expect(dietIntelAPI.unfollowUser).not.toHaveBeenCalled();
     });
   });
 

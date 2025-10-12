@@ -213,6 +213,41 @@ class ApiService {
     return this.get('/auth/me');
   }
 
+  // Follow/Unfollow functionality - EPIC_A.A2
+  public async followUser(targetId: string): Promise<AxiosResponse<any>> {
+    try {
+      return await this.post(`/follows/${targetId}`, { action: 'follow' });
+    } catch (error) {
+      console.error('ApiService.followUser failed', { targetId, error });
+      throw error;
+    }
+  }
+
+  public async unfollowUser(targetId: string): Promise<AxiosResponse<any>> {
+    try {
+      return await this.post(`/follows/${targetId}`, { action: 'unfollow' });
+    } catch (error) {
+      console.error('ApiService.unfollowUser failed', { targetId, error });
+      throw error;
+    }
+  }
+
+  public async getFollowers(userId: string, options?: { limit?: number; cursor?: string }): Promise<AxiosResponse<any>> {
+    const params = new URLSearchParams();
+    if (options?.limit) params.append('limit', options.limit.toString());
+    if (options?.cursor) params.append('cursor', options.cursor);
+
+    return this.get(`/profiles/${userId}/followers${params.toString() ? '?' + params.toString() : ''}`);
+  }
+
+  public async getFollowing(userId: string, options?: { limit?: number; cursor?: string }): Promise<AxiosResponse<any>> {
+    const params = new URLSearchParams();
+    if (options?.limit) params.append('limit', options.limit.toString());
+    if (options?.cursor) params.append('cursor', options.cursor);
+
+    return this.get(`/profiles/${userId}/following${params.toString() ? '?' + params.toString() : ''}`);
+  }
+
   // Health check
   public async healthCheck() {
     try {

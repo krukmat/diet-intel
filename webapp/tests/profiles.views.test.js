@@ -6,11 +6,14 @@ const { mountApp } = require('./helpers/mountApp');
 // Mock API client
 jest.mock('../utils/api');
 const dietIntelAPI = require('../utils/api');
+jest.mock('axios');
+const axios = require('axios');
 
 // Mock EJS templates if needed (but we'll use mountApp which includes them)
 
 describe('Profile Views - EJS Rendering', () => {
   let app;
+  const authenticatedUser = { id: 'viewer-1', full_name: 'Viewer One' };
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -18,11 +21,63 @@ describe('Profile Views - EJS Rendering', () => {
 
     // Basic mocks
     dietIntelAPI.getProfile = jest.fn();
-    dietIntelAPI.getCurrentUser = jest.fn().mockResolvedValue({ id: 'u1', full_name: 'Test User' });
+    dietIntelAPI.getCurrentUser = jest.fn().mockResolvedValue(authenticatedUser);
     dietIntelAPI.updateProfile = jest.fn();
+    axios.get.mockResolvedValue({ data: authenticatedUser });
+    axios.post.mockResolvedValue({ data: {} });
   });
 
   describe('show.ejs rendering', () => {
+    const profileSkeleton = {
+      user_id: 'target-1',
+      handle: 'targetuser',
+      bio: '',
+      avatar_url: null,
+      visibility: 'public',
+      stats: {
+        followers_count: 10,
+        following_count: 2,
+        posts_count: 0,
+        points_total: 0
+      },
+      posts: [],
+      posts_notice: null
+    };
+
+    test('renders Unfollow button when viewer already follows user', async () => {
+      const profileFollowing = {
+        ...profileSkeleton,
+        follow_relation: 'active'
+      };
+      dietIntelAPI.getProfile.mockResolvedValue(profileFollowing);
+
+      const response = await request(app)
+        .get('/profiles/target-1')
+        .set('Cookie', ['access_token=mock_token'])
+        .expect(200);
+
+      expect(response.text).toContain('value="unfollow" id="follow-action"');
+      expect(response.text).toContain('class="btn btn-follow following"');
+      expect(response.text).toContain('>Unfollow<');
+    });
+
+    test('renders Follow button when viewer is not following', async () => {
+      const profileNotFollowing = {
+        ...profileSkeleton,
+        follow_relation: null
+      };
+      dietIntelAPI.getProfile.mockResolvedValue(profileNotFollowing);
+
+      const response = await request(app)
+        .get('/profiles/target-1')
+        .set('Cookie', ['access_token=mock_token'])
+        .expect(200);
+
+      expect(response.text).toContain('value="follow" id="follow-action"');
+      expect(response.text).toContain('class="btn btn-follow "');
+      expect(response.text).toContain('>Follow<');
+    });
+
     test('renders posts_notice when profile has privacy message', async () => {
       const profileWithNotice = {
         user_id: 'u2',

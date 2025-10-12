@@ -36,6 +36,25 @@
                 <a href="/profiles/me/edit" class="btn btn-primary">Edit Profile</a>
             <% } %>
 
+            <!-- EPIC A.A2: Follow/Unfollow button for non-owners -->
+            <% if (!canEdit && currentUser) { %>
+                <% const isFollowing = profile.follow_relation === 'active'; %>
+                <div class="follow-actions">
+                    <div id="follow-feedback" class="follow-feedback" hidden></div>
+                    <form action="/profiles/<%= profile.user_id %>/follow" method="POST" class="follow-form">
+                        <input type="hidden" name="action" value="<%= isFollowing ? 'unfollow' : 'follow' %>" id="follow-action">
+                        <button
+                            type="submit"
+                            class="btn btn-follow <%= isFollowing ? 'following' : '' %>"
+                            data-follow-state="<%= isFollowing ? 'following' : 'idle' %>"
+                            onclick="toggleFollow(event, '<%= profile.user_id %>')"
+                        >
+                            <%= isFollowing ? 'Unfollow' : 'Follow' %>
+                        </button>
+                    </form>
+                </div>
+            <% } %>
+
             <!-- Stats section -->
             <div class="profile-stats">
                 <div class="stat-item">
@@ -89,5 +108,8 @@
     </div>
 
     <%- include('../partials/footer') %>
+
+    <!-- EPIC A.A2: Include follow functionality JS -->
+    <script src="/js/profile.js"></script>
 </body>
 </html>

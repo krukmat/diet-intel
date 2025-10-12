@@ -131,11 +131,12 @@ app.use((err, req, res, next) => {
   });
 });
 
-// Start server
-app.listen(PORT, () => {
-  console.log(`🚀 DietIntel WebApp running on http://localhost:${PORT}`);
-  console.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
-  console.log(`🔗 API URL: ${process.env.DIETINTEL_API_URL || 'http://localhost:8000'}`);
-});
+if (require.main === module) {
+  app.listen(PORT, () => {
+    console.log(`🚀 DietIntel WebApp running on http://localhost:${PORT}`);
+    console.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
+    console.log(`🔗 API URL: ${process.env.DIETINTEL_API_URL || 'http://localhost:8000'}`);
+  });
+}
 
 module.exports = app;

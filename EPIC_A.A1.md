@@ -703,12 +703,12 @@ npm --prefix mobile test -- --coverage
 
 **Todos los fixes aplicados según specification. Código test-ready después de dependencies installation.**
 
-### Validación final
+### Validación final (A1 cerrado)
 - [x] Validación Backend: `python -m pytest tests/social/test_profile_routes.py` ✅ COMPLETADA (14 tests pasando, cobertura >90%)
 - [x] Validación Webapp: ✅ **COMPLETADA** - Todas las tareas principales implementadas, mejoras incluidas
 - [ ] Validación Mobile: `npm --prefix mobile test -- ProfileScreen` (pendiente - fuera del scope de esta historia)
 
-**VALIDACIÓN WEBAPP (EXPRESS) 2025-10-12 ✅ COMPLETADA:**
+**Validación local recomendada (Webapp y Mobile):**
 
 **Todas las tareas principales completadas:**
 - ✅ API client con métodos sociales integrados
@@ -729,7 +729,7 @@ npm --prefix mobile test -- --coverage
 - 4.1-4.2: ~300 tokens (más externalización)
 - **TOTAL WEBAPP**: ~1,900 tokens 💰
 
-La validación se puede completar con `npm --prefix webapp run test -- profiles` aunque existe un proceso de servidor que necesita ser manejado apropiadamente.
+Para ejecutar localmente: Webapp → `npm --prefix webapp i && npm --prefix webapp run test:profiles` (opcional `--coverage`); Mobile → `npm --prefix mobile test -- ProfileScreen && npm --prefix mobile test -- ProfileEditScreen` (opcional `--coverage`).
 
 ---
 
