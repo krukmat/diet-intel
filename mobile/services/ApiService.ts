@@ -33,7 +33,7 @@ class ApiService {
         try {
           const storedTokens = await authService.getStoredTokens();
           if (storedTokens?.access_token && !authService.isTokenExpired(storedTokens.expires_at)) {
-            config.headers = config.headers ?? {};
+            config.headers = config.headers || {};
             config.headers.Authorization = `Bearer ${storedTokens.access_token}`;
           }
         } catch (error) {
@@ -198,6 +198,19 @@ class ApiService {
     if (days) params.append('days', days.toString());
     
     return this.get(`/smart-diet/metrics${params.toString() ? '?' + params.toString() : ''}`);
+  }
+
+  // Social Profile endpoints - EPIC_A.A1
+  public async getProfile(userId: string) {
+    return this.get(`/profiles/${userId}`);
+  }
+
+  public async updateProfile(data: { handle?: string; bio?: string; visibility?: 'public' | 'followers_only' }) {
+    return this.patch('/profiles/me', data);
+  }
+
+  public async getCurrentUser() {
+    return this.get('/auth/me');
   }
 
   // Health check

@@ -26,6 +26,8 @@ import MyRecipesScreen from './screens/MyRecipesScreen';
 import RecipeDetailScreen from './screens/RecipeDetailScreen';
 import TastePreferencesScreen from './screens/TastePreferencesScreen';
 import ShoppingOptimizationScreen from './screens/ShoppingOptimizationScreen';
+import { ProfileScreen } from './screens/ProfileScreen';
+import { ProfileEditScreen } from './screens/ProfileEditScreen';
 import ProductDetail from './components/ProductDetail';
 import ReminderSnippet from './components/ReminderSnippet';
 import ApiConfigModal from './components/ApiConfigModal';
@@ -33,6 +35,7 @@ import DeveloperSettingsModal from './components/DeveloperSettingsModal';
 import LanguageSwitcher, { LanguageToggle } from './components/LanguageSwitcher';
 import { developerSettingsService, DeveloperConfig, FeatureToggle } from './services/DeveloperSettings';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { ProfileProvider } from './contexts/ProfileContext';
 import { notificationService } from './services/NotificationService';
 import LoginScreen from './screens/LoginScreen';
 import RegisterScreen from './screens/RegisterScreen';
@@ -40,11 +43,13 @@ import SplashScreen from './screens/SplashScreen';
 import { LoginCredentials, RegisterData } from './types/auth';
 import './i18n/config';
 
-// Main App Component wrapped with AuthProvider
+// Main App Component wrapped with AuthProvider + ProfileProvider
 export default function App() {
   return (
     <AuthProvider>
-      <AppContent />
+      <ProfileProvider>
+        <AppContent />
+      </ProfileProvider>
     </AuthProvider>
   );
 }
@@ -93,7 +98,7 @@ function MainApp({ user, onLogout }: { user: any; onLogout: () => void }) {
   const [hasPermission, setHasPermission] = useState<boolean | null>(null);
   const [scanned, setScanned] = useState(false);
   const [showCamera, setShowCamera] = useState(false);
-  type ScreenType = 'scanner' | 'upload' | 'plan' | 'track' | 'recommendations' | 'recipes' | 'recipe-generation' | 'recipe-search' | 'my-recipes' | 'recipe-detail' | 'taste-preferences' | 'shopping-optimization';
+  type ScreenType = 'scanner' | 'upload' | 'plan' | 'track' | 'recommendations' | 'recipes' | 'recipe-generation' | 'recipe-search' | 'my-recipes' | 'recipe-detail' | 'taste-preferences' | 'shopping-optimization' | 'profile' | 'profile-edit';
   const [currentScreen, setCurrentScreen] = useState<ScreenType>('scanner');
   const [navigationContext, setNavigationContext] = useState<{
     targetContext?: string;
@@ -378,6 +383,22 @@ function MainApp({ user, onLogout }: { user: any; onLogout: () => void }) {
     />;
   }
 
+  if (currentScreen === 'profile') {
+    console.log('Rendering ProfileScreen...');
+    return <ProfileScreen />;
+  }
+
+  if (currentScreen === 'profile-edit') {
+    console.log('Rendering ProfileEditScreen...');
+    return <ProfileEditScreen
+      onSave={async () => {
+        setCurrentScreen('profile');
+        Alert.alert('Success', 'Profile updated successfully');
+      }}
+      onCancel={() => setCurrentScreen('profile')}
+    />;
+  }
+
   return (
     <SafeAreaView style={styles.container}>
       <ExpoStatusBar style="light" backgroundColor="#007AFF" />
@@ -477,7 +498,7 @@ function MainApp({ user, onLogout }: { user: any; onLogout: () => void }) {
           </Text>
         </TouchableOpacity>
         
-        <TouchableOpacity 
+        <TouchableOpacity
           style={[styles.navButton, isActiveScreen('recipes') && styles.navButtonActive]}
           onPress={() => {
             console.log('Recipe AI tab pressed!');
@@ -486,6 +507,19 @@ function MainApp({ user, onLogout }: { user: any; onLogout: () => void }) {
         >
           <Text style={[styles.navButtonText, isActiveScreen('recipes') && styles.navButtonTextActive]}>
             {t('navigation.recipes')}
+          </Text>
+        </TouchableOpacity>
+
+        {/* EPIC_A.A1: Profile Navigation Button */}
+        <TouchableOpacity
+          style={[styles.navButton, isActiveScreen('profile') && styles.navButtonActive]}
+          onPress={() => {
+            console.log('Profile tab pressed!');
+            setCurrentScreen('profile');
+          }}
+        >
+          <Text style={[styles.navButtonText, isActiveScreen('profile') && styles.navButtonTextActive]}>
+            Profile
           </Text>
         </TouchableOpacity>
       </View>
