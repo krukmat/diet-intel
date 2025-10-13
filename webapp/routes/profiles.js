@@ -179,6 +179,70 @@ router.post('/:targetId/block', requireAuth, async (req, res) => {
     }
 });
 
+// GET /:userId/blocked - List users blocked by this user (EPIC A.A3)
+router.get('/:userId/blocked', requireAuth, async (req, res) => {
+    const token = req.cookies.access_token;
+    const userId = req.params.userId;
+    const currentUserId = res.locals.currentUser.id;
+
+    // Only allow users to view their own blocked list (or admins in future)
+    if (currentUserId !== userId) {
+        return res.status(403).render('error', { message: 'Access denied' });
+    }
+
+    try {
+        const blockedUsers = await dietIntelAPI.getBlockedUsers(userId, token);
+
+        res.render('profiles/blocked', {
+            profile: { user_id: userId },
+            blockedUsers,
+            currentUser: res.locals.currentUser,
+            canEdit: true
+        });
+    } catch (error) {
+        console.error('Blocked users list error:', error);
+
+        // Handle 404 gracefully
+        if (error.response?.status === 404) {
+            return res.status(404).render('error', { message: 'Profile not found' });
+        }
+
+        res.status(500).render('error', { message: 'Error loading blocked users' });
+    }
+});
+
+// GET /:userId/blockers - List users who blocked this user (EPIC A.A3)
+router.get('/:userId/blockers', requireAuth, async (req, res) => {
+    const token = req.cookies.access_token;
+    const userId = req.params.userId;
+    const currentUserId = res.locals.currentUser.id;
+
+    // Only allow users to view their own blockers list (or admins in future)
+    if (currentUserId !== userId) {
+        return res.status(403).render('error', { message: 'Access denied' });
+    }
+
+    try {
+        const blockers = await dietIntelAPI.getBlockers(userId, token);
+
+        res.render('profiles/blockers', {
+            profile: { user_id: userId },
+            blockers,
+            currentUser: res.locals.currentUser,
+            canEdit: true
+        });
+    } catch (error) {
+        console.error('Blockers list error:', error);
+
+        // Handle 404 gracefully
+        if (error.response?.status === 404) {
+            return res.status(404).render('error', { message: 'Profile not found' });
+        }
+
+        res.status(500).render('error', { message: 'Error loading blockers' });
+    }
+});
+
 // GET /:userId - Show profile
 router.get('/:userId', checkAuth, async (req, res) => {
     const token = req.cookies.access_token;

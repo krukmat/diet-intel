@@ -21,6 +21,7 @@ from app.models.social import (
 from .post_read_service import post_read_service
 from .gamification_gateway import gamification_gateway
 from .follow_gateway import follow_gateway
+from .moderation_gateway import moderation_gateway
 
 logger = logging.getLogger(__name__)
 
@@ -33,13 +34,15 @@ class ProfileService:
         database_service=None,
         post_read_svc=None,
         gamification_gw=None,
-        follow_gw=None
+        follow_gw=None,
+        moderation_gw=None
     ):
         """Initialize with dependency injection"""
         self.database_service = database_service or db_service
         self.post_read_service = post_read_svc or post_read_service
         self.gamification_gateway = gamification_gw or gamification_gateway
         self.follow_gateway = follow_gw or follow_gateway
+        self.moderation_gateway = moderation_gw or moderation_gateway
 
     async def ensure_profile_initialized(self, user_id: str, handle: Optional[str] = None) -> None:
         """
@@ -153,6 +156,9 @@ class ProfileService:
                 counters=post.counters
             ))
 
+        # Get block relation for UI state management
+        block_relation = self.moderation_gateway.get_block_relation(viewer_id, user_id)
+
         return ProfileDetail(
             user_id=row['user_id'],
             handle=row['handle'],
@@ -161,7 +167,8 @@ class ProfileService:
             visibility=ProfileVisibility(row['visibility']),
             stats=stats,
             posts=post_previews,
-            posts_notice=posts_notice
+            posts_notice=posts_notice,
+            block_relation=block_relation
         )
 
     @staticmethod
@@ -246,5 +253,6 @@ profile_service = ProfileService(
     db_service,
     post_read_service,
     gamification_gateway,
-    follow_gateway
+    follow_gateway,
+    moderation_gateway
 )

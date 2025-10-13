@@ -45,6 +45,7 @@ class ProfileDetail(BaseModel):
     stats: ProfileStats
     posts: List[PostPreview]
     posts_notice: Optional[str] = None
+    block_relation: Optional[str] = Field(None, description="Block relation: 'blocked', 'blocked_by', or None")
 
 
 class ProfileUpdateRequest(BaseModel):

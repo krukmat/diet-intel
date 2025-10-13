@@ -400,3 +400,73 @@ def test_list_following_with_pagination(client, current_user_model):
     assert len(payload2["items"]) == 1
     assert payload2["items"][0]["user_id"] == "foxtrot-003"
     assert payload2["next_cursor"] is None
+
+
+def test_follow_blocked_returns_blocked_true(client, current_user_model, monkeypatch):
+    """Test que intentar seguir a usuario bloqueado retorna ok=False, blocked=True y HTTP 200."""
+    follower_id = current_user_model.id
+    followee_id = "target-blocked"
+    _seed_user(follower_id, "follower@example.com", "follower-one")
+    _seed_user(followee_id, "target@example.com", "target-blocked")
+
+    # Mock ModerationGateway.is_blocked to return True
+    monkeypatch.setattr(moderation_gateway, "is_blocked", lambda *_: True)
+
+    response = client.post(f"/follows/{followee_id}", json={"action": "follow"})
+    assert response.status_code == 200
+    data = response.json()
+    assert data["ok"] is False
+    assert data["status"] == "blocked"
+    assert data["blocked"] is True
+    assert data["followers_count"] == 0
+    assert data["following_count"] == 0
+
+    # Verify no follow relationship was created
+    with db_service.get_connection() as conn:
+        cursor = conn.cursor()
+        row = cursor.execute(
+            "SELECT 1 FROM user_follows WHERE follower_id = ? AND followee_id = ?",
+            (follower_id, followee_id),
+        ).fetchone()
+        assert row is None
+
+        # Verify no events were created
+        events = cursor.execute(
+            "SELECT COUNT(*) AS total FROM event_outbox"
+        ).fetchone()
+        assert events["total"] == 0
+
+
+def test_follow_allowed_when_not_blocked(client, current_user_model, monkeypatch):
+    """Test que follow funciona normalmente cuando no hay bloqueo."""
+    follower_id = current_user_model.id
+    followee_id = "target-allowed"
+    _seed_user(follower_id, "follower@example.com", "follower-one")
+    _seed_user(followee_id, "target@example.com", "target-allowed")
+
+    # Mock ModerationGateway.is_blocked to return False
+    monkeypatch.setattr(moderation_gateway, "is_blocked", lambda *_: False)
+
+    response = client.post(f"/follows/{followee_id}", json={"action": "follow"})
+    assert response.status_code == 200
+    data = response.json()
+    assert data["ok"] is True
+    assert data["status"] == "active"
+    assert data["blocked"] is False
+    assert data["followers_count"] == 1
+    assert data["following_count"] == 1
+
+    # Verify follow relationship was created
+    with db_service.get_connection() as conn:
+        cursor = conn.cursor()
+        row = cursor.execute(
+            "SELECT status FROM user_follows WHERE follower_id = ? AND followee_id = ?",
+            (follower_id, followee_id),
+        ).fetchone()
+        assert row is not None and row["status"] == "active"
+
+        # Verify event was created
+        events = cursor.execute(
+            "SELECT COUNT(*) AS total FROM event_outbox WHERE name = 'UserAction.FollowCreated'"
+        ).fetchone()
+        assert events["total"] == 1

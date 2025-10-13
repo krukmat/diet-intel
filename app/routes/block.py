@@ -21,17 +21,17 @@ from app.services.social.block_service import block_service
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/blocks", tags=["blocks"])
+router = APIRouter(prefix="", tags=["blocks"])
 
 MODERATION_ENABLED = getattr(config, 'moderation_enabled', True)
 
 
-@router.post("/{target_id}", response_model=BlockActionResponse)
-async def block_or_unblock_user(
+@router.post("/blocks/{target_id}", response_model=BlockActionResponse)
+async def block_toggle(
     target_id: str,
     request: BlockActionRequest,
     current_user: User = Depends(get_current_user)
-) -> BlockActionResponse:
+):
     """
     Block or unblock a user.
 
@@ -47,13 +47,13 @@ async def block_or_unblock_user(
 
     try:
         if request.action == "block":
-            response = await block_service.block_user(
+            response = block_service.block_user(
                 blocker_id=current_user.id,
                 blocked_id=target_id,
                 reason=request.reason
             )
         elif request.action == "unblock":
-            response = await block_service.unblock_user(
+            response = block_service.unblock_user(
                 blocker_id=current_user.id,
                 blocked_id=target_id
             )
@@ -71,7 +71,7 @@ async def block_or_unblock_user(
 
 
 @router.get("/profiles/{user_id}/blocked", response_model=BlockListResponse)
-async def get_blocked_users(
+async def list_blocked(
     user_id: str,
     limit: int = Query(20, ge=1, le=100),
     cursor: Optional[str] = Query(None),
@@ -92,7 +92,7 @@ async def get_blocked_users(
         raise HTTPException(status_code=403, detail="forbidden")
 
     try:
-        return await block_service.list_blocked(
+        return block_service.list_blocked(
             blocker_id=user_id,
             limit=limit,
             cursor=cursor
@@ -106,7 +106,7 @@ async def get_blocked_users(
 
 
 @router.get("/profiles/{user_id}/blockers", response_model=BlockListResponse)
-async def get_blockers(
+async def list_blockers(
     user_id: str,
     limit: int = Query(20, ge=1, le=100),
     cursor: Optional[str] = Query(None),
@@ -127,7 +127,7 @@ async def get_blockers(
         raise HTTPException(status_code=403, detail="forbidden")
 
     try:
-        return await block_service.list_blockers(
+        return block_service.list_blockers(
             blocked_id=user_id,
             limit=limit,
             cursor=cursor

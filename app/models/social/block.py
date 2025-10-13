@@ -1,35 +1,22 @@
 from datetime import datetime
-from typing import Optional, Literal, List
-try:
-    from enum import StrEnum
-except ImportError:
-    # Python 3.9 fallback
-    from enum import Enum
+from enum import Enum
+from typing import List, Optional, Literal
+from pydantic import BaseModel
 
-    class StrEnum(str, Enum):
-        pass
-from pydantic import BaseModel, Field
-
-from app.models.social.follow import Status
-
-
-class BlockAction(StrEnum):
+class BlockAction(str, Enum):
     BLOCK = 'block'
     UNBLOCK = 'unblock'
-
 
 class BlockActionRequest(BaseModel):
     action: BlockAction
     reason: Optional[str] = None
 
-
 class BlockActionResponse(BaseModel):
     ok: bool
     blocker_id: str
     blocked_id: str
-    status: Literal['active','revoked']
+    status: Literal['active', 'revoked']
     blocked_at: datetime
-
 
 class BlockListItem(BaseModel):
     user_id: str
@@ -37,7 +24,6 @@ class BlockListItem(BaseModel):
     avatar_url: Optional[str]
     since: datetime
     reason: Optional[str]
-
 
 class BlockListResponse(BaseModel):
     items: List[BlockListItem]

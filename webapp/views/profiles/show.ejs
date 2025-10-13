@@ -80,6 +80,16 @@
                             <small>This user has blocked you</small>
                         </div>
                     <% } %>
+
+                    <!-- EPIC A.A3: Links to blocked/blockers lists -->
+                    <div class="block-lists mt-2">
+                        <a href="/profiles/<%= currentUser.id %>/blocked" class="btn btn-sm btn-outline-secondary mr-2">
+                            View Blocked Users
+                        </a>
+                        <a href="/profiles/<%= currentUser.id %>/blockers" class="btn btn-sm btn-outline-secondary">
+                            View Users Who Blocked You
+                        </a>
+                    </div>
                 </div>
             <% } %>
 

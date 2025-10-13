@@ -2,12 +2,11 @@ import base64
 import uuid
 from datetime import datetime
 from typing import Optional
-import json
 
 from fastapi import HTTPException
 
 from app.services.database import db_service
-from app.models.social import (
+from app.models.social.block import (
     BlockAction,
     BlockActionRequest,
     BlockActionResponse,
@@ -15,13 +14,14 @@ from app.models.social import (
     BlockListResponse
 )
 from app.services.social.event_publisher import publish_event
+from app.services.social.event_names import UserAction
 
 
 class BlockService:
     """Service for handling user blocking/unblocking operations"""
 
     @staticmethod
-    async def block_user(blocker_id: str, blocked_id: str, reason: Optional[str] = None) -> BlockActionResponse:
+    def block_user(blocker_id: str, blocked_id: str, reason: Optional[str] = None) -> BlockActionResponse:
         """Block a user. Performs validation and transaction logic."""
         # Validation: cannot block self
         if blocker_id == blocked_id:
@@ -48,35 +48,39 @@ class BlockService:
                     blocked_at=datetime.fromisoformat(existing_block['created_at'])
                 )
 
-            # Delete any existing follows in both directions and decrement counters
-            # Check which follows exist and decrement counters appropriately
+            # Check if follows existed BEFORE deleting them
             cursor.execute("""
-                SELECT follower_id, followee_id FROM user_follows
-                WHERE (follower_id = ? AND followee_id = ?) OR (follower_id = ? AND followee_id = ?)
-                AND status = 'active'
-            """, (blocker_id, blocked_id, blocked_id, blocker_id))
+                SELECT 1 FROM user_follows
+                WHERE follower_id = ? AND followee_id = ? AND status = 'active'
+            """, (blocker_id, blocked_id))
 
-            existing_follows = cursor.fetchall()
+            blocker_following = cursor.fetchone() is not None
 
-            # Delete the follows
+            cursor.execute("""
+                SELECT 1 FROM user_follows
+                WHERE followee_id = ? AND follower_id = ? AND status = 'active'
+            """, (blocked_id, blocker_id))
+
+            blocked_following = cursor.fetchone() is not None
+
+            # Delete any existing follows in both directions
             cursor.execute("""
                 DELETE FROM user_follows
                 WHERE (follower_id = ? AND followee_id = ?) OR (follower_id = ? AND followee_id = ?)
             """, (blocker_id, blocked_id, blocked_id, blocker_id))
 
-            # Decrement counters for each follow that was deleted
-            for follow in existing_follows:
-                follower_id = follow['follower_id']
-                followee_id = follow['followee_id']
-                cursor.execute("""
-                    UPDATE profile_stats SET followers_count = MAX(0, followers_count - 1)
-                    WHERE user_id = ?
-                """, (followee_id,))
-
+            # Decrement counters based on follows that existed before deletion
+            if blocker_following:
                 cursor.execute("""
                     UPDATE profile_stats SET following_count = MAX(0, following_count - 1)
                     WHERE user_id = ?
-                """, (follower_id,))
+                """, (blocker_id,))
+
+            if blocked_following:
+                cursor.execute("""
+                    UPDATE profile_stats SET followers_count = MAX(0, followers_count - 1)
+                    WHERE user_id = ?
+                """, (blocked_id,))
 
             # Insert block record
             blocked_at = datetime.utcnow()
@@ -95,7 +99,7 @@ class BlockService:
             conn.commit()
 
             # Publish event
-            await publish_event('UserAction.UserBlocked', {
+            publish_event(UserAction.USER_BLOCKED.value, {
                 'blocker_id': blocker_id,
                 'blocked_id': blocked_id,
                 'reason': reason,
@@ -111,7 +115,7 @@ class BlockService:
             )
 
     @staticmethod
-    async def unblock_user(blocker_id: str, blocked_id: str) -> BlockActionResponse:
+    def unblock_user(blocker_id: str, blocked_id: str) -> BlockActionResponse:
         """Unblock a user. Handles idempotent case where no block exists."""
         with db_service.get_connection() as conn:
             cursor = conn.cursor()
@@ -152,7 +156,7 @@ class BlockService:
             conn.commit()
 
             # Publish event
-            await publish_event('UserAction.UserUnblocked', {
+            publish_event(UserAction.USER_UNBLOCKED.value, {
                 'blocker_id': blocker_id,
                 'blocked_id': blocked_id,
                 'ts': unblocked_at.isoformat()
@@ -167,7 +171,7 @@ class BlockService:
             )
 
     @staticmethod
-    async def list_blocked(blocker_id: str, limit: int = 20, cursor: Optional[str] = None) -> BlockListResponse:
+    def list_blocked(blocker_id: str, limit: int = 20, cursor: Optional[str] = None) -> BlockListResponse:
         """List users blocked by the given user with pagination."""
         items = []
         next_cursor = None
@@ -185,14 +189,14 @@ class BlockService:
                     decoded = base64.b64decode(cursor).decode('utf-8')
                     created_at_str, user_id = decoded.split('|', 1)
                     created_at = datetime.fromisoformat(created_at_str)
-                    where_clause = " AND (b.created_at < ? OR (b.created_at = ? AND u.id < ?))"
+                    where_clause = " AND (b.created_at < ? OR (b.created_at = ? AND u.user_id < ?))"
                     params.extend([created_at.isoformat(), created_at.isoformat(), user_id])
                 except (ValueError, UnicodeDecodeError):
                     raise HTTPException(status_code=400, detail="invalid cursor")
 
             # Query blocked users with user details
             cursor_obj.execute(f"""
-                SELECT u.id, u.handle, u.avatar_url, b.created_at, b.reason
+                SELECT u.user_id as id, u.handle, u.avatar_url, b.created_at, b.reason
                 FROM user_blocks b
                 JOIN user_profiles u ON b.blocked_id = u.user_id
                 WHERE b.blocker_id = ? AND b.status = 'active'
@@ -222,7 +226,7 @@ class BlockService:
         return BlockListResponse(items=items, next_cursor=next_cursor)
 
     @staticmethod
-    async def list_blockers(blocked_id: str, limit: int = 20, cursor: Optional[str] = None) -> BlockListResponse:
+    def list_blockers(blocked_id: str, limit: int = 20, cursor: Optional[str] = None) -> BlockListResponse:
         """List users who have blocked the given user with pagination."""
         items = []
         next_cursor = None
@@ -240,14 +244,14 @@ class BlockService:
                     decoded = base64.b64decode(cursor).decode('utf-8')
                     created_at_str, user_id = decoded.split('|', 1)
                     created_at = datetime.fromisoformat(created_at_str)
-                    where_clause = " AND (b.created_at < ? OR (b.created_at = ? AND u.id < ?))"
+                    where_clause = " AND (b.created_at < ? OR (b.created_at = ? AND u.user_id < ?))"
                     params.extend([created_at.isoformat(), created_at.isoformat(), user_id])
                 except (ValueError, UnicodeDecodeError):
                     raise HTTPException(status_code=400, detail="invalid cursor")
 
             # Query blockers with user details
             cursor_obj.execute(f"""
-                SELECT u.id, u.handle, u.avatar_url, b.created_at, b.reason
+                SELECT u.user_id as id, u.handle, u.avatar_url, b.created_at, b.reason
                 FROM user_blocks b
                 JOIN user_profiles u ON b.blocker_id = u.user_id
                 WHERE b.blocked_id = ? AND b.status = 'active'
@@ -277,7 +281,7 @@ class BlockService:
         return BlockListResponse(items=items, next_cursor=next_cursor)
 
     @staticmethod
-    async def is_blocking(blocker_id: str, blocked_id: str) -> bool:
+    def is_blocking(blocker_id: str, blocked_id: str) -> bool:
         """Check if blocker_id is currently blocking blocked_id."""
         with db_service.get_connection() as conn:
             cursor = conn.cursor()
