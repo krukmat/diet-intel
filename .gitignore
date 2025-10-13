@@ -167,3 +167,4 @@ app/database/smart_diet_indexes.sql
 mobile/screenshots/
 webapp/NEXT_TASKS
 NEXT_TASK
+pytest_feed_combined_new.txt

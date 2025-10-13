@@ -5,6 +5,9 @@
 - A2 (Follow/Unfollow): IMPLEMENTADO ✅ — faltan validaciones finales (tests web en entorno sin bloqueo, lint).
 - A3 (Bloqueos/Moderación): IMPLEMENTADO ✅
 - A4 (Feed social): IMPLEMENTADO ✅ (pendientes documentados en PENDING_FINAL.md).
+- A5 (UGC + Gamificación base + Moderación inicial)
+  - posts, reacciones/comentarios, feed posts, puntos/niveles/badges, notificaciones, reporting.
+
 
 ## Estado de Tests y Cobertura (Webapp/Mobile)
 
