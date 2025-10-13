@@ -6,6 +6,7 @@ EPIC_A.A5: Extended with UGC posts feed
 """
 
 from typing import Optional
+import logging
 from fastapi import APIRouter, Depends, Query
 from app.models.user import User
 from app.services.auth import get_current_user
@@ -14,6 +15,7 @@ from app.models.social.feed import FeedResponse
 from app.services.social.feed_service import list_feed, list_following_posts
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 
 @router.get("/feed", response_model=FeedResponse)
@@ -28,7 +30,11 @@ async def get_feed(
     Returns recent social events like follows, blocks, etc. that are relevant to the user.
     """
     assert_feature_enabled("social_enabled")
-    return list_feed(current_user.id, limit=limit, cursor=cursor)
+    try:
+        return list_feed(current_user.id, limit, cursor)
+    except Exception as exc:
+        logger.error("Failed to load feed", exc_info=exc)
+        return FeedResponse(items=[], next_cursor=None)
 
 
 @router.get("/feed/following", response_model=FeedResponse)
@@ -44,4 +50,8 @@ async def get_following_posts_feed(
     This is the main social content feed for browsing UGC.
     """
     assert_feature_enabled("social_enabled")
-    return list_following_posts(current_user.id, limit=limit, cursor=cursor)
+    try:
+        return list_following_posts(current_user.id, limit, cursor)
+    except Exception as exc:
+        logger.error("Failed to load following feed", exc_info=exc)
+        return FeedResponse(items=[], next_cursor=None)

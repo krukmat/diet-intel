@@ -297,3 +297,20 @@ class BlockService:
 
 # Singleton instance
 block_service = BlockService()
+
+
+# Legacy API functions for backward compatibility
+def block_user(blocker_id: str, blocked_id: str, reason: Optional[str] = None):
+    return BlockService.block_user(blocker_id, blocked_id, reason)
+
+
+def unblock_user(blocker_id: str, blocked_id: str):
+    return BlockService.unblock_user(blocker_id, blocked_id)
+
+
+def list_blocked(blocker_id: str, limit: int = 20, cursor: Optional[str] = None):
+    return BlockService.list_blocked(blocker_id, limit, cursor)
+
+
+def list_blockers(blocked_id: str, limit: int = 20, cursor: Optional[str] = None):
+    return BlockService.list_blockers(blocked_id, limit, cursor)

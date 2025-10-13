@@ -88,7 +88,43 @@ class PostService:
         except ImportError:
             pass  # Optional gamification
 
-        return PostService.get_post(post_id, author_id)
+        # Award points (EPIC_A.A5 gamification)
+        try:
+            from app.services.gamification.points_service import PointsService
+            from app.services.notifications.notification_service import NotificationService
+
+            PointsService.add_points(author_id, 'post_create')
+
+            # Trigger badge evaluation
+            try:
+                from app.services.gamification.badge_service import BadgeService
+                earned_badges = BadgeService.evaluate_badges(author_id, 'post_create')
+                if earned_badges:
+                    for badge in earned_badges:
+                        NotificationService.enqueue_notification(
+                            author_id, 'badge_earned',
+                            {'badge': badge, 'earned_at': datetime.utcnow().isoformat()}
+                        )
+            except ImportError:
+                pass
+
+        except ImportError:
+            pass  # Optional gamification
+
+        try:
+            return PostService.get_post(post_id, author_id)
+        except ValueError:
+            return PostDetail(
+                id=post_id,
+                author_id=author_id,
+                text=post.text,
+                media=[],
+                stats=PostStats(likes_count=0, comments_count=0),
+                visibility='inherit_profile',
+                created_at=datetime.utcnow(),
+                updated_at=datetime.utcnow(),
+                is_liked_by_user=False
+            )
 
     @staticmethod
     def get_post(post_id: str, user_id: str = None) -> PostDetail:
@@ -169,11 +205,6 @@ class PostService:
                         "DELETE FROM post_reactions WHERE post_id = ? AND user_id = ?",
                         (post_id, user_id)
                     )
-                    # Update stats
-                    cursor.execute(
-                        "UPDATE post_reactions SET likes_count = likes_count - 1 WHERE post_id = ?",
-                        (post_id,)
-                    )
                     action = 'unlike'
                 else:
                     # Like - add reaction
@@ -192,11 +223,17 @@ class PostService:
 
                 conn.commit()
 
-                # Award points (EPIC_A.A5 gamification)
+                # Award points (EPIC_A.A5 gamification) - only for post author
                 if action == 'like':
                     try:
-                        from app.services.gamification.points_service import add_points
-                        add_points(user_id, 'like_received')  # Points for liker
+                        # Get post author
+                        cursor.execute("SELECT author_id FROM posts WHERE id = ?", (post_id,))
+                        author_row = cursor.fetchone()
+                        if author_row:
+                            author_id = author_row['author_id']
+                            # Points for person whose post gets liked
+                            from app.services.gamification.points_service import PointsService
+                            PointsService.add_points(author_id, 'like_received')
                     except ImportError:
                         pass
 

@@ -123,13 +123,20 @@ async def get_unread_count(current_user: User = Depends(get_current_user)):
 
 @router.post("/notifications/cleanup", response_model=Dict[str, int])
 async def cleanup_old_notifications(
-    days_old: int = Query(default=30, ge=1, le=365, description="Delete notifications older than this many days")
+    days_old: int = Query(default=30, ge=1, le=365, description="Delete notifications older than this many days"),
+    current_user: User = Depends(get_current_user)
 ):
     """
     Admin endpoint: Clean up old read notifications.
 
+    Requires authentication and proper permissions.
     Returns the count of deleted notifications.
     """
+    assert_feature_enabled("notifications_enabled")
+
+    # TODO: Add proper admin role check
+    # For now, allow authenticated users (temporary)
+
     try:
         deleted_count = NotificationService.cleanup_old_notifications(days_old)
         return {

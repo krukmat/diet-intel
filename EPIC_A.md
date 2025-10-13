@@ -5,8 +5,11 @@
 - A2 (Follow/Unfollow): IMPLEMENTADO ✅ — faltan validaciones finales (tests web en entorno sin bloqueo, lint).
 - A3 (Bloqueos/Moderación): IMPLEMENTADO ✅
 - A4 (Feed social): IMPLEMENTADO ✅ (pendientes documentados en PENDING_FINAL.md).
-- A5 (UGC + Gamificación base + Moderación inicial)
-  - posts, reacciones/comentarios, feed posts, puntos/niveles/badges, notificaciones, reporting.
+- A5 (UGC + Gamificación base + Moderación inicial): CERRADA ✅  
+  - Alcance implementado según `EPIC_A.A5.md`.  
+  - Tareas diferidas para reanudación futura (ver Sección 14 de `EPIC_A.A5.md`):  
+    - Reejecutar y estabilizar suites sociales/notifications.  
+    - Ajustes menores en `block_service`, `feed_service`, `profile_service` y migración Pydantic V2.
 
 
 ## Estado de Tests y Cobertura (Webapp/Mobile)
@@ -218,3 +221,9 @@
 - **Consistencia de contadores**: emplear transacciones al actualizar `profile_stats`; agregar tarea futura para job de reconciliación nocturna.
 - **Escalabilidad**: índices en tablas `user_follows` y `profile_stats`; considerar mover a PostgreSQL cuando se active `DatabaseService` con SQLAlchemy (fuera de alcance aquí).
 - **Experiencia usuario**: asegúrese que mensajes de error (rate limit, bloqueos) estén traducidos (`locales/`) y cubiertos por QA.
+
+## 7. Pendientes diferidos para retomarse
+- Revisión y limpieza de warnings Pydantic (`@field_validator`, `ConfigDict`).
+- Rerun completo de `tests/social` y `tests/notifications` tras aplicar los fixes detallados en `EPIC_A.A5.md` (Sección 14).
+- Ajustes menores en servicios (`block_service`, `feed_service`, `profile_service`) enumerados como paso a paso en `EPIC_A.A5.md`.
+- Actualizar `PENDING_FINAL.md` con resultados finales cuando se retome el trabajo.

@@ -34,7 +34,7 @@ class BadgeDefinitionsResponse(BaseModel):
     definitions: Dict
 
 
-@router.get("/gamification/user/{user_id}", response_model=UserPointsResponse)
+@router.get("/user/{user_id}", response_model=UserPointsResponse)
 async def get_user_gamification_data(user_id: str, current_user: User = Depends(get_current_user)):
     """
     Get gamification data for a user (own data or if public).
@@ -54,7 +54,7 @@ async def get_user_gamification_data(user_id: str, current_user: User = Depends(
         raise HTTPException(status_code=500, detail=f"Failed to get gamification data: {str(e)}")
 
 
-@router.get("/gamification/leaderboard", response_model=LeaderboardResponse)
+@router.get("/leaderboard", response_model=LeaderboardResponse)
 async def get_leaderboard(
     limit: int = Query(default=50, ge=1, le=100, description="Maximum users to return"),
     time_range: str = Query(default="weekly", regex="^(weekly|monthly|all_time)$", description="Time period for ranking")
@@ -73,7 +73,7 @@ async def get_leaderboard(
         raise HTTPException(status_code=500, detail=f"Failed to get leaderboard: {str(e)}")
 
 
-@router.get("/gamification/badges", response_model=BadgeDefinitionsResponse)
+@router.get("/badges", response_model=BadgeDefinitionsResponse)
 async def get_badge_definitions():
     """
     Get all available badge definitions and rules.
@@ -87,7 +87,7 @@ async def get_badge_definitions():
         raise HTTPException(status_code=500, detail=f"Failed to get badge definitions: {str(e)}")
 
 
-@router.get("/gamification/badges/user/{user_id}", response_model=BadgeResponse)
+@router.get("/badges/user/{user_id}", response_model=BadgeResponse)
 async def get_user_badges(user_id: str, current_user: User = Depends(get_current_user)):
     """
     Get badges earned by a user.
@@ -105,7 +105,7 @@ async def get_user_badges(user_id: str, current_user: User = Depends(get_current
         raise HTTPException(status_code=500, detail=f"Failed to get user badges: {str(e)}")
 
 
-@router.post("/gamification/badges/recalculate/{user_id}")
+@router.post("/badges/recalculate/{user_id}")
 async def recalculate_user_badges(
     user_id: str,
     current_user: User = Depends(get_current_user)

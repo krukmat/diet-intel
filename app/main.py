@@ -13,6 +13,13 @@ from app.routes.recommendations import router as recommendations_router
 from app.routes.smart_diet import router as smart_diet_router
 from app.routes.recipe_ai import router as recipe_ai_router
 from app.routes.translation import router as translation_router
+from app.routes.follow import router as follow_router
+from app.routes.block import router as block_router
+from app.routes.feed import router as feed_router
+from app.routes.posts import router as posts_router
+from app.routes.notifications import router as notifications_router
+from app.routes.gamification import router as gamification_router
+from app.routes.moderation import router as moderation_router
 from app.services.smart_diet import smart_diet_engine
 from logging_config import setup_logging
 
@@ -63,6 +70,13 @@ app.include_router(track_router, prefix="/track", tags=["tracking"])
 app.include_router(reminder_router, prefix="/reminder", tags=["reminders"])
 app.include_router(analytics_router, prefix="/analytics", tags=["analytics"])
 app.include_router(translation_router)
+app.include_router(follow_router, tags=["follows"])
+app.include_router(block_router, tags=["blocks"])
+app.include_router(feed_router, tags=["feed"])
+app.include_router(posts_router, tags=["posts"])
+app.include_router(notifications_router, tags=["notifications"])
+app.include_router(gamification_router, prefix="/gamification", tags=["gamification"])
+app.include_router(moderation_router, tags=["moderation"])
 
 # Expose key services on the app instance for testing/inspection
 app.smart_diet_engine = smart_diet_engine

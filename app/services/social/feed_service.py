@@ -148,7 +148,7 @@ def list_following_posts(user_id: str, limit: int = 20, cursor: Optional[str] = 
             posts_query = f"""
                 SELECT
                     p.id, p.author_id, p.text, p.visibility, p.created_at, p.updated_at,
-                    COUNT(DISTINCT pr.post_id) as likes_count,
+                    COUNT(DISTINCT pr.user_id) as likes_count,
                     COUNT(DISTINCT pc.id) as comments_count,
                     GROUP_CONCAT(DISTINCT m.url) as media_urls,
                     GROUP_CONCAT(DISTINCT m.type || ':' || m.url) as media_types_urls
@@ -201,15 +201,16 @@ def list_following_posts(user_id: str, limit: int = 20, cursor: Optional[str] = 
                     )
                     is_liked_by_user = cursor_obj.fetchone() is not None
 
+                    stats = PostStats(
+                        likes_count=row['likes_count'] or 0,
+                        comments_count=row['comments_count'] or 0
+                    )
                     post_detail = PostDetail(
                         id=row['id'],
                         author_id=row['author_id'],
                         text=row['text'],
-                        media=media[:4],  # Respect max 4 media limit
-                        stats={
-                            'likes_count': row['likes_count'] or 0,
-                            'comments_count': row['comments_count'] or 0
-                        },
+                        media=media[:4],
+                        stats=stats,
                         visibility=row['visibility'],
                         created_at=row['created_at'],
                         updated_at=row['updated_at'],
@@ -240,8 +241,8 @@ def list_following_posts(user_id: str, limit: int = 20, cursor: Optional[str] = 
                         'post_id': post.id,
                         'author_id': post.author_id,
                         'text': post.text,
-                        'likes_count': post.stats['likes_count'],
-                        'comments_count': post.stats['comments_count']
+                        'likes_count': post.stats.likes_count,
+                        'comments_count': post.stats.comments_count
                     },
                     created_at=post.created_at
                 )

@@ -22,9 +22,10 @@ class ReactionService:
         stats = PostService._get_post_stats(post_id)
 
         # Send notification to post author if someone liked their post (and it's not self-like)
-        if liked and stats.likes_count == 1:  # First like
+        if liked and stats.likes_count >= 1:  # Any like gets notification
             try:
-                with PostService._db_conn() as conn:  # Need to get post author
+                from app.services.database import db_service
+                with db_service.get_connection() as conn:
                     cursor = conn.cursor()
                     cursor.execute("SELECT author_id FROM posts WHERE id = ?", (post_id,))
                     row = cursor.fetchone()

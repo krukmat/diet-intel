@@ -61,6 +61,8 @@ class ProfileService:
         if not existing:
             # Get user details for default handle
             user = await self.database_service.get_user_by_id(user_id)
+            if isinstance(user, dict):
+                user = User(**user)
             if not user:
                 raise HTTPException(status_code=404, detail="User not found")
 

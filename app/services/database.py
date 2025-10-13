@@ -241,6 +241,121 @@ class DatabaseService:
                 )
             """)
 
+            # EPIC_A.A5: Social posts tables
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS posts (
+                    id TEXT PRIMARY KEY,
+                    author_id TEXT NOT NULL,
+                    text TEXT NOT NULL CHECK(LENGTH(text) <= 500),
+                    visibility TEXT NOT_NULL CHECK (visibility IN ('public', 'followers_only')),
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
+
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS post_media (
+                    id TEXT PRIMARY KEY,
+                    post_id TEXT NOT NULL,
+                    type TEXT NOT NULL CHECK(type IN ('image', 'video')),
+                    url TEXT NOT NULL,
+                    order_position INTEGER DEFAULT 0,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (post_id) REFERENCES posts(id) ON DELETE CASCADE
+                )
+            """)
+
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS post_reactions (
+                    post_id TEXT NOT NULL,
+                    user_id TEXT NOT NULL,
+                    reaction_type TEXT NOT NULL CHECK(reaction_type IN ('like', 'love', 'laugh', 'sad', 'angry')),
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    PRIMARY KEY (post_id, user_id)
+                )
+            """)
+
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS post_comments (
+                    id TEXT PRIMARY KEY,
+                    post_id TEXT NOT NULL,
+                    author_id TEXT NOT NULL,
+                    text TEXT NOT NULL CHECK(LENGTH(text) <= 280),
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (post_id) REFERENCES posts(id) ON DELETE CASCADE
+                )
+            """)
+
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS post_activity_log (
+                    id TEXT PRIMARY KEY,
+                    user_id TEXT NOT NULL,
+                    activity_type TEXT NOT NULL,
+                    activity_date DATE NOT NULL,
+                    count INTEGER NOT NULL DEFAULT 0,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE(user_id, activity_type, activity_date)
+                )
+            """)
+
+            # EPIC_A.A5: Gamification tables
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS points_ledger (
+                    id TEXT PRIMARY KEY,
+                    user_id TEXT NOT NULL,
+                    source TEXT NOT NULL,
+                    points INTEGER NOT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
+
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS user_levels (
+                    user_id TEXT PRIMARY KEY,
+                    points_total INTEGER NOT NULL DEFAULT 0,
+                    level INTEGER NOT NULL DEFAULT 1,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
+
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS user_badges (
+                    id TEXT PRIMARY KEY,
+                    user_id TEXT NOT NULL,
+                    badge_code TEXT NOT NULL,
+                    earned_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
+
+            # EPIC_A.A5: Notifications table
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS notifications (
+                    id TEXT PRIMARY KEY,
+                    user_id TEXT NOT NULL,
+                    type TEXT NOT NULL,
+                    payload TEXT NOT NULL, -- JSON
+                    read_at TIMESTAMP,
+                    status TEXT NOT NULL DEFAULT 'unread' CHECK(status IN ('unread', 'read', 'deleted')),
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
+
+            # EPIC_A.A5: Content reports table
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS content_reports (
+                    id TEXT PRIMARY KEY,
+                    reporter_id TEXT NOT NULL,
+                    target_type TEXT NOT NULL CHECK(target_type IN ('post', 'comment', 'user')),
+                    target_id TEXT NOT NULL,
+                    reason TEXT NOT NULL CHECK(reason IN ('spam', 'abuse', 'nsfw', 'misinformation', 'other')),
+                    status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending', 'moderated_approved', 'moderated_dismissed', 'moderated_escalated')),
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    reviewed_at TIMESTAMP,
+                    reviewed_by TEXT
+                )
+            """)
+
             # Meal tracking tables
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS meals (

@@ -21,6 +21,8 @@ class PointsService:
         'follow_gained': 2,            # Points when someone follows you
         'referral_completed': 25,      # Points for successful referral
         'challenge_completed': 15,     # Points for completing a challenge
+        'reaction_given': 1,           # Points for giving reactions
+        'badge_earned': 3,             # Bonus for earning badges
     }
 
     # Daily caps for point earning (prevents gaming)
