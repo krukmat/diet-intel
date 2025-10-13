@@ -27,7 +27,7 @@ class BlockActionResponse(BaseModel):
     ok: bool
     blocker_id: str
     blocked_id: str
-    status: Status
+    status: Literal['active','revoked']
     blocked_at: datetime
 
 

@@ -19,7 +19,7 @@ class ModerationGateway:
     Implementación completa de bloqueos para EPIC A3.
     """
 
-    def is_blocked(self, viewer_id: Optional[str], target_id: str) -> bool:
+    async def is_blocked(self, viewer_id: Optional[str], target_id: str) -> bool:
         """
         Verifica si existe un bloqueo entre users que impida la interacción.
 

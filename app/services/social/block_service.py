@@ -6,7 +6,7 @@ import json
 
 from fastapi import HTTPException
 
-from app.database import db_service
+from app.services.database import db_service
 from app.models.social import (
     BlockAction,
     BlockActionRequest,
@@ -49,21 +49,34 @@ class BlockService:
                 )
 
             # Delete any existing follows in both directions and decrement counters
+            # Check which follows exist and decrement counters appropriately
+            cursor.execute("""
+                SELECT follower_id, followee_id FROM user_follows
+                WHERE (follower_id = ? AND followee_id = ?) OR (follower_id = ? AND followee_id = ?)
+                AND status = 'active'
+            """, (blocker_id, blocked_id, blocked_id, blocker_id))
+
+            existing_follows = cursor.fetchall()
+
+            # Delete the follows
             cursor.execute("""
                 DELETE FROM user_follows
                 WHERE (follower_id = ? AND followee_id = ?) OR (follower_id = ? AND followee_id = ?)
             """, (blocker_id, blocked_id, blocked_id, blocker_id))
 
-            # Decrement counters for deleted follows
-            cursor.execute("""
-                UPDATE profile_stats SET followers_count = MAX(0, followers_count - 1)
-                WHERE user_id = ?
-            """, (blocked_id,))
+            # Decrement counters for each follow that was deleted
+            for follow in existing_follows:
+                follower_id = follow['follower_id']
+                followee_id = follow['followee_id']
+                cursor.execute("""
+                    UPDATE profile_stats SET followers_count = MAX(0, followers_count - 1)
+                    WHERE user_id = ?
+                """, (followee_id,))
 
-            cursor.execute("""
-                UPDATE profile_stats SET following_count = MAX(0, following_count - 1)
-                WHERE user_id = ?
-            """, (blocker_id,))
+                cursor.execute("""
+                    UPDATE profile_stats SET following_count = MAX(0, following_count - 1)
+                    WHERE user_id = ?
+                """, (follower_id,))
 
             # Insert block record
             blocked_at = datetime.utcnow()
@@ -181,10 +194,10 @@ class BlockService:
             cursor_obj.execute(f"""
                 SELECT u.id, u.handle, u.avatar_url, b.created_at, b.reason
                 FROM user_blocks b
-                JOIN users u ON b.blocked_id = u.id
+                JOIN user_profiles u ON b.blocked_id = u.user_id
                 WHERE b.blocker_id = ? AND b.status = 'active'
                 {where_clause}
-                ORDER BY b.created_at DESC, u.id ASC
+                ORDER BY b.created_at DESC, u.user_id ASC
                 LIMIT ?
             """, params)
 
@@ -236,10 +249,10 @@ class BlockService:
             cursor_obj.execute(f"""
                 SELECT u.id, u.handle, u.avatar_url, b.created_at, b.reason
                 FROM user_blocks b
-                JOIN users u ON b.blocker_id = u.id
+                JOIN user_profiles u ON b.blocker_id = u.user_id
                 WHERE b.blocked_id = ? AND b.status = 'active'
                 {where_clause}
-                ORDER BY b.created_at DESC, u.id ASC
+                ORDER BY b.created_at DESC, u.user_id ASC
                 LIMIT ?
             """, params)
 

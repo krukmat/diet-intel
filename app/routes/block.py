@@ -10,8 +10,8 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import ValidationError
 
 from app.config import config
-from app.database import get_current_user
-from app.models.social import User
+from app.services.auth import get_current_user
+from app.models.user import User
 from app.models.social.block import (
     BlockActionRequest,
     BlockActionResponse,

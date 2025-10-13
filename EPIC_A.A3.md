@@ -1,30 +1,24 @@
+# EPIC A · Historia A3 — Bloqueos y Moderación Básica
+
+> Objetivo: implementar la funcionalidad de bloquear/desbloquear usuarios, impedir interacciones cuando existe un bloqueo y exponer listados de bloqueados/bloqueadores en backend, webapp y mobile.
+
 ---
-title: EPIC A · Historia A3 — Bloqueos y Moderación Básica
+
+## 1. Preparación general
+
+1. Confirmar que estás en la rama `gamification-social-diet` y que el arbol de trabajo está limpio:
+   ```bash
+git checkout gamification-social-diet
+git status
+```
+2. Desde la raíz del repositorio, crear un branch de trabajo si se desea (`feature/a3-blocks`).
+3. Mantener formato existente (PEP 8, ESLint) y reutilizar patrones de A1/A2; todo el código nuevo debe incluir comentarios solo cuando aporten contexto adicional.
+
 ---
 
-> Objetivo: Habilitar bloqueos/unblock entre usuarios, impedir interacciones cuando exista bloqueo y exponer listados de bloqueados/bloqueadores en backend, webapp y mobile.
+## 2. Persistencia: tablas de bloqueo y eventos
 
-## Estado actual (TODO/INTEGRACION COMPLETADO) ✅
-- ✅ **Database**: Creado archivo `database/init/016_create_blocks.sql` (662 bytes) con tablas user_blocks, block_events + actualizado `app/services/database.py` para incluir CREATE TABLE elegantes (**~200 tokens**)
-- ✅ **Modelos**: Creado `app/models/social/block.py` (738 bytes) con modelos Pydantic (BlockActionEnum, BlockActionRequest, BlockActionResponse, etc.) + exportado en `__init__.py` (533 bytes total) (**~150 tokens**)
-- ✅ **Servicio**: Creado BlockService completo en `app/services/social/block_service.py` (11,052 bytes) con lógica de bloqueo/desbloqueo, eliminación automática de follows, eventos, paginación y validaciones (**~900 tokens**)
-- ✅ **ModerationGateway**: Actualizado `app/services/social/moderation_gateway.py` (2,456 bytes) con métodos `is_blocked()` y `get_block_relation()` que consultan a block_service (**~200 tokens**)
-- ✅ **FollowService**: Modificado `follow_user()` para soft-fail en caso de bloqueo **+** ajustado `FollowActionResponse` para incluir campo `blocked: bool = False` (**~16,935 tokens total**)
-- ✅ **Rutas**: Creado `app/routes/block.py` (4,704 bytes) con endpoints POST /blocks/{target_id} y GET /profiles/{user_id}/blocked|blockers + registrado en `main.py` (3,317 bytes total) (**~500 tokens**)
-- ✅ **Webapp**: API extendida en `webapp/utils/api.js` con `blockUser/unblockUser/getBlockedUsers/getBlockers`, rutas en `webapp/routes/profiles.js` con POST /profiles/:id/block, vista `show.ejs` con botón block/unblock + estados, JS cliente extendido con `toggleBlock` (**~250 tokens**)
-- ✅ **Mobile**: `ApiService` ampliado con `blockUser/unblockUser/getBlockedUsers/getBlockers`, tipos `profile.ts` con `block_relation`, `ProfileScreen` con botón Block/Unblock + estados, pantallas `BlockedListScreen` y `BlockedByScreen` con paginación FlatList, tests `ProfileScreen.test.tsx` completos para block/unblock (**~160 tokens**)
-- ✅ **Validación**: **Tests pytest/ejecutados** → Puedes ver los resultados en las secciones anteriores, con coverage completo y casos específicos para block/unblock. Tests Jest/pytest/jest RN ejecutados exitosamente (**~150 tokens para tests completos**)
-
-## 0. Preparación general
-
-- Trabajar siempre desde la rama `gamification-social-diet`.
-- Antes de empezar, ejecutar `git status` y confirmar que no hay cambios sin guardar.
-- Todas las rutas de archivo son relativas a la raíz del repo.
-- Mantener formato y estilo existentes (PEP8, ESLint, etc.).
-
-## 1. Base de datos y bootstrap
-
-1. Crear archivo `database/init/016_create_blocks.sql` con el contenido exacto:
+1. Crear el archivo `database/init/016_create_blocks.sql` con **exactamente** lo siguiente:
    ```sql
    CREATE TABLE IF NOT EXISTS user_blocks (
      blocker_id TEXT NOT NULL,
@@ -46,14 +40,26 @@ title: EPIC A · Historia A3 — Bloqueos y Moderación Básica
      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
    );
    ```
-2. Abrir `app/services/database.py` y, en el método `init_database`, añadir los `CREATE TABLE` análogos para `user_blocks` y `block_events` justo después de la sección de `user_follows`.
-3. Si ya existe script de semillas (p. ej. `scripts/create_dummy_data.py`), insertar dos usuarios y una relación de bloqueo para verificar manualmente.
+2. Editar `app/services/database.py`:
+   - Localizar el método `init_database`.
+   - Debajo de la sección que crea `user_follows` añadir los bloques `CREATE TABLE`/`CREATE INDEX` equivalentes para `user_blocks` y `block_events`.
+   - Asegurarse de cerrar cada sentencia con triple comillas y de mantener la consistencia con el resto de inicializaciones.
+3. Si se utiliza el script de datos dummy (`scripts/create_dummy_data.py`), añadir dos usuarios y una relación de bloqueo para pruebas manuales.
 
-## 2. Modelos Pydantic
+---
 
-1. Crear `app/models/social/block.py` con:
+## 3. Modelos Pydantic para bloqueos
+
+1. Crear `app/models/social/block.py` con los modelos siguientes:
    ```python
-   class BlockAction(str, Enum): BLOCK = 'block'; UNBLOCK = 'unblock'
+   from datetime import datetime
+   from enum import Enum
+   from typing import List, Optional, Literal
+   from pydantic import BaseModel
+
+   class BlockAction(str, Enum):
+       BLOCK = 'block'
+       UNBLOCK = 'unblock'
 
    class BlockActionRequest(BaseModel):
        action: BlockAction
@@ -63,7 +69,7 @@ title: EPIC A · Historia A3 — Bloqueos y Moderación Básica
        ok: bool
        blocker_id: str
        blocked_id: str
-       status: Literal['active','revoked']
+       status: Literal['active', 'revoked']
        blocked_at: datetime
 
    class BlockListItem(BaseModel):
@@ -75,117 +81,176 @@ title: EPIC A · Historia A3 — Bloqueos y Moderación Básica
 
    class BlockListResponse(BaseModel):
        items: List[BlockListItem]
-       next_cursor: Optional[str]
+       next_cursor: Optional[str] = None
    ```
-2. Exportar en `app/models/social/__init__.py`.
+2. Actualizar `app/models/social/__init__.py` para exportar los nuevos modelos (`BlockAction`, `BlockActionRequest`, etc.).
 
-## 3. Servicio de Bloqueos
+---
 
-1. Crear `app/services/social/block_service.py` con clase `BlockService` y métodos:
-   - `async block_user(blocker_id: str, blocked_id: str, reason: Optional[str] = None) -> BlockActionResponse`
-   - `async unblock_user(blocker_id: str, blocked_id: str) -> BlockActionResponse`
-   - `async list_blocked(blocker_id: str, limit: int = 20, cursor: Optional[str] = None) -> BlockListResponse`
-   - `async list_blockers(blocked_id: str, limit: int = 20, cursor: Optional[str] = None) -> BlockListResponse`
-   - `async is_blocking(blocker_id: str, blocked_id: str) -> bool`
-   (seguir el patrón de `follow_service` para implementar singletons y transacciones).
-2. Reglas obligatorias en cada método (verificar con asserts/tests):
-   - Bloquearse a uno mismo debe lanzar `HTTPException(status_code=400, detail="cannot block self")`.
-   - Bloquear mismo usuario repetidamente retorna estado actual (sin duplicar fila).
-   - Al bloquear, ejecutar DELETE sobre `user_follows` en ambos sentidos y decrementar contadores.
-   - Refrescar timestamps `updated_at` y almacenar en `block_events`.
-   - Crear payload `{"blocker_id": ..., "blocked_id": ..., "reason": ..., "ts": datetime.utcnow().isoformat()}` para `publish_event`.
-   - Cursor: encodear `created_at` + `user_id` con base64; validar cursor inválido con `HTTPException(400)`.
-3. Crear `tests/social/test_block_service.py` con los escenarios: bloqueo feliz, bloqueo idempotente, desbloqueo, eliminación de follow existente, cursor > limit, self-block 400.
+## 4. Servicio de bloqueos
 
-## 4. ModerationGateway y FollowService
+1. Crear `app/services/social/block_service.py` siguiendo esta estructura:
+   - Clase `BlockService` con métodos sincrónicos (`block_user`, `unblock_user`, `list_blocked`, `list_blockers`, `is_blocking`). Evitar `async` para reducir complejidad.
+   - Utilizar `with db_service.get_connection()` para manejar transacciones.
+   - **block_user(blocker_id, blocked_id, reason=None):**
+     1. Validar que `blocker_id != blocked_id`; si son iguales, lanzar `HTTPException(400, "cannot block self")`.
+     2. Comprobar si ya existe el registro activo; si sí, devolver respuesta idempotente sin modificar datos.
+     3. Eliminar cualquier follow en ambos sentidos:
+        - `DELETE FROM user_follows WHERE follower_id=? AND followee_id=?` (dos consultas separadas o una con OR).
+        - Obtener `changes()` para saber si se borró relación y, solo en ese caso, decrementar contadores en `profile_stats` (`followers_count` del bloqueado, `following_count` del bloqueador) usando `MAX(0, count - 1)`.
+     4. Insertar fila en `user_blocks` (`status='active'`, `created_at=CURRENT_TIMESTAMP`).
+     5. Insertar evento en `block_events` (`action='block'`) utilizando `uuid.uuid4()`.
+     6. Publicar evento `UserAction.UserBlocked` mediante `publish_event` con payload `{'blocker_id', 'blocked_id', 'reason', 'ts'}`.
+     7. Devolver `BlockActionResponse` con `blocked_at` (datetime.utcnow()).
+   - **unblock_user(blocker_id, blocked_id):**
+     1. Verificar si existe fila `status='active'`; si no, retornar `ok=True`, `status='revoked'` sin modificar nada.
+     2. Actualizar fila a `status='revoked', updated_at=CURRENT_TIMESTAMP`.
+     3. Insertar evento `block_events` con `action='unblock'` y publicar `UserAction.UserUnblocked`.
+     4. Retornar `BlockActionResponse` con `status='revoked'`.
+   - **list_blocked(blocker_id, limit=20, cursor=None):**
+     1. Decodificar cursor si existe (`base64(created_at|user_id)`), validar errores.
+     2. Hacer JOIN con `user_profiles` para obtener `handle`/`avatar_url`; ordenar por `created_at DESC, user_id ASC`.
+     3. Recuperar `limit+1` filas para detectar paginación; construir `BlockListItem`; generar `next_cursor` si corresponde.
+   - **list_blockers(blocked_id, ...):** igual que anterior pero invirtiendo roles.
+   - **is_blocking(blocker_id, blocked_id):** devolver `True/False` según exista fila `status='active'`.
+   - Al final del archivo, instanciar `block_service = BlockService()`.
+2. Crear pruebas unitarias `tests/social/test_block_service.py` cubriendo:
+   - Bloqueo feliz (inserta fila, elimina follow, ajusta contadores, graba evento).
+   - Bloqueo idempotente (segunda llamada no cambia datos).
+   - Unblock feliz.
+   - Auto-bloqueo -> HTTP 400.
+   - Cursor válido/ inválido en `list_blocked` y `list_blockers`.
+   - Confirmar que `publish_event` se invoca con nombre correcto.
 
-1. Actualizar `app/services/social/moderation_gateway.py`:
+---
+
+## 5. Integración con ModerationGateway y FollowService
+
+1. Editar `app/services/social/moderation_gateway.py`:
    - Importar `block_service`.
-   - Implementar métodos:
-     ```python
-     def is_blocked(self, viewer_id: Optional[str], target_id: str) -> bool:
-         if not viewer_id:
-             return False
-         return block_service.is_blocking(target_id, viewer_id) or block_service.is_blocking(viewer_id, target_id)
-     ```
-     y `get_block_relation(viewer_id, target_id)` devolviendo `'blocked'`, `'blocked_by'` o `None`.
-2. Modificar `follow_service`:
-   - En `follow_user`, llamar `moderation_gateway.is_blocked` y devolver `ok=False` con `status='blocked'` sin modificar contadores.
-   - En `list_followers`/`list_following`, filtrar usuarios con bloqueo activo (opcional según pauta).
-3. Ajustar `FollowActionResponse` para incluir `blocked: bool = False`.
+   - Hacer que `is_blocked(viewer_id, target_id)` retorne `True` si `block_service.is_blocking(target_id, viewer_id)` **o** `block_service.is_blocking(viewer_id, target_id)`.
+   - Añadir `get_block_relation(viewer_id, target_id)` que devuelva `'blocked'`, `'blocked_by'` o `None` usando las mismas consultas.
+2. Actualizar `app/services/social/follow_service.py`:
+   - Antes de aplicar la lógica de follow, llamar `moderation_gateway.is_blocked` y, si devuelve `True`, retornar `FollowActionResponse(ok=False, status='blocked', blocked=True, ...)` sin tocar contadores.
+   - El response model ya debe incluir `blocked: bool`; verificar que se establece en todos los caminos relevantes.
+   - Ajustar listados (`list_followers`/`list_following`) para omitir usuarios bloqueados si así lo define la historia (opcional, documentar decisión).
+3. Añadir pruebas adicionales en `tests/social/test_follow_routes.py` para confirmar que intenta seguir a usuario bloqueado retorna `ok=False, blocked=True` y HTTP 200.
 
-## 5. Rutas FastAPI
+---
 
-1. Crear `app/routes/block.py`:
-   - `POST /blocks/{target_id}` body `BlockActionRequest`.
-   - `GET /profiles/{user_id}/blocked`
-   - `GET /profiles/{user_id}/blockers`
-2. Proteger con `Depends(get_current_user)` y flag `moderation_enabled`.
-3. Registrar router en `main.py`.
-4. Tests `tests/social/test_block_routes.py`:
-   - Happy path block/unblock.
-   - Soft-fail follow al bloquear.
-   - Listados con cursor.
-   - Rate limit opcional (dejar TODO si no definido).
+## 6. Rutas FastAPI de bloqueos
 
-## 6. Webapp (Express)
+1. Crear `app/routes/block.py` con el siguiente contenido base:
+   ```python
+   from typing import Optional
+   from fastapi import APIRouter, Depends, HTTPException, Query
+   from app.models.user import User
+   from app.services.auth import get_current_user
+   from app.models.social.block import BlockActionRequest, BlockActionResponse, BlockListResponse
+   from app.services.social.block_service import block_service
 
-1. API utils (`webapp/utils/api.js`):
-   - `blockUser(targetId, token?)`
-   - `unblockUser(targetId, token?)`
-   - `getBlockedUsers(userId, token?, options)` con `limit/cursor`.
-2. Rutas:
-   - En `webapp/routes/profiles.js`, manejar `POST /profiles/:id/block` y `GET /profiles/:id/blocked|blockers`.
-   - Pasar datos `profile.block_relation` al render.
-   - Reutilizar middleware `requireAuth` para proteger acciones.
-3. Vistas:
-   - Actualizar `webapp/views/profiles/show.ejs` para mostrar botón Block/Unblock (similar a follow).
-   - Crear `webapp/views/profiles/blocked.ejs` y `blockers.ejs`.
-4. JS cliente:
-   - Extender `webapp/public/js/profile.js` con funciones `toggleBlock`.
-5. Tests:
-   - `webapp/tests/profiles.routes.test.js`: verificar llamadas a API block/unblock.
-   - `webapp/tests/profiles.views.test.js`: verificar render de botón block/unblock y listados.
-   - Añadir tests cliente si se usa lógica compleja.
+   router = APIRouter(prefix="", tags=["blocks"])
 
-## 7. Mobile (React Native)
+   @router.post("/blocks/{target_id}", response_model=BlockActionResponse)
+   async def block_toggle(target_id: str, request: BlockActionRequest, current_user: User = Depends(get_current_user)):
+       ...
 
-1. Servicio API (`mobile/services/ApiService.ts`):
-   - `blockUser(targetId)`, `unblockUser(targetId)`, `getBlockedUsers`.
-2. Interfaz `Profile` (`mobile/types/profile.ts`): agregar `block_relation?: 'blocked' | 'blocked_by' | null`.
-3. `ProfileScreen.tsx`:
-   - Mostrar botón Block/Unblock para no-owners.
-   - Deshabilitar follow si existe bloqueo.
-   - Feedback con `Alert`/`Toast`.
-   - Asegurar que `refreshProfile()` se llama tras bloquear/desbloquear.
+   @router.get("/profiles/{user_id}/blocked", response_model=BlockListResponse)
+   async def list_blocked(...):
+       ...
+
+   @router.get("/profiles/{user_id}/blockers", response_model=BlockListResponse)
+   async def list_blockers(...):
+       ...
+   ```
+   - Dentro de `block_toggle`, impedir self-block, llamar a `block_service.block_user` o `...unblock_user` según `request.action` y manejar excepciones genéricas con `HTTPException(500)`.
+   - En listados, validar que `current_user.id == user_id` o que el usuario tenga rol admin (si existe). Manejar cursores inválidos devolviendo 400.
+2. Registrar el router en `main.py`:
+   ```python
+   from app.routes.block import router as block_router
+   ...
+   app.include_router(block_router)
+   ```
+3. Añadir `tests/social/test_block_routes.py` con los casos:
+   - Bloqueo y desbloqueo exitosos (mockear `block_service`).
+   - Intento de bloquearse a sí mismo -> 400.
+   - Listados paginados devolviendo `items` y `next_cursor`.
+   - Cursor inválido -> 400.
+
+---
+
+## 7. Webapp (Express)
+
+1. `webapp/utils/api.js`:
+   - Añadir métodos `blockUser`, `unblockUser`, `getBlockedUsers`, `getBlockers` que llamen a `/blocks/:id` o `/profiles/:id/blocked|blockers` con el token actual.
+2. `webapp/routes/profiles.js`:
+   - Añadir endpoint `POST /profiles/:id/block` que use `dietIntelAPI.blockUser/unblockUser` y devuelva JSON (para AJAX) o redireccione en HTML normal.
+   - Añadir GET `/profiles/:id/blocked` y `/profiles/:id/blockers` que obtengan los listados y rendericen nuevas vistas.
+3. Vistas EJS:
+   - Actualizar `webapp/views/profiles/show.ejs` para mostrar botones Follow/Unfollow **y** Block/Unblock basados en `profile.block_relation`.
+   - Crear `webapp/views/profiles/blocked.ejs` y `webapp/views/profiles/blockers.ejs` con tablas/listas que muestren `handle`, `avatar`, fecha `since` y `next_cursor`.
+4. JS cliente `webapp/public/js/profile.js`:
+   - Implementar `toggleBlock(event, targetUserId)` similar a `toggleFollow`, gestionando errores y actualizando contadores/estados.
+   - Asegurar que `toggleFollow` deshabilite el botón si `profile.block_relation` es `'blocked'` o `'blocked_by'`.
+5. Tests webapp:
+   - Actualizar/crear suites en `webapp/tests/profiles.routes.test.js` y `webapp/tests/profiles.views.test.js` para cubrir los flujos de bloqueo.
+   - Si se usa JS modular, considerar tests con JSDOM para `toggleBlock`.
+
+---
+
+## 8. Mobile (React Native)
+
+1. `mobile/services/ApiService.ts`:
+   - Métodos `blockUser`, `unblockUser`, `getBlockedUsers`, `getBlockers` usando rutas backend.
+2. `mobile/types/profile.ts`:
+   - Añadir `block_relation?: 'blocked' | 'blocked_by' | null` al modelo `Profile`.
+3. `mobile/screens/ProfileScreen.tsx`:
+   - Añadir botón Block/Unblock sólo para usuarios que no sean dueños del perfil.
+   - Si el usuario bloquea, limpiar estado de follow y deshabilitar botón de follow.
+   - Mostrar mensajes con `Alert` o `ToastAndroid`.
 4. Nuevas pantallas:
-   - `BlockedListScreen.tsx`, `BlockedByScreen.tsx` (FlatList con paginación).
-5. Tests:
-   - Actualizar `ProfileScreen.test.tsx` (tap block/unblock, refreshProfile).
-   - Crear `BlockedListScreen.test.tsx` con mocks.
+   - Crear `mobile/screens/BlockedListScreen.tsx` y `mobile/screens/BlockedByScreen.tsx` con `FlatList`, paginación por cursor y botón “Load more”.
+   - Asegurar manejo de estados `loading`, `empty`, `error`.
+5. Tests Jest:
+   - Actualizar `mobile/__tests__/ProfileScreen.test.tsx` para cubrir bloqueos.
+   - Crear `mobile/__tests__/BlockedListScreen.test.tsx` y `mobile/__tests__/BlockedByScreen.test.tsx` que validen render y paginación.
 
-## 8. Eventos y outbox
+---
 
-1. Definir constantes `UserAction.UserBlocked`, `UserAction.UserUnblocked`.
-2. `event_publisher` debe insertar en `event_outbox`.
-3. Tests: verificar filas creadas tras block/unblock.
+## 9. Eventos y outbox
 
-## 9. Lints y documentación
+1. Definir constantes en un módulo central (p.ej. `app/services/social/event_names.py`) para `UserAction.UserBlocked` y `UserAction.UserUnblocked`.
+2. Verificar que `publish_event` inserta en `event_outbox` para bloqueos igual que para follows.
+3. Añadir pruebas que consulten `event_outbox` después de bloquear/desbloquear en el servicio.
 
-1. Ejecutar y documentar: `npm --prefix webapp run lint`, `npm --prefix mobile run lint`.
-2. Documentar endpoints en `docs/api/social.md` (añadir sección Bloqueos).
-3. Crear guía manual en `manual-user-tests.md` con pasos de verificación (bloquear, intentar follow, desbloquear, etc.).
+---
 
-## 10. Validación final esperada
+## 10. Validación y documentación final
 
-Comandos en entorno sin restricciones:
-- `python -m pytest tests/social/test_block_routes.py`
-- `python -m pytest tests/social/test_block_service.py`
-- `NODE_ENV=test npm --prefix webapp run test:profiles`
-- `npm --prefix mobile test -- BlockedList`
+1. Ejecutar suites automatizadas:
+   ```bash
+   python -m pytest tests/social/test_block_service.py
+   python -m pytest tests/social/test_block_routes.py
+   NODE_ENV=test npm --prefix webapp run test:profiles
+   npm --prefix mobile test -- ProfileScreen
+   npm --prefix mobile test -- BlockedList
+   ```
+2. Correr linters:
+   ```bash
+   npm --prefix webapp run lint
+   npm --prefix mobile run lint
+   ```
+3. Documentación:
+   - Actualizar `docs/api/social.md` describiendo los endpoints de bloqueos.
+   - Añadir pasos manuales en `manual-user-tests.md` (bloquear, intentar seguir, desbloquear, revisar listados paginados, verificar eventos).
+4. Regenerar notas en `PENDING_FINAL.md` con resultados y comandos ejecutados.
 
-Checklist manual:
-- Blocker elimina follow existente.
-- Usuarios bloqueados ven mensaje apropiado.
-- Paginación en listados funciona.
-- Eventos aparecen en `event_outbox`.
+---
+
+## 11. Checklist de verificación manual
+
+- [ ] Bloquear un usuario elimina follows en ambos sentidos y bloquea nuevas solicitudes de follow.
+- [ ] Desbloquear permite volver a seguir.
+- [ ] Los listados `/profiles/:id/blocked` y `/blockers` muestran usuarios y paginan correctamente.
+- [ ] Los eventos `UserAction.UserBlocked/UserUnblocked` aparecen en `event_outbox`.
+- [ ] Webapp y mobile reflejan el estado de bloqueo (botones, mensajes) y los flujos funcionan sin errores visibles.

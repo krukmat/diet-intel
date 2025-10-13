@@ -27,7 +27,7 @@ class FollowService:
         if follower_id == followee_id:
             raise HTTPException(status_code=400, detail="cannot follow self")
 
-        if moderation_gateway.is_blocked(follower_id, followee_id):
+        if await moderation_gateway.is_blocked(follower_id, followee_id):
             with self.db.get_connection() as conn:
                 cursor = conn.cursor()
                 status = self._get_existing_status(cursor, follower_id, followee_id) or 'blocked'
