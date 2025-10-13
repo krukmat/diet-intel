@@ -2,7 +2,8 @@
 
 ## Estado
 - A1 (View Profile): COMPLETADO ✅ (backend, webapp, mobile listos; validación local recomendada).
-- Próximo: A2 (Follow/Unfollow).
+- A2 (Follow/Unfollow): IMPLEMENTADO ✅ — faltan validaciones finales (tests web en entorno sin bloqueo, checklist manual, lint).
+- Próximo: A3 (Bloqueos/Moderación inicial).
 
 ## Estado de Tests y Cobertura (Webapp/Mobile)
 
@@ -44,6 +45,7 @@
 - **Perfil**: debe mostrar `avatar`, `bio`, `handle`, visibilidad (`public` | `followers_only`), estadísticas (total de posts, puntos, nivel, cantidad de insignias, seguidores, seguidos) y últimas 10 publicaciones visibles (heredan visibilidad del perfil).
 - **Privacidad**: cuando el perfil es `followers_only`, usuarios no seguidores deben ver mensaje “Follow to see posts” y las publicaciones deben ocultarse; el propietario siempre ve sus posts aun si la relación de follow no está establecida.
 - **Seguimiento**: `POST /follows/:target_id` crea relación A→B, actualiza contadores y dispara notificación a B; desfollows revierte proceso. Reglas: sin duplicados, no permite seguirse a sí mismo, “soft-fail” si existe bloqueo.
+- **Bloqueos (A3)**: usuarios pueden bloquear y desbloquear; al bloquear se eliminan follows existentes y las vistas/acciones se condicionan a esa relación.
 - **Rate limits**: máximo 200 follows por día por usuario (según `abuse_safety.caps.follows_day`).
 - **Eventos**: registrar `UserAction.FollowCreated` (ya especificado) y definir `UserAction.FollowRemoved` para telemetría.
 - **Feature flags**: todo el epic queda condicionado a `social.enabled` (y subflags específicas si aplica en el futuro).
