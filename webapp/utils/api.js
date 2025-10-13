@@ -120,6 +120,69 @@ class DietIntelAPI {
     }
   }
 
+  // EPIC_A.A3: Block/Unblock functionality
+  async blockUser(targetId, authToken) {
+    try {
+      const headers = authToken ? { Authorization: `Bearer ${authToken}` } : {};
+      const response = await this.client.post(
+        `/blocks/${targetId}`,
+        { action: 'block' },
+        { headers }
+      );
+      return response.data;
+    } catch (error) {
+      this.handleAPIError(error, 'blockUser');
+    }
+  }
+
+  async unblockUser(targetId, authToken) {
+    try {
+      const headers = authToken ? { Authorization: `Bearer ${authToken}` } : {};
+      const response = await this.client.post(
+        `/blocks/${targetId}`,
+        { action: 'unblock' },
+        { headers }
+      );
+      return response.data;
+    } catch (error) {
+      this.handleAPIError(error, 'unblockUser');
+    }
+  }
+
+  async getBlockedUsers(userId, authToken, options = {}) {
+    try {
+      const { limit = 20, cursor } = options;
+      const params = { limit };
+      if (cursor) params.cursor = cursor;
+
+      const headers = authToken ? { Authorization: `Bearer ${authToken}` } : {};
+      const response = await this.client.get(`/profiles/${userId}/blocked`, {
+        headers,
+        params
+      });
+      return response.data;
+    } catch (error) {
+      this.handleAPIError(error, 'getBlockedUsers');
+    }
+  }
+
+  async getBlockers(userId, authToken, options = {}) {
+    try {
+      const { limit = 20, cursor } = options;
+      const params = { limit };
+      if (cursor) params.cursor = cursor;
+
+      const headers = authToken ? { Authorization: `Bearer ${authToken}` } : {};
+      const response = await this.client.get(`/profiles/${userId}/blockers`, {
+        headers,
+        params
+      });
+      return response.data;
+    } catch (error) {
+      this.handleAPIError(error, 'getBlockers');
+    }
+  }
+
   // Existing methods...
   async getMealPlan(userId, authToken) {
     // Existing implementation

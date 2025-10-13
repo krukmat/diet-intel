@@ -1,4 +1,9 @@
-// Profile follow/unfollow functionality - EPIC A.A2
+/**
+ * Profile follow/unfollow and block/unblock functionality
+ * EPIC A.A2 and A.A3
+ */
+
+// Follow functionality (EPIC A.A2)
 
 function toggleFollow(event, targetUserId) {
     if (event) {
@@ -133,11 +138,132 @@ document.addEventListener('DOMContentLoaded', function() {
     // For example, fetch initial follow state if needed
 });
 
+// Block functionality (EPIC A.A3)
+
+function toggleBlock(event, targetUserId) {
+    if (event) {
+        event.preventDefault();
+    }
+
+    const blockButton = event?.currentTarget || document.querySelector('.btn-danger');
+    const form = blockButton ? blockButton.closest('.block-form') : document.querySelector('.block-form');
+    const actionInput = form ? form.querySelector('#block-action') : null;
+    const feedback = document.getElementById('social-feedback');
+
+    if (!blockButton || !form || !actionInput) {
+        console.error('Block button or form not found');
+        return;
+    }
+
+    if (targetUserId) {
+        blockButton.dataset.targetUserId = targetUserId;
+    }
+
+    if (feedback) {
+        feedback.hidden = true;
+        feedback.textContent = '';
+        feedback.className = 'social-feedback';
+    }
+
+    const requestAction = actionInput.value;
+    const originalText = blockButton.textContent.trim();
+    const isBlockRequest = requestAction === 'block';
+
+    blockButton.disabled = true;
+
+    fetch(form.action, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'Accept': 'application/json',
+        },
+        body: new URLSearchParams({
+            action: requestAction
+        })
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        return response.json();
+    })
+    .then(data => {
+        if (!data.ok) {
+            const reason = data.detail || 'Block action could not be completed.';
+            throw new Error(reason);
+        }
+
+        const nextAction = isBlockRequest ? 'unblock' : 'block';
+        const nextText = isBlockRequest ? 'Unblock' : 'Block';
+        const isNowBlocked = isBlockRequest;
+
+        actionInput.value = nextAction;
+        blockButton.textContent = nextText;
+
+        // Disable follow button when blocked
+        const followButton = document.querySelector('.follow-form button');
+        if (followButton) {
+            followButton.disabled = isNowBlocked;
+        }
+    })
+    .catch(error => {
+        console.error('Block action failed:', error);
+        if (feedback) {
+            feedback.hidden = false;
+            feedback.textContent = error.message;
+            feedback.className = 'social-feedback error';
+        } else {
+            showBlockError(error.message);
+        }
+    })
+    .finally(() => {
+        blockButton.disabled = false;
+    });
+}
+
+function showBlockError(message) {
+    // Simple error notification for block actions
+    const errorDiv = document.createElement('div');
+    errorDiv.className = 'block-error';
+    errorDiv.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background: #dc3545;
+        color: white;
+        padding: 12px 16px;
+        border-radius: 4px;
+        z-index: 1000;
+        max-width: 300px;
+        word-wrap: break-word;
+    `;
+    errorDiv.textContent = `Block action failed: ${message}`;
+
+    document.body.appendChild(errorDiv);
+
+    // Auto-remove after 5 seconds
+    setTimeout(() => {
+        if (errorDiv.parentNode) {
+            errorDiv.remove();
+        }
+    }, 5000);
+}
+
+// Initialize functionality when page loads
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('Profile social functionality loaded (follow + block)');
+
+    // Add any initialization logic here
+    // For example, fetch initial relationship states if needed
+});
+
 // Export functions for testing
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = {
         toggleFollow,
+        toggleBlock,
         updateCount,
-        showFollowError
+        showFollowError,
+        showBlockError
     };
 }

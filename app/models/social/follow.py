@@ -24,6 +24,7 @@ class FollowActionResponse(BaseModel):
     status: Status
     followers_count: int
     following_count: int
+    blocked: bool = False
 
 
 class FollowListItem(BaseModel):
@@ -36,4 +37,3 @@ class FollowListItem(BaseModel):
 class FollowListResponse(BaseModel):
     items: List[FollowListItem]
     next_cursor: Optional[str] = None
-

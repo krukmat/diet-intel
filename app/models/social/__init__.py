@@ -9,11 +9,23 @@ from .profile import (
     ProfileDetail,
     ProfileUpdateRequest
 )
+from .block import (
+    BlockAction,
+    BlockActionRequest,
+    BlockActionResponse,
+    BlockListItem,
+    BlockListResponse
+)
 
 __all__ = [
     "ProfileVisibility",
     "ProfileStats",
     "PostPreview",
     "ProfileDetail",
-    "ProfileUpdateRequest"
+    "ProfileUpdateRequest",
+    "BlockAction",
+    "BlockActionRequest",
+    "BlockActionResponse",
+    "BlockListItem",
+    "BlockListResponse"
 ]

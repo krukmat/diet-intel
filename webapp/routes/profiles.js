@@ -130,6 +130,55 @@ router.post('/:targetId/follow', requireAuth, async (req, res) => {
     }
 });
 
+// POST /:targetId/block - Block/Unblock user (EPIC A.A3)
+router.post('/:targetId/block', requireAuth, async (req, res) => {
+    const token = req.cookies.access_token;
+    const targetId = req.params.targetId;
+    const currentUserId = res.locals.currentUser.id;
+
+    if (!token) return res.redirect('/login');
+
+    try {
+        // Prevent self-block/unblock
+        if (targetId === currentUserId) {
+            return res.status(400).json({ error: 'Cannot block yourself' });
+        }
+
+        const { action } = req.body; // 'block' or 'unblock'
+        let result;
+
+        if (action === 'block') {
+            result = await dietIntelAPI.blockUser(targetId, token);
+        } else if (action === 'unblock') {
+            result = await dietIntelAPI.unblockUser(targetId, token);
+        } else {
+            return res.status(400).json({ error: 'Invalid action. Use "block" or "unblock"' });
+        }
+
+        // Return result as JSON for AJAX requests
+        if (req.xhr || req.headers.accept.indexOf('json') > -1) {
+            return res.json(result);
+        }
+
+        // For regular form submissions, redirect back to profile
+        res.redirect(`/profiles/${targetId}`);
+
+    } catch (error) {
+        console.error('Block action error:', error);
+
+        // Handle API errors gracefully
+        if (error.response?.status === 400) {
+            return res.status(400).json({ error: error.response.data?.detail || 'Invalid request' });
+        }
+
+        if (error.response?.status === 403) {
+            return res.status(403).json({ error: 'Moderation features disabled' });
+        }
+
+        return res.status(500).json({ error: 'Block action failed' });
+    }
+});
+
 // GET /:userId - Show profile
 router.get('/:userId', checkAuth, async (req, res) => {
     const token = req.cookies.access_token;

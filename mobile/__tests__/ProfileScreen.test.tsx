@@ -30,6 +30,8 @@ const mockGetCurrentUser = apiService.getCurrentUser as jest.MockedFunction<type
 const mockGetProfile = apiService.getProfile as jest.MockedFunction<typeof apiService.getProfile>;
 const mockFollowUser = apiService.followUser as jest.MockedFunction<typeof apiService.followUser>;
 const mockUnfollowUser = apiService.unfollowUser as jest.MockedFunction<typeof apiService.unfollowUser>;
+const mockBlockUser = apiService.blockUser as jest.MockedFunction<typeof apiService.blockUser>;
+const mockUnblockUser = apiService.unblockUser as jest.MockedFunction<typeof apiService.unblockUser>;
 
 describe('ProfileScreen', () => {
   beforeEach(() => {
@@ -421,5 +423,233 @@ describe('ProfileScreen', () => {
     });
 
     expect(screen.getByText('Follow')).toBeTruthy();
+  });
+
+  // EPIC_A.A3: Block/Unblock tests
+  test('shows Block button for non-owner viewers without block relation', () => {
+    const mockProfile = {
+      user_id: 'other-user',
+      handle: 'usertoblock',
+      bio: null,
+      avatar_url: null,
+      visibility: 'public' as const,
+      stats: {
+        followers_count: 1,
+        following_count: 0,
+        posts_count: 0,
+        points_total: 10,
+        level: 1,
+        badges_count: 0,
+      },
+      follow_relation: null,
+      block_relation: null,
+      posts: [],
+      posts_notice: null,
+    };
+
+    mockIsOwner.mockReturnValue(false);
+    mockUseProfile.mockReturnValue({
+      profile: mockProfile,
+      loading: false,
+      error: null,
+      refreshProfile: mockRefreshProfile,
+      isOwner: mockIsOwner,
+    });
+
+    render(<ProfileScreen />);
+
+    expect(screen.getByTestId('follow-toggle-button')).toBeTruthy();
+    expect(screen.getByTestId('block-toggle-button')).toBeTruthy();
+    expect(screen.getByText('Block')).toBeTruthy();
+  });
+
+  test('disables Follow button when user is blocked or blocked by', () => {
+    const mockProfile = {
+      user_id: 'blocked-user',
+      handle: 'blockeduser',
+      bio: null,
+      avatar_url: null,
+      visibility: 'public' as const,
+      stats: {
+        followers_count: 0,
+        following_count: 0,
+        posts_count: 0,
+        points_total: 5,
+        level: 1,
+        badges_count: 0,
+      },
+      follow_relation: null,
+      block_relation: 'blocked' as const,
+      posts: [],
+      posts_notice: null,
+    };
+
+    mockIsOwner.mockReturnValue(false);
+    mockUseProfile.mockReturnValue({
+      profile: mockProfile,
+      loading: false,
+      error: null,
+      refreshProfile: mockRefreshProfile,
+      isOwner: mockIsOwner,
+    });
+
+    render(<ProfileScreen />);
+
+    const followButton = screen.getByTestId('follow-toggle-button');
+    expect(followButton.props.disabled).toBe(true);
+  });
+
+  test('shows Unblock button when viewer has blocked the user', () => {
+    const mockProfile = {
+      user_id: 'blocked-user',
+      handle: 'blockeduser',
+      bio: null,
+      avatar_url: null,
+      visibility: 'public' as const,
+      stats: {
+        followers_count: 0,
+        following_count: 0,
+        posts_count: 0,
+        points_total: 5,
+        level: 1,
+        badges_count: 0,
+      },
+      follow_relation: null,
+      block_relation: 'blocked' as const,
+      posts: [],
+      posts_notice: null,
+    };
+
+    mockIsOwner.mockReturnValue(false);
+    mockUseProfile.mockReturnValue({
+      profile: mockProfile,
+      loading: false,
+      error: null,
+      refreshProfile: mockRefreshProfile,
+      isOwner: mockIsOwner,
+    });
+
+    render(<ProfileScreen />);
+
+    expect(screen.getByText('Unblock')).toBeTruthy();
+  });
+
+  test('shows block notice when user is blocked by profile owner', () => {
+    const mockProfile = {
+      user_id: 'blocker-user',
+      handle: 'blockeruser',
+      bio: null,
+      avatar_url: null,
+      visibility: 'public' as const,
+      stats: {
+        followers_count: 1,
+        following_count: 0,
+        posts_count: 0,
+        points_total: 5,
+        level: 1,
+        badges_count: 0,
+      },
+      follow_relation: null,
+      block_relation: 'blocked_by' as const,
+      posts: [],
+      posts_notice: null,
+    };
+
+    mockIsOwner.mockReturnValue(false);
+    mockUseProfile.mockReturnValue({
+      profile: mockProfile,
+      loading: false,
+      error: null,
+      refreshProfile: mockRefreshProfile,
+      isOwner: mockIsOwner,
+    });
+
+    render(<ProfileScreen />);
+
+    expect(screen.getByText('This user has blocked you')).toBeTruthy();
+  });
+
+  test('calls API blockUser and refreshes profile on block tap', async () => {
+    const mockProfile = {
+      user_id: 'new-blocked-user',
+      handle: 'tobeblocked',
+      bio: null,
+      avatar_url: null,
+      visibility: 'public' as const,
+      stats: {
+        followers_count: 2,
+        following_count: 1,
+        posts_count: 0,
+        points_total: 10,
+        level: 1,
+        badges_count: 0,
+      },
+      follow_relation: null,
+      block_relation: null,
+      posts: [],
+      posts_notice: null,
+    };
+
+    mockIsOwner.mockReturnValue(false);
+    mockBlockUser.mockResolvedValue({ data: { ok: true } } as any);
+
+    mockUseProfile.mockReturnValue({
+      profile: mockProfile,
+      loading: false,
+      error: null,
+      refreshProfile: mockRefreshProfile,
+      isOwner: mockIsOwner,
+    });
+
+    render(<ProfileScreen />);
+
+    fireEvent.press(screen.getByTestId('block-toggle-button'));
+
+    await waitFor(() => {
+      expect(mockBlockUser).toHaveBeenCalledWith('new-blocked-user');
+      expect(mockRefreshProfile).toHaveBeenCalled();
+    });
+  });
+
+  test('calls API unblockUser and refreshes profile on unblock tap', async () => {
+    const mockProfile = {
+      user_id: 'blocked-user',
+      handle: 'currentlyblocked',
+      bio: null,
+      avatar_url: null,
+      visibility: 'public' as const,
+      stats: {
+        followers_count: 0,
+        following_count: 0,
+        posts_count: 0,
+        points_total: 0,
+        level: 1,
+        badges_count: 0,
+      },
+      follow_relation: null,
+      block_relation: 'blocked' as const,
+      posts: [],
+      posts_notice: null,
+    };
+
+    mockIsOwner.mockReturnValue(false);
+    mockUnblockUser.mockResolvedValue({ data: { ok: true } } as any);
+
+    mockUseProfile.mockReturnValue({
+      profile: mockProfile,
+      loading: false,
+      error: null,
+      refreshProfile: mockRefreshProfile,
+      isOwner: mockIsOwner,
+    });
+
+    render(<ProfileScreen />);
+
+    fireEvent.press(screen.getByTestId('block-toggle-button'));
+
+    await waitFor(() => {
+      expect(mockUnblockUser).toHaveBeenCalledWith('blocked-user');
+      expect(mockRefreshProfile).toHaveBeenCalled();
+    });
   });
 });

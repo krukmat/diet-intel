@@ -39,6 +39,7 @@ class FollowService:
                 status=status,
                 followers_count=followers_count,
                 following_count=following_count,
+                blocked=True
             )
 
         event_payload = {

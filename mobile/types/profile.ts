@@ -18,7 +18,8 @@ export interface Profile {
   stats: ProfileStats;
   posts?: any[]; // Permitir any[] para flexibilidad inicial
   posts_notice?: string | null;
-  follow_relation?: 'active' | 'blocked' | null;
+  follow_relation?: 'active' | null;
+  block_relation?: 'blocked' | 'blocked_by' | null; // EPIC_A.A3: Block relation
 }
 
 // Request type for profile updates

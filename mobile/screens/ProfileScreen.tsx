@@ -12,6 +12,9 @@ export const ProfileScreen: React.FC = () => {
 
   const [isProcessing, setIsProcessing] = useState(false);
   const [isFollowing, setIsFollowing] = useState(false);
+  const [isBlocked, setIsBlocked] = useState(false); // EPIC_A.A3: Block state
+  const [isBlockedBy, setIsBlockedBy] = useState(false);
+  const [blockProcessing, setBlockProcessing] = useState(false); // EPIC_A.A3: Block processing state
 
   useEffect(() => {
     refreshProfile();
@@ -20,8 +23,12 @@ export const ProfileScreen: React.FC = () => {
   useEffect(() => {
     if (profile) {
       setIsFollowing(profile.follow_relation === 'active');
+      setIsBlocked(profile.block_relation === 'blocked'); // EPIC_A.A3
+      setIsBlockedBy(profile.block_relation === 'blocked_by');
     } else {
       setIsFollowing(false);
+      setIsBlocked(false);
+      setIsBlockedBy(false);
     }
   }, [profile]);
 
@@ -34,7 +41,7 @@ export const ProfileScreen: React.FC = () => {
   };
 
   const handleFollowToggle = async () => {
-    if (!profile || isProcessing) {
+    if (!profile || isProcessing || (isBlocked || isBlockedBy)) {
       return;
     }
 
@@ -70,6 +77,47 @@ export const ProfileScreen: React.FC = () => {
       setIsFollowing(wasFollowing);
     } finally {
       setIsProcessing(false);
+    }
+  };
+
+  // EPIC_A.A3: Block toggle handler
+  const handleBlockToggle = async () => {
+    if (!profile || blockProcessing) {
+      return;
+    }
+
+    const wasBlocked = isBlocked;
+    const wasBlockedBy = isBlockedBy;
+
+    // Prevent unblocking of users who blocked us
+    if (!wasBlocked && wasBlockedBy) {
+      showMessage('You cannot block this user right now.', 'Block action');
+      return;
+    }
+
+    setBlockProcessing(true);
+
+    try {
+      if (wasBlocked) {
+        await apiService.unblockUser(profile.user_id);
+        setIsBlocked(false);
+        showMessage('User unblocked');
+      } else if (!wasBlockedBy) {
+        await apiService.blockUser(profile.user_id);
+        setIsBlocked(true);
+        setIsFollowing(false); // Block automatically removes follow
+        showMessage('User blocked');
+      }
+
+      await refreshProfile();
+    } catch (err) {
+      console.error('ProfileScreen block toggle error', err);
+      showMessage('Block action failed', 'Error');
+      // Restore previous state on error
+      setIsBlocked(wasBlocked);
+      setIsBlockedBy(wasBlockedBy);
+    } finally {
+      setBlockProcessing(false);
     }
   };
 
@@ -149,34 +197,65 @@ export const ProfileScreen: React.FC = () => {
         </View>
       )}
 
-      {/* Action Buttons */}
-      <View style={styles.buttonContainer}>
-        {viewerIsOwner ? (
+      {/* Action Buttons - EPIC A.A2/A.A3 */}
+      <View style={styles.actionsContainer}>
+        {!viewerIsOwner && (
+          <>
+            {/* Follow/Unfollow Button */}
+            <TouchableOpacity
+              testID="follow-toggle-button"
+              style={[
+                styles.followButton,
+                isFollowing ? styles.followingButton : styles.followButtonPrimary,
+                (isProcessing || isBlocked || isBlockedBy) && styles.followButtonDisabled,
+              ]}
+              onPress={handleFollowToggle}
+              disabled={isProcessing || blockProcessing || isBlocked || isBlockedBy}
+            >
+              <Text
+                style={[
+                  styles.followButtonText,
+                  isFollowing && styles.followingButtonText,
+                ]}
+              >
+                {isProcessing ? 'Processing...' :
+                 isBlocked || isBlockedBy ? 'Follow' : // Show Follow even when not following, but disabled
+                 isFollowing ? 'Unfollow' : 'Follow'}
+              </Text>
+            </TouchableOpacity>
+
+            {/* EPIC_A.A3: Block/Unblock Button */}
+            <TouchableOpacity
+              testID="block-toggle-button"
+              style={[
+                styles.blockButton,
+                blockProcessing && styles.buttonDisabled,
+              ]}
+              onPress={handleBlockToggle}
+              disabled={blockProcessing}
+            >
+              <Text style={styles.blockButtonText}>
+                {blockProcessing ? 'Processing...' :
+                 isBlocked ? 'Unblock' : 'Block'}
+              </Text>
+            </TouchableOpacity>
+
+            {/* EPIC_A.A3: Block status notice */}
+            {isBlockedBy && (
+              <View style={styles.blockNotice}>
+                <Text style={styles.blockNoticeText}>This user has blocked you</Text>
+              </View>
+            )}
+          </>
+        )}
+
+        {/* Owner Edit Button */}
+        {viewerIsOwner && (
           <TouchableOpacity
             style={styles.editButton}
             onPress={() => navigation.navigate('profile-edit' as never)}
           >
             <Text style={styles.editButtonText}>Edit Profile</Text>
-          </TouchableOpacity>
-        ) : (
-          <TouchableOpacity
-            testID="follow-toggle-button"
-            style={[
-              styles.followButton,
-              isFollowing ? styles.followingButton : styles.followButtonPrimary,
-              isProcessing && styles.followButtonDisabled,
-            ]}
-            onPress={handleFollowToggle}
-            disabled={isProcessing}
-          >
-            <Text
-              style={[
-                styles.followButtonText,
-                isFollowing && styles.followingButtonText,
-              ]}
-            >
-              {isProcessing ? 'Processing...' : isFollowing ? 'Unfollow' : 'Follow'}
-            </Text>
           </TouchableOpacity>
         )}
       </View>
@@ -266,6 +345,10 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#666',
   },
+  actionsContainer: {
+    marginTop: 20,
+    gap: 12,
+  },
   buttonContainer: {
     marginTop: 20,
   },
@@ -280,6 +363,33 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: '600',
+  },
+  blockButton: {
+    backgroundColor: '#dc3545',
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  blockButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  buttonDisabled: {
+    opacity: 0.6,
+  },
+  blockNotice: {
+    backgroundColor: '#f8f9fa',
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#e1e5e9',
+  },
+  blockNoticeText: {
+    textAlign: 'center',
+    fontSize: 14,
+    color: '#666',
   },
   followButton: {
     paddingVertical: 12,

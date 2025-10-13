@@ -248,6 +248,51 @@ class ApiService {
     return this.get(`/profiles/${userId}/following${params.toString() ? '?' + params.toString() : ''}`);
   }
 
+  // Block/Unblock functionality - EPIC_A.A3
+  public async blockUser(targetId: string): Promise<AxiosResponse<any>> {
+    try {
+      return await this.post(`/blocks/${targetId}`, { action: 'block' });
+    } catch (error) {
+      console.error('ApiService.blockUser failed', { targetId, error });
+      throw error;
+    }
+  }
+
+  public async unblockUser(targetId: string): Promise<AxiosResponse<any>> {
+    try {
+      return await this.post(`/blocks/${targetId}`, { action: 'unblock' });
+    } catch (error) {
+      console.error('ApiService.unblockUser failed', { targetId, error });
+      throw error;
+    }
+  }
+
+  public async getBlockedUsers(userId: string, options?: { limit?: number; cursor?: string }): Promise<AxiosResponse<any>> {
+    const params = new URLSearchParams();
+    if (options?.limit) params.append('limit', options.limit.toString());
+    if (options?.cursor) params.append('cursor', options.cursor);
+
+    try {
+      return await this.get(`/profiles/${userId}/blocked${params.toString() ? '?' + params.toString() : ''}`);
+    } catch (error) {
+      console.error('ApiService.getBlockedUsers failed', { userId, options, error });
+      throw error;
+    }
+  }
+
+  public async getBlockers(userId: string, options?: { limit?: number; cursor?: string }): Promise<AxiosResponse<any>> {
+    const params = new URLSearchParams();
+    if (options?.limit) params.append('limit', options.limit.toString());
+    if (options?.cursor) params.append('cursor', options.cursor);
+
+    try {
+      return await this.get(`/profiles/${userId}/blockers${params.toString() ? '?' + params.toString() : ''}`);
+    } catch (error) {
+      console.error('ApiService.getBlockers failed', { userId, options, error });
+      throw error;
+    }
+  }
+
   // Health check
   public async healthCheck() {
     try {

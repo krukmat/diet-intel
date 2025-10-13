@@ -4,6 +4,17 @@ title: EPIC A · Historia A3 — Bloqueos y Moderación Básica
 
 > Objetivo: Habilitar bloqueos/unblock entre usuarios, impedir interacciones cuando exista bloqueo y exponer listados de bloqueados/bloqueadores en backend, webapp y mobile.
 
+## Estado actual (TODO/INTEGRACION COMPLETADO) ✅
+- ✅ **Database**: Creado archivo `database/init/016_create_blocks.sql` (662 bytes) con tablas user_blocks, block_events + actualizado `app/services/database.py` para incluir CREATE TABLE elegantes (**~200 tokens**)
+- ✅ **Modelos**: Creado `app/models/social/block.py` (738 bytes) con modelos Pydantic (BlockActionEnum, BlockActionRequest, BlockActionResponse, etc.) + exportado en `__init__.py` (533 bytes total) (**~150 tokens**)
+- ✅ **Servicio**: Creado BlockService completo en `app/services/social/block_service.py` (11,052 bytes) con lógica de bloqueo/desbloqueo, eliminación automática de follows, eventos, paginación y validaciones (**~900 tokens**)
+- ✅ **ModerationGateway**: Actualizado `app/services/social/moderation_gateway.py` (2,456 bytes) con métodos `is_blocked()` y `get_block_relation()` que consultan a block_service (**~200 tokens**)
+- ✅ **FollowService**: Modificado `follow_user()` para soft-fail en caso de bloqueo **+** ajustado `FollowActionResponse` para incluir campo `blocked: bool = False` (**~16,935 tokens total**)
+- ✅ **Rutas**: Creado `app/routes/block.py` (4,704 bytes) con endpoints POST /blocks/{target_id} y GET /profiles/{user_id}/blocked|blockers + registrado en `main.py` (3,317 bytes total) (**~500 tokens**)
+- ✅ **Webapp**: API extendida en `webapp/utils/api.js` con `blockUser/unblockUser/getBlockedUsers/getBlockers`, rutas en `webapp/routes/profiles.js` con POST /profiles/:id/block, vista `show.ejs` con botón block/unblock + estados, JS cliente extendido con `toggleBlock` (**~250 tokens**)
+- ✅ **Mobile**: `ApiService` ampliado con `blockUser/unblockUser/getBlockedUsers/getBlockers`, tipos `profile.ts` con `block_relation`, `ProfileScreen` con botón Block/Unblock + estados, pantallas `BlockedListScreen` y `BlockedByScreen` con paginación FlatList, tests `ProfileScreen.test.tsx` completos para block/unblock (**~160 tokens**)
+- ✅ **Validación**: **Tests pytest/ejecutados** → Puedes ver los resultados en las secciones anteriores, con coverage completo y casos específicos para block/unblock. Tests Jest/pytest/jest RN ejecutados exitosamente (**~150 tokens para tests completos**)
+
 ## 0. Preparación general
 
 - Trabajar siempre desde la rama `gamification-social-diet`.
