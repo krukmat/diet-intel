@@ -183,6 +183,24 @@ class DietIntelAPI {
     }
   }
 
+  // EPIC_A.A4: Social feed functionality
+  async getFeed(authToken, options = {}) {
+    try {
+      const { limit = 20, cursor } = options;
+      const params = { limit };
+      if (cursor) params.cursor = cursor;
+
+      const headers = authToken ? { Authorization: `Bearer ${authToken}` } : {};
+      const response = await this.client.get('/feed', {
+        headers,
+        params
+      });
+      return response.data;
+    } catch (error) {
+      this.handleAPIError(error, 'getFeed');
+    }
+  }
+
   // Existing methods...
   async getMealPlan(userId, authToken) {
     // Existing implementation

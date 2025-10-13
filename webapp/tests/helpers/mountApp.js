@@ -25,7 +25,18 @@ function mountApp() {
   // Static files (CSS, JS, img) - ruta correcta
   app.use(express.static(path.join(__dirname, '..', 'public')));
 
+  // Middleware de autenticación simulado para tests
+  const mockAuthMiddleware = (req, res, next) => {
+    // Simular usuario autenticado en tests
+    req.session = { accessToken: 'mock_token' };
+    res.locals.currentUser = { id: 'test-user-id', full_name: 'Test User' };
+    res.locals.isAuthenticated = true;
+    next();
+  };
+
   // Globals necesarios para vistas EJS
+  app.use(mockAuthMiddleware); // Simular auth
+
   app.use((req, res, next) => {
     req.t = (key) => key; // Return key as-is for tests
     req.i18n = { language: 'en' };
@@ -38,9 +49,11 @@ function mountApp() {
     next();
   });
 
-  // Registrar router profiles (solo para rutas de perfil)
+  // Registrar routers de social (feeds y profiles)
   const profilesRouter = require('../../routes/profiles');
+  const feedRouter = require('../../routes/feed');
   app.use('/profiles', profilesRouter);
+  app.use('/', feedRouter); // Feed routes under root path
 
   // Health route para tests
   app.get('/health', (req, res) => {

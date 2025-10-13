@@ -293,6 +293,20 @@ class ApiService {
     }
   }
 
+  // Social Feed functionality - EPIC_A.A4
+  public async getFeed(options?: { limit?: number; cursor?: string }): Promise<AxiosResponse<any>> {
+    try {
+      const params = new URLSearchParams();
+      if (options?.limit) params.append('limit', options.limit.toString());
+      if (options?.cursor) params.append('cursor', options.cursor);
+
+      return await this.get(`/feed${params.toString() ? '?' + params.toString() : ''}`);
+    } catch (error) {
+      console.error('ApiService.getFeed failed', { options, error });
+      throw error;
+    }
+  }
+
   // Health check
   public async healthCheck() {
     try {

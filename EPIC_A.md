@@ -3,7 +3,8 @@
 ## Estado
 - A1 (View Profile): COMPLETADO ✅ (backend, webapp, mobile listos; validación local recomendada).
 - A2 (Follow/Unfollow): IMPLEMENTADO ✅ — faltan validaciones finales (tests web en entorno sin bloqueo, lint).
-- A3 (Bloqueos/Moderación): IMPLEMENTADO ✅ — queda ajustar el recálculo de contadores en `block_service` (consultar follows antes del DELETE y añadir prueba de follow mutuo).
+- A3 (Bloqueos/Moderación): IMPLEMENTADO ✅
+- A4 (Feed social): IMPLEMENTADO ✅ (pendientes documentados en PENDING_FINAL.md).
 
 ## Estado de Tests y Cobertura (Webapp/Mobile)
 

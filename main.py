@@ -11,6 +11,7 @@ from app.routes.profile import router as profile_router
 from app.routes.analytics import router as analytics_router
 from app.routes.follow import router as follow_router
 from app.routes.block import router as block_router
+from app.routes.feed import router as feed_router
 from app.routes.recommendations import router as recommendations_router
 from app.routes.smart_diet import router as smart_diet_router
 from app.routes.recipe_ai import router as recipe_ai_router
@@ -56,6 +57,7 @@ app.include_router(auth_router, prefix="/auth", tags=["authentication"])
 app.include_router(profile_router, tags=["profiles"])
 app.include_router(follow_router, tags=["follows"])
 app.include_router(block_router, tags=["blocks"])
+app.include_router(feed_router, tags=["feed"])
 app.include_router(product_router, prefix="/product", tags=["products"])
 app.include_router(plan_router, prefix="/plan", tags=["meal-planning"])
 app.include_router(recommendations_router, prefix="/recommendations", tags=["smart-recommendations"])

@@ -19,3 +19,11 @@ Las tareas de desarrollo para el flow Follow/Unfollow están completas (migracio
 - `npm --prefix mobile test -- ProfileScreen` ya pasa (12 tests).
 - Backend `python -m pytest tests/social/test_follow_routes.py` pasa (9 tests, avisos de Pydantic v1).
 - Documentar resultados y cobertura tras relanzar los comandos.
+
+
+## A4 Feed – pendientes a revisar
+- `/feed` no aparece en `app.routes` (devuelve 404 en tests). Investigar inclusión del router en `main.py`.
+- Ajustar asserts en `tests/social/test_feed_ingester.py` (uso de `call.args`, verificación de resultados).
+- `tests/social/test_feed_routes.py` sigue recibiendo 404; revisar patch de `auth_service.get_current_user_from_token`.
+- Validar `webapp/routes/feed.js` vs backend una vez la API responda 200.
+
