@@ -257,6 +257,45 @@ def list_following_posts(user_id: str, limit: int = 20, cursor: Optional[str] = 
 
 
 def list_discover_feed(user_id: str, limit: int = 20, cursor: Optional[str] = None, surface: str = "web") -> FeedResponse:
-    """EPIC_B.B1: Discover feed with ranking."""
-    # Placeholder implementation - will call actual discovery service
-    return FeedResponse(items=[], next_cursor=None)
+    """EPIC_B.B1: Discover feed with ranking - delegates to discover_feed_service."""
+    try:
+        # Import here to avoid circular imports
+        from app.services.social.discover_feed_service import get_discover_feed
+
+        # Call the ranking service
+        discovery_response = get_discover_feed(
+            user_id=user_id,
+            limit=limit,
+            cursor=cursor,
+            surface=surface
+        )
+
+        # Convert DiscoverFeedItems to FeedItems for API consistency
+        feed_items = []
+        for discovery_item in discovery_response.items:
+            feed_item = FeedItem(
+                id=discovery_item.id,  # Post ID as feed item ID
+                user_id=user_id,  # User viewing the feed
+                actor_id=discovery_item.author_id,  # Post author (actor who created)
+                event_name="DiscoverFeed.Post",  # Special event for discovery
+                payload={
+                    "post_id": discovery_item.id,
+                    "author_id": discovery_item.author_id,
+                    "author_handle": None,  # DiscoverFeedItem doesn't include handles
+                    "text": discovery_item.text,
+                    "rank_score": discovery_item.rank_score,
+                    "reason": discovery_item.reason.value,
+                    "surface": discovery_item.surface,
+                    "likes_count": discovery_item.metadata.get("likes_count", 0),
+                    "comments_count": discovery_item.metadata.get("comments_count", 0),
+                },
+                created_at=discovery_item.created_at
+            )
+            feed_items.append(feed_item)
+
+        return FeedResponse(items=feed_items, next_cursor=discovery_response.next_cursor)
+
+    except Exception as e:
+        logger.error(f"Failed to get discover feed for user {user_id}: {e}")
+        # Return empty feed on error to maintain API stability
+        return FeedResponse(items=[], next_cursor=None)

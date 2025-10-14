@@ -1,6 +1,6 @@
 # EPIC_A.A5: Report service for content moderation
 
-from typing import Dict, Optional
+from typing import Dict, Optional, List
 from app.services.database import db_service
 import uuid
 from datetime import datetime
@@ -339,3 +339,33 @@ class ReportService:
                 'reports_by_reason': {},
                 'recent_reports_24h': 0
             }
+
+    @staticmethod
+    def is_post_blocked(post_id: str) -> bool:
+        """
+        Check if a post is currently blocked due to moderation reports.
+
+        Args:
+            post_id: Post ID to check
+
+        Returns:
+            True if post is blocked, False otherwise
+        """
+        try:
+            with db_service.get_connection() as conn:
+                cursor = conn.cursor()
+
+                # Check for moderated reports with approved/blocked action
+                cursor.execute("""
+                    SELECT 1 FROM content_reports
+                    WHERE target_type = 'post'
+                      AND target_id = ?
+                      AND status = 'moderated_approved'
+                """, (post_id,))
+
+                return cursor.fetchone() is not None
+
+        except Exception as e:
+            logger.error(f"Error checking if post {post_id} is blocked: {e}")
+            # Default to False for safety - prefer showing questionable content over blocking
+            return False

@@ -407,6 +407,97 @@ This architecture ensures scalability, auditability, and reliable delivery of so
 
 ---
 
+## 🎯 **DISCOVER FEED (EPIC_B.B1) - AI-Powered Content Discovery**
+
+The **Discover Feed** uses machine learning algorithms to surface the most relevant social content from across the platform, similar to TikTok's "For You" page.
+
+### Backend Architecture
+
+**Service Layer:** `discover_feed_service.py`
+- **Ranking Algorithm**: Hybrid fresh/engagement scoring
+- **Caching**: In-memory cache with 60s TTL
+- **Filters**: Security (blocks), content safety (reports), visibility
+- **Pagination**: Cursor-based for infinite scroll
+- **Performance Monitoring**: Integrated metrics collection
+
+### Get Discover Feed
+
+**Note:** Internal service (no direct HTTP endpoint yet - will be exposed in B2)
+
+Service interface:
+```python
+from app.services.social.feed_service import list_discover_feed
+
+response = list_discover_feed(
+    user_id="current_user",
+    limit=20,
+    cursor=None,  # Optional pagination
+    surface="web"  # or "mobile"
+)
+```
+
+**Response Structure:**
+```json
+{
+  "items": [
+    {
+      "id": "post_123",
+      "user_id": "viewer_456",
+      "actor_id": "author_789",
+      "event_name": "DiscoverFeed.Post",
+      "payload": {
+        "post_id": "post_123",
+        "author_id": "author_789",
+        "author_handle": "@nutrition_guru",
+        "text": "Amazing keto recipe!",
+        "rank_score": 0.85,
+        "reason": "popular",
+        "surface": "web",
+        "likes_count": 42,
+        "comments_count": 12
+      },
+      "created_at": "2025-01-20T10:30:00Z"
+    }
+  ],
+  "next_cursor": "b64_encoded_cursor_string"
+}
+```
+
+### Ranking Algorithm Parameters
+
+Configured in `app/config.py`:
+
+```json
+{
+  "fresh_days": 7,
+  "fresh_tau_hours": 6,
+  "weights": {
+    "fresh": 0.5,
+    "engagement": 0.5,
+    "likes": 0.6,
+    "comments": 0.4
+  },
+  "max_posts_per_author": 2,
+  "cache_ttl_seconds": 60
+}
+```
+
+**Algorithm Details:**
+- **Fresh Signal**: Exponential decay from post creation time
+- **Engagement Signal**: Likes + Comments with weighted scoring
+- **Final Score**: `fresh_weight * fresh_score + engagement_weight * engagement_score`
+- **Author Diversity**: Max 2 posts per author per feed request
+
+### Architecture Notes
+
+- **Caching**: Surface-specific in-memory cache prevents repeated queries
+- **Filters Applied In Order**: Block filters → Report filters → Visibility filters
+- **Cursor Pagination**: Efficient infinite scroll using encoded timestamps
+- **Performance**: Optimized SQL with JOINs, designed for 10K+ posts
+- **Safety**: Graceful degradation - filters skip silently on service errors
+
+---
+
 ## Manual Testing Guide
 
 ### **EPIC_A.A1**: Profile Management

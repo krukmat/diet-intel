@@ -253,6 +253,43 @@ class ProfileService:
                 logger.info(f"Updated profile for user {user_id}")
 
 
+    def can_view_profile(self, viewer_id: str, profile_owner_id: str) -> bool:
+        """
+        Check if a viewer can view a profile based on visibility settings.
+
+        Args:
+            viewer_id: User attempting to view the profile
+            profile_owner_id: Profile owner
+
+        Returns:
+            True if viewer can see the profile, False otherwise
+        """
+        if viewer_id == profile_owner_id:
+            # Owner can always view their own profile
+            return True
+
+        try:
+            with self.database_service.get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute("""
+                    SELECT visibility FROM user_profiles
+                    WHERE user_id = ? AND visibility = 'public'
+                """, (profile_owner_id,))
+                row = cursor.fetchone()
+
+            if row:
+                # Profile is public, anyone can view
+                return True
+
+            # Profile is followers_only, check if viewer follows owner
+            return self.follow_gateway.is_following(viewer_id, profile_owner_id)
+
+        except Exception as e:
+            logger.error(f"Error checking profile visibility: {e}")
+            # Default to False for safety
+            return False
+
+
 # Singleton instance
 profile_service = ProfileService(
     db_service,
