@@ -17,6 +17,8 @@ from .block import (
     BlockListResponse
 )
 
+from .discover_feed import DiscoverFeedItem, DiscoverFeedResponse, RankReason
+
 __all__ = [
     "ProfileVisibility",
     "ProfileStats",
@@ -27,5 +29,8 @@ __all__ = [
     "BlockActionRequest",
     "BlockActionResponse",
     "BlockListItem",
-    "BlockListResponse"
+    "BlockListResponse",
+    "DiscoverFeedItem",
+    "DiscoverFeedResponse",
+    "RankReason"
 ]

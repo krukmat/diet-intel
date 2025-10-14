@@ -160,6 +160,7 @@ async def test_private_profile_visibility_rules(profile_service_in_memory, in_me
     """
     Test visibility rules for private profiles
     """
+    from app.models.user import User
     # Create private profile
     user_id = "private-user-123"
     in_memory_db.execute("""
@@ -187,6 +188,7 @@ async def test_private_profile_returns_posts_for_owner(profile_service_in_memory
     """
     Test that owners can always see their own posts, even on private profiles
     """
+    from app.models.user import User
     user_id = "private-owner"
     in_memory_db.execute("""
         INSERT INTO users (id, email, full_name)

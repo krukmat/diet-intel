@@ -2,6 +2,7 @@
 Feed service for social activity feed management.
 
 EPIC_A.A4: Service layer for feed operations with pagination.
+EPIC_B.B1: Service layer for discover feed operations with ranking.
 """
 
 import logging
@@ -12,7 +13,7 @@ from datetime import datetime
 
 from app.services.database import db_service
 from app.models.social.feed import FeedItem, FeedResponse
-from app.models.social.post import PostDetail
+from app.models.social.post import PostDetail, PostStats
 
 logger = logging.getLogger(__name__)
 
@@ -253,3 +254,9 @@ def list_following_posts(user_id: str, limit: int = 20, cursor: Optional[str] = 
     except Exception as e:
         logger.error(f"Failed to get following posts feed for user {user_id}: {e}")
         return FeedResponse(items=[], next_cursor=None)
+
+
+def list_discover_feed(user_id: str, limit: int = 20, cursor: Optional[str] = None, surface: str = "web") -> FeedResponse:
+    """EPIC_B.B1: Discover feed with ranking."""
+    # Placeholder implementation - will call actual discovery service
+    return FeedResponse(items=[], next_cursor=None)

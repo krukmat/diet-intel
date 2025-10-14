@@ -62,6 +62,7 @@ class ProfileService:
             # Get user details for default handle
             user = await self.database_service.get_user_by_id(user_id)
             if isinstance(user, dict):
+                from app.models.user import User
                 user = User(**user)
             if not user:
                 raise HTTPException(status_code=404, detail="User not found")
@@ -118,6 +119,8 @@ class ProfileService:
             if not row:
                 raise HTTPException(status_code=404, detail="Profile not found")
 
+        user_id_val, handle_val, bio_val, avatar_url_val, visibility_val, followers_count, following_count, posts_count, points_total, level, badges_count = row
+
         # Get gamification counters
         gamification_data = self.gamification_gateway.get_profile_counters(user_id)
 
@@ -131,7 +134,7 @@ class ProfileService:
         viewer_is_follower = self.follow_gateway.is_following(viewer_id, user_id) if viewer_id else False
 
         # Apply visibility filter
-        if row['visibility'] == ProfileVisibility.FOLLOWERS_ONLY.value and not (viewer_is_owner or viewer_is_follower):
+        if visibility_val == ProfileVisibility.FOLLOWERS_ONLY.value and not (viewer_is_owner or viewer_is_follower):
             posts = []
             posts_notice = "Follow to see posts"
         else:
@@ -139,9 +142,9 @@ class ProfileService:
 
         # Build stats with gamification data
         stats = ProfileStats(
-            followers_count=row['followers_count'] or 0,
-            following_count=row['following_count'] or 0,
-            posts_count=row['posts_count'] or 0,
+            followers_count=followers_count or 0,
+            following_count=following_count or 0,
+            posts_count=posts_count or 0,
             points_total=gamification_data["points_total"],
             level=gamification_data["level"],
             badges_count=gamification_data["badges_count"]
@@ -162,11 +165,11 @@ class ProfileService:
         block_relation = self.moderation_gateway.get_block_relation(viewer_id, user_id)
 
         return ProfileDetail(
-            user_id=row['user_id'],
-            handle=row['handle'],
-            bio=row['bio'],
-            avatar_url=row['avatar_url'],
-            visibility=ProfileVisibility(row['visibility']),
+            user_id=user_id_val,
+            handle=handle_val,
+            bio=bio_val,
+            avatar_url=avatar_url_val,
+            visibility=ProfileVisibility(visibility_val),
             stats=stats,
             posts=post_previews,
             posts_notice=posts_notice,

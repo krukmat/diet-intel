@@ -18,6 +18,7 @@ from app.models.social.block import (
     BlockListResponse
 )
 from app.services.social.block_service import block_service
+from app.utils.feature_flags import is_social_feature_enabled
 
 logger = logging.getLogger(__name__)
 
@@ -39,8 +40,8 @@ async def block_toggle(
     - **request.action**: 'block' or 'unblock'
     - **request.reason**: Optional reason for blocking (only used when blocking)
     """
-    if not MODERATION_ENABLED:
-        raise HTTPException(status_code=403, detail="moderation features disabled")
+    if not is_social_feature_enabled():
+        raise HTTPException(status_code=403, detail="social features disabled")
 
     if current_user.id == target_id:
         raise HTTPException(status_code=400, detail="cannot block self")

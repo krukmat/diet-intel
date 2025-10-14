@@ -23,3 +23,13 @@ def assert_feature_enabled(feature_name: str) -> None:
             status_code=404,
             detail=f"Feature '{feature_name}' is not enabled"
         )
+
+
+def is_social_feature_enabled() -> bool:
+    """
+    Check if social features are enabled (for backwards compatibility).
+
+    Returns:
+        bool: True if social features are enabled
+    """
+    return getattr(config, 'social_enabled', True)
