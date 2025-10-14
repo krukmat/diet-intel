@@ -131,7 +131,7 @@ class TestFeatureFlag:
         client.headers.update({"Authorization": "Bearer fake_token"})
 
         with patch('app.utils.feature_flags.is_social_feature_enabled', return_value=False), \
-             patch('app.services.auth.decode_token', return_value=user_fixture):
+             patch('app.services.auth.verify_token', return_value=user_fixture):
             response = client.post(
                 "/blocks/target456",
                 json={"action": "block"}
