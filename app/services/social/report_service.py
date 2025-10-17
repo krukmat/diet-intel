@@ -351,6 +351,7 @@ class ReportService:
         Returns:
             True if post is blocked, False otherwise
         """
+        # TODO(B2): extend logic to include report severity, time window, and caching
         try:
             with db_service.get_connection() as conn:
                 cursor = conn.cursor()

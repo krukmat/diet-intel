@@ -417,6 +417,13 @@ The **Discover Feed** uses machine learning algorithms to surface the most relev
 - **Ranking Algorithm**: Hybrid fresh/engagement scoring
 - **Caching**: In-memory cache with 60s TTL
 - **Filters**: Security (blocks), content safety (reports), visibility
+
+**Security Filters:**
+- `block_service.is_blocking(viewer, author)` ➜ elimina si hay bloqueo.
+- `block_service.is_blocking(author, viewer)` ➜ respeta bloqueos recíprocos.
+- `ReportService.is_post_blocked(post_id)` ➜ oculta contenido reportado.
+- `ProfileService.can_view_profile(viewer, author)` ➜ aplica visibilidad `public`/`followers_only`.
+
 - **Pagination**: Cursor-based for infinite scroll
 - **Performance Monitoring**: Integrated metrics collection
 

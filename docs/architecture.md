@@ -120,6 +120,30 @@ discover_feed: Dict[str, Any] = {
 }
 ```
 
+#### 🔒 **Filtering pipeline**
+
+```
+[Post Candidate]
+       |
+       v
+[Security Filters]
+  - viewer blocks author? ➜ drop
+  - author blocks viewer? ➜ drop
+  - ReportService.is_post_blocked? ➜ drop
+  - ProfileService.can_view_profile? ➜ drop
+       |
+       v
+[Ranking (fresh + engagement)]
+       |
+       v
+[Diversity Cap (max N per author)]
+       |
+       v
+[Pagination + cursor → DiscoverFeedResponse]
+```
+
+> Los helpers actuales (`ReportService.is_post_blocked`, `ProfileService.can_view_profile`) son stubs básicos; se completarán en la historia B2 junto con el endpoint HTTP.
+
 #### 🚀 **Performance Optimizations**
 
 **Caching Strategy:**

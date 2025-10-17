@@ -264,6 +264,7 @@ class ProfileService:
         Returns:
             True if viewer can see the profile, False otherwise
         """
+        # TODO(B2): incorporate cache + richer privacy rules (blocked lists, follower status cache)
         if viewer_id == profile_owner_id:
             # Owner can always view their own profile
             return True

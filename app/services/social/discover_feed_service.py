@@ -36,7 +36,7 @@ def _get_config() -> Dict[str, any]:
     return config.discover_feed
 
 
-def _fetch_candidate_posts(limit: int) -> List[Dict[str, any]]:
+def _fetch_candidate_posts(user_id: str, limit: int) -> List[Dict[str, any]]:
     """Query real posts from database with engagement metrics."""
     horizon_days = _get_config().get("fresh_days", 7)
     query_limit = max(limit * 5, 50)  # Oversample candidates
@@ -92,7 +92,7 @@ def _fetch_candidate_posts(limit: int) -> List[Dict[str, any]]:
             ORDER BY p.created_at DESC
             LIMIT ?
             """.format(horizon_days),
-            (query_limit,),
+            (user_id, query_limit),
         )
         rows = cursor.fetchall()
         return [dict(row) for row in rows]
@@ -133,6 +133,7 @@ def _apply_filters(user_id: str, rows: List[Dict[str, any]]) -> List[Dict[str, a
     """Apply security filters: blocks, blocked posts, and profile visibility."""
     filtered = []
     try:
+        profile_service = ProfileService()
         for row in rows:
             author_id = row["author_id"]
 
@@ -154,7 +155,6 @@ def _apply_filters(user_id: str, rows: List[Dict[str, any]]) -> List[Dict[str, a
 
             # Profile visibility: skip if user cannot view profile
             try:
-                profile_service = ProfileService()
                 if not profile_service.can_view_profile(user_id, author_id):
                     continue
             except (AttributeError, Exception):
@@ -206,14 +206,16 @@ def _apply_cursor(rows: List[Dict[str, any]], cursor: Optional[str]) -> List[Dic
         score = row["rank_score"]
         created_at_dt = row["created_at_dt"]
 
-        # Items with lower score come first
+        # Always skip the exact item already returned
+        if row["id"] == cursor_post_id:
+            continue
+
+        # Items with lower score come after the cursor
         if score < cursor_score_val:
             filtered.append(row)
-        # Same score: use timestamp, older items first for same score
+        # Same score: use timestamp to maintain deterministic order
         elif score == cursor_score_val and created_at_dt <= cursor_dt:
-            # For same score and timestamp, different post IDs can be included
-            if row["id"] != cursor_post_id:
-                filtered.append(row)
+            filtered.append(row)
 
     return filtered
 
@@ -284,7 +286,7 @@ def get_discover_feed(user_id: str, limit: int = 20, cursor: Optional[str] = Non
     performance_monitor.record_metric("discover_feed_requests", 1)
 
     # get candidates
-    rows = _fetch_candidate_posts(limit)
+    rows = _fetch_candidate_posts(user_id, limit)
 
     # score candidates
     scored = _score_candidates(rows)
