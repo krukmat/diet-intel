@@ -1,3 +1,4 @@
+import base64
 from datetime import datetime
 from typing import Optional, List
 from pydantic import BaseModel, Field, root_validator, validator, model_validator
@@ -34,8 +35,8 @@ class MealItem(BaseModel):
 
 class MealTrackingRequest(BaseModel):
     """Request model for tracking consumed meals"""
-    meal_name: Optional[str] = Field(None, min_length=1, max_length=100, description="Name of the meal (Breakfast, Lunch, Dinner)")
-    items: List[MealItem] = Field(default_factory=list, min_items=0, max_items=20, description="List of food items consumed (0-20 items)")
+    meal_name: str = Field(..., min_length=1, max_length=100, description="Name of the meal (Breakfast, Lunch, Dinner)")
+    items: List[MealItem] = Field(..., min_length=1, max_length=20, description="List of food items consumed (1-20 items)")
     photo: Optional[str] = Field(None, max_length=1000000, description="Base64 encoded photo of the meal")
     timestamp: str = Field(default_factory=lambda: datetime.now().isoformat(), description="ISO timestamp when meal was consumed")
 
@@ -47,10 +48,9 @@ class MealTrackingRequest(BaseModel):
     @classmethod
     def normalize_legacy_fields(cls, values):  # type: ignore[override]
         # Handle legacy field transformation - meal_type takes precedence over None meal_name
-        if values.get('meal_type') and values.get('meal_name') is None:
-            values['meal_name'] = values['meal_type']
-            # Remove meal_type from values to avoid duplication in model_dump
-            values.pop('meal_type', None)
+        meal_type = values.pop('meal_type', None)
+        if meal_type and not values.get('meal_name'):
+            values['meal_name'] = meal_type
 
         if values.get('logged_at'):
             values['timestamp'] = values['logged_at']
@@ -62,17 +62,20 @@ class MealTrackingRequest(BaseModel):
 
     @validator('timestamp')
     def validate_timestamp(cls, v):
-        if not v or not v.strip():
-            # Use current timestamp as fallback for empty values
-            return datetime.now().isoformat()
-
+        if not v or not isinstance(v, str) or not v.strip():
+            raise ValueError("timestamp must be provided in ISO-8601 format")
         try:
             # Try to parse as ISO format
             datetime.fromisoformat(v.replace('Z', '+00:00'))
             return v
         except (ValueError, TypeError):
-            # Use current timestamp as fallback for invalid formats
-            return datetime.now().isoformat()
+            raise ValueError("timestamp must be provided in ISO-8601 format")
+
+    @model_validator(mode='after')
+    def validate_normalized_fields(self):
+        if not self.meal_name or not self.meal_name.strip():
+            raise ValueError("meal_name is required")
+        return self
 
 class MealTrackingResponse(BaseModel):
     """Response model for meal tracking"""
@@ -86,8 +89,8 @@ class MealTrackingResponse(BaseModel):
 
 class WeightTrackingRequest(BaseModel):
     """Request model for weight tracking"""
-    weight: float = Field(..., gt=0, description="Weight in kilograms")
-    date: str = Field(default_factory=lambda: datetime.now().isoformat(), description="ISO timestamp of weight measurement")
+    weight: float = Field(..., gt=0, le=400, description="Weight in kilograms (0 < weight ≤ 400)")
+    date: str = Field(..., description="ISO timestamp of weight measurement")
     photo: Optional[str] = Field(None, description="Base64 encoded photo")
 
     @root_validator(pre=True)
@@ -108,21 +111,33 @@ class WeightTrackingRequest(BaseModel):
         if notes is not None and 'notes' not in values:
             values['notes'] = notes
 
+        photo_value = values.get('photo')
+        if photo_value is not None and hasattr(photo_value, 'file'):
+            try:
+                file_bytes = photo_value.file.read()  # type: ignore[attr-defined]
+                photo_value.file.seek(0)  # type: ignore[attr-defined]
+            except Exception:
+                file_bytes = None
+
+            if file_bytes:
+                encoded = base64.b64encode(file_bytes).decode('utf-8')
+                content_type = getattr(photo_value, 'content_type', 'application/octet-stream')
+                values['photo'] = f"data:{content_type};base64,{encoded}"
+            else:
+                values['photo'] = None
+
         return values
 
     @validator('date')
     def validate_date(cls, v):
-        if not v or not v.strip():
-            # Use current date as fallback for empty values
-            return datetime.now().isoformat()
-
+        if not v or not isinstance(v, str) or not v.strip():
+            raise ValueError("date must be provided in ISO-8601 format")
         try:
             # Try to parse as ISO format
             datetime.fromisoformat(v.replace('Z', '+00:00'))
             return v
         except (ValueError, TypeError):
-            # Use current date as fallback for invalid formats
-            return datetime.now().isoformat()
+            raise ValueError("date must be provided in ISO-8601 format")
 
 class WeightTrackingResponse(BaseModel):
     """Response model for weight tracking"""
@@ -137,6 +152,7 @@ class WeightHistoryResponse(BaseModel):
     entries: List[WeightTrackingResponse]
     count: int
     date_range: dict
+    history: Optional[List[WeightTrackingResponse]] = Field(default=None, description="Legacy alias for entries list")
 
 class MealHistoryResponse(BaseModel):
     """Response model for meal history lookups"""

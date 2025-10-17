@@ -1,7 +1,11 @@
 import uuid
 from datetime import datetime
 from typing import List, Optional
-from fastapi import APIRouter, HTTPException, status, Request
+from fastapi import APIRouter, HTTPException, status, Request, Depends
+from fastapi.exceptions import RequestValidationError
+from pydantic import ValidationError
+from pydantic_core import ValidationError as CoreValidationError
+from starlette.datastructures import UploadFile
 from fastapi.responses import JSONResponse
 
 from app.models.tracking import (
@@ -24,6 +28,73 @@ import logging
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
+def _coerce_datetime(value, default: Optional[datetime] = None) -> datetime:
+    """Convert values into datetime instances, falling back to default when needed."""
+    default = default or datetime.utcnow()
+    if isinstance(value, datetime):
+        return value
+    if isinstance(value, str) and value.strip():
+        try:
+            return datetime.fromisoformat(value.replace('Z', '+00:00'))
+        except ValueError:
+            return default
+    return default
+
+
+def _normalize_meal_items(raw_items) -> List[MealItem]:
+    """Ensure raw meal items are represented as MealItem instances."""
+    normalized: List[MealItem] = []
+    for item in raw_items or []:
+        if isinstance(item, MealItem):
+            normalized.append(item)
+        elif isinstance(item, dict):
+            normalized.append(MealItem(**item))
+        else:
+            try:
+                normalized.append(MealItem(**item.model_dump()))  # type: ignore[attr-defined]
+            except AttributeError as exc:
+                raise ValueError("Invalid meal item payload") from exc
+    return normalized
+
+
+async def _parse_weight_request(request: Request) -> WeightTrackingRequest:
+    """Support both JSON and multipart submissions for weight tracking."""
+    content_type = request.headers.get("content-type", "")
+    if content_type and "multipart/form-data" in content_type.lower():
+        form = await request.form()
+        data = {}
+        for key, value in form.multi_items():
+            if key == "photo" and isinstance(value, UploadFile):
+                content_type = value.content_type or ""
+                if not content_type.lower().startswith("image/"):
+                    raise HTTPException(
+                        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                        detail="photo must be an image file"
+                    )
+            data[key] = value
+        try:
+            return WeightTrackingRequest(**data)
+        except (ValidationError, CoreValidationError) as exc:
+            raise RequestValidationError(exc.errors(), body=data) from exc
+
+    try:
+        payload = await request.json()
+    except Exception as exc:
+        raise RequestValidationError(
+            [
+                {
+                    "loc": ("body",),
+                    "msg": f"Invalid JSON payload: {exc}",
+                    "type": "value_error.jsondecode"
+                }
+            ]
+        ) from exc
+    try:
+        return WeightTrackingRequest(**payload)
+    except (ValidationError, CoreValidationError) as exc:
+        raise RequestValidationError(exc.errors(), body=payload) from exc
+
+
 @router.post("/meal", response_model=MealTrackingResponse)
 async def track_meal(request: MealTrackingRequest, req: Request):
     """
@@ -40,32 +111,42 @@ async def track_meal(request: MealTrackingRequest, req: Request):
             logger.info(f"Legacy meal_type '{request._meal_type_original}' converted to meal_name '{request.meal_name}'")
         
         # Save photo if provided
-        photo_url = None
+        uploaded_photo_url = None
         if request.photo:
             photo_result = await save_photo(request.photo, f"meal_{user_id}")
             if photo_result:
-                photo_url = photo_result.get("photo_url")
+                uploaded_photo_url = photo_result.get("photo_url")
 
         # Persist meal and retrieve stored record
-        stored_meal = await db_service.track_meal(user_id, request, photo_url)
+        stored_meal = await db_service.track_meal(user_id, request, uploaded_photo_url)
 
         # Convert to response model
+        if not stored_meal:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Meal tracking error: storage returned no data"
+            )
+
+        meal_id = stored_meal.get('id') or str(uuid.uuid4())
+        meal_name = stored_meal.get('meal_name') or request.meal_name
+
+        raw_items = stored_meal.get('items') or request.items
+        normalized_items = _normalize_meal_items(raw_items)
+
+        total_calories = stored_meal.get('total_calories')
+        if total_calories is None:
+            total_calories = round(sum(item.calories for item in normalized_items), 2)
+
+        final_photo_url = stored_meal.get('photo_url') or uploaded_photo_url
+
         meal_record = MealTrackingResponse(
-            id=stored_meal['id'],
-            meal_name=stored_meal['meal_name'],
-            items=[
-                MealItem(
-                    barcode=item['barcode'],
-                    name=item['name'],
-                    serving=item['serving'],
-                    calories=item['calories'],
-                    macros=item['macros']
-                ) for item in stored_meal['items']
-            ],
-            total_calories=stored_meal['total_calories'],
-            photo_url=stored_meal['photo_url'],
-            timestamp=stored_meal['timestamp'],
-            created_at=stored_meal['created_at']
+            id=meal_id,
+            meal_name=meal_name,
+            items=normalized_items,
+            total_calories=total_calories,
+            photo_url=final_photo_url,
+            timestamp=_coerce_datetime(stored_meal.get('timestamp', request.timestamp)),
+            created_at=_coerce_datetime(stored_meal.get('created_at'), datetime.utcnow())
         )
         
         # Update cache for recent meals (keep caching for performance)
@@ -90,39 +171,52 @@ async def track_meal(request: MealTrackingRequest, req: Request):
         # Provide more specific error messages for debugging
         error_detail = f"Failed to track meal: {str(e)}"
         if "meal_name" in str(e):
-            error_detail = f"Meal tracking failed - check meal_name field: {str(e)}"
+            error_detail = f"Failed to track meal - check meal_name field: {str(e)}"
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=error_detail
         )
 
 @router.post("/weight", response_model=WeightTrackingResponse)
-async def track_weight(request: WeightTrackingRequest, req: Request):
+async def track_weight(
+    req: Request,
+    weight_request: WeightTrackingRequest = Depends(_parse_weight_request)
+):
     """
     Track a weight measurement with optional photo attachment
     """
     try:
         # Get user context (authenticated or session-based anonymous)
         user_id = await get_session_user_id(req)
-        logger.info(f"Tracking weight for user {user_id}: {request.weight} kg")
+        logger.info(f"Tracking weight for user {user_id}: {weight_request.weight} kg")
         
         # Save photo if provided
-        photo_url = None
-        if request.photo:
-            photo_result = await save_photo(request.photo, f"weight_{user_id}")
+        uploaded_photo_url = None
+        if weight_request.photo:
+            photo_result = await save_photo(weight_request.photo, f"weight_{user_id}")
             if photo_result:
-                photo_url = photo_result.get("photo_url")
+                uploaded_photo_url = photo_result.get("photo_url")
 
         # Store weight entry in database
-        weight_data = await db_service.track_weight(user_id, request, photo_url)
+        weight_data = await db_service.track_weight(user_id, weight_request, uploaded_photo_url)
 
         # Convert to response model
+        if not weight_data:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Weight tracking error: storage returned no data"
+            )
+
+        weight_id = weight_data.get('id') or str(uuid.uuid4())
+        weight_value = weight_data.get('weight', weight_data.get('weight_kg', weight_request.weight))
+        date_value = weight_data.get('date', weight_request.date)
+
         weight_record = WeightTrackingResponse(
-            id=weight_data['id'],
-            weight=weight_data['weight'],
-            date=weight_data['date'],
-            photo_url=weight_data['photo_url'],
-            created_at=weight_data['created_at']
+            id=weight_id,
+            weight=weight_value,
+            date=_coerce_datetime(date_value),
+            photo_url=weight_data.get('photo_url') or uploaded_photo_url,
+            created_at=_coerce_datetime(weight_data.get('created_at'), datetime.utcnow())
         )
         
         # Cache weight history for performance
@@ -217,34 +311,28 @@ async def get_weight_history(req: Request, limit: Optional[int] = 30):
         entries: List[WeightTrackingResponse] = []
         for record in weight_history:
             weight_value = record.get('weight', record.get('weight_kg'))
-            date_value = record.get('date')
-            created_at_value = record.get('created_at')
+            if weight_value is None:
+                continue
+            date_dt = _coerce_datetime(record.get('date'))
+            created_at_dt = _coerce_datetime(record.get('created_at'), default=date_dt)
 
-            if isinstance(date_value, str):
-                try:
-                    date_value = datetime.fromisoformat(date_value.replace('Z', '+00:00'))
-                except ValueError:
-                    date_value = datetime.now()
-
-            if isinstance(created_at_value, str):
-                try:
-                    created_at_value = datetime.fromisoformat(created_at_value.replace('Z', '+00:00'))
-                except ValueError:
-                    created_at_value = datetime.now()
-
-            entry = WeightTrackingResponse(
-                id=record['id'],
-                weight=weight_value,
-                date=date_value,
-                photo_url=record.get('photo_url'),
-                created_at=created_at_value
+            entries.append(
+                WeightTrackingResponse(
+                    id=record['id'],
+                    weight=weight_value,
+                    date=date_dt,
+                    photo_url=record.get('photo_url'),
+                    created_at=created_at_dt
+                )
             )
-            entries.append(entry)
         
         # Calculate date range
         date_range = {}
         if entries:
-            dates = [entry.date for entry in entries]
+            dates = [
+                entry.date.replace(tzinfo=None) if entry.date.tzinfo else entry.date
+                for entry in entries
+            ]
             date_range = {
                 "earliest": min(dates),
                 "latest": max(dates)
@@ -253,7 +341,8 @@ async def get_weight_history(req: Request, limit: Optional[int] = 30):
         return WeightHistoryResponse(
             entries=entries,
             count=len(entries),
-            date_range=date_range
+            date_range=date_range,
+            history=entries
         )
     
     except HTTPException:

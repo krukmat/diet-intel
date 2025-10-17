@@ -1,7 +1,8 @@
 import pytest
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch, MagicMock, AsyncMock
 from fastapi.testclient import TestClient
 from app.main import app
+from app.models.user import User, UserRole
 from app.services.social import block_service
 from app.services.social.moderation_gateway import moderation_gateway
 
@@ -127,11 +128,19 @@ class TestFeatureFlag:
     def test_social_feature_disabled(self, client):
         """Social features deshabilitadas - debe retornar 403."""
         # Set JWT header and mock token decode to return authenticated user
-        user_fixture = {'id': 'user123', 'email': 'test@example.com', 'role': 'user'}
-        client.headers.update({"Authorization": "Bearer fake_token"})
+        user_fixture = User(
+            id='user123',
+            email='test@example.com',
+            full_name='Test User',
+            role=UserRole.STANDARD,
+            is_developer=False,
+            is_active=True,
+            email_verified=True
+        )
+        client.headers["Authorization"] = "Bearer fake_token"
 
-        with patch('app.utils.feature_flags.is_social_feature_enabled', return_value=False), \
-             patch('app.services.auth.verify_token', return_value=user_fixture):
+        with patch('app.routes.block.is_social_feature_enabled', return_value=False), \
+            patch('app.services.auth.auth_service.get_current_user_from_token', new=AsyncMock(return_value=user_fixture)):
             response = client.post(
                 "/blocks/target456",
                 json={"action": "block"}
