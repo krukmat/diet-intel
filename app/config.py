@@ -118,6 +118,11 @@ class Config(BaseSettings):
         description="Enable discover feed feature"
     )
 
+    discover_feed_rate_per_min: int = Field(
+        default=60,
+        description="Cantidad máxima de requests por minuto al discover feed por usuario",
+    )
+
     # Discover feed configuration
     discover_feed: Dict[str, Any] = Field(
         default_factory=lambda: {

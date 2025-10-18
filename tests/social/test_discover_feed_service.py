@@ -1,15 +1,28 @@
-from unittest.mock import MagicMock, patch
-import pytest
 from datetime import datetime, timedelta
+from unittest.mock import MagicMock, patch
 
-from app.services.social import discover_feed_service as service
+import pytest
+
 from app.models.social.discover_feed import DiscoverFeedResponse
-from unittest.mock import MagicMock
+from app.services.social import discover_feed_service as service
 
 
 @pytest.fixture(autouse=True)
 def clear_discover_cache():
     service._discover_cache.clear()
+
+
+@pytest.fixture(autouse=True)
+def stub_instrumentation():
+    with patch(
+        "app.services.social.discover_feed_service.publish_event"
+    ) as mock_publish, patch(
+        "app.services.social.discover_feed_service.performance_monitor.record_metric"
+    ) as mock_metric:
+        mock_publish.return_value = None
+        mock_metric.return_value = None
+        yield
+
 
 @pytest.fixture
 def posts_rows():
@@ -62,7 +75,9 @@ def posts_rows():
 @patch("app.services.social.discover_feed_service.block_service")
 @patch("app.services.social.discover_feed_service.ReportService")
 @patch("app.services.social.discover_feed_service.ProfileService")
-def test_scoring_and_order(mock_profile, mock_report, mock_block, mock_fetch, posts_rows):
+def test_scoring_and_order(
+    mock_profile, mock_report, mock_block, mock_fetch, posts_rows
+):
     mock_fetch.return_value = posts_rows
     mock_block.is_blocking.return_value = False
     mock_report.is_post_blocked.return_value = False
@@ -111,6 +126,7 @@ def test_service_import(mock_profile, mock_report, mock_block, mock_fetch):
 @patch("app.services.social.discover_feed_service.ProfileService")
 def test_filters_blocked(mock_profile, mock_report, mock_block, mock_fetch, posts_rows):
     mock_fetch.return_value = posts_rows
+
     def block_side_effect(viewer_id, author_id):
         return viewer_id == "viewer" and author_id == "u1"
 
@@ -146,19 +162,25 @@ def test_cache_hits(mock_profile, mock_report, mock_block, mock_fetch, posts_row
 @patch("app.services.social.discover_feed_service.block_service")
 @patch("app.services.social.discover_feed_service.ReportService")
 @patch("app.services.social.discover_feed_service.ProfileService")
-def test_cursor_pagination(mock_profile, mock_report, mock_block, mock_fetch, posts_rows):
+def test_cursor_pagination(
+    mock_profile, mock_report, mock_block, mock_fetch, posts_rows
+):
     mock_fetch.return_value = posts_rows[:2]  # Only first 2 posts
     mock_block.is_blocking.return_value = False
     mock_report.is_post_blocked.return_value = False
     mock_profile.return_value.can_view_profile.return_value = True
 
     # First page
-    response1 = service.get_discover_feed(user_id="viewer", limit=1, cursor=None, surface="web")
+    response1 = service.get_discover_feed(
+        user_id="viewer", limit=1, cursor=None, surface="web"
+    )
     assert len(response1.items) == 1
     assert response1.next_cursor is not None
 
     # Second page using cursor
-    response2 = service.get_discover_feed(user_id="viewer", limit=1, cursor=response1.next_cursor, surface="web")
+    response2 = service.get_discover_feed(
+        user_id="viewer", limit=1, cursor=response1.next_cursor, surface="web"
+    )
     assert len(response2.items) == 1
     assert response2.items[0].id != response1.items[0].id
 
@@ -167,10 +189,12 @@ def test_cursor_pagination(mock_profile, mock_report, mock_block, mock_fetch, po
 @patch("app.services.social.discover_feed_service.block_service")
 @patch("app.services.social.discover_feed_service.ReportService")
 @patch("app.services.social.discover_feed_service.ProfileService")
-def test_reporting_filters(mock_profile, mock_report, mock_block, mock_fetch, posts_rows):
+def test_reporting_filters(
+    mock_profile, mock_report, mock_block, mock_fetch, posts_rows
+):
     mock_fetch.return_value = posts_rows
     mock_block.is_blocking.return_value = False
-    mock_report.is_post_blocked.side_effect = lambda post_id: post_id == 'p1'
+    mock_report.is_post_blocked.side_effect = lambda post_id: post_id == "p1"
     mock_profile.return_value.can_view_profile.return_value = True
 
     response = service.get_discover_feed(user_id="viewer", limit=10)
@@ -182,7 +206,9 @@ def test_reporting_filters(mock_profile, mock_report, mock_block, mock_fetch, po
 @patch("app.services.social.discover_feed_service.block_service")
 @patch("app.services.social.discover_feed_service.ReportService")
 @patch("app.services.social.discover_feed_service.ProfileService")
-def test_block_filters_remove_content(mock_profile, mock_report, mock_block, mock_fetch, posts_rows):
+def test_block_filters_remove_content(
+    mock_profile, mock_report, mock_block, mock_fetch, posts_rows
+):
     mock_fetch.return_value = posts_rows
     mock_block.is_blocking.return_value = True  # All are blocked
     mock_report.is_post_blocked.return_value = False
@@ -196,10 +222,13 @@ def test_block_filters_remove_content(mock_profile, mock_report, mock_block, moc
 @patch("app.services.social.discover_feed_service.block_service")
 @patch("app.services.social.discover_feed_service.ReportService")
 @patch("app.services.social.discover_feed_service.ProfileService")
-def test_profile_visibility_filters_hidden_profiles(mock_profile, mock_report, mock_block, mock_fetch, posts_rows):
+def test_profile_visibility_filters_hidden_profiles(
+    mock_profile, mock_report, mock_block, mock_fetch, posts_rows
+):
     mock_fetch.return_value = posts_rows
     mock_block.is_blocking.return_value = False
     mock_report.is_post_blocked.return_value = False
+
     def visibility_side_effect(viewer_id, author_id):
         return author_id != "u1"
 
@@ -214,7 +243,9 @@ def test_profile_visibility_filters_hidden_profiles(mock_profile, mock_report, m
 @patch("app.services.social.discover_feed_service.block_service")
 @patch("app.services.social.discover_feed_service.ReportService")
 @patch("app.services.social.discover_feed_service.ProfileService")
-def test_cache_double_call(mock_profile, mock_report, mock_block, mock_fetch, posts_rows):
+def test_cache_double_call(
+    mock_profile, mock_report, mock_block, mock_fetch, posts_rows
+):
     mock_fetch.return_value = posts_rows
     mock_block.is_blocking.return_value = False
     mock_report.is_post_blocked.return_value = False
@@ -233,7 +264,9 @@ def test_cache_double_call(mock_profile, mock_report, mock_block, mock_fetch, po
 @patch("app.services.social.discover_feed_service.block_service")
 @patch("app.services.social.discover_feed_service.ReportService")
 @patch("app.services.social.discover_feed_service.ProfileService")
-def test_cursor_base64_encoding(mock_profile, mock_report, mock_block, mock_fetch, posts_rows):
+def test_cursor_base64_encoding(
+    mock_profile, mock_report, mock_block, mock_fetch, posts_rows
+):
     mock_fetch.return_value = posts_rows[:1]  # Only one post to ensure cursor
     mock_block.is_blocking.return_value = False
     mock_report.is_post_blocked.return_value = False
@@ -243,6 +276,7 @@ def test_cursor_base64_encoding(mock_profile, mock_report, mock_block, mock_fetc
     if response.next_cursor:
         # Just test that cursor exists and is valid format (base64)
         import base64
+
         decoded = base64.b64decode(response.next_cursor)
         assert decoded  # Should decode without error
 
@@ -251,7 +285,9 @@ def test_cursor_base64_encoding(mock_profile, mock_report, mock_block, mock_fetc
 @patch("app.services.social.discover_feed_service.block_service")
 @patch("app.services.social.discover_feed_service.ReportService")
 @patch("app.services.social.discover_feed_service.ProfileService")
-def test_feed_service_integration(mock_profile, mock_report, mock_block, mock_fetch, posts_rows):
+def test_feed_service_integration(
+    mock_profile, mock_report, mock_block, mock_fetch, posts_rows
+):
     mock_fetch.return_value = posts_rows
     mock_block.is_blocking.return_value = False
     mock_report.is_post_blocked.return_value = False
@@ -277,7 +313,9 @@ def test_cap_per_author(mock_profile, mock_report, mock_block, mock_fetch, posts
     response = service.get_discover_feed(user_id="viewer", limit=10)
     # Author u1 has posts p1 and p3 - should be capped at max_per_author (default 2)
     # So should get all 4 original posts since u1's posts would be limited
-    assert len(response.items) == 4  # u1 gets 2 posts (p1, p3), u2 gets 1 (p2), u3 gets 1 (p4)
+    assert (
+        len(response.items) == 4
+    )  # u1 gets 2 posts (p1, p3), u2 gets 1 (p2), u3 gets 1 (p4)
 
     # Count posts by u1
     u1_posts = [item for item in response.items if item.author_id == "u1"]
@@ -288,7 +326,9 @@ def test_cap_per_author(mock_profile, mock_report, mock_block, mock_fetch, posts
 @patch("app.services.social.discover_feed_service.block_service")
 @patch("app.services.social.discover_feed_service.ReportService")
 @patch("app.services.social.discover_feed_service.ProfileService")
-def test_filters_visibility_visibility(mock_profile, mock_report, mock_block, mock_fetch, posts_rows):
+def test_filters_visibility_visibility(
+    mock_profile, mock_report, mock_block, mock_fetch, posts_rows
+):
     """Test that visibility filtering works correctly."""
     mock_fetch.return_value = posts_rows
     mock_block.is_blocking.return_value = False
