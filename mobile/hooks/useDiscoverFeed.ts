@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { apiService } from '../services/ApiService';
+import { analyticsService } from '../services/AnalyticsService';
 import { DiscoverFeedItem, DiscoverFeedResponse } from '../types/feed';
 
 interface UseDiscoverFeedOptions {
@@ -14,6 +15,8 @@ interface UseDiscoverFeedState {
   error: string | null;
   nextCursor: string | null;
   hasMore: boolean;
+  variant: string;
+  requestId: string | null;
 }
 
 type FetchParams = {
@@ -31,6 +34,8 @@ export const useDiscoverFeed = (options: UseDiscoverFeedOptions = {}) => {
     error: null,
     nextCursor: null,
     hasMore: false,
+    variant: 'control',
+    requestId: null,
   });
 
   const [currentSurface, setCurrentSurface] = useState<'mobile' | 'web'>(surface);
@@ -52,17 +57,39 @@ export const useDiscoverFeed = (options: UseDiscoverFeedOptions = {}) => {
           surface: surfaceToUse,
         });
 
-        const data: DiscoverFeedResponse = response.data ?? { items: [], next_cursor: null };
-        const items = data.items ?? [];
+        const data: DiscoverFeedResponse = response.data ?? { items: [], next_cursor: null, variant: 'control' };
+        const fetchedItems = data.items ?? [];
         const nextCursor = data.next_cursor ?? null;
+        const variantFromResponse = data.variant || 'control';
+        const requestId = (data as any).request_id || null;
 
         setState(prev => ({
-          items: append ? [...prev.items, ...items] : items,
+          items: append ? [...prev.items, ...fetchedItems] : fetchedItems,
           loading: false,
           error: null,
           nextCursor,
           hasMore: Boolean(nextCursor),
+          variant: variantFromResponse,
+          requestId,
         }));
+
+        try {
+          if (append) {
+            if (fetchedItems.length) {
+              analyticsService
+                .trackDiscoverLoadMore(fetchedItems.length, surfaceToUse, cursor || null)
+                .catch(() => undefined);
+            }
+          } else {
+            if (fetchedItems.length) {
+              analyticsService
+                .trackDiscoverView(fetchedItems.length, surfaceToUse)
+                .catch(() => undefined);
+            }
+          }
+        } catch (analyticsError) {
+          console.debug('discover analytics error', analyticsError);
+        }
       } catch (error) {
         console.error('useDiscoverFeed.fetchFeed failed:', error);
         const errorMessage =
@@ -92,17 +119,23 @@ export const useDiscoverFeed = (options: UseDiscoverFeedOptions = {}) => {
 
   const switchSurface = useCallback(
     (newSurface: 'mobile' | 'web') => {
+      analyticsService
+        .trackDiscoverSurfaceSwitch(currentSurface, newSurface)
+        .catch(() => undefined);
+
       setCurrentSurface(newSurface);
       setState(prev => ({
         ...prev,
         items: [],
         nextCursor: null,
         hasMore: false,
+        variant: 'control',
+        requestId: null,
       }));
 
       fetchFeed({ surfaceOverride: newSurface, append: false });
     },
-    [fetchFeed],
+    [currentSurface, fetchFeed],
   );
 
   const clearError = useCallback(() => {

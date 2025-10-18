@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const dietIntelAPI = require('../utils/api');
 const { requireAuth } = require('../middleware/auth');
+const logger = console; // Placeholder structured logging
 
 const FOLLOWING_DEFAULT_LIMIT = 20;
 const FOLLOWING_MAX_LIMIT = 100;
@@ -77,6 +78,14 @@ router.get('/feed/discover', requireAuth, async (req, res) => {
       surface,
     });
 
+    logger.info('[discover_feed_web]', {
+      userId: res.locals.currentUser?.id || 'anonymous',
+      surface,
+      variant: feedData.variant || 'control',
+      requestId: feedData.request_id || null,
+      items: Array.isArray(feedData.items) ? feedData.items.length : 0,
+    });
+
     res.render('feed/discover', {
       title: 'Discover Feed',
       feed: feedData,
@@ -84,6 +93,8 @@ router.get('/feed/discover', requireAuth, async (req, res) => {
       activeFeedTab: 'discover',
       pagination: buildPagination(limit, cursor, feedData.next_cursor),
       surface,
+      variant: feedData.variant || 'control',
+      requestId: feedData.request_id || null,
       error: null,
     });
   } catch (error) {
@@ -96,6 +107,8 @@ router.get('/feed/discover', requireAuth, async (req, res) => {
       activeFeedTab: 'discover',
       pagination: buildPagination(DISCOVER_DEFAULT_LIMIT, undefined, null),
       surface,
+      variant: 'control',
+      requestId: null,
       error: 'Unable to load discover feed. Please try again later.',
     });
   }

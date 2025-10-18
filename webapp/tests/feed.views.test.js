@@ -147,6 +147,8 @@ describe('Feed Views - EJS Template Snapshots', () => {
             user: { id: 'current-user', full_name: 'Test User' },
             activeFeedTab: 'discover',
             surface: 'web',
+            variant: 'control',
+            requestId: 'test-request',
             pagination: { limit: 20, cursor: null, hasMore: false }
         };
 
@@ -174,11 +176,13 @@ describe('Feed Views - EJS Template Snapshots', () => {
             });
 
             expect(html).toContain('Discover Feed');
+            expect(html).toContain('Variant: control');
             expect(html).toContain('nutri_guru');
             expect(html).toContain('Try this post-workout smoothie!');
             expect(html).toContain('0.85');
             expect(html).toContain('12 likes');
             expect(html).toContain('Load more discoveries');
+            expect(html).toContain('/analytics/discover');
         });
 
         test('shows empty state when no items', () => {

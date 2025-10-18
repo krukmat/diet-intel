@@ -1,5 +1,6 @@
 import { renderHook, act, waitFor } from '@testing-library/react-native';
 import { apiService } from '../../services/ApiService';
+import { analyticsService } from '../../services/AnalyticsService';
 import { useDiscoverFeed } from '../../hooks/useDiscoverFeed';
 
 // Mock the apiService
@@ -9,11 +10,23 @@ jest.mock('../../services/ApiService', () => ({
   },
 }));
 
+jest.mock('../../services/AnalyticsService', () => ({
+  analyticsService: {
+    trackDiscoverView: jest.fn().mockResolvedValue(undefined),
+    trackDiscoverLoadMore: jest.fn().mockResolvedValue(undefined),
+    trackDiscoverSurfaceSwitch: jest.fn().mockResolvedValue(undefined),
+  },
+}));
+
 describe('useDiscoverFeed Hook', () => {
   const mockApiService = apiService as jest.Mocked<typeof apiService>;
+const mockAnalytics = analyticsService as jest.Mocked<typeof analyticsService>;
 
   beforeEach(() => {
     jest.clearAllMocks();
+    mockAnalytics.trackDiscoverView.mockResolvedValue(undefined);
+    mockAnalytics.trackDiscoverLoadMore.mockResolvedValue(undefined);
+    mockAnalytics.trackDiscoverSurfaceSwitch.mockResolvedValue(undefined);
     mockApiService.getDiscoverFeed.mockResolvedValue({
       data: {
         items: [
@@ -60,6 +73,7 @@ describe('useDiscoverFeed Hook', () => {
       limit: 20,
       surface: 'mobile'
     });
+    expect(mockAnalytics.trackDiscoverView).toHaveBeenCalledWith(1, 'mobile');
   });
 
   test('should not load on mount when autoLoad is false', () => {
@@ -78,8 +92,9 @@ describe('useDiscoverFeed Hook', () => {
 
     await waitFor(() => {
       expect(result.current.loading).toBe(false);
-      expect(result.current.items).toHaveLength(1);
-    });
+    expect(result.current.items).toHaveLength(1);
+    expect(mockAnalytics.trackDiscoverView).toHaveBeenCalledWith(1, 'mobile');
+  });
 
     expect(mockApiService.getDiscoverFeed).toHaveBeenCalledWith({
       limit: 20,
@@ -125,6 +140,7 @@ describe('useDiscoverFeed Hook', () => {
     });
 
     expect(mockApiService.getDiscoverFeed).toHaveBeenCalledTimes(2);
+    expect(mockAnalytics.trackDiscoverLoadMore).toHaveBeenCalledWith(1, 'mobile', 'cursor123');
   });
 
   test('should handle errors gracefully', async () => {
@@ -156,6 +172,7 @@ describe('useDiscoverFeed Hook', () => {
     });
 
     expect(mockApiService.getDiscoverFeed).toHaveBeenCalledTimes(1);
+    expect(mockAnalytics.trackDiscoverSurfaceSwitch).toHaveBeenCalledWith('mobile', 'web');
   });
 
   test('should clear error correctly', async () => {

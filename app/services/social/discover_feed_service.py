@@ -23,6 +23,8 @@ from app.services.social.event_names import FeedEvent
 from app.services.social.event_publisher import publish_event
 from app.services.social.profile_service import ProfileService
 from app.services.social.report_service import ReportService
+from uuid import uuid4
+from app.services.experimentation.feed_experiments import feed_experiments
 
 logger = logging.getLogger(__name__)
 
@@ -75,8 +77,7 @@ def _fetch_candidate_posts(user_id: str, limit: int) -> List[Dict[str, Any]]:
         return [dict(row) for row in rows]
 
 
-def _score_candidates(rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-    weights = _get_config().get("weights", {})
+def _score_candidates(rows: List[Dict[str, Any]], weights: Dict[str, Any]) -> List[Dict[str, Any]]:
     fresh_weight = float(weights.get("fresh", 0.5))
     engagement_weight = float(weights.get("engagement", 0.5))
     likes_weight = float(weights.get("likes", 0.6))
@@ -217,6 +218,8 @@ def _build_response(
     items: List[Dict[str, Any]],
     next_cursor: Optional[str],
     surface: str,
+    variant: str,
+    request_id: str,
 ) -> DiscoverFeedResponse:
     response_items: List[DiscoverFeedItem] = []
     for row in items:
@@ -236,7 +239,12 @@ def _build_response(
             )
         )
 
-    return DiscoverFeedResponse(items=response_items, next_cursor=next_cursor)
+    return DiscoverFeedResponse(
+        items=response_items,
+        next_cursor=next_cursor,
+        variant=variant,
+        request_id=request_id,
+    )
 
 
 def _get_cache(user_id: str, surface: str) -> Optional[DiscoverFeedResponse]:
@@ -269,7 +277,12 @@ def get_discover_feed(
 ) -> DiscoverFeedResponse:
     """Main entry point for discover feed."""
     start_time = time.perf_counter()
-    response = DiscoverFeedResponse(items=[], next_cursor=None)
+    request_id = str(uuid4())
+    weights_info = feed_experiments.get_feed_weights(user_id)
+    weights = weights_info.get("weights", _get_config().get("weights", {}))
+    variant = weights_info.get("variant", "control")
+
+    response = DiscoverFeedResponse(items=[], next_cursor=None, variant=variant, request_id=request_id)
     success = True
     cache_hit = False
 
@@ -278,16 +291,22 @@ def get_discover_feed(
             cached = _get_cache(user_id, surface)
             if cached:
                 cache_hit = True
-                response = cached
+                variant = cached.variant or variant
+                response = DiscoverFeedResponse(
+                    items=cached.items,
+                    next_cursor=cached.next_cursor,
+                    variant=variant,
+                    request_id=request_id,
+                )
 
         if not cache_hit:
             rows = _fetch_candidate_posts(user_id, limit)
-            scored = _score_candidates(rows)
+            scored = _score_candidates(rows, weights)
             filtered = _apply_filters(user_id, scored)
             capped = _cap_per_author(filtered)
             with_cursor = _apply_cursor(capped, cursor)
             items, next_cursor = _paginate(with_cursor, limit)
-            response = _build_response(items, next_cursor, surface)
+            response = _build_response(items, next_cursor, surface, variant, request_id)
 
             if not cursor:
                 _set_cache(user_id, surface, response)
@@ -302,6 +321,8 @@ def get_discover_feed(
                 "surface": surface,
                 "items": len(response.items),
                 "cache_hit": cache_hit,
+                "variant": response.variant,
+                "request_id": response.request_id,
             },
         )
 
@@ -330,6 +351,25 @@ def get_discover_feed(
                         "cache_hit": cache_hit,
                         "item_count": len(response.items),
                         "has_cursor": bool(cursor),
+                        "variant": response.variant,
+                        "request_id": response.request_id,
+                    },
+                )
+            )
+            performance_monitor.record_metric(
+                PerformanceMetric(
+                    timestamp=datetime.utcnow(),
+                    metric_type="api_call",
+                    operation=f"discover_feed_{surface}",
+                    duration_ms=duration_ms,
+                    success=success,
+                    metadata={
+                        "surface": surface,
+                        "cache_hit": cache_hit,
+                        "item_count": len(response.items),
+                        "has_cursor": bool(cursor),
+                        "variant": response.variant,
+                        "request_id": response.request_id,
                     },
                 )
             )
@@ -359,6 +399,9 @@ def _publish_served_event(
                     "reason": item.reason.value,
                     "surface": surface,
                     "cache_hit": cache_hit,
+                    "cursor": response.next_cursor,
+                    "variant": response.variant,
+                    "request_id": response.request_id,
                     "served_at": datetime.utcnow().isoformat(),
                 },
             )

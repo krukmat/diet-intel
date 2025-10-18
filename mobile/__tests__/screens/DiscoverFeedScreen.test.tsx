@@ -59,6 +59,8 @@ describe('DiscoverFeedScreen', () => {
     error: null,
     hasMore: false,
     surface: 'mobile',
+    variant: 'control',
+    requestId: 'req-123',
     refresh: jest.fn(),
     loadMore: jest.fn(),
     switchSurface: jest.fn(),
@@ -120,6 +122,7 @@ describe('DiscoverFeedScreen', () => {
 
     expect(getByText('Discover Feed')).toBeTruthy();
     expect(getByText('AI-powered suggestions beyond your network')).toBeTruthy();
+    expect(getByText('Variant: control')).toBeTruthy();
     expect(getByText('Mobile view')).toBeTruthy();
     expect(getByText('Web preview')).toBeTruthy();
   });

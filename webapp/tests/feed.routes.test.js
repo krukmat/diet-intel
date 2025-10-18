@@ -105,7 +105,9 @@ describe('Feed Routes - Supertest Integration', () => {
             media: []
           }
         ],
-        next_cursor: 'cursor-xyz'
+        next_cursor: 'cursor-xyz',
+        variant: 'control',
+        request_id: 'req-123'
       };
 
       dietIntelAPI.getDiscoverFeed.mockResolvedValue(mockDiscover);
@@ -122,10 +124,11 @@ describe('Feed Routes - Supertest Integration', () => {
       });
       expect(response.text).toContain('Discover Feed');
       expect(response.text).toContain('High-protein breakfast ideas');
+      expect(response.text).toContain('Variant: control');
     });
 
     test('passes surface parameter and cursor', async () => {
-      dietIntelAPI.getDiscoverFeed.mockResolvedValue({ items: [], next_cursor: null });
+      dietIntelAPI.getDiscoverFeed.mockResolvedValue({ items: [], next_cursor: null, variant: 'control', request_id: 'req-456' });
 
       await request(server)
         .get('/feed/discover?limit=5&cursor=abc123&surface=mobile')

@@ -52,7 +52,9 @@ function mountApp() {
   // Registrar routers de social (feeds y profiles)
   const profilesRouter = require('../../routes/profiles');
   const feedRouter = require('../../routes/feed');
+  const analyticsRouter = require('../../routes/analytics');
   app.use('/profiles', profilesRouter);
+  app.use('/analytics', analyticsRouter);
   app.use('/', feedRouter); // Feed routes under root path
 
   // Health route para tests

@@ -76,6 +76,8 @@ export const DiscoverFeedScreen: React.FC<DiscoverFeedScreenProps> = ({ onBackPr
     error,
     hasMore,
     surface: selectedSurface,
+    variant,
+    requestId,
     refresh,
     loadMore,
     switchSurface,
@@ -164,8 +166,16 @@ export const DiscoverFeedScreen: React.FC<DiscoverFeedScreenProps> = ({ onBackPr
 
       {/* Header with tabs */}
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Discover Feed</Text>
-        <Text style={styles.headerSubtitle}>AI-powered suggestions beyond your network</Text>
+        <View style={styles.headerTopRow}>
+          <View>
+            <Text style={styles.headerTitle}>Discover Feed</Text>
+            <Text style={styles.headerSubtitle}>AI-powered suggestions beyond your network</Text>
+          </View>
+          <View style={styles.headerTags}>
+            <Text style={styles.variantTag}>Variant: {variant}</Text>
+            {requestId && <Text style={styles.requestTag}>Req: {requestId.slice(0, 8)}</Text>}
+          </View>
+        </View>
 
         {/* Filter Tabs */}
         <View style={styles.tabContainer}>
@@ -272,6 +282,12 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#e1e5e9',
   },
+  headerTopRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 12,
+  },
   headerTitle: {
     fontSize: 24,
     fontWeight: 'bold',
@@ -282,6 +298,23 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#6b7280',
     marginBottom: 16,
+  },
+  headerTags: {
+    alignItems: 'flex-end',
+    gap: 4,
+  },
+  variantTag: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 999,
+    backgroundColor: '#DBEAFE',
+    color: '#1D4ED8',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  requestTag: {
+    fontSize: 10,
+    color: '#6b7280',
   },
   tabContainer: {
     flexDirection: 'row',

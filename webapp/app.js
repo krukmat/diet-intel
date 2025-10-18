@@ -14,6 +14,7 @@ require('dotenv').config();
 // Import routes
 const indexRoutes = require('./routes/index');
 const feedRoutes = require('./routes/feed');
+const analyticsRoutes = require('./routes/analytics');
 const planRoutes = require('./routes/plans');
 const apiRoutes = require('./routes/api');
 const authRoutes = require('./routes/auth');
@@ -84,6 +85,7 @@ app.use((req, res, next) => {
 
 // Routes
 app.use('/', feedRoutes);
+app.use('/analytics', analyticsRoutes);
 app.use('/', indexRoutes);
 app.use('/plans', planRoutes);
 app.use('/api', apiRoutes);

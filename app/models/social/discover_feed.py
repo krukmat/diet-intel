@@ -40,3 +40,9 @@ class DiscoverFeedResponse(BaseModel):
     next_cursor: Optional[str] = Field(
         default=None, description="Opaque pagination cursor"
     )
+    variant: str = Field(
+        default="control", description="Experiment variant applied to ranking"
+    )
+    request_id: Optional[str] = Field(
+        default=None, description="Telemetry request identifier"
+    )

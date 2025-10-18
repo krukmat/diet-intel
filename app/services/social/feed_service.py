@@ -288,6 +288,8 @@ def list_discover_feed(user_id: str, limit: int = 20, cursor: Optional[str] = No
                     "surface": discovery_item.surface,
                     "likes_count": discovery_item.metadata.get("likes_count", 0),
                     "comments_count": discovery_item.metadata.get("comments_count", 0),
+                    "experiment_variant": discovery_response.variant,
+                    "discover_request_id": discovery_response.request_id,
                 },
                 created_at=discovery_item.created_at
             )

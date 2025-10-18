@@ -18,6 +18,7 @@
             <h1 class="text-2xl font-bold text-gray-900">Discover Feed</h1>
             <p class="text-gray-600">AI-powered suggestions beyond your network</p>
           </div>
+          <span class="px-3 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-700">Variant: <%= variant %></span>
           <div class="flex space-x-2">
             <a href="/feed"
                class="px-4 py-2 text-sm font-medium rounded-md transition
@@ -42,8 +43,7 @@
           </label>
           <select id="surface"
                   name="surface"
-                  class="border border-gray-300 rounded-md px-3 py-2 text-sm"
-                  onchange="this.form.submit()">
+                  class="border border-gray-300 rounded-md px-3 py-2 text-sm">
             <option value="web" <%= surface === 'web' ? 'selected' : '' %>>Web</option>
             <option value="mobile" <%= surface === 'mobile' ? 'selected' : '' %>>Mobile preview</option>
           </select>
@@ -56,7 +56,7 @@
         <% if (feed && feed.items && feed.items.length > 0) { %>
           <div class="space-y-6">
             <% feed.items.forEach(item => { %>
-              <article class="border border-gray-200 rounded-lg p-5 shadow-sm hover:shadow transition">
+              <article class="border border-gray-200 rounded-lg p-5 shadow-sm hover:shadow transition" data-discover-item="true" data-post-id="<%= item.id %>" data-rank-score="<%= Number(item.rank_score || 0).toFixed(2) %>" data-author-id="<%= item.author_id %>">
                 <div class="flex items-center justify-between mb-4">
                   <div>
                     <div class="text-sm text-gray-500 uppercase tracking-wide">
@@ -136,24 +136,78 @@
     </div>
   </div>
 
-  <% if (pagination.hasMore) { %>
-    <script>
-      document.getElementById('discover-load-more')?.addEventListener('click', function() {
-        const button = this;
-        const originalText = button.textContent;
-        button.textContent = 'Loading...';
-        button.disabled = true;
+  <script>
+    (function() {
+      const surface = '<%= surface %>';
+      const variant = '<%= variant %>';
+      const requestId = '<%= requestId || "" %>';
+      const analyticsUrl = '/analytics/discover';
 
-        const params = new URLSearchParams();
-        params.append('limit', '<%= pagination.limit %>');
-        params.append('surface', '<%= surface %>');
-        <% if (feed && feed.items && feed.items.length > 0) { %>
-          params.append('cursor', '<%= feed.next_cursor %>');
-        <% } %>
-
-        window.location.href = `/feed/discover?${params.toString()}`;
+      const items = Array.from(document.querySelectorAll('[data-discover-item]')).map(function(el) {
+        return {
+          id: el.dataset.postId,
+          rank_score: parseFloat(el.dataset.rankScore || '0'),
+          author_id: el.dataset.authorId || null
+        };
       });
-    </script>
-  <% } %>
+
+      function sendAnalytics(payload) {
+        try {
+          fetch(analyticsUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+            keepalive: true,
+            credentials: 'same-origin'
+          });
+        } catch (err) {
+          console.warn('discover analytics send failed', err);
+        }
+      }
+
+      if (items.length) {
+        sendAnalytics({
+          type: 'view',
+          surface,
+          variant,
+          request_id: requestId,
+          items_count: items.length,
+          items
+        });
+      }
+
+      const loadMoreButton = document.getElementById('discover-load-more');
+      if (loadMoreButton) {
+        loadMoreButton.addEventListener('click', function() {
+          sendAnalytics({
+            type: 'load_more',
+            surface,
+            variant,
+            request_id: requestId,
+            cursor: '<%= feed.next_cursor || "" %>',
+            items_count: items.length
+          });
+        });
+      }
+
+      const surfaceSelect = document.getElementById('surface');
+      if (surfaceSelect) {
+        surfaceSelect.addEventListener('change', function() {
+          const targetSurface = surfaceSelect.value === 'mobile' ? 'mobile' : 'web';
+          if (targetSurface !== surface) {
+            sendAnalytics({
+              type: 'surface_switch',
+              surface: targetSurface,
+              variant,
+              request_id: requestId,
+              surface_from: surface,
+              surface_to: targetSurface
+            });
+          }
+          surfaceSelect.form.submit();
+        });
+      }
+    })();
+  </script>
 </body>
 </html>
