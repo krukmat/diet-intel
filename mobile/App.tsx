@@ -28,6 +28,7 @@ import TastePreferencesScreen from './screens/TastePreferencesScreen';
 import ShoppingOptimizationScreen from './screens/ShoppingOptimizationScreen';
 import { ProfileScreen } from './screens/ProfileScreen';
 import { ProfileEditScreen } from './screens/ProfileEditScreen';
+import { DiscoverFeedScreen } from './screens/DiscoverFeedScreen';
 import ProductDetail from './components/ProductDetail';
 import ReminderSnippet from './components/ReminderSnippet';
 import ApiConfigModal from './components/ApiConfigModal';
@@ -98,7 +99,22 @@ function MainApp({ user, onLogout }: { user: any; onLogout: () => void }) {
   const [hasPermission, setHasPermission] = useState<boolean | null>(null);
   const [scanned, setScanned] = useState(false);
   const [showCamera, setShowCamera] = useState(false);
-  type ScreenType = 'scanner' | 'upload' | 'plan' | 'track' | 'recommendations' | 'recipes' | 'recipe-generation' | 'recipe-search' | 'my-recipes' | 'recipe-detail' | 'taste-preferences' | 'shopping-optimization' | 'profile' | 'profile-edit';
+  type ScreenType =
+    | 'scanner'
+    | 'upload'
+    | 'plan'
+    | 'track'
+    | 'recommendations'
+    | 'recipes'
+    | 'recipe-generation'
+    | 'recipe-search'
+    | 'my-recipes'
+    | 'recipe-detail'
+    | 'taste-preferences'
+    | 'shopping-optimization'
+    | 'discover-feed'
+    | 'profile'
+    | 'profile-edit';
   const [currentScreen, setCurrentScreen] = useState<ScreenType>('scanner');
   const [navigationContext, setNavigationContext] = useState<{
     targetContext?: string;
@@ -310,6 +326,10 @@ function MainApp({ user, onLogout }: { user: any; onLogout: () => void }) {
     />;
   }
 
+  if (currentScreen === 'discover-feed') {
+    return <DiscoverFeedScreen onBackPress={() => setCurrentScreen('scanner')} />;
+  }
+
   // Recipe AI Screens
   if (currentScreen === 'recipes') {
     console.log('Rendering RecipeHomeScreen...');
@@ -497,7 +517,16 @@ function MainApp({ user, onLogout }: { user: any; onLogout: () => void }) {
             {t('navigation.smartDiet')}
           </Text>
         </TouchableOpacity>
-        
+
+        <TouchableOpacity
+          style={[styles.navButton, isActiveScreen('discover-feed') && styles.navButtonActive]}
+          onPress={() => setCurrentScreen('discover-feed')}
+        >
+          <Text style={[styles.navButtonText, isActiveScreen('discover-feed') && styles.navButtonTextActive]}>
+            Discover
+          </Text>
+        </TouchableOpacity>
+
         <TouchableOpacity
           style={[styles.navButton, isActiveScreen('recipes') && styles.navButtonActive]}
           onPress={() => {

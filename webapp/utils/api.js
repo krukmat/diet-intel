@@ -201,6 +201,28 @@ class DietIntelAPI {
     }
   }
 
+  async getDiscoverFeed(authToken, options = {}) {
+    try {
+      const {
+        limit = 20,
+        cursor,
+        surface = 'web'
+      } = options;
+
+      const params = { limit, surface };
+      if (cursor) params.cursor = cursor;
+
+      const headers = authToken ? { Authorization: `Bearer ${authToken}` } : {};
+      const response = await this.client.get('/feed/discover', {
+        headers,
+        params
+      });
+      return response.data;
+    } catch (error) {
+      this.handleAPIError(error, 'getDiscoverFeed');
+    }
+  }
+
   // Existing methods...
   async getMealPlan(userId, authToken) {
     // Existing implementation

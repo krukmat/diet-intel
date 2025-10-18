@@ -13,8 +13,28 @@
     <div class="container mx-auto mt-8 max-w-4xl">
         <div class="bg-white shadow-md rounded-lg">
             <div class="p-6">
-                <h1 class="text-2xl font-bold text-gray-900 mb-2">Social Activity</h1>
-                <p class="text-gray-600 mb-6">Recent social events from people you follow</p>
+                <div class="flex items-center justify-between mb-6">
+                    <div>
+                        <h1 class="text-2xl font-bold text-gray-900">Social Activity</h1>
+                        <p class="text-gray-600">Recent social events from people you follow</p>
+                    </div>
+                    <div class="flex space-x-2">
+                        <a href="/feed"
+                           class="px-4 py-2 text-sm font-medium rounded-md transition
+                           <%= activeFeedTab === 'following'
+                                ? 'bg-blue-500 text-white shadow'
+                                : 'bg-blue-50 text-blue-600 hover:bg-blue-100' %>">
+                            Following
+                        </a>
+                        <a href="/feed/discover"
+                           class="px-4 py-2 text-sm font-medium rounded-md transition
+                           <%= activeFeedTab === 'discover'
+                                ? 'bg-white border border-blue-500 text-blue-600'
+                                : 'bg-blue-50 text-blue-600 hover:bg-blue-100' %>">
+                            Discover
+                        </a>
+                    </div>
+                </div>
 
                 <% if (feed && feed.items && feed.items.length > 0) { %>
                     <div class="space-y-4">

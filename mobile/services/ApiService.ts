@@ -1,6 +1,7 @@
 import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios';
 import { getEnvironmentConfig } from '../config/environments';
 import { authService } from './AuthService';
+import { DiscoverFeedResponse } from '../types/feed';
 
 class ApiService {
   private axiosInstance: AxiosInstance;
@@ -198,6 +199,27 @@ class ApiService {
     if (days) params.append('days', days.toString());
     
     return this.get(`/smart-diet/metrics${params.toString() ? '?' + params.toString() : ''}`);
+  }
+
+  public async getDiscoverFeed(params: {
+    limit?: number;
+    cursor?: string;
+    surface?: 'mobile' | 'web';
+  } = {}): Promise<AxiosResponse<DiscoverFeedResponse>> {
+    const queryParams = new URLSearchParams();
+    if (params.limit !== undefined) {
+      queryParams.append('limit', params.limit.toString());
+    }
+    if (params.cursor) {
+      queryParams.append('cursor', params.cursor);
+    }
+    if (params.surface) {
+      queryParams.append('surface', params.surface);
+    }
+
+    const queryString = queryParams.toString();
+    const url = `/feed/discover${queryString ? `?${queryString}` : ''}`;
+    return this.get<DiscoverFeedResponse>(url);
   }
 
   // Social Profile endpoints - EPIC_A.A1

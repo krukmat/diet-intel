@@ -427,20 +427,32 @@ The **Discover Feed** uses machine learning algorithms to surface the most relev
 - **Pagination**: Cursor-based for infinite scroll
 - **Performance Monitoring**: Integrated metrics collection
 
-### Get Discover Feed
+### GET /feed/discover
 
-**Note:** Internal service (no direct HTTP endpoint yet - will be exposed in B2)
+- **Autenticación:** `Authorization: Bearer <token>`
+- **Query params:**
+  - `limit` (1-50, default 20)
+  - `cursor` (base64, opcional)
+  - `surface` (`web` | `mobile`, default `web`)
+- **Respuesta:** `DiscoverFeedResponse` (`items[]`, `next_cursor`)
+- **Errores comunes:** `401` (token inválido), `404` (feature flag), `429` (rate limit por usuario/superficie)
 
-Service interface:
-```python
-from app.services.social.feed_service import list_discover_feed
+#### Ejemplo Web (Express)
+```javascript
+const feed = await dietIntelAPI.getDiscoverFeed(token, {
+  limit: 20,
+  cursor,
+  surface: 'web'
+});
+```
 
-response = list_discover_feed(
-    user_id="current_user",
-    limit=20,
-    cursor=None,  # Optional pagination
-    surface="web"  # or "mobile"
-)
+#### Ejemplo Mobile (React Native)
+```ts
+const response = await apiService.getDiscoverFeed({
+  limit: 20,
+  surface: 'mobile'
+});
+const items = response.data.items;
 ```
 
 **Response Structure:**
@@ -449,21 +461,16 @@ response = list_discover_feed(
   "items": [
     {
       "id": "post_123",
-      "user_id": "viewer_456",
-      "actor_id": "author_789",
-      "event_name": "DiscoverFeed.Post",
-      "payload": {
-        "post_id": "post_123",
-        "author_id": "author_789",
-        "author_handle": "@nutrition_guru",
-        "text": "Amazing keto recipe!",
-        "rank_score": 0.85,
-        "reason": "popular",
-        "surface": "web",
+      "author_id": "author_789",
+      "author_handle": "@nutrition_guru",
+      "text": "Amazing keto recipe!",
+      "rank_score": 0.85,
+      "reason": "popular",
+      "created_at": "2025-01-20T10:30:00Z",
+      "metadata": {
         "likes_count": 42,
         "comments_count": 12
-      },
-      "created_at": "2025-01-20T10:30:00Z"
+      }
     }
   ],
   "next_cursor": "b64_encoded_cursor_string"

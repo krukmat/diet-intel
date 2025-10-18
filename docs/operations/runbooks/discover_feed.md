@@ -28,6 +28,7 @@ _Last updated: 18 Oct 2025_
 | `duration_ms` (p95/p99) | `performance_monitor` export | Alertar si > 800 ms. |
 | `cache_hit` ratio | `metadata.cache_hit` | Objetivo ≥ 60 %. Analizar si baja drásticamente. |
 | `FeedEvent.DiscoverFeedServed` | `event_outbox` | Auditar payload (`rank_score`, `reason`). |
+| `discover_feed_mobile_requests` | React Native logging / analytics | Observar consumo por superficie móvil.
 
 ### 2.1 Exportar métricas
 ```python
@@ -62,5 +63,6 @@ metrics_json = performance_monitor.export_metrics(hours=1)
 1. ¿La API responde 200 con items?  
 2. ¿`cache_hit` se mueve dentro de los límites esperados?  
 3. ¿Existen eventos `FeedEvent.DiscoverFeedServed` recientes?  
-4. ¿El rate limiter está configurado correctamente para el rollout?  
+4. ¿El rate limiter está configurado correctamente para el rollout?
 5. ¿Docs y pesos en `config` coinciden con el plan de experimentos?
+6. ¿La app móvil muestra Discover (tabs responden, scroll infinito, selector de surface)?

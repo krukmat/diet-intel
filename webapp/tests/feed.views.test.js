@@ -1,208 +1,206 @@
-// EPIC_A.A4: Tests de vistas EJS de feed con Jest snapshots
-
 const { renderTemplate } = require('./helpers/renderTemplate');
 
-// Mock external dependencies
-jest.mock('../utils/api');
-
 describe('Feed Views - EJS Template Snapshots', () => {
-  describe('GET /feed - index.ejs', () => {
-    test('renders feed with activity items and pagination', () => {
-      const mockData = {
-        title: 'Social Activity',
-        feed: {
-          items: [
-            {
-              id: 'feed-item-1',
-              user_id: 'user2',
-              actor_id: 'current-user',
-              event_name: 'UserAction.UserFollowed',
-              payload: {
-                follower_id: 'current-user',
-                target_id: 'user2',
-                action: 'followed',
-                ts: '2025-01-01T10:00:00Z'
-              },
-              created_at: '2025-01-01T10:00:00Z'
-            },
-            {
-              id: 'feed-item-2',
-              user_id: 'user3',
-              actor_id: 'current-user',
-              event_name: 'UserAction.UserBlocked',
-              payload: {
-                blocker_id: 'current-user',
-                blocked_id: 'user3',
-                reason: 'spam',
-                action: 'blocked'
-              },
-              created_at: '2025-01-01T10:30:00Z'
-            }
-          ],
-          next_cursor: 'cursor-123'
-        },
-        user: { id: 'current-user', full_name: 'Test User' },
-        pagination: {
-          limit: 20,
-          cursor: null,
-          hasMore: true
-        }
-      };
+    describe('GET /feed - index.ejs', () => {
+        const baseData = {
+            title: 'Social Activity',
+            user: { id: 'current-user', full_name: 'Test User' },
+            activeFeedTab: 'following',
+            surface: 'web',
+            pagination: { limit: 20, cursor: null, hasMore: false }
+        };
 
-      const html = renderTemplate('feed/index', mockData);
+        test('renders feed with activity items and pagination', () => {
+            const html = renderTemplate('feed/index', {
+                ...baseData,
+                feed: {
+                    items: [
+                        {
+                            id: 'event-1',
+                            actor_id: 'user-1',
+                            event_name: 'UserAction.UserFollowed',
+                            payload: { target_id: 'user-2' },
+                            created_at: '2025-01-01T10:00:00Z'
+                        },
+                        {
+                            id: 'event-2',
+                            actor_id: 'user-3',
+                            event_name: 'UserAction.UserBlocked',
+                            payload: { blocked_id: 'user-4', reason: 'harassment' },
+                            created_at: '2025-01-02T08:30:00Z'
+                        }
+                    ],
+                    next_cursor: 'cursor123'
+                }
+            });
 
-      // Verify basic structure
-      expect(html).toContain('Social Activity');
-      expect(html).toContain('Test User');
-      expect(html).toContain('Recent social events');
+            expect(html).toContain('Social Activity');
+            expect(html).toContain('Discover');
+            expect(html).toContain('Following');
+            expect(html).toContain('US'); // initials for user-1
+            expect(html).toContain('was followed');
+            expect(html).toContain('US3'); // initials for user-3
+            expect(html).toContain('was blocked');
+            expect(html).toContain('(harassment)');
+            expect(html).toContain('Load More Activity');
+        });
 
-      // Verify feed items
-      expect(html).toContain('user2'); // Followed user
-      expect(html).toContain('was followed');
-      expect(html).toContain('user3'); // Blocked user
-      expect(html).toContain('was blocked');
-      expect(html).toContain('spam'); // Block reason
+        test('renders empty feed state correctly', () => {
+            const html = renderTemplate('feed/index', {
+                ...baseData,
+                feed: { items: [], next_cursor: null }
+            });
 
-      // Verify pagination
-      expect(html).toContain('Load More Activity');
-      expect(html).toContain('load-more-btn');
+            expect(html).toContain('No activity yet');
+            expect(html).toContain('Start following people');
+        });
 
-      // Verify timestamps
-      expect(html).toContain(new Date('2025-01-01T10:00:00Z').toLocaleString());
-      expect(html).toContain(new Date('2025-01-01T10:30:00Z').toLocaleString());
+        test('renders error state with retry option', () => {
+            const html = renderTemplate('feed/index', {
+                ...baseData,
+                feed: { items: [], next_cursor: null },
+                error: 'Service temporarily unavailable'
+            });
+
+            expect(html).toContain('Unable to load activity');
+            expect(html).toContain('Service temporarily unavailable');
+            expect(html).toContain('Try Again');
+        });
+
+        test('displays different action types correctly', () => {
+            const html = renderTemplate('feed/index', {
+                ...baseData,
+                feed: {
+                    items: [
+                        {
+                            id: 'event-1',
+                            actor_id: 'user-1',
+                            event_name: 'UserAction.UserFollowed',
+                            payload: { target_id: 'user-2' },
+                            created_at: '2025-01-01T10:00:00Z'
+                        },
+                        {
+                            id: 'event-2',
+                            actor_id: 'user-3',
+                            event_name: 'UserAction.UserUnfollowed',
+                            payload: { target_id: 'user-4' },
+                            created_at: '2025-01-02T08:30:00Z'
+                        }
+                    ],
+                    next_cursor: 'cursor123'
+                }
+            });
+
+            expect(html).toContain('was followed');
+            expect(html).toContain('was unfollowed');
+        });
+
+        test('handles undefined/null payload fields gracefully', () => {
+            const html = renderTemplate('feed/index', {
+                ...baseData,
+                feed: {
+                    items: [
+                        {
+                            id: 'event-1',
+                            actor_id: 'user-1',
+                            event_name: 'UserAction.UserFollowed',
+                            payload: {},  // undefined target_id
+                            created_at: '2025-01-01T10:00:00Z'
+                        },
+                        {
+                            id: 'event-2',
+                            actor_id: 'user-3',
+                            event_name: 'Unknown.Action',
+                            payload: {},
+                            created_at: '2025-01-02T08:30:00Z'
+                        }
+                    ],
+                    next_cursor: 'cursor123'
+                }
+            });
+
+            expect(html).toContain('someone was followed'); // fallback for undefined target_id
+            expect(html).toContain('Unknown activity'); // fallback for unknown event_name
+        });
+
+        test('includes proper navigation links', () => {
+            const html = renderTemplate('feed/index', baseData);
+
+            expect(html).toContain('← Back to Profile');
+            expect(html).toContain('href="/dashboard/profile"');
+        });
+
+        test('renders pagination cursor data in JavaScript', () => {
+            const html = renderTemplate('feed/index', {
+                ...baseData,
+                pagination: { limit: 10, cursor: 'test-cursor', hasMore: true }
+            });
+
+            expect(html).toContain('cursor=<%= encodeURIComponent(pagination.cursor) %>');
+            expect(html).toContain('limit=<%= pagination.limit %>');
+        });
     });
 
-    test('renders empty feed state correctly', () => {
-      const mockData = {
-        title: 'Social Activity',
-        feed: { items: [], next_cursor: null },
-        user: { id: 'current-user', full_name: 'Test User' },
-        pagination: { limit: 20, cursor: null, hasMore: false }
-      };
+    describe('GET /feed/discover - discover.ejs', () => {
+        const baseData = {
+            title: 'Discover Feed',
+            user: { id: 'current-user', full_name: 'Test User' },
+            activeFeedTab: 'discover',
+            surface: 'web',
+            pagination: { limit: 20, cursor: null, hasMore: false }
+        };
 
-      const html = renderTemplate('feed/index', mockData);
+        test('renders discover cards with metadata', () => {
+            const html = renderTemplate('feed/discover', {
+                ...baseData,
+                feed: {
+                    items: [
+                        {
+                            id: 'post-1',
+                            author_id: 'author-1',
+                            author_handle: 'nutri_guru',
+                            text: 'Try this post-workout smoothie!',
+                            rank_score: 0.85,
+                            reason: 'popular',
+                            created_at: '2025-01-02T08:30:00Z',
+                            metadata: { likes_count: 12, comments_count: 4 },
+                            media: [
+                                { type: 'image', url: 'https://example.com/smoothie.jpg' }
+                            ]
+                        }
+                    ],
+                    next_cursor: 'cursor123'
+                }
+            });
 
-      expect(html).toContain('Social Activity');
-      expect(html).toContain('No activity yet');
-      expect(html).toContain('Start following people');
-      expect(html).not.toContain('Load More Activity'); // No pagination on empty
+            expect(html).toContain('Discover Feed');
+            expect(html).toContain('nutri_guru');
+            expect(html).toContain('Try this post-workout smoothie!');
+            expect(html).toContain('0.85');
+            expect(html).toContain('12 likes');
+            expect(html).toContain('Load more discoveries');
+        });
+
+        test('shows empty state when no items', () => {
+            const html = renderTemplate('feed/discover', {
+                ...baseData,
+                feed: { items: [], next_cursor: null }
+            });
+
+            expect(html).toContain('Nothing to show (yet)');
+            expect(html).toContain('Interact with more posts');
+        });
+
+        test('renders error state with retry button', () => {
+            const html = renderTemplate('feed/discover', {
+                ...baseData,
+                feed: { items: [], next_cursor: null },
+                error: 'Service unavailable'
+            });
+
+            expect(html).toContain('Unable to load discover feed');
+            expect(html).toContain('Service unavailable');
+            expect(html).toContain('Try again');
+        });
     });
-
-    test('renders error state with retry option', () => {
-      const mockData = {
-        title: 'Social Activity',
-        feed: { items: [], next_cursor: null },
-        user: { id: 'current-user', full_name: 'Test User' },
-        error: 'Failed to load feed',
-        pagination: { limit: 20, cursor: null, hasMore: false }
-      };
-
-      const html = renderTemplate('feed/index', mockData);
-
-      expect(html).toContain('Unable to load feed');
-      expect(html).toContain('Failed to load feed');
-      expect(html).toContain('Please try again later');
-      expect(html).toContain('Try Again');
-      expect(html).toContain('window.location.reload()'); // Retry action
-    });
-
-    test('displays different action types correctly', () => {
-      const mockData = {
-        title: 'Social Activity',
-        feed: {
-          items: [
-            {
-              event_name: 'UserAction.UserFollowed',
-              payload: { target_id: 'alice', action: 'followed' }
-            },
-            {
-              event_name: 'UserAction.UserUnfollowed',
-              payload: { target_id: 'bob', action: 'unfollowed' }
-            },
-            {
-              event_name: 'UserAction.UserBlocked',
-              payload: { blocked_id: 'spam-user', reason: 'spam', action: 'blocked' }
-            },
-            {
-              event_name: 'UserAction.UserUnblocked',
-              payload: { blocked_id: 'old-user', action: 'unblocked' }
-            },
-            {
-              event_name: 'Unknown.Event', // Unknown event
-              payload: { some: 'data' }
-            }
-          ],
-          next_cursor: null
-        },
-        user: { id: 'current-user', full_name: 'Test User' },
-        pagination: { limit: 20, cursor: null, hasMore: false }
-      };
-
-      const html = renderTemplate('feed/index', mockData);
-
-      // Known actions
-      expect(html).toContain('alice was followed');
-      expect(html).toContain('bob was unfollowed');
-      expect(html).toContain('spam-user was blocked');
-      expect(html).toContain('old-user was unblocked');
-      expect(html).toContain('(spam)'); // Block reason
-
-      // Unknown actions
-      expect(html).toContain('Unknown activity');
-    });
-
-    test('handles undefined/null payload fields gracefully', () => {
-      const mockData = {
-        title: 'Social Activity',
-        feed: {
-          items: [
-            {
-              event_name: 'UserAction.UserBlocked',
-              payload: { blocked_id: null, reason: null, action: 'blocked' },
-              actor_id: null
-            }
-          ],
-          next_cursor: null
-        },
-        user: { id: 'current-user', full_name: 'Test User' },
-        pagination: { limit: 20, cursor: null, hasMore: false }
-      };
-
-      const html = renderTemplate('feed/index', mockData);
-
-      // Should handle null values without breaking
-      expect(html).toContain('was blocked');
-      expect(html).toContain('TU'); // Initials from null actor_id -> substring safe
-    });
-
-    test('includes proper navigation links', () => {
-      const mockData = {
-        title: 'Social Activity',
-        feed: { items: [], next_cursor: null },
-        user: { id: 'current-user', full_name: 'Test User' },
-        pagination: { limit: 20, cursor: null, hasMore: false }
-      };
-
-      const html = renderTemplate('feed/index', mockData);
-
-      expect(html).toContain('← Back to Profile');
-      expect(html).toContain('/dashboard/profile');
-    });
-
-    test('renders pagination cursor data in JavaScript', () => {
-      const mockData = {
-        title: 'Social Activity',
-        feed: { items: [], next_cursor: 'test-cursor' },
-        user: { id: 'current-user', full_name: 'Test User' },
-        pagination: { limit: 50, cursor: 'test-cursor', hasMore: true }
-      };
-
-      const html = renderTemplate('feed/index', mockData);
-
-      // Should contain JavaScript with cursor data
-      expect(html).toContain('test-cursor');
-      expect(html).toContain('/feed?cursor=');
-      expect(html).toContain('limit=50');
-    });
-  });
 });

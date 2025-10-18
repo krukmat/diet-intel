@@ -30,7 +30,8 @@ function renderTemplate(viewName, data = {}) {
   // Renderizar con EJS
   try {
     const html = ejs.render(templateContent, defaultData, {
-      views: path.join(__dirname, '..', '..', 'views')
+      views: path.join(__dirname, '..', '..', 'views'),
+      filename: templatePath
     });
     return html;
   } catch (error) {

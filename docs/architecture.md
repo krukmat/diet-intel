@@ -144,6 +144,20 @@ discover_feed: Dict[str, Any] = {
 
 > Los helpers actuales (`ReportService.is_post_blocked`, `ProfileService.can_view_profile`) son stubs básicos; se completarán en la historia B2 junto con el endpoint HTTP.
 
+#### 🌐 **Web Surface Integration (EPIC_B.B3)**
+
+- El router Express (`webapp/routes/feed.js`) incorpora pestañas Following/Discover, sanea parámetros (`limit`, `cursor`, `surface`) y reusa el cliente backend.
+- `dietIntelAPI.getDiscoverFeed` (webapp) permite propagar la superficie seleccionada por el usuario (`web`/`mobile`) para métricas segmentadas.
+- La vista `feed/discover.ejs` renderiza metadata de ranking (score, reason, likes/comments) y ofrece selector de superficie + paginado con cursor.
+- Tests Jest (`feed.routes.test.js`, `feed.views.test.js`) cubren estados de autenticación, errores y éxito usando el helper `mountApp` sin tocar servicios reales.
+
+#### 📱 **Mobile Surface Integration (EPIC_B.B4)**
+
+- `mobile/services/ApiService.getDiscoverFeed` consume el endpoint con tokens del usuario y expone un `DiscoverFeedResponse` tipado (`mobile/types/feed.ts`).
+- El hook `useDiscoverFeed` centraliza paginación, cambio de superficie (mobile/web) y expone acciones (`refresh`, `loadMore`, `switchSurface`).
+- `DiscoverFeedScreen` ofrece UI nativa con pestañas, pull-to-refresh e infinite scroll; se integra al router principal (`mobile/App.tsx`) bajo el botón “Discover”.
+- Pruebas Jest para hook y pantalla validan la lógica sin tocar la red (`mobile/__tests__/hooks/useDiscoverFeed.test.ts`, `mobile/__tests__/screens/DiscoverFeedScreen.test.tsx`).
+
 #### 🚀 **Performance Optimizations**
 
 **Caching Strategy:**

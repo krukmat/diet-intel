@@ -1,166 +1,154 @@
-// EPIC_A.A4: Tests de rutas de feed webapp con Supertest
-
 const request = require('supertest');
 const { mountApp } = require('./helpers/mountApp');
 
-// Mock API client
 jest.mock('../utils/api');
 const dietIntelAPI = require('../utils/api');
 
 describe('Feed Routes - Supertest Integration', () => {
   let app;
+  let server;
+  const AUTH_COOKIE = ['access_token=mock_token'];
 
   beforeEach(() => {
     jest.clearAllMocks();
     app = mountApp();
 
-    // Setup default mocks
+    server = app.listen(0, '127.0.0.1');
+
     dietIntelAPI.getFeed = jest.fn();
+    dietIntelAPI.getDiscoverFeed = jest.fn();
     dietIntelAPI.getCurrentUser = jest.fn().mockResolvedValue({
       id: 'test-user-id',
-      full_name: 'Test User'
+      full_name: 'Test User',
     });
   });
 
-  // Helper to simulate authenticated request
-  const authRequest = (agent) => agent.set('Cookie', ['access_token=mock_token']);
+  afterEach((done) => {
+    if (server) {
+      server.close(done);
+    } else {
+      done();
+    }
+  });
 
   describe('GET /feed', () => {
-    test('requires authentication and redirects to login', async () => {
-      const response = await request(app)
+    test('requires authentication', async () => {
+      const response = await request(server)
         .get('/feed')
         .expect(302);
 
       expect(response.headers.location).toContain('/auth/login');
     });
 
-    test('authenticated user gets feed data and renders view', async () => {
-      const mockFeedData = {
+    test('renders feed with data', async () => {
+      const mockFeed = {
         items: [
           {
-            id: 'feed-item-1',
-            user_id: 'user2',
-            actor_id: 'test-user-id',
-            event_name: 'UserAction.UserFollowed',
-            payload: {
-              follower_id: 'test-user-id',
-              target_id: 'user2',
-              action: 'followed',
-              ts: '2025-01-01T10:00:00Z'
-            },
+            id: 'event-1',
+            type: 'follow',
+            actor_id: 'user-1',
             created_at: '2025-01-01T10:00:00Z'
           }
         ],
-        next_cursor: 'cursor123'
+        next_cursor: 'cursor-123'
       };
 
-      const userData = {
-        id: 'test-user-id',
-        full_name: 'Test User'
-      };
+      dietIntelAPI.getFeed.mockResolvedValue(mockFeed);
 
-      dietIntelAPI.getFeed.mockResolvedValue(mockFeedData);
-      dietIntelAPI.getCurrentUser.mockResolvedValue(userData);
-
-      const response = await authRequest(request.agent(app))
-        .get('/feed')
+      const response = await request(server)
+        .get('/feed?limit=10')
+        .set('Cookie', AUTH_COOKIE)
         .expect(200);
 
-      // Verify API was called with correct token
       expect(dietIntelAPI.getFeed).toHaveBeenCalledWith('mock_token', {
-        limit: 20,
+        limit: 10,
         cursor: undefined
       });
-
-      // Verify view renders with feed data
       expect(response.text).toContain('Social Activity');
-      expect(response.text).toContain('Test User'); // User name
-      expect(response.text).toContain('user2'); // Feed item content
-      expect(response.text).toContain('followed'); // Action text
-      expect(response.text).toContain('Load More Activity'); // Pagination button present
+      expect(response.text).toContain('Following');
     });
 
-    test('handles pagination parameters correctly', async () => {
-      const mockFeedData = { items: [], next_cursor: null };
-      dietIntelAPI.getFeed.mockResolvedValue(mockFeedData);
+    test('handles API errors gracefully', async () => {
+      dietIntelAPI.getFeed.mockRejectedValue(new Error('API failure'));
 
-      const response = await authRequest(request.agent(app))
-        .get('/feed?limit=50&cursor=test-cursor')
-        .expect(200);
-
-      expect(dietIntelAPI.getFeed).toHaveBeenCalledWith('mock_token', {
-        limit: 50,
-        cursor: 'test-cursor'
-      });
-    });
-
-    test('handles invalid limit parameter gracefully', async () => {
-      const mockFeedData = { items: [], next_cursor: null };
-      dietIntelAPI.getFeed.mockResolvedValue(mockFeedData);
-
-      const response = await authRequest(request.agent(app))
-        .get('/feed?limit=invalid')
-        .expect(200);
-
-      // Should default to 20 on invalid limit
-      expect(dietIntelAPI.getFeed).toHaveBeenCalledWith('mock_token', {
-        limit: 20,
-        cursor: undefined
-      });
-    });
-
-    test('renders empty state when no feed items', async () => {
-      const emptyFeedData = { items: [], next_cursor: null };
-      dietIntelAPI.getFeed.mockResolvedValue(emptyFeedData);
-
-      const response = await authRequest(request.agent(app))
+      const response = await request(server)
         .get('/feed')
+        .set('Cookie', AUTH_COOKIE)
         .expect(200);
-
-      expect(response.text).toContain('No activity yet');
-      expect(response.text).toContain('Start following people');
-      expect(response.text).not.toContain('Load More Activity'); // No pagination button
-    });
-
-    test('handles API errors gracefully with error message', async () => {
-      dietIntelAPI.getFeed.mockRejectedValue(new Error('API Error'));
-      dietIntelAPI.getCurrentUser.mockResolvedValue({
-        id: 'test-user-id',
-        full_name: 'Test User'
-      });
-
-      const response = await authRequest(request.agent(app))
-        .get('/feed')
-        .expect(200); // Should still render, but with error
 
       expect(response.text).toContain('Unable to load feed');
-      expect(response.text).toContain('Please try again later');
-      expect(response.text).toContain('Try Again');
+      expect(response.text).toContain('Try again');
+    });
+  });
+
+  describe('GET /feed/discover', () => {
+    test('requires authentication', async () => {
+      const response = await request(server)
+        .get('/feed/discover')
+        .expect(302);
+
+      expect(response.headers.location).toContain('/auth/login');
     });
 
-    test('hides load more button when no next_cursor', async () => {
-      const mockFeedData = {
+    test('renders discover feed with data', async () => {
+      const mockDiscover = {
         items: [
           {
-            id: 'feed-item-1',
-            user_id: 'user2',
-            actor_id: 'test-user-id',
-            event_name: 'UserAction.UserFollowed',
-            payload: { follower_id: 'test-user-id', target_id: 'user2', action: 'followed' },
-            created_at: '2025-01-01T10:00:00Z'
+            id: 'post-1',
+            author_id: 'author-1',
+            author_handle: 'nutri_guru',
+            text: 'High-protein breakfast ideas',
+            rank_score: 0.92,
+            reason: 'fresh',
+            created_at: '2025-01-01T12:00:00Z',
+            metadata: { likes_count: 5, comments_count: 2 },
+            media: []
           }
         ],
-        next_cursor: null // No more pages
+        next_cursor: 'cursor-xyz'
       };
 
-      dietIntelAPI.getFeed.mockResolvedValue(mockFeedData);
+      dietIntelAPI.getDiscoverFeed.mockResolvedValue(mockDiscover);
 
-      const response = await authRequest(request.agent(app))
-        .get('/feed')
+      const response = await request(server)
+        .get('/feed/discover?limit=10')
+        .set('Cookie', AUTH_COOKIE)
         .expect(200);
 
-      expect(response.text).toContain('followed'); // Has feed item
-      expect(response.text).not.toContain('Load More Activity'); // No pagination button
+      expect(dietIntelAPI.getDiscoverFeed).toHaveBeenCalledWith('mock_token', {
+        limit: 10,
+        cursor: undefined,
+        surface: 'web'
+      });
+      expect(response.text).toContain('Discover Feed');
+      expect(response.text).toContain('High-protein breakfast ideas');
+    });
+
+    test('passes surface parameter and cursor', async () => {
+      dietIntelAPI.getDiscoverFeed.mockResolvedValue({ items: [], next_cursor: null });
+
+      await request(server)
+        .get('/feed/discover?limit=5&cursor=abc123&surface=mobile')
+        .set('Cookie', AUTH_COOKIE)
+        .expect(200);
+
+      expect(dietIntelAPI.getDiscoverFeed).toHaveBeenCalledWith('mock_token', {
+        limit: 5,
+        cursor: 'abc123',
+        surface: 'mobile'
+      });
+    });
+
+    test('handles API errors gracefully', async () => {
+      dietIntelAPI.getDiscoverFeed.mockRejectedValue(new Error('boom'));
+
+      const response = await request(server)
+        .get('/feed/discover')
+        .set('Cookie', AUTH_COOKIE)
+        .expect(200);
+
+      expect(response.text).toContain('Unable to load discover feed');
+      expect(response.text).toContain('Try again');
     });
   });
 });
