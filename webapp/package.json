@@ -42,6 +42,7 @@
     "i18next": "^25.5.1",
     "i18next-fs-backend": "^2.6.0",
     "i18next-http-middleware": "^3.8.0",
+    "sqlite3": "^5.1.7",
     "moment": "^2.29.4",
     "morgan": "^1.10.0",
     "playwright": "^1.55.0"

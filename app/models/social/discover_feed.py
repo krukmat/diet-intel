@@ -1,6 +1,6 @@
 from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Literal
 
 from pydantic import BaseModel, Field
 
@@ -45,4 +45,26 @@ class DiscoverFeedResponse(BaseModel):
     )
     request_id: Optional[str] = Field(
         default=None, description="Telemetry request identifier"
+    )
+
+
+class DiscoverFeedInteraction(BaseModel):
+    post_id: str = Field(..., description="Interacted post ID")
+    action: Literal["click", "dismiss"] = Field(
+        ..., description="Interaction action type"
+    )
+    surface: Literal["web", "mobile"] = Field(
+        ..., description="Surface where the interaction happened"
+    )
+    variant: Optional[str] = Field(
+        default="control", description="Experiment variant associated to the view"
+    )
+    request_id: Optional[str] = Field(
+        default=None, description="Request identifier from the feed response"
+    )
+    rank_score: Optional[float] = Field(
+        default=0.0, description="Rank score assigned to the item"
+    )
+    reason: Optional[str] = Field(
+        default=None, description="Displayed reason for the item"
     )
