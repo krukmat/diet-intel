@@ -1,5 +1,6 @@
 import { apiService } from './ApiService';
 import { authService } from './AuthService';
+import { DiscoverFeedItem } from '../types/feed';
 
 // EPIC_B.B5: Mobile Analytics Service for Discover Feed
 class AnalyticsService {
@@ -46,18 +47,53 @@ class AnalyticsService {
     await this.recordEvent(event, 'Discover feed surface changed');
   }
 
-  async trackDiscoverItemInteraction(itemId: string, action: 'view' | 'share' | 'save', surface: 'mobile' | 'web'): Promise<void> {
+  async trackDiscoverItemInteraction(
+    item: DiscoverFeedItem,
+    options: {
+      action: 'click' | 'dismiss';
+      surface: 'mobile' | 'web';
+      variant?: string;
+      requestId?: string | null;
+    },
+  ): Promise<void> {
+    const userId = await this.getCurrentUserId();
+    const timestamp = new Date().toISOString();
+    const variant = options.variant || 'control';
+    const requestId = options.requestId || null;
+
     const event: DiscoverItemInteractionEvent = {
       type: 'discover_item_interaction',
-      action,
-      item_id: itemId,
-      surface,
-      timestamp: new Date().toISOString(),
-      user_id: await this.getCurrentUserId(),
+      action: options.action,
+      item_id: item.id,
+      surface: options.surface,
+      timestamp,
+      user_id: userId,
       user_agent: this.getUserAgent(),
+      variant,
+      request_id: requestId,
+      rank_score: item.rank_score,
+      reason: item.reason,
     };
 
-    await this.recordEvent(event, `Item ${action} interaction`);
+    await this.recordEvent(event, `Discover item ${options.action}`);
+
+    try {
+      await apiService.recordDiscoverInteraction({
+        post_id: item.id,
+        action: options.action,
+        surface: options.surface,
+        variant,
+        request_id: requestId,
+        rank_score: item.rank_score,
+        reason: item.reason,
+      });
+    } catch (error) {
+      console.warn('[MOBILE_ANALYTICS] Failed to forward discover interaction', {
+        post_id: item.id,
+        action: options.action,
+        error,
+      });
+    }
   }
 
   private async recordEvent(event: AnalyticsEvent, description: string): Promise<void> {
@@ -165,9 +201,13 @@ interface DiscoverSurfaceSwitchEvent extends BaseAnalyticsEvent {
 
 interface DiscoverItemInteractionEvent extends BaseAnalyticsEvent {
   type: 'discover_item_interaction';
-  action: 'view' | 'share' | 'save';
+  action: 'click' | 'dismiss';
   item_id: string;
   surface: 'mobile' | 'web';
+  variant: string;
+  request_id: string | null;
+  rank_score: number;
+  reason: string;
 }
 
 type AnalyticsEvent = DiscoverViewEvent | DiscoverLoadMoreEvent | DiscoverSurfaceSwitchEvent | DiscoverItemInteractionEvent;

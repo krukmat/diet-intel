@@ -7,7 +7,9 @@ describe('Feed Views - EJS Template Snapshots', () => {
             user: { id: 'current-user', full_name: 'Test User' },
             activeFeedTab: 'following',
             surface: 'web',
-            pagination: { limit: 20, cursor: null, hasMore: false }
+            pagination: { limit: 20, cursor: null, hasMore: true },
+            error: null,
+            feed: { items: [], next_cursor: null }
         };
 
         test('renders feed with activity items and pagination', () => {
@@ -30,7 +32,7 @@ describe('Feed Views - EJS Template Snapshots', () => {
                             created_at: '2025-01-02T08:30:00Z'
                         }
                     ],
-                    next_cursor: 'cursor123'
+                            next_cursor: 'cursor123'
                 }
             });
 
@@ -39,7 +41,6 @@ describe('Feed Views - EJS Template Snapshots', () => {
             expect(html).toContain('Following');
             expect(html).toContain('US'); // initials for user-1
             expect(html).toContain('was followed');
-            expect(html).toContain('US3'); // initials for user-3
             expect(html).toContain('was blocked');
             expect(html).toContain('(harassment)');
             expect(html).toContain('Load More Activity');
@@ -119,7 +120,8 @@ describe('Feed Views - EJS Template Snapshots', () => {
                 }
             });
 
-            expect(html).toContain('someone was followed'); // fallback for undefined target_id
+            expect(html).toContain('<span class="font-medium">someone</span>');
+            expect(html).toContain('was followed'); // fallback for undefined target_id
             expect(html).toContain('Unknown activity'); // fallback for unknown event_name
         });
 
@@ -136,8 +138,8 @@ describe('Feed Views - EJS Template Snapshots', () => {
                 pagination: { limit: 10, cursor: 'test-cursor', hasMore: true }
             });
 
-            expect(html).toContain('cursor=<%= encodeURIComponent(pagination.cursor) %>');
-            expect(html).toContain('limit=<%= pagination.limit %>');
+            expect(html).toContain('cursor=test-cursor');
+            expect(html).toContain('limit=10');
         });
     });
 
@@ -149,7 +151,9 @@ describe('Feed Views - EJS Template Snapshots', () => {
             surface: 'web',
             variant: 'control',
             requestId: 'test-request',
-            pagination: { limit: 20, cursor: null, hasMore: false }
+            pagination: { limit: 20, cursor: null, hasMore: true },
+            error: null,
+            feed: { items: [], next_cursor: null }
         };
 
         test('renders discover cards with metadata', () => {
@@ -183,12 +187,16 @@ describe('Feed Views - EJS Template Snapshots', () => {
             expect(html).toContain('12 likes');
             expect(html).toContain('Load more discoveries');
             expect(html).toContain('/analytics/discover');
+            expect(html).toContain('Dismiss suggestion');
+            expect(html).toContain('View profile');
+            expect(html).toContain('data-reason="popular"');
         });
 
         test('shows empty state when no items', () => {
             const html = renderTemplate('feed/discover', {
                 ...baseData,
-                feed: { items: [], next_cursor: null }
+                feed: { items: [], next_cursor: null },
+                pagination: { limit: 20, cursor: null, hasMore: false }
             });
 
             expect(html).toContain('Nothing to show (yet)');

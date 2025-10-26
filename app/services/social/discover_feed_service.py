@@ -468,7 +468,7 @@ def get_discover_feed(
     """Main entry point for discover feed."""
     start_time = time.perf_counter()
     request_id = str(uuid4())
-    weights_info = feed_experiments.get_feed_weights(user_id)
+    weights_info = feed_experiments.get_feed_weights(user_id, surface)
     weights = weights_info.get("weights", _get_config().get("weights", {}))
     variant = weights_info.get("variant", "control")
 

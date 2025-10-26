@@ -135,6 +135,9 @@ cd mobile && npm test -- --testPathPattern=discover
 
 ### Debug Commands
 ```bash
+# Apply analytics migration (PostgreSQL)
+psql "$DATABASE_URL" -f database/init/023_discover_web_events.sql
+
 # Check cache status
 curl "http://localhost:8000/health"
 
@@ -144,5 +147,9 @@ curl "http://localhost:8000/feed/discover?user_id=test_user&surface=web" | jq '.
 # View recent events
 curl "http://localhost:8000/analytics/discover/events"
 
+# Inspect persisted analytics events (requires DB access)
+psql "$DATABASE_URL" -c "SELECT id, user_id, event_type, surface, created_at FROM discover_web_events ORDER BY created_at DESC LIMIT 20;"
+
 # Refresh cache for user
 curl "/admin/discover-feed/clear-cache?user_id=test_user"
+```

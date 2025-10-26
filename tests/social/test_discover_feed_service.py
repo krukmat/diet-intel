@@ -124,6 +124,36 @@ def test_service_import(mock_profile, mock_report, mock_block, mock_fetch):
 @patch("app.services.social.discover_feed_service.block_service")
 @patch("app.services.social.discover_feed_service.ReportService")
 @patch("app.services.social.discover_feed_service.ProfileService")
+@patch("app.services.social.discover_feed_service.feed_experiments.get_feed_weights")
+def test_surface_forwarded_to_experiments(
+    mock_get_weights,
+    mock_profile,
+    mock_report,
+    mock_block,
+    mock_fetch,
+):
+    mock_fetch.return_value = []
+    mock_block.is_blocking.return_value = False
+    mock_report.is_post_blocked.return_value = False
+    mock_profile.return_value.can_view_profile.return_value = True
+
+    mock_get_weights.return_value = {
+        "weights": {},
+        "variant": "surface-test",
+        "experiment_id": "exp-123",
+        "surface": "mobile",
+    }
+
+    response = service.get_discover_feed(user_id="viewer", limit=5, surface="mobile")
+
+    mock_get_weights.assert_called_with("viewer", "mobile")
+    assert response.variant == "surface-test"
+
+
+@patch("app.services.social.discover_feed_service._fetch_candidate_posts")
+@patch("app.services.social.discover_feed_service.block_service")
+@patch("app.services.social.discover_feed_service.ReportService")
+@patch("app.services.social.discover_feed_service.ProfileService")
 def test_filters_blocked(mock_profile, mock_report, mock_block, mock_fetch, posts_rows):
     mock_fetch.return_value = posts_rows
 

@@ -1,6 +1,12 @@
 const express = require('express');
 const router = express.Router();
 const analyticsRepository = require('../data/analyticsRepository');
+const dietIntelAPI = require('../utils/api');
+
+const parseNumber = (value, fallback = 0) => {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
+};
 
 /**
  * POST /analytics/discover
@@ -24,7 +30,8 @@ const analyticsRepository = require('../data/analyticsRepository');
  */
 router.post('/discover', async (req, res) => {
   try {
-    const userId = req.user?.id || req.body.user_id || 'anonymous';
+    const currentUserId = res.locals.currentUser?.id;
+    const userId = currentUserId || req.user?.id || req.body.user_id || 'anonymous';
     const eventType = req.body.type;
     const surface = req.body.surface || 'web';
 
@@ -56,9 +63,45 @@ router.post('/discover', async (req, res) => {
       ...(req.body.items && { items: req.body.items }),
       // Interaction events
       ...(req.body.post_id && { post_id: req.body.post_id }),
-      ...(req.body.rank_score !== undefined && { rank_score: req.body.rank_score }),
+      ...(req.body.rank_score !== undefined && { rank_score: parseNumber(req.body.rank_score) }),
       ...(req.body.reason && { reason: req.body.reason }),
     };
+
+    let forwardedInteraction = false;
+
+    if (eventType === 'click' || eventType === 'dismiss') {
+      if (!req.body.post_id) {
+        return res.status(400).json({
+          success: false,
+          error: 'post_id is required for interaction events',
+        });
+      }
+
+      const interactionPayload = {
+        post_id: req.body.post_id,
+        action: eventType,
+        surface,
+        variant: req.body.variant || 'control',
+        request_id: req.body.request_id || '',
+        rank_score: parseNumber(req.body.rank_score),
+        reason: req.body.reason || 'unknown',
+      };
+
+      try {
+        const authToken = req.cookies?.access_token;
+        if (authToken && currentUserId) {
+          await dietIntelAPI.recordDiscoverInteraction(authToken, interactionPayload);
+          forwardedInteraction = true;
+        } else {
+          console.warn('[WEB_ANALYTICS_BACKEND] Skipping backend interaction forwarding due to missing auth context', {
+            hasToken: Boolean(authToken),
+            hasUser: Boolean(currentUserId),
+          });
+        }
+      } catch (interactionError) {
+        console.error('[WEB_ANALYTICS_BACKEND] Failed to forward interaction event:', interactionError?.message || interactionError);
+      }
+    }
 
     // Persist to database
     const eventId = await analyticsRepository.insertEvent(userId, eventType, surface, payload);
@@ -74,6 +117,7 @@ router.post('/discover', async (req, res) => {
     res.json({
       success: true,
       event_id: eventId,
+      backend_forwarded: forwardedInteraction,
     });
 
   } catch (error) {

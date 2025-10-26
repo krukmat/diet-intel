@@ -152,12 +152,25 @@
 
 ### Collection
 1. **Backend**: Events -> `event_outbox` -> `social_feed` (immediate/batched)
-2. **Web**: Events -> `/analytics/discover` -> Memory storage (dev mode)
-3. **Mobile**: Events -> `AnalyticsService` -> Console logging (local-first)
+2. **Web**: Events -> `/analytics/discover` -> `discover_web_events` (PostgreSQL)
+3. **Mobile**: Events -> `AnalyticsService` -> `/feed/discover/interactions` (FastAPI)
 
 ### Storage
-- **Development**: In-memory + console logging
-- **Production**: Centralized analytics platform (BigQuery/Redshift/Snowflake)
+- **Development**: SQLite fallback (`database/dietintel.db`) when PostgreSQL is unavailable
+- **Production**: PostgreSQL table `discover_web_events` (mirrored into the warehouse ingestion pipeline)
+
+### Event Schema (`discover_web_events`)
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| `id` | `bigserial` | Primary key |
+| `user_id` | `text` | Viewer emitting the event |
+| `event_type` | `text` | `view`, `load_more`, `surface_switch`, `click`, `dismiss` |
+| `surface` | `text` | Web or mobile client surface |
+| `payload` | `jsonb` | Raw analytics payload (items, variant, request_id, etc.) |
+| `created_at` | `timestamptz` | Server-side timestamp |
+
+Indexes exist on `(user_id, event_type)` and `created_at DESC` for go-to dashboards.
 
 ### Processing
 - **Real-time**: Event-driven updates (user activity tracking)
@@ -246,7 +259,7 @@ fetch('/analytics/discover', {
 // Get events
 fetch('/analytics/discover/events')
   .then(r => r.json())
-  .then(console.log);
+  .then(({ recent_events }) => console.table(recent_events));
 ```
 
 ### Mobile Testing
@@ -254,9 +267,13 @@ fetch('/analytics/discover/events')
 // React Native Debugger
 import { analyticsService } from './mobile/services/AnalyticsService';
 
-analyticsService.trackDiscoverView(15, 'mobile').then(() => {
-  console.log('Event logged:', analyticsService.getRecentEvents());
+await analyticsService.trackDiscoverItemInteraction(item, {
+  action: 'click',
+  surface: 'mobile',
+  variant: response.variant,
+  requestId: response.request_id,
 });
+// Events are forwarded to FastAPI -> /feed/discover/interactions and stored in discover_web_events
 
 // View event summary
 console.log(analyticsService.getEventSummary());

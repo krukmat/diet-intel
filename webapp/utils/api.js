@@ -223,6 +223,18 @@ class DietIntelAPI {
     }
   }
 
+  async recordDiscoverInteraction(authToken, payload) {
+    try {
+      const headers = authToken ? { Authorization: `Bearer ${authToken}` } : {};
+      const response = await this.client.post('/feed/discover/interactions', payload, {
+        headers,
+      });
+      return response.data;
+    } catch (error) {
+      this.handleAPIError(error, 'recordDiscoverInteraction');
+    }
+  }
+
   // Existing methods...
   async getMealPlan(userId, authToken) {
     // Existing implementation

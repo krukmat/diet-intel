@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -6,19 +6,34 @@ import {
   FlatList,
   ActivityIndicator,
   TouchableOpacity,
-  RefreshControl
+  RefreshControl,
+  Pressable,
+  GestureResponderEvent,
 } from 'react-native';
 import { useDiscoverFeed } from '../hooks/useDiscoverFeed';
 import { DiscoverFeedItem } from '../types/feed';
+import { analyticsService } from '../services/AnalyticsService';
 
-const DiscoverFeedItemComponent: React.FC<{ item: DiscoverFeedItem }> = ({ item }) => {
+interface DiscoverFeedItemProps {
+  item: DiscoverFeedItem;
+  onPress: (item: DiscoverFeedItem) => void;
+  onDismiss: (item: DiscoverFeedItem) => void;
+}
+
+const DiscoverFeedItemComponent: React.FC<DiscoverFeedItemProps> = ({ item, onPress, onDismiss }) => {
   const reasonDisplay = item.reason.replace(/_/g, ' ').toLowerCase();
   const authorHandle = item.author_handle || item.author_id.substring(0, 10) || 'unknown';
   const timestamp = new Date(item.created_at).toLocaleString();
   const rankScore = item.rank_score.toFixed(2);
 
   return (
-    <View style={styles.feedItem}>
+    <Pressable
+      onPress={() => onPress(item)}
+      style={({ pressed }) => [styles.feedItem, pressed && styles.feedItemPressed]}
+      testID={`discover-card-${item.id}`}
+      accessibilityRole="button"
+      accessibilityLabel={`Open discover suggestion from ${authorHandle}`}
+    >
       {/* Header with rank score */}
       <View style={styles.itemHeader}>
         <View>
@@ -60,7 +75,23 @@ const DiscoverFeedItemComponent: React.FC<{ item: DiscoverFeedItem }> = ({ item 
           <Text style={styles.metadataText}>🕒 {timestamp}</Text>
         </View>
       </View>
-    </View>
+
+      <View style={styles.itemActions}>
+        <Text style={styles.itemHint}>Tap card to open</Text>
+        <Pressable
+          onPress={(event: GestureResponderEvent) => {
+            event.stopPropagation();
+            onDismiss(item);
+          }}
+          style={({ pressed }) => [styles.dismissButton, pressed && styles.dismissButtonPressed]}
+          testID={`dismiss-${item.id}`}
+          accessibilityRole="button"
+          accessibilityLabel="Dismiss discover suggestion"
+        >
+          <Text style={styles.dismissButtonText}>Dismiss</Text>
+        </Pressable>
+      </View>
+    </Pressable>
   );
 };
 
@@ -88,6 +119,19 @@ export const DiscoverFeedScreen: React.FC<DiscoverFeedScreenProps> = ({ onBackPr
     autoLoad: true,
   });
 
+  const [dismissedIds, setDismissedIds] = useState<Set<string>>(new Set());
+  const clickedItemsRef = useRef<Set<string>>(new Set());
+
+  useEffect(() => {
+    setDismissedIds(new Set());
+    clickedItemsRef.current.clear();
+  }, [requestId, selectedSurface]);
+
+  const visibleItems = useMemo(
+    () => items.filter(item => !dismissedIds.has(item.id)),
+    [items, dismissedIds],
+  );
+
   const handleLoadMore = () => {
     if (!loading && hasMore) {
       loadMore();
@@ -95,22 +139,66 @@ export const DiscoverFeedScreen: React.FC<DiscoverFeedScreenProps> = ({ onBackPr
   };
 
   const handleRefresh = () => {
+    setDismissedIds(new Set());
+    clickedItemsRef.current.clear();
     refresh();
   };
 
   const handleSurfaceChange = (newSurface: 'mobile' | 'web') => {
     if (selectedSurface !== newSurface) {
+      setDismissedIds(new Set());
+      clickedItemsRef.current.clear();
       switchSurface(newSurface);
     }
   };
 
   const handleRetry = () => {
     clearError();
+    setDismissedIds(new Set());
+    clickedItemsRef.current.clear();
     refresh();
   };
 
+  const handleItemPress = async (item: DiscoverFeedItem) => {
+    if (clickedItemsRef.current.has(item.id)) {
+      return;
+    }
+    clickedItemsRef.current.add(item.id);
+    try {
+      await analyticsService.trackDiscoverItemInteraction(item, {
+        action: 'click',
+        surface: selectedSurface,
+        variant,
+        requestId,
+      });
+    } catch (interactionError) {
+      console.warn('[DISCOVER_FEED] Failed to record click interaction', interactionError);
+    }
+  };
+
+  const handleDismiss = async (item: DiscoverFeedItem) => {
+    if (dismissedIds.has(item.id)) {
+      return;
+    }
+    setDismissedIds(prev => {
+      const next = new Set(prev);
+      next.add(item.id);
+      return next;
+    });
+    try {
+      await analyticsService.trackDiscoverItemInteraction(item, {
+        action: 'dismiss',
+        surface: selectedSurface,
+        variant,
+        requestId,
+      });
+    } catch (interactionError) {
+      console.warn('[DISCOVER_FEED] Failed to record dismiss interaction', interactionError);
+    }
+  };
+
   // Loading state - Initial load
-  if (loading && (!items || items.length === 0)) {
+  if (loading && visibleItems.length === 0) {
     return (
       <View style={styles.centerContainer}>
         <ActivityIndicator size="large" color="#007AFF" />
@@ -120,7 +208,7 @@ export const DiscoverFeedScreen: React.FC<DiscoverFeedScreenProps> = ({ onBackPr
   }
 
   // Error state - Initial load or persistent error
-  if (error && (!items || items.length === 0)) {
+  if (error && visibleItems.length === 0) {
     return (
       <View style={styles.centerContainer}>
         <Text style={styles.errorIcon}>⚠️</Text>
@@ -134,7 +222,7 @@ export const DiscoverFeedScreen: React.FC<DiscoverFeedScreenProps> = ({ onBackPr
   }
 
   // Empty state - No discover items available
-  if (!items || items.length === 0) {
+  if (visibleItems.length === 0) {
     return (
       <View style={styles.centerContainer}>
         <Text style={styles.emptyIcon}>🔍</Text>
@@ -153,7 +241,7 @@ export const DiscoverFeedScreen: React.FC<DiscoverFeedScreenProps> = ({ onBackPr
     );
   }
 
-  const isRefreshing = loading && items.length === 0;
+  const isRefreshing = loading && visibleItems.length === 0;
   const canLoadMore = hasMore && !loading;
 
   return (
@@ -212,9 +300,16 @@ export const DiscoverFeedScreen: React.FC<DiscoverFeedScreenProps> = ({ onBackPr
 
       {/* Feed List */}
       <FlatList
-        data={items}
+        testID="discover-feed-list"
+        data={visibleItems}
         keyExtractor={(item) => item.id}
-        renderItem={({ item }) => <DiscoverFeedItemComponent item={item} />}
+        renderItem={({ item }) => (
+          <DiscoverFeedItemComponent
+            item={item}
+            onPress={handleItemPress}
+            onDismiss={handleDismiss}
+          />
+        )}
         onEndReached={handleLoadMore}
         onEndReachedThreshold={0.5}
         refreshControl={
@@ -370,6 +465,9 @@ const styles = StyleSheet.create({
     shadowRadius: 2,
     elevation: 2,
   },
+  feedItemPressed: {
+    transform: [{ scale: 0.98 }],
+  },
   itemHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -437,6 +535,32 @@ const styles = StyleSheet.create({
     paddingTop: 8,
     borderTopWidth: 1,
     borderTopColor: '#f3f4f6',
+  },
+  itemActions: {
+    marginTop: 12,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  itemHint: {
+    fontSize: 12,
+    color: '#6b7280',
+  },
+  dismissButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: '#f87171',
+    backgroundColor: '#fef2f2',
+  },
+  dismissButtonPressed: {
+    backgroundColor: '#fee2e2',
+  },
+  dismissButtonText: {
+    color: '#b91c1c',
+    fontSize: 12,
+    fontWeight: '600',
   },
   metadataItem: {
     flex: 1,

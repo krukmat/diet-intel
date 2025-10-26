@@ -222,6 +222,18 @@ class ApiService {
     return this.get<DiscoverFeedResponse>(url);
   }
 
+  public async recordDiscoverInteraction(payload: {
+    post_id: string;
+    action: 'click' | 'dismiss';
+    surface: 'mobile' | 'web';
+    variant?: string;
+    request_id?: string | null;
+    rank_score?: number;
+    reason?: string;
+  }) {
+    return this.post('/feed/discover/interactions', payload);
+  }
+
   // Social Profile endpoints - EPIC_A.A1
   public async getProfile(userId: string) {
     return this.get(`/profiles/${userId}`);

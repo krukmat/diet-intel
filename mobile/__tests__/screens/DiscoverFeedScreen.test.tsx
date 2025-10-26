@@ -1,29 +1,18 @@
 import React from 'react';
-import { render, fireEvent } from '@testing-library/react-native';
+import { render, fireEvent, waitFor, act } from '@testing-library/react-native';
 import { Alert } from 'react-native';
 import { DiscoverFeedScreen } from '../../screens/DiscoverFeedScreen';
 
 // Mock hooks
 jest.mock('../../hooks/useDiscoverFeed');
+jest.mock('../../services/AnalyticsService', () => ({
+  analyticsService: {
+    trackDiscoverItemInteraction: jest.fn().mockResolvedValue(undefined),
+  },
+}));
 
-jest.mock('react-native/Libraries/Lists/FlatList', () => {
-  const React = require('react');
-  const { View } = require('react-native');
-
-  return React.forwardRef(({ data, renderItem, ListEmptyComponent, ...props }, ref) => {
-    const items = Array.isArray(data) ? data : [];
-    return (
-      <View ref={ref} {...props}>
-        {items.length > 0
-          ? items.map((item, index) => renderItem({ item, index }))
-          : typeof ListEmptyComponent === 'function'
-            ? <ListEmptyComponent />
-            : ListEmptyComponent || null}
-      </View>
-    );
-  });
-});
 const mockUseDiscoverFeed = jest.requireMock('../../hooks/useDiscoverFeed');
+const mockAnalyticsService = jest.requireMock('../../services/AnalyticsService').analyticsService;
 
 // Mock Alert
 jest.spyOn(Alert, 'alert');
@@ -69,6 +58,7 @@ describe('DiscoverFeedScreen', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    mockAnalyticsService.trackDiscoverItemInteraction.mockResolvedValue(undefined);
     mockUseDiscoverFeed.useDiscoverFeed.mockReturnValue(mockUseDiscoverFeedResult);
   });
 
@@ -223,6 +213,69 @@ describe('DiscoverFeedScreen', () => {
     fireEvent.press(refreshButton);
 
     expect(mockUseDiscoverFeedResult.refresh).toHaveBeenCalled();
+  });
+
+  test('tracks click interactions and avoids duplicates', async () => {
+    mockUseDiscoverFeed.useDiscoverFeed.mockReturnValue({
+      ...mockUseDiscoverFeedResult,
+      items: mockItems,
+    });
+
+    const { getByTestId } = render(<DiscoverFeedScreen />);
+    const flatList = getByTestId('discover-feed-list');
+    const { renderItem, data } = flatList.props;
+    const itemElement = renderItem({ item: data[0], index: 0 });
+
+    await act(async () => {
+      await itemElement.props.onPress(mockItems[0]);
+    });
+
+    await waitFor(() => {
+      expect(mockAnalyticsService.trackDiscoverItemInteraction).toHaveBeenCalledWith(
+        expect.objectContaining({ id: 'post-1' }),
+        expect.objectContaining({
+          action: 'click',
+          surface: 'mobile',
+          variant: 'control',
+          requestId: 'req-123',
+        }),
+      );
+    });
+
+    await act(async () => {
+      await itemElement.props.onPress(mockItems[0]);
+    });
+    expect(mockAnalyticsService.trackDiscoverItemInteraction).toHaveBeenCalledTimes(1);
+  });
+
+  test('tracks dismiss interactions and removes card from list', async () => {
+    mockUseDiscoverFeed.useDiscoverFeed.mockReturnValue({
+      ...mockUseDiscoverFeedResult,
+      items: mockItems,
+    });
+
+    const { getByTestId, queryByText } = render(<DiscoverFeedScreen />);
+    const flatList = getByTestId('discover-feed-list');
+    const { renderItem, data } = flatList.props;
+    const itemElement = renderItem({ item: data[0], index: 0 });
+
+    await act(async () => {
+      await itemElement.props.onDismiss(mockItems[0]);
+    });
+
+    await waitFor(() => {
+      expect(mockAnalyticsService.trackDiscoverItemInteraction).toHaveBeenCalledWith(
+        expect.objectContaining({ id: 'post-1' }),
+        expect.objectContaining({
+          action: 'dismiss',
+          surface: 'mobile',
+          variant: 'control',
+          requestId: 'req-123',
+        }),
+      );
+    });
+
+    expect(queryByText('Protein-rich breakfast ideas!')).toBeNull();
   });
 
 });

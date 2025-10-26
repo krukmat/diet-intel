@@ -16,4 +16,6 @@ export interface DiscoverFeedItem {
 export interface DiscoverFeedResponse {
   items: DiscoverFeedItem[];
   next_cursor?: string | null;
+  variant?: string;
+  request_id?: string | null;
 }

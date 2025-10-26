@@ -56,7 +56,7 @@
         <% if (feed && feed.items && feed.items.length > 0) { %>
           <div class="space-y-6">
             <% feed.items.forEach(item => { %>
-              <article class="border border-gray-200 rounded-lg p-5 shadow-sm hover:shadow transition" data-discover-item="true" data-post-id="<%= item.id %>" data-rank-score="<%= Number(item.rank_score || 0).toFixed(2) %>" data-author-id="<%= item.author_id %>">
+              <article class="border border-gray-200 rounded-lg p-5 shadow-sm hover:shadow transition" data-discover-item="true" data-post-id="<%= item.id %>" data-rank-score="<%= Number(item.rank_score || 0).toFixed(2) %>" data-author-id="<%= item.author_id %>" data-reason="<%= item.reason || 'unknown' %>">
                 <div class="flex items-center justify-between mb-4">
                   <div>
                     <div class="text-sm text-gray-500 uppercase tracking-wide">
@@ -94,6 +94,19 @@
                   <span class="inline-flex items-center px-2 py-1 bg-blue-50 text-blue-600 rounded text-xs">
                     Surface: <%= surface %>
                   </span>
+                </div>
+
+                <div class="mt-4 flex flex-wrap items-center gap-3 text-sm">
+                  <% if (item.author_id) { %>
+                    <a href="/profiles/<%= item.author_id %>" class="px-3 py-2 rounded-md border border-blue-200 text-blue-600 hover:bg-blue-50 transition" data-discover-click="true">
+                      View profile
+                    </a>
+                  <% } %>
+                  <button type="button"
+                          class="px-3 py-2 rounded-md border border-red-200 text-red-600 hover:bg-red-50 transition"
+                          data-discover-dismiss="true">
+                    Dismiss suggestion
+                  </button>
                 </div>
               </article>
             <% }); %>
@@ -147,7 +160,8 @@
         return {
           id: el.dataset.postId,
           rank_score: parseFloat(el.dataset.rankScore || '0'),
-          author_id: el.dataset.authorId || null
+          author_id: el.dataset.authorId || null,
+          reason: el.dataset.reason || 'unknown'
         };
       });
 
@@ -163,6 +177,19 @@
         } catch (err) {
           console.warn('discover analytics send failed', err);
         }
+      }
+
+      function buildInteractionPayload(type, element) {
+        if (!element) return null;
+        return {
+          type,
+          surface,
+          variant,
+          request_id: requestId,
+          post_id: element.dataset.postId,
+          rank_score: parseFloat(element.dataset.rankScore || '0'),
+          reason: element.dataset.reason || 'unknown'
+        };
       }
 
       if (items.length) {
@@ -207,6 +234,49 @@
           surfaceSelect.form.submit();
         });
       }
+
+      const recordedClicks = new Set();
+      const recordedDismissals = new Set();
+
+      document.addEventListener('click', function(event) {
+        const dismissBtn = event.target.closest('[data-discover-dismiss]');
+        if (dismissBtn) {
+          const card = dismissBtn.closest('[data-discover-item]');
+          if (!card) return;
+          const key = `${card.dataset.postId || 'unknown'}::dismiss`;
+          if (recordedDismissals.has(key)) return;
+          recordedDismissals.add(key);
+
+          const dismissPayload = buildInteractionPayload('dismiss', card);
+          if (dismissPayload) {
+            sendAnalytics(dismissPayload);
+          }
+
+          card.classList.add('opacity-60');
+          setTimeout(() => card.remove(), 250);
+          return;
+        }
+
+        const card = event.target.closest('[data-discover-item]');
+        if (!card) {
+          return;
+        }
+        // Avoid counting dismiss button clicks as card clicks
+        if (event.target.closest('[data-discover-dismiss]')) {
+          return;
+        }
+
+        const key = `${card.dataset.postId || 'unknown'}::click`;
+        if (recordedClicks.has(key)) {
+          return;
+        }
+        recordedClicks.add(key);
+
+        const clickPayload = buildInteractionPayload('click', card);
+        if (clickPayload) {
+          sendAnalytics(clickPayload);
+        }
+      });
     })();
   </script>
 </body>
