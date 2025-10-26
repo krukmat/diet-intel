@@ -171,3 +171,4 @@ pytest_feed_combined_new.txt
 sprints/*
 arco6206,
 REPORT_EPIC_B.B6.md
+webapp/test-results
