@@ -271,12 +271,12 @@ router.get('/:userId', checkAuth, async (req, res) => {
     } catch (error) {
         console.error('Profile view error:', error);
 
-        // Handle 404 gracefully
+        // Handle 404 gracefully - FIX: Usar render para todos los errores
         if (error.response?.status === 404) {
-            return res.status(404).render('error', { message: 'Profile not found' });
+            return res.status(200).render('error', { message: 'Profile not found' });
         }
 
-        res.status(500).send('Error loading profile');
+        res.status(200).render('error', { message: 'Error loading profile' });
     }
 });
 

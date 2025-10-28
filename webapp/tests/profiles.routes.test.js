@@ -10,14 +10,16 @@ const dietIntelAPI = require('../utils/api');
 jest.mock('axios');
 const axios = require('axios');
 
-// Fixtures
+// Fixtures - FIX: Añadir follow_relation a todas las fixtures
 const profilePublic = {
   user_id: 'u1',
   handle: 'h1',
   bio: '',
   visibility: 'public',
   stats: { followers_count: 0, following_count: 0, posts_count: 0, points_total: 0 },
-  posts: []
+  posts: [],
+  follow_relation: null,
+  posts_notice: null
 };
 
 const profilePrivateNotice = {
@@ -25,13 +27,16 @@ const profilePrivateNotice = {
   user_id: 'u2',
   visibility: 'followers_only',
   posts: [],
-  posts_notice: 'Follow to see posts'
+  posts_notice: 'Follow to see posts',
+  follow_relation: null
 };
 
 const profileNoPosts = {
   ...profilePublic,
   user_id: 'u3',
-  posts: null  // Test case for null posts
+  posts: null,  // Test case for null posts
+  posts_notice: null,
+  follow_relation: null
 };
 
 const currentUser = { id: 'u1', full_name: 'Test User' };
