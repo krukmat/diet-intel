@@ -1,0 +1,91 @@
+============================= test session starts ==============================
+platform darwin -- Python 3.9.10, pytest-8.4.2, pluggy-1.6.0
+benchmark: 4.0.0 (defaults: timer=time.perf_counter disable_gc=False min_rounds=5 min_time=0.000005 max_time=1.0 calibration_precision=10 warmup=False warmup_iterations=100000)
+rootdir: /Users/matiasleandrokruk/Documents/DietIntel
+configfile: pytest.ini
+plugins: Faker-19.6.2, integration-0.2.3, httpx-0.35.0, cov-4.1.0, asyncio-0.21.1, xdist-3.3.0, mock-3.12.0, anyio-3.7.1, recording-0.12.2, benchmark-4.0.0
+asyncio: mode=strict
+collected 0 items / 1 error
+
+==================================== ERRORS ====================================
+_____________ ERROR collecting tests/social/test_feed_ingester.py ______________
+../../miniforge3/lib/python3.9/site-packages/_pytest/python.py:498: in importtestmodule
+    mod = import_path(
+../../miniforge3/lib/python3.9/site-packages/_pytest/pathlib.py:587: in import_path
+    importlib.import_module(module_name)
+../../miniforge3/lib/python3.9/importlib/__init__.py:127: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+<frozen importlib._bootstrap>:1030: in _gcd_import
+    ???
+<frozen importlib._bootstrap>:1007: in _find_and_load
+    ???
+<frozen importlib._bootstrap>:986: in _find_and_load_unlocked
+    ???
+<frozen importlib._bootstrap>:680: in _load_unlocked
+    ???
+../../miniforge3/lib/python3.9/site-packages/_pytest/assertion/rewrite.py:177: in exec_module
+    source_stat, co = _rewrite_test(fn, self.config)
+../../miniforge3/lib/python3.9/site-packages/_pytest/assertion/rewrite.py:359: in _rewrite_test
+    co = compile(tree, strfn, "exec", dont_inherit=True)
+E     File "/Users/matiasleandrokruk/Documents/DietIntel/tests/social/test_feed_ingester.py", line 55
+E       result = await ingest_pending_events(10)
+E                ^
+E   SyntaxError: 'await' outside async function
+=============================== warnings summary ===============================
+app/models/user.py:26
+  /Users/matiasleandrokruk/Documents/DietIntel/app/models/user.py:26: PydanticDeprecatedSince20: Pydantic V1 style `@validator` validators are deprecated. You should migrate to Pydantic V2 style `@field_validator` validators, see the migration guide for more details. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.5/migration/
+    @validator('email')
+
+app/models/product.py:9
+  /Users/matiasleandrokruk/Documents/DietIntel/app/models/product.py:9: PydanticDeprecatedSince20: Pydantic V1 style `@validator` validators are deprecated. You should migrate to Pydantic V2 style `@field_validator` validators, see the migration guide for more details. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.5/migration/
+    @validator("barcode")
+
+app/models/tracking.py:13
+  /Users/matiasleandrokruk/Documents/DietIntel/app/models/tracking.py:13: PydanticDeprecatedSince20: Pydantic V1 style `@root_validator` validators are deprecated. You should migrate to Pydantic V2 style `@model_validator` validators, see the migration guide for more details. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.5/migration/
+    @root_validator(pre=True)
+
+../../miniforge3/lib/python3.9/site-packages/pydantic/fields.py:768
+../../miniforge3/lib/python3.9/site-packages/pydantic/fields.py:768
+../../miniforge3/lib/python3.9/site-packages/pydantic/fields.py:768
+../../miniforge3/lib/python3.9/site-packages/pydantic/fields.py:768
+../../miniforge3/lib/python3.9/site-packages/pydantic/fields.py:768
+  /Users/matiasleandrokruk/miniforge3/lib/python3.9/site-packages/pydantic/fields.py:768: PydanticDeprecatedSince20: `min_items` is deprecated and will be removed, use `min_length` instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.5/migration/
+    warn('`min_items` is deprecated and will be removed, use `min_length` instead', DeprecationWarning)
+
+../../miniforge3/lib/python3.9/site-packages/pydantic/fields.py:774
+../../miniforge3/lib/python3.9/site-packages/pydantic/fields.py:774
+../../miniforge3/lib/python3.9/site-packages/pydantic/fields.py:774
+../../miniforge3/lib/python3.9/site-packages/pydantic/fields.py:774
+../../miniforge3/lib/python3.9/site-packages/pydantic/fields.py:774
+  /Users/matiasleandrokruk/miniforge3/lib/python3.9/site-packages/pydantic/fields.py:774: PydanticDeprecatedSince20: `max_items` is deprecated and will be removed, use `max_length` instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.5/migration/
+    warn('`max_items` is deprecated and will be removed, use `max_length` instead', DeprecationWarning)
+
+app/models/tracking.py:63
+  /Users/matiasleandrokruk/Documents/DietIntel/app/models/tracking.py:63: PydanticDeprecatedSince20: Pydantic V1 style `@validator` validators are deprecated. You should migrate to Pydantic V2 style `@field_validator` validators, see the migration guide for more details. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.5/migration/
+    @validator('timestamp')
+
+app/models/tracking.py:93
+  /Users/matiasleandrokruk/Documents/DietIntel/app/models/tracking.py:93: PydanticDeprecatedSince20: Pydantic V1 style `@root_validator` validators are deprecated. You should migrate to Pydantic V2 style `@model_validator` validators, see the migration guide for more details. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.5/migration/
+    @root_validator(pre=True)
+
+app/models/tracking.py:113
+  /Users/matiasleandrokruk/Documents/DietIntel/app/models/tracking.py:113: PydanticDeprecatedSince20: Pydantic V1 style `@validator` validators are deprecated. You should migrate to Pydantic V2 style `@field_validator` validators, see the migration guide for more details. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.5/migration/
+    @validator('date')
+
+../../miniforge3/lib/python3.9/site-packages/pydantic/_internal/_config.py:268
+  /Users/matiasleandrokruk/miniforge3/lib/python3.9/site-packages/pydantic/_internal/_config.py:268: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.5/migration/
+    warnings.warn(DEPRECATION_MESSAGE, DeprecationWarning)
+
+app/models/recipe.py:89
+  /Users/matiasleandrokruk/Documents/DietIntel/app/models/recipe.py:89: PydanticDeprecatedSince20: Pydantic V1 style `@validator` validators are deprecated. You should migrate to Pydantic V2 style `@field_validator` validators, see the migration guide for more details. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.5/migration/
+    @validator('cuisine_preferences')
+
+app/models/recipe.py:95
+  /Users/matiasleandrokruk/Documents/DietIntel/app/models/recipe.py:95: PydanticDeprecatedSince20: Pydantic V1 style `@validator` validators are deprecated. You should migrate to Pydantic V2 style `@field_validator` validators, see the migration guide for more details. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.5/migration/
+    @validator('dietary_restrictions')
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+ERROR tests/social/test_feed_ingester.py
+!!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!
+======================== 19 warnings, 1 error in 0.17s =========================

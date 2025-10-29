@@ -134,7 +134,228 @@ class DatabaseService:
                     FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
                 )
             """)
-            
+
+            # Social profile tables
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS user_profiles (
+                    user_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+                    handle TEXT UNIQUE NOT NULL,
+                    bio TEXT,
+                    avatar_url TEXT,
+                    visibility TEXT NOT NULL CHECK (visibility IN ('public', 'followers_only')),
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
+
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS profile_stats (
+                    user_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+                    followers_count INTEGER NOT NULL DEFAULT 0,
+                    following_count INTEGER NOT NULL DEFAULT 0,
+                    posts_count INTEGER NOT NULL DEFAULT 0,
+                    points_total INTEGER NOT NULL DEFAULT 0,
+                    level INTEGER NOT NULL DEFAULT 0,
+                    badges_count INTEGER NOT NULL DEFAULT 0,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
+
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_user_profiles_handle ON user_profiles(handle)")
+
+            # Follow tables
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS user_follows (
+                    follower_id TEXT NOT NULL,
+                    followee_id TEXT NOT NULL,
+                    status TEXT NOT NULL CHECK (status IN ('active','blocked')) DEFAULT 'active',
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    PRIMARY KEY (follower_id, followee_id)
+                )
+            """)
+
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_follows_followee ON user_follows(followee_id)")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_follows_follower ON user_follows(follower_id)")
+
+            # Follow activity log for rate limiting
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS follow_activity_log (
+                    user_id TEXT NOT NULL,
+                    action TEXT NOT NULL CHECK(action IN ('follow')),
+                    date DATE NOT NULL,
+                    count INTEGER NOT NULL DEFAULT 0,
+                    PRIMARY KEY (user_id, action, date)
+                )
+            """)
+
+            # Event outbox for follow events
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS event_outbox (
+                    id TEXT PRIMARY KEY,
+                    name TEXT NOT NULL,
+                    payload TEXT NOT NULL, -- JSON
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
+
+            # Social feed table for activity feed
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS social_feed (
+                    id TEXT PRIMARY KEY,
+                    user_id TEXT NOT NULL,
+                    actor_id TEXT NOT NULL,
+                    event_name TEXT NOT NULL,
+                    payload TEXT NOT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
+
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_feed_user_created_at ON social_feed(user_id, created_at DESC)")
+
+            # Blocks tables
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS user_blocks (
+                    blocker_id TEXT NOT NULL,
+                    blocked_id TEXT NOT NULL,
+                    reason TEXT,
+                    status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active','revoked')),
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    PRIMARY KEY (blocker_id, blocked_id)
+                )
+            """)
+
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_user_blocks_blocked ON user_blocks(blocked_id)")
+
+            # Block events table
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS block_events (
+                    id TEXT PRIMARY KEY,
+                    blocker_id TEXT NOT NULL,
+                    blocked_id TEXT NOT NULL,
+                    action TEXT NOT NULL CHECK(action IN ('block','unblock')),
+                    reason TEXT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
+
+            # EPIC_A.A5: Social posts tables
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS posts (
+                    id TEXT PRIMARY KEY,
+                    author_id TEXT NOT NULL,
+                    text TEXT NOT NULL CHECK(LENGTH(text) <= 500),
+                    visibility TEXT NOT_NULL CHECK (visibility IN ('public', 'followers_only')),
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
+
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS post_media (
+                    id TEXT PRIMARY KEY,
+                    post_id TEXT NOT NULL,
+                    type TEXT NOT NULL CHECK(type IN ('image', 'video')),
+                    url TEXT NOT NULL,
+                    order_position INTEGER DEFAULT 0,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (post_id) REFERENCES posts(id) ON DELETE CASCADE
+                )
+            """)
+
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS post_reactions (
+                    post_id TEXT NOT NULL,
+                    user_id TEXT NOT NULL,
+                    reaction_type TEXT NOT NULL CHECK(reaction_type IN ('like', 'love', 'laugh', 'sad', 'angry')),
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    PRIMARY KEY (post_id, user_id)
+                )
+            """)
+
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS post_comments (
+                    id TEXT PRIMARY KEY,
+                    post_id TEXT NOT NULL,
+                    author_id TEXT NOT NULL,
+                    text TEXT NOT NULL CHECK(LENGTH(text) <= 280),
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (post_id) REFERENCES posts(id) ON DELETE CASCADE
+                )
+            """)
+
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS post_activity_log (
+                    id TEXT PRIMARY KEY,
+                    user_id TEXT NOT NULL,
+                    activity_type TEXT NOT NULL,
+                    activity_date DATE NOT NULL,
+                    count INTEGER NOT NULL DEFAULT 0,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE(user_id, activity_type, activity_date)
+                )
+            """)
+
+            # EPIC_A.A5: Gamification tables
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS points_ledger (
+                    id TEXT PRIMARY KEY,
+                    user_id TEXT NOT NULL,
+                    source TEXT NOT NULL,
+                    points INTEGER NOT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
+
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS user_levels (
+                    user_id TEXT PRIMARY KEY,
+                    points_total INTEGER NOT NULL DEFAULT 0,
+                    level INTEGER NOT NULL DEFAULT 1,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
+
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS user_badges (
+                    id TEXT PRIMARY KEY,
+                    user_id TEXT NOT NULL,
+                    badge_code TEXT NOT NULL,
+                    earned_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
+
+            # EPIC_A.A5: Notifications table
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS notifications (
+                    id TEXT PRIMARY KEY,
+                    user_id TEXT NOT NULL,
+                    type TEXT NOT NULL,
+                    payload TEXT NOT NULL, -- JSON
+                    read_at TIMESTAMP,
+                    status TEXT NOT NULL DEFAULT 'unread' CHECK(status IN ('unread', 'read', 'deleted')),
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
+
+            # EPIC_A.A5: Content reports table
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS content_reports (
+                    id TEXT PRIMARY KEY,
+                    reporter_id TEXT NOT NULL,
+                    target_type TEXT NOT NULL CHECK(target_type IN ('post', 'comment', 'user')),
+                    target_id TEXT NOT NULL,
+                    reason TEXT NOT NULL CHECK(reason IN ('spam', 'abuse', 'nsfw', 'misinformation', 'other')),
+                    status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending', 'moderated_approved', 'moderated_dismissed', 'moderated_escalated')),
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    reviewed_at TIMESTAMP,
+                    reviewed_by TEXT
+                )
+            """)
+
             # Meal tracking tables
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS meals (

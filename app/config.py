@@ -1,5 +1,5 @@
 import os
-from typing import Optional
+from typing import Optional, Dict, Any
 from pydantic import Field
 from pydantic_settings import BaseSettings
 
@@ -105,6 +105,39 @@ class Config(BaseSettings):
     libretranslate_api_key: Optional[str] = Field(
         default=None,
         description="Optional LibreTranslate API key if authentication is enabled"
+    )
+
+    # Social features configuration
+    social_enabled: bool = Field(
+        default=True,
+        description="Enable social features (profiles, following, gamification)"
+    )
+
+    discover_feed_enabled: bool = Field(
+        default=True,
+        description="Enable discover feed feature"
+    )
+
+    discover_feed_rate_per_min: int = Field(
+        default=60,
+        description="Cantidad máxima de requests por minuto al discover feed por usuario",
+    )
+
+    # Discover feed configuration
+    discover_feed: Dict[str, Any] = Field(
+        default_factory=lambda: {
+            "fresh_days": 7,
+            "fresh_tau_hours": 6,
+            "weights": {
+                "fresh": 0.5,
+                "engagement": 0.5,
+                "likes": 0.6,
+                "comments": 0.4,
+            },
+            "max_posts_per_author": 2,
+            "cache_ttl_seconds": 60,
+        },
+        description="Discover feed ranking configuration",
     )
     
     class Config:

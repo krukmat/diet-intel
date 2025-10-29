@@ -7,7 +7,14 @@ from app.routes.plan import router as plan_router
 from app.routes.track import router as track_router
 from app.routes.reminder import router as reminder_router
 from app.routes.auth import router as auth_router
+from app.routes.profile import router as profile_router
 from app.routes.analytics import router as analytics_router
+from app.routes.follow import router as follow_router
+from app.routes.block import router as block_router
+from app.routes.feed import router as feed_router
+from app.routes.posts import router as posts_router
+from app.routes.notifications import router as notifications_router
+from app.routes.gamification import router as gamification_router
 from app.routes.recommendations import router as recommendations_router
 from app.routes.smart_diet import router as smart_diet_router
 from app.routes.recipe_ai import router as recipe_ai_router
@@ -51,6 +58,10 @@ app.add_middleware(
 
 # Include routers
 app.include_router(auth_router, prefix="/auth", tags=["authentication"])
+app.include_router(profile_router, tags=["profiles"])
+app.include_router(follow_router, tags=["follows"])
+app.include_router(block_router, tags=["blocks"])
+app.include_router(feed_router, tags=["feed"])
 app.include_router(product_router, prefix="/product", tags=["products"])
 app.include_router(plan_router, prefix="/plan", tags=["meal-planning"])
 app.include_router(recommendations_router, prefix="/recommendations", tags=["smart-recommendations"])
@@ -62,7 +73,14 @@ app.include_router(track_router, prefix="/track", tags=["tracking"])
 app.include_router(reminder_router, prefix="/reminder", tags=["reminders"])
 app.include_router(analytics_router, prefix="/analytics", tags=["analytics"])
 app.include_router(food_vision_router, tags=["food-vision"])
+app.include_router(posts_router, tags=["posts"])
+app.include_router(notifications_router, tags=["notifications"])
+app.include_router(gamification_router, prefix="/gamification", tags=["gamification"])
 app.include_router(translation_router)
+
+# Additional moderation routes (place after auth to ensure proper order)
+from app.routes.moderation import router as moderation_router
+app.include_router(moderation_router, tags=["moderation"])
 
 # Expose key services on the app instance for testing/inspection
 app.smart_diet_engine = smart_diet_engine

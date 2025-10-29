@@ -27,6 +27,9 @@ import MyRecipesScreen from './screens/MyRecipesScreen';
 import RecipeDetailScreen from './screens/RecipeDetailScreen';
 import TastePreferencesScreen from './screens/TastePreferencesScreen';
 import ShoppingOptimizationScreen from './screens/ShoppingOptimizationScreen';
+import { ProfileScreen } from './screens/ProfileScreen';
+import { ProfileEditScreen } from './screens/ProfileEditScreen';
+import { DiscoverFeedScreen } from './screens/DiscoverFeedScreen';
 import ProductDetail from './components/ProductDetail';
 import ReminderSnippet from './components/ReminderSnippet';
 import ApiConfigModal from './components/ApiConfigModal';
@@ -34,6 +37,7 @@ import DeveloperSettingsModal from './components/DeveloperSettingsModal';
 import LanguageSwitcher, { LanguageToggle } from './components/LanguageSwitcher';
 import { developerSettingsService, DeveloperConfig, FeatureToggle } from './services/DeveloperSettings';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { ProfileProvider } from './contexts/ProfileContext';
 import { notificationService } from './services/NotificationService';
 import LoginScreen from './screens/LoginScreen';
 import RegisterScreen from './screens/RegisterScreen';
@@ -41,11 +45,13 @@ import SplashScreen from './screens/SplashScreen';
 import { LoginCredentials, RegisterData } from './types/auth';
 import './i18n/config';
 
-// Main App Component wrapped with AuthProvider
+// Main App Component wrapped with AuthProvider + ProfileProvider
 export default function App() {
   return (
     <AuthProvider>
-      <AppContent />
+      <ProfileProvider>
+        <AppContent />
+      </ProfileProvider>
     </AuthProvider>
   );
 }
@@ -94,7 +100,23 @@ function MainApp({ user, onLogout }: { user: any; onLogout: () => void }) {
   const [hasPermission, setHasPermission] = useState<boolean | null>(null);
   const [scanned, setScanned] = useState(false);
   const [showCamera, setShowCamera] = useState(false);
-  type ScreenType = 'scanner' | 'upload' | 'plan' | 'track' | 'recommendations' | 'recipes' | 'recipe-generation' | 'recipe-search' | 'my-recipes' | 'recipe-detail' | 'taste-preferences' | 'shopping-optimization' | 'vision';
+  type ScreenType =
+    | 'scanner'
+    | 'upload'
+    | 'plan'
+    | 'track'
+    | 'recommendations'
+    | 'recipes'
+    | 'recipe-generation'
+    | 'recipe-search'
+    | 'my-recipes'
+    | 'recipe-detail'
+    | 'taste-preferences'
+    | 'shopping-optimization'
+    | 'vision'
+    | 'discover-feed'
+    | 'profile'
+    | 'profile-edit';
   const [currentScreen, setCurrentScreen] = useState<ScreenType>('scanner');
   const [navigationContext, setNavigationContext] = useState<{
     targetContext?: string;
@@ -306,6 +328,33 @@ function MainApp({ user, onLogout }: { user: any; onLogout: () => void }) {
     />;
   }
 
+  if (currentScreen === 'vision') {
+    console.log('Rendering VisionLogScreen...');
+    return <VisionLogScreen
+      onBackPress={() => setCurrentScreen('scanner')}
+    />;
+  }
+
+  if (currentScreen === 'discover-feed') {
+    return <DiscoverFeedScreen onBackPress={() => setCurrentScreen('scanner')} />;
+  }
+
+  if (currentScreen === 'profile') {
+    console.log('Rendering ProfileScreen...');
+    return <ProfileScreen />;
+  }
+
+  if (currentScreen === 'profile-edit') {
+    console.log('Rendering ProfileEditScreen...');
+    return <ProfileEditScreen
+      onSave={async () => {
+        setCurrentScreen('profile');
+        Alert.alert('Success', 'Profile updated successfully');
+      }}
+      onCancel={() => setCurrentScreen('profile')}
+    />;
+  }
+
   // Recipe AI Screens
   if (currentScreen === 'recipes') {
     console.log('Rendering RecipeHomeScreen...');
@@ -376,13 +425,6 @@ function MainApp({ user, onLogout }: { user: any; onLogout: () => void }) {
       onBackPress={() => setCurrentScreen('recipes')}
       selectedRecipes={navigationContext.selectedRecipes || []}
       userId={user?.id || 'user-demo'}
-    />;
-  }
-
-  if (currentScreen === 'vision') {
-    console.log('Rendering VisionLogScreen...');
-    return <VisionLogScreen
-      onBackPress={() => setCurrentScreen('scanner')}
     />;
   }
 
@@ -484,7 +526,16 @@ function MainApp({ user, onLogout }: { user: any; onLogout: () => void }) {
             {t('navigation.smartDiet')}
           </Text>
         </TouchableOpacity>
-        
+
+        <TouchableOpacity
+          style={[styles.navButton, isActiveScreen('discover-feed') && styles.navButtonActive]}
+          onPress={() => setCurrentScreen('discover-feed')}
+        >
+          <Text style={[styles.navButtonText, isActiveScreen('discover-feed') && styles.navButtonTextActive]}>
+            Discover
+          </Text>
+        </TouchableOpacity>
+
         <TouchableOpacity
           style={[styles.navButton, isActiveScreen('recipes') && styles.navButtonActive]}
           onPress={() => {
@@ -506,6 +557,18 @@ function MainApp({ user, onLogout }: { user: any; onLogout: () => void }) {
         >
           <Text style={[styles.navButtonText, isActiveScreen('vision') && styles.navButtonTextActive]}>
             {t('navigation.vision', 'Vision')}
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.navButton, isActiveScreen('profile') && styles.navButtonActive]}
+          onPress={() => {
+            console.log('Profile tab pressed!');
+            setCurrentScreen('profile');
+          }}
+        >
+          <Text style={[styles.navButtonText, isActiveScreen('profile') && styles.navButtonTextActive]}>
+            Profile
           </Text>
         </TouchableOpacity>
       </View>

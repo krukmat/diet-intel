@@ -13,11 +13,14 @@ require('dotenv').config();
 
 // Import routes
 const indexRoutes = require('./routes/index');
+const feedRoutes = require('./routes/feed');
+const analyticsRoutes = require('./routes/analytics');
 const planRoutes = require('./routes/plans');
 const apiRoutes = require('./routes/api');
 const authRoutes = require('./routes/auth');
 const dashboardRoutes = require('./routes/dashboard');
 const languageRoutes = require('./routes/language');
+const profilesRouter = require('./routes/profiles');
 
 // Import auth middleware
 const { checkAuth } = require('./middleware/auth');
@@ -81,12 +84,15 @@ app.use((req, res, next) => {
 });
 
 // Routes
+app.use('/', feedRoutes);
+app.use('/analytics', analyticsRoutes);
 app.use('/', indexRoutes);
 app.use('/plans', planRoutes);
 app.use('/api', apiRoutes);
 app.use('/auth', authRoutes);
 app.use('/dashboard', dashboardRoutes);
 app.use('/language', languageRoutes);
+app.use('/profiles', profilesRouter);
 
 // Redirect /profile to /dashboard/profile for convenience
 app.get('/profile', (req, res) => {
@@ -129,11 +135,12 @@ app.use((err, req, res, next) => {
   });
 });
 
-// Start server
-app.listen(PORT, () => {
-  console.log(`🚀 DietIntel WebApp running on http://localhost:${PORT}`);
-  console.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
-  console.log(`🔗 API URL: ${process.env.DIETINTEL_API_URL || 'http://localhost:8000'}`);
-});
+if (require.main === module) {
+  app.listen(PORT, () => {
+    console.log(`🚀 DietIntel WebApp running on http://localhost:${PORT}`);
+    console.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
+    console.log(`🔗 API URL: ${process.env.DIETINTEL_API_URL || 'http://localhost:8000'}`);
+  });
+}
 
 module.exports = app;

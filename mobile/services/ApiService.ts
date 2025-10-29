@@ -1,6 +1,7 @@
 import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios';
 import { getEnvironmentConfig } from '../config/environments';
 import { authService } from './AuthService';
+import { DiscoverFeedResponse } from '../types/feed';
 
 class ApiService {
   private axiosInstance: AxiosInstance;
@@ -33,7 +34,7 @@ class ApiService {
         try {
           const storedTokens = await authService.getStoredTokens();
           if (storedTokens?.access_token && !authService.isTokenExpired(storedTokens.expires_at)) {
-            config.headers = config.headers ?? {};
+            config.headers = config.headers || {};
             config.headers.Authorization = `Bearer ${storedTokens.access_token}`;
           }
         } catch (error) {
@@ -198,6 +199,146 @@ class ApiService {
     if (days) params.append('days', days.toString());
     
     return this.get(`/smart-diet/metrics${params.toString() ? '?' + params.toString() : ''}`);
+  }
+
+  public async getDiscoverFeed(params: {
+    limit?: number;
+    cursor?: string;
+    surface?: 'mobile' | 'web';
+  } = {}): Promise<AxiosResponse<DiscoverFeedResponse>> {
+    const queryParams = new URLSearchParams();
+    if (params.limit !== undefined) {
+      queryParams.append('limit', params.limit.toString());
+    }
+    if (params.cursor) {
+      queryParams.append('cursor', params.cursor);
+    }
+    if (params.surface) {
+      queryParams.append('surface', params.surface);
+    }
+
+    const queryString = queryParams.toString();
+    const url = `/feed/discover${queryString ? `?${queryString}` : ''}`;
+    return this.get<DiscoverFeedResponse>(url);
+  }
+
+  public async recordDiscoverInteraction(payload: {
+    post_id: string;
+    action: 'click' | 'dismiss';
+    surface: 'mobile' | 'web';
+    variant?: string;
+    request_id?: string | null;
+    rank_score?: number;
+    reason?: string;
+  }) {
+    return this.post('/feed/discover/interactions', payload);
+  }
+
+  // Social Profile endpoints - EPIC_A.A1
+  public async getProfile(userId: string) {
+    return this.get(`/profiles/${userId}`);
+  }
+
+  public async updateProfile(data: { handle?: string; bio?: string; visibility?: 'public' | 'followers_only' }) {
+    return this.patch('/profiles/me', data);
+  }
+
+  public async getCurrentUser() {
+    return this.get('/auth/me');
+  }
+
+  // Follow/Unfollow functionality - EPIC_A.A2
+  public async followUser(targetId: string): Promise<AxiosResponse<any>> {
+    try {
+      return await this.post(`/follows/${targetId}`, { action: 'follow' });
+    } catch (error) {
+      console.error('ApiService.followUser failed', { targetId, error });
+      throw error;
+    }
+  }
+
+  public async unfollowUser(targetId: string): Promise<AxiosResponse<any>> {
+    try {
+      return await this.post(`/follows/${targetId}`, { action: 'unfollow' });
+    } catch (error) {
+      console.error('ApiService.unfollowUser failed', { targetId, error });
+      throw error;
+    }
+  }
+
+  public async getFollowers(userId: string, options?: { limit?: number; cursor?: string }): Promise<AxiosResponse<any>> {
+    const params = new URLSearchParams();
+    if (options?.limit) params.append('limit', options.limit.toString());
+    if (options?.cursor) params.append('cursor', options.cursor);
+
+    return this.get(`/profiles/${userId}/followers${params.toString() ? '?' + params.toString() : ''}`);
+  }
+
+  public async getFollowing(userId: string, options?: { limit?: number; cursor?: string }): Promise<AxiosResponse<any>> {
+    const params = new URLSearchParams();
+    if (options?.limit) params.append('limit', options.limit.toString());
+    if (options?.cursor) params.append('cursor', options.cursor);
+
+    return this.get(`/profiles/${userId}/following${params.toString() ? '?' + params.toString() : ''}`);
+  }
+
+  // Block/Unblock functionality - EPIC_A.A3
+  public async blockUser(targetId: string): Promise<AxiosResponse<any>> {
+    try {
+      return await this.post(`/blocks/${targetId}`, { action: 'block' });
+    } catch (error) {
+      console.error('ApiService.blockUser failed', { targetId, error });
+      throw error;
+    }
+  }
+
+  public async unblockUser(targetId: string): Promise<AxiosResponse<any>> {
+    try {
+      return await this.post(`/blocks/${targetId}`, { action: 'unblock' });
+    } catch (error) {
+      console.error('ApiService.unblockUser failed', { targetId, error });
+      throw error;
+    }
+  }
+
+  public async getBlockedUsers(userId: string, options?: { limit?: number; cursor?: string }): Promise<AxiosResponse<any>> {
+    const params = new URLSearchParams();
+    if (options?.limit) params.append('limit', options.limit.toString());
+    if (options?.cursor) params.append('cursor', options.cursor);
+
+    try {
+      return await this.get(`/profiles/${userId}/blocked${params.toString() ? '?' + params.toString() : ''}`);
+    } catch (error) {
+      console.error('ApiService.getBlockedUsers failed', { userId, options, error });
+      throw error;
+    }
+  }
+
+  public async getBlockers(userId: string, options?: { limit?: number; cursor?: string }): Promise<AxiosResponse<any>> {
+    const params = new URLSearchParams();
+    if (options?.limit) params.append('limit', options.limit.toString());
+    if (options?.cursor) params.append('cursor', options.cursor);
+
+    try {
+      return await this.get(`/profiles/${userId}/blockers${params.toString() ? '?' + params.toString() : ''}`);
+    } catch (error) {
+      console.error('ApiService.getBlockers failed', { userId, options, error });
+      throw error;
+    }
+  }
+
+  // Social Feed functionality - EPIC_A.A4
+  public async getFeed(options?: { limit?: number; cursor?: string }): Promise<AxiosResponse<any>> {
+    try {
+      const params = new URLSearchParams();
+      if (options?.limit) params.append('limit', options.limit.toString());
+      if (options?.cursor) params.append('cursor', options.cursor);
+
+      return await this.get(`/feed${params.toString() ? '?' + params.toString() : ''}`);
+    } catch (error) {
+      console.error('ApiService.getFeed failed', { options, error });
+      throw error;
+    }
   }
 
   // Health check

@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><%= profile.handle %>'s Followers - DietIntel</title>
+    <link rel="stylesheet" href="/stylesheets/main.css">
+</head>
+<body>
+    <%- include('../partials/header') %>
+
+    <div class="container">
+        <div class="profile-nav">
+            <h2><%= profile.handle %>'s Followers</h2>
+            <p class="follower-count"><%= items.length %> followers</p>
+        </div>
+
+        <div class="user-list">
+            <% if (items && items.length > 0) { %>
+                <% items.forEach(function(follower) { %>
+                    <div class="user-list-item">
+                        <div class="user-avatar">
+                            <% if (follower.avatar_url) { %>
+                                <img src="<%= follower.avatar_url %>" alt="Avatar" class="avatar-img">
+                            <% } else { %>
+                                <div class="avatar-placeholder"><%= follower.handle.charAt(0).toUpperCase() %></div>
+                            <% } %>
+                        </div>
+
+                        <div class="user-info">
+                            <h3>@<%= follower.handle %></h3>
+                            <small class="follow-date">Following since <%= new Date(follower.since).toLocaleDateString() %></small>
+                        </div>
+
+                        <% if (currentUser && currentUser.id !== follower.user_id) { %>
+                            <div class="follow-action">
+                                <!-- Follow/Unfollow button for this user -->
+                                <form action="/profiles/<%= follower.user_id %>/follow" method="POST" class="follow-form">
+                                    <input type="hidden" name="action" value="follow">
+                                    <button type="submit" class="btn btn-sm btn-follow">Follow</button>
+                                </form>
+                            </div>
+                        <% } %>
+                    </div>
+                <% }); %>
+
+                <!-- Load More Button or Pagination Links -->
+                <% if (next_cursor) { %>
+                    <div class="load-more-container">
+                        <a href="?cursor=<%= next_cursor %>" class="btn btn-secondary">Load More Followers</a>
+                    </div>
+                <% } %>
+            <% } else { %>
+                <div class="empty-state">
+                    <p>No followers yet</p>
+                    <small>This user doesn't have any followers yet.</small>
+                </div>
+            <% } %>
+        </div>
+
+        <!-- Navigation -->
+        <div class="back-navigation">
+            <a href="/profiles/<%= profile.user_id %>" class="btn btn-secondary">← Back to Profile</a>
+        </div>
+    </div>
+
+    <%- include('../partials/footer') %>
+
+    <script src="/js/follow.js"></script>
+</body>
+</html>

@@ -1,12 +1,17 @@
-<% layout('layout') -%>
-
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Error - <%= appName || 'DietIntel' %></title>
+</head>
+<body>
 <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
     <div class="text-center">
         <!-- Error Icon -->
         <div class="text-8xl mb-6">
-            <% if (error.status === 404) { %>
+            <% if (error && error.status === 404) { %>
                 🔍
-            <% } else if (error.status >= 500) { %>
+            <% } else if (error && error.status >= 500) { %>
                 🔧
             <% } else { %>
                 ⚠️
@@ -15,9 +20,9 @@
         
         <!-- Error Title -->
         <h1 class="text-4xl font-bold text-gray-900 mb-4">
-            <% if (error.status === 404) { %>
+            <% if (error && error.status === 404) { %>
                 Page Not Found
-            <% } else if (error.status >= 500) { %>
+            <% } else if (error && error.status >= 500) { %>
                 Server Error
             <% } else { %>
                 Oops! Something went wrong
@@ -26,16 +31,8 @@
         
         <!-- Error Message -->
         <p class="text-xl text-gray-600 mb-8">
-            <%= message %>
+            <%= message || 'An error occurred' %>
         </p>
-        
-        <!-- Error Details (Development Only) -->
-        <% if (error.stack && process.env.NODE_ENV !== 'production') { %>
-        <div class="bg-gray-100 rounded-lg p-6 mb-8 text-left">
-            <h3 class="text-lg font-semibold text-gray-900 mb-4">Error Details (Development Mode)</h3>
-            <pre class="text-sm text-gray-700 overflow-x-auto whitespace-pre-wrap"><%= error.stack %></pre>
-        </div>
-        <% } %>
         
         <!-- Action Buttons -->
         <div class="flex flex-col sm:flex-row gap-4 justify-center">
@@ -47,20 +44,8 @@
                class="bg-blue-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-blue-700 transition-colors">
                 🏠 Home Page
             </a>
-            <a href="/plans" 
-               class="bg-green-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-green-700 transition-colors">
-                📊 Meal Plans
-            </a>
-        </div>
-        
-        <!-- Help Section -->
-        <div class="mt-12 bg-blue-50 rounded-lg p-6">
-            <h3 class="text-lg font-semibold text-blue-900 mb-4">Need Help?</h3>
-            <div class="text-sm text-blue-800 space-y-2">
-                <div>• Check our <a href="/docs" class="underline hover:no-underline">API Documentation</a></div>
-                <div>• Visit the <a href="/" class="underline hover:no-underline">Home Page</a> to try our features</div>
-                <div>• Review our <a href="/about" class="underline hover:no-underline">About Page</a> for more information</div>
-            </div>
         </div>
     </div>
 </div>
+</body>
+</html>
