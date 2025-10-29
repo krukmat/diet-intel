@@ -63,12 +63,12 @@ describe('ApiConfigModal', () => {
       const component = TestRenderer.create(
         <ApiConfigModal visible={true} onClose={mockOnClose} />
       );
-      
+
       const tree = component.toJSON();
       const treeString = JSON.stringify(tree);
-      
+
       expect(treeString).toContain('Android Development');
-      expect(treeString).toContain('http://192.168.1.136:8000');
+      expect(treeString).toContain('http://192.168.1.57:8000');
     });
 
     it('should render all available environments', () => {

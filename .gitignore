@@ -167,8 +167,9 @@ app/database/smart_diet_indexes.sql
 mobile/screenshots/
 webapp/NEXT_TASKS
 NEXT_TASK
+IMPROVEMENTS.md
+webapp/test-results/
+sprints/
 pytest_feed_combined_new.txt
-sprints/*
-arco6206,
 REPORT_EPIC_B.B6.md
-webapp/test-results
+arco6206,

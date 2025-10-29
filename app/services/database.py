@@ -2,7 +2,7 @@ import sqlite3
 import json
 import uuid
 from datetime import datetime, timedelta
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, Tuple
 from contextlib import contextmanager
 from threading import Lock
 import threading
@@ -1574,6 +1574,161 @@ class DatabaseService:
                 },
                 'top_products': [dict(row) for row in top_products]
             }
+
+    # ===== VISION METHODS =====
+
+    async def create_vision_log(self, vision_log: Dict[str, Any]) -> Dict[str, Any]:
+        """Create a new vision log entry"""
+        with self.get_connection() as conn:
+            # Respect incoming ID or generate new one
+            input_id = vision_log.get("id") or str(uuid.uuid4())
+            cursor = conn.cursor()
+            cursor.execute("""
+                INSERT INTO vision_logs (id, user_id, image_url, meal_type, identified_ingredients,
+                                       estimated_portions, nutritional_analysis, exercise_suggestions,
+                                       confidence_score, processing_time_ms, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (input_id, vision_log['user_id'], vision_log.get('image_url'), vision_log['meal_type'],
+                  json.dumps(vision_log['identified_ingredients']), json.dumps(vision_log['estimated_portions']),
+                  json.dumps(vision_log['nutritional_analysis']), json.dumps(vision_log['exercise_suggestions']),
+                  vision_log.get('confidence_score', 0.0), vision_log['processing_time_ms'], vision_log['created_at']))
+            conn.commit()
+            return {**vision_log, 'id': input_id}
+
+    async def list_vision_logs(self, *, user_id: str, limit: int, offset: int, date_from: Optional[str], date_to: Optional[str]) -> Tuple[List[Dict], int]:
+        """Get vision logs with filtering"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+
+            # Build query with optional date filtering
+            query = """
+                SELECT * FROM vision_logs WHERE user_id = ?
+            """
+            params = [user_id]
+
+            if date_from:
+                query += " AND created_at >= ?"
+                params.append(date_from)
+            if date_to:
+                query += " AND created_at <= ?"
+                params.append(date_to)
+
+            query += " ORDER BY created_at DESC LIMIT ? OFFSET ?"
+            params.extend([limit, offset])
+
+            # Get total count
+            count_query = "SELECT COUNT(*) FROM vision_logs WHERE user_id = ?"
+            count_params = [user_id]
+            if date_from:
+                count_query += " AND created_at >= ?"
+                count_params.append(date_from)
+            if date_to:
+                count_query += " AND created_at <= ?"
+                count_params.append(date_to)
+
+            cursor.execute(count_query, count_params)
+            total_count = cursor.fetchone()[0]
+
+            cursor.execute(query, params)
+            rows = cursor.fetchall()
+
+            logs = []
+            for row in rows:
+                # Parse JSON fields safely
+                try:
+                    identified_ingredients = json.loads(row['identified_ingredients']) if row['identified_ingredients'] else []
+                except:
+                    identified_ingredients = []
+
+                try:
+                    estimated_portions = json.loads(row['estimated_portions']) if row['estimated_portions'] else {}
+                except:
+                    estimated_portions = {}
+
+                try:
+                    nutritional_analysis = json.loads(row['nutritional_analysis']) if row['nutritional_analysis'] else {}
+                except:
+                    nutritional_analysis = {}
+
+                try:
+                    exercise_suggestions = json.loads(row['exercise_suggestions']) if row['exercise_suggestions'] else []
+                except:
+                    exercise_suggestions = []
+
+                logs.append({
+                    'id': row['id'],
+                    'user_id': row['user_id'],
+                    'image_url': row['image_url'],
+                    'meal_type': row['meal_type'],
+                    'identified_ingredients': identified_ingredients,
+                    'estimated_portions': estimated_portions,
+                    'nutritional_analysis': nutritional_analysis,
+                    'exercise_suggestions': exercise_suggestions,
+                    'confidence_score': row['confidence_score'],
+                    'processing_time_ms': row['processing_time_ms'],
+                    'created_at': datetime.fromisoformat(row['created_at']) if isinstance(row['created_at'], str) else row['created_at']
+                })
+
+            return logs, total_count
+
+    async def get_vision_log(self, log_id: str) -> Optional[Dict[str, Any]]:
+        """Get a vision log by ID"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT * FROM vision_logs WHERE id = ?", (log_id,))
+            row = cursor.fetchone()
+
+            if row:
+                # Parse JSON fields safely
+                try:
+                    identified_ingredients = json.loads(row['identified_ingredients']) if row['identified_ingredients'] else []
+                except:
+                    identified_ingredients = []
+
+                try:
+                    estimated_portions = json.loads(row['estimated_portions']) if row['estimated_portions'] else {}
+                except:
+                    estimated_portions = {}
+
+                try:
+                    nutritional_analysis = json.loads(row['nutritional_analysis']) if row['nutritional_analysis'] else {}
+                except:
+                    nutritional_analysis = {}
+
+                try:
+                    exercise_suggestions = json.loads(row['exercise_suggestions']) if row['exercise_suggestions'] else []
+                except:
+                    exercise_suggestions = []
+
+                return {
+                    'id': row['id'],
+                    'user_id': row['user_id'],
+                    'image_url': row['image_url'],
+                    'meal_type': row['meal_type'],
+                    'identified_ingredients': identified_ingredients,
+                    'estimated_portions': estimated_portions,
+                    'nutritional_analysis': nutritional_analysis,
+                    'exercise_suggestions': exercise_suggestions,
+                    'confidence_score': row['confidence_score'],
+                    'processing_time_ms': row['processing_time_ms'],
+                    'created_at': datetime.fromisoformat(row['created_at']) if isinstance(row['created_at'], str) else row['created_at']
+                }
+            return None
+
+    async def create_vision_correction(self, correction: Dict[str, Any]) -> Dict[str, Any]:
+        """Create a new vision correction entry"""
+        with self.get_connection() as conn:
+            correction_id = str(uuid.uuid4())
+            cursor = conn.cursor()
+            cursor.execute("""
+                INSERT INTO vision_corrections (id, vision_log_id, user_id, correction_type,
+                                               original_data, corrected_data, improvement_score, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """, (correction_id, correction['vision_log_id'], correction['user_id'], correction['correction_type'],
+                  json.dumps(correction.get('original_data', {})), json.dumps(correction.get('corrected_data', {})),
+                  correction.get('improvement_score', 0.0), correction['created_at']))
+            conn.commit()
+            return {**correction, 'id': correction_id}
 
 
 # Global database service instance

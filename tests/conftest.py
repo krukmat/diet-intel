@@ -1,6 +1,7 @@
 import pytest
 import asyncio
 import inspect
+import uuid
 from typing import Any, Dict, Optional
 from unittest.mock import AsyncMock, MagicMock
 from fastapi.testclient import TestClient
@@ -63,8 +64,13 @@ if not hasattr(httpx.AsyncClient, '__enter__'):
 
     httpx.AsyncClient.__enter__ = _async_client_enter
     httpx.AsyncClient.__exit__ = _async_client_exit
+import pytest
+
 from app.services.cache import CacheService
 from app.services.recommendation_engine import RecommendationEngine
+from app.services.database import db_service
+from app.models.user import UserSession
+from app.services import auth as auth_module
 
 
 class InMemoryAsyncCacheService:
@@ -298,7 +304,7 @@ def sample_nutritional_summary():
         "total_calories": 968,
         "macro_distribution": {
             "protein_percent": 16.6,
-            "fat_percent": 27.4, 
+            "fat_percent": 27.4,
             "carbs_percent": 52.4
         },
         "daily_progress": {
@@ -311,3 +317,94 @@ def sample_nutritional_summary():
             "Better micronutrient profile"
         ]
     }
+
+
+# ===== VISION TESTS AUTH FIXTURES (Option D: Sync seeding) =====
+
+def seed_test_user():
+    """Sync seeding of test user/session using direct DB operations."""
+    from app.models.user import User, UserRole
+    from datetime import datetime, timezone, timedelta
+
+    user_id = "vision_test_user_123"
+
+    # Clean up any existing data
+    try:
+        with db_service.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("DELETE FROM user_sessions WHERE user_id = ?", (user_id,))
+            cursor.execute("DELETE FROM users WHERE id = ?", (user_id,))
+            conn.commit()
+    except Exception:
+        pass  # Ignore cleanup errors
+
+    # Create user data
+    password = "testpassword123"
+    hashed_password = auth_module.auth_service.hash_password(password)
+    role = UserRole.DEVELOPER
+    now = datetime.utcnow().isoformat()
+
+    # Insert user directly
+    with db_service.get_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            INSERT INTO users (id, email, password_hash, full_name, is_developer, role, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        """, (user_id, "vision_test@example.com", hashed_password, "Vision Test User",
+              1 if role == UserRole.DEVELOPER else 0, role.value, now, now))
+        conn.commit()
+
+    # Get user object from database
+    from app.models.user import User
+    user = User(
+        id=user_id,
+        email="vision_test@example.com",
+        full_name="Vision Test User",
+        is_developer=True,
+        role=UserRole.DEVELOPER,
+        is_active=True,
+        email_verified=True,
+        created_at=datetime.utcnow(),
+        updated_at=datetime.utcnow(),
+        avatar_url=None
+    )
+
+    # Create tokens using auth service
+    access_token = auth_module.auth_service.create_access_token(user)
+    refresh_token = auth_module.auth_service.create_refresh_token(user)
+
+    # Create session directly
+    expires_at = datetime.now(timezone.utc) + timedelta(days=30)
+
+    with db_service.get_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            INSERT INTO user_sessions (id, user_id, access_token, refresh_token, expires_at, device_info, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        """, (str(uuid.uuid4()), user_id, access_token, refresh_token,
+              expires_at.isoformat(), "VisionTestDevice", now))
+        conn.commit()
+
+    return {
+        "user": user,
+        "access_token": access_token,
+        "refresh_token": refresh_token,
+        "created_at": now
+    }
+
+
+@pytest.fixture(scope="function")
+def test_auth_data():
+    """Synchronous fixture providing seeded user/session data."""
+    auth_data = seed_test_user()
+    yield auth_data
+
+    # Cleanup after test
+    try:
+        with db_service.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("DELETE FROM user_sessions WHERE user_id = ?", (auth_data["user"].id,))
+            cursor.execute("DELETE FROM users WHERE id = ?", (auth_data["user"].id,))
+            conn.commit()
+    except Exception:
+        pass  # Ignore cleanup errors in tests

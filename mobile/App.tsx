@@ -19,6 +19,7 @@ import UploadLabel from './screens/UploadLabel';
 import PlanScreen from './screens/PlanScreen';
 import TrackScreen from './screens/TrackScreen';
 import SmartDietScreen from './screens/SmartDietScreen';
+import VisionLogScreen from './screens/VisionLogScreen';
 import RecipeHomeScreen from './screens/RecipeHomeScreen';
 import RecipeGenerationScreen from './screens/RecipeGenerationScreen';
 import RecipeSearchScreen from './screens/RecipeSearchScreen';
@@ -112,6 +113,7 @@ function MainApp({ user, onLogout }: { user: any; onLogout: () => void }) {
     | 'recipe-detail'
     | 'taste-preferences'
     | 'shopping-optimization'
+    | 'vision'
     | 'discover-feed'
     | 'profile'
     | 'profile-edit';
@@ -326,8 +328,31 @@ function MainApp({ user, onLogout }: { user: any; onLogout: () => void }) {
     />;
   }
 
+  if (currentScreen === 'vision') {
+    console.log('Rendering VisionLogScreen...');
+    return <VisionLogScreen
+      onBackPress={() => setCurrentScreen('scanner')}
+    />;
+  }
+
   if (currentScreen === 'discover-feed') {
     return <DiscoverFeedScreen onBackPress={() => setCurrentScreen('scanner')} />;
+  }
+
+  if (currentScreen === 'profile') {
+    console.log('Rendering ProfileScreen...');
+    return <ProfileScreen />;
+  }
+
+  if (currentScreen === 'profile-edit') {
+    console.log('Rendering ProfileEditScreen...');
+    return <ProfileEditScreen
+      onSave={async () => {
+        setCurrentScreen('profile');
+        Alert.alert('Success', 'Profile updated successfully');
+      }}
+      onCancel={() => setCurrentScreen('profile')}
+    />;
   }
 
   // Recipe AI Screens
@@ -400,22 +425,6 @@ function MainApp({ user, onLogout }: { user: any; onLogout: () => void }) {
       onBackPress={() => setCurrentScreen('recipes')}
       selectedRecipes={navigationContext.selectedRecipes || []}
       userId={user?.id || 'user-demo'}
-    />;
-  }
-
-  if (currentScreen === 'profile') {
-    console.log('Rendering ProfileScreen...');
-    return <ProfileScreen />;
-  }
-
-  if (currentScreen === 'profile-edit') {
-    console.log('Rendering ProfileEditScreen...');
-    return <ProfileEditScreen
-      onSave={async () => {
-        setCurrentScreen('profile');
-        Alert.alert('Success', 'Profile updated successfully');
-      }}
-      onCancel={() => setCurrentScreen('profile')}
     />;
   }
 
@@ -539,7 +548,18 @@ function MainApp({ user, onLogout }: { user: any; onLogout: () => void }) {
           </Text>
         </TouchableOpacity>
 
-        {/* EPIC_A.A1: Profile Navigation Button */}
+        <TouchableOpacity
+          style={[styles.navButton, isActiveScreen('vision') && styles.navButtonActive]}
+          onPress={() => {
+            console.log('Food Vision tab pressed!');
+            setCurrentScreen('vision');
+          }}
+        >
+          <Text style={[styles.navButtonText, isActiveScreen('vision') && styles.navButtonTextActive]}>
+            {t('navigation.vision', 'Vision')}
+          </Text>
+        </TouchableOpacity>
+
         <TouchableOpacity
           style={[styles.navButton, isActiveScreen('profile') && styles.navButtonActive]}
           onPress={() => {

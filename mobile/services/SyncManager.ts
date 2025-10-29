@@ -123,6 +123,16 @@ export class SyncManager {
     }
   }
 
+  // Test cleanup method - only in development
+  public cleanupForTests(): void {
+    if (this.syncTimer) {
+      clearInterval(this.syncTimer);
+      this.syncTimer = null;
+    }
+    // Clean up netInfo listeners
+    this.listeners = [];
+  }
+
   // Queue Management
   private async loadSyncQueue(): Promise<void> {
     try {
