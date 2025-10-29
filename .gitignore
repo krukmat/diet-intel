@@ -168,3 +168,7 @@ mobile/screenshots/
 webapp/NEXT_TASKS
 NEXT_TASK
 IMPROVEMENTS.md
+webapp/test-results/
+sprints/
+pytest_feed_combined_new.txt
+REPORT_EPIC_B.B6.md
