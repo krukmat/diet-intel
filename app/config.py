@@ -113,6 +113,21 @@ class Config(BaseSettings):
         description="Enable social features (profiles, following, gamification)"
     )
 
+    gamification_enabled: bool = Field(
+        default=True,
+        description="Enable gamification systems (points, badges, flow rewards)"
+    )
+
+    intelligent_flow_enabled: bool = Field(
+        default=False,
+        description="Enable the unified intelligent flow endpoint"
+    )
+
+    gamification_point_rules: Dict[str, int] = Field(
+        default_factory=dict,
+        description="Override default point values per event (e.g. {'intelligent_flow_complete': 15})"
+    )
+
     discover_feed_enabled: bool = Field(
         default=True,
         description="Enable discover feed feature"

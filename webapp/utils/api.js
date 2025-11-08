@@ -235,6 +235,27 @@ class DietIntelAPI {
     }
   }
 
+  async runIntelligentFlow(payload, authToken, { asyncMode = false } = {}) {
+    try {
+      const headers = authToken ? { Authorization: `Bearer ${authToken}` } : {};
+      const url = asyncMode ? '/intelligent-flow?async_mode=true' : '/intelligent-flow';
+      const response = await this.client.post(url, payload, { headers });
+      return response.data;
+    } catch (error) {
+      this.handleAPIError(error, 'runIntelligentFlow');
+    }
+  }
+
+  async getIntelligentFlowJob(jobId, authToken) {
+    try {
+      const headers = authToken ? { Authorization: `Bearer ${authToken}` } : {};
+      const response = await this.client.get(`/intelligent-flow/${jobId}`, { headers });
+      return response.data;
+    } catch (error) {
+      this.handleAPIError(error, 'getIntelligentFlowJob');
+    }
+  }
+
   // Existing methods...
   async getMealPlan(userId, authToken) {
     // Existing implementation
