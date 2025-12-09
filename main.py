@@ -1,0 +1,92 @@
+from fastapi import FastAPI, status
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
+from app.routes.product import router as product_router
+from app.routes.plan import router as plan_router
+from app.routes.track import router as track_router
+from app.routes.reminder import router as reminder_router
+from app.routes.auth import router as auth_router
+from app.routes.profile import router as profile_router
+from app.routes.analytics import router as analytics_router
+from app.routes.follow import router as follow_router
+from app.routes.block import router as block_router
+from app.routes.feed import router as feed_router
+from app.routes.posts import router as posts_router
+from app.routes.notifications import router as notifications_router
+from app.routes.gamification import router as gamification_router
+from app.routes.recommendations import router as recommendations_router
+from app.routes.smart_diet import router as smart_diet_router
+from app.routes.recipe_ai import router as recipe_ai_router
+from app.routes.translation import router as translation_router
+from app.routes.food_vision import router as food_vision_router
+from app.routes.intelligent_flow import router as intelligent_flow_router
+from app.services.smart_diet import smart_diet_engine
+from logging_config import setup_logging
+
+setup_logging()
+
+app = FastAPI(
+    title="DietIntel API", 
+    version="1.0.0",
+    description="A comprehensive nutrition tracking API with authentication, meal planning, and progress tracking"
+)
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request, exc: RequestValidationError):
+    sanitized_errors = []
+    for error in exc.errors():
+        sanitized_errors.append({
+            "loc": error.get("loc", []),
+            "msg": error.get("msg", "Invalid request"),
+            "type": f"validation error.{error.get('type', 'unknown')}"
+        })
+
+    return JSONResponse(
+        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        content={"detail": sanitized_errors}
+    )
+
+# CORS middleware for web/mobile clients
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000", "http://10.0.2.2:3000"],  # React web app + Android emulator
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Include routers
+app.include_router(auth_router, prefix="/auth", tags=["authentication"])
+app.include_router(profile_router, tags=["profiles"])
+app.include_router(follow_router, tags=["follows"])
+app.include_router(block_router, tags=["blocks"])
+app.include_router(feed_router, tags=["feed"])
+app.include_router(product_router, prefix="/product", tags=["products"])
+app.include_router(plan_router, prefix="/plan", tags=["meal-planning"])
+app.include_router(recommendations_router, prefix="/recommendations", tags=["smart-recommendations"])
+app.include_router(smart_diet_router, prefix="/smart-diet", tags=["smart-diet"])
+app.include_router(recipe_ai_router, prefix="/recipe-ai", tags=["recipe-ai"])
+# Legacy alias to preserve `/recipe` endpoints used by older clients/tests
+app.include_router(recipe_ai_router, prefix="/recipe", tags=["recipe-ai"], include_in_schema=False)
+app.include_router(track_router, prefix="/track", tags=["tracking"])
+app.include_router(reminder_router, prefix="/reminder", tags=["reminders"])
+app.include_router(analytics_router, prefix="/analytics", tags=["analytics"])
+app.include_router(food_vision_router, tags=["food-vision"])
+app.include_router(intelligent_flow_router, prefix="/intelligent-flow", tags=["intelligent-flow"])
+app.include_router(posts_router, tags=["posts"])
+app.include_router(notifications_router, tags=["notifications"])
+app.include_router(gamification_router, prefix="/gamification", tags=["gamification"])
+app.include_router(translation_router)
+
+# Additional moderation routes (place after auth to ensure proper order)
+from app.routes.moderation import router as moderation_router
+app.include_router(moderation_router, tags=["moderation"])
+
+# Expose key services on the app instance for testing/inspection
+app.smart_diet_engine = smart_diet_engine
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)

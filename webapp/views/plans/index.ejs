@@ -1,0 +1,289 @@
+<% layout('layout') -%>
+
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <!-- Header -->
+    <div class="flex items-center justify-between mb-8">
+        <div>
+            <h1 class="text-3xl font-bold text-gray-900"><%= t('plans.title') %></h1>
+            <p class="mt-2 text-gray-600"><%= t('plans.subtitle') %></p>
+        </div>
+        <a href="/plans/new" class="bg-blue-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-blue-700 transition-colors">
+            <%= t('plans.generateNewPlan') %>
+        </a>
+    </div>
+
+    <!-- Quick Stats -->
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+        <div class="bg-white rounded-lg shadow p-6">
+            <div class="flex items-center">
+                <div class="p-3 rounded-full bg-blue-100">
+                    <span class="text-2xl">📊</span>
+                </div>
+                <div class="ml-4">
+                    <p class="text-sm font-medium text-gray-600"><%= t('plans.totalPlans') %></p>
+                    <p class="text-2xl font-bold text-gray-900"><%= plans.length %></p>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-lg shadow p-6">
+            <div class="flex items-center">
+                <div class="p-3 rounded-full bg-green-100">
+                    <span class="text-2xl">✅</span>
+                </div>
+                <div class="ml-4">
+                    <p class="text-sm font-medium text-gray-600"><%= t('plans.active') %></p>
+                    <p class="text-2xl font-bold text-gray-900">
+                        <%= plans.filter(p => p.status === 'active').length %>
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-lg shadow p-6">
+            <div class="flex items-center">
+                <div class="p-3 rounded-full bg-yellow-100">
+                    <span class="text-2xl">⏳</span>
+                </div>
+                <div class="ml-4">
+                    <p class="text-sm font-medium text-gray-600"><%= t('plans.pending') %></p>
+                    <p class="text-2xl font-bold text-gray-900">
+                        <%= plans.filter(p => p.status === 'pending').length %>
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-lg shadow p-6">
+            <div class="flex items-center">
+                <div class="p-3 rounded-full bg-purple-100">
+                    <span class="text-2xl">🎯</span>
+                </div>
+                <div class="ml-4">
+                    <p class="text-sm font-medium text-gray-600"><%= t('plans.avgCalories') %></p>
+                    <p class="text-2xl font-bold text-gray-900">
+                        <%= Math.round(plans.reduce((sum, p) => sum + p.target_calories, 0) / plans.length) %>
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filter and Search -->
+    <div class="bg-white rounded-lg shadow mb-6 p-4">
+        <div class="flex flex-col sm:flex-row gap-4">
+            <div class="flex-1">
+                <input type="text" placeholder="<%= t('plans.searchPlaceholder') %>" 
+                       class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                       onkeyup="filterPlans()">
+            </div>
+            <select class="px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    onchange="filterPlans()">
+                <option value=""><%= t('plans.allStatus') %></option>
+                <option value="active"><%= t('plans.active') %></option>
+                <option value="pending"><%= t('plans.pending') %></option>
+                <option value="completed"><%= t('plans.completed') %></option>
+            </select>
+            <select class="px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    onchange="sortPlans()">
+                <option value="date"><%= t('plans.sortByDate') %></option>
+                <option value="name"><%= t('plans.sortByName') %></option>
+                <option value="calories"><%= t('plans.sortByCalories') %></option>
+            </select>
+        </div>
+    </div>
+
+    <!-- Plans Grid -->
+    <div id="plansGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <% if (plans.length === 0) { %>
+        <!-- Empty State -->
+        <div class="col-span-full text-center py-12">
+            <div class="text-6xl mb-4">🍽️</div>
+            <h3 class="text-xl font-semibold text-gray-900 mb-2"><%= t('plans.noPlansTitle') %></h3>
+            <p class="text-gray-600 mb-6"><%= t('plans.noPlansDescription') %></p>
+            <a href="/plans/new" class="bg-blue-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-blue-700 transition-colors">
+                <%= t('plans.generateFirstPlan') %>
+            </a>
+        </div>
+        <% } else { %>
+        <% plans.forEach(plan => { %>
+        <div class="bg-white rounded-lg shadow hover:shadow-lg transition-shadow meal-plan-card" 
+             data-name="<%= plan.name.toLowerCase() %>" 
+             data-status="<%= plan.status %>"
+             data-calories="<%= plan.target_calories %>">
+            <div class="p-6">
+                <!-- Header -->
+                <div class="flex items-start justify-between mb-4">
+                    <div class="flex-1">
+                        <h3 class="text-lg font-semibold text-gray-900 mb-1">
+                            <a href="/plans/<%= plan.id %>" class="hover:text-blue-600 transition-colors">
+                                <%= plan.name %>
+                            </a>
+                        </h3>
+                        <p class="text-sm text-gray-600">
+                            For <%= new Date(plan.date).toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' }) %>
+                        </p>
+                    </div>
+                    <div class="ml-4">
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
+                            <% if (plan.status === 'active') { %>bg-green-100 text-green-800
+                            <% } else if (plan.status === 'pending') { %>bg-yellow-100 text-yellow-800
+                            <% } else { %>bg-gray-100 text-gray-800<% } %>">
+                            <% if (plan.status === 'active') { %>✅ <%= t('plans.active') %>
+                            <% } else if (plan.status === 'pending') { %>⏳ <%= t('plans.pending') %>
+                            <% } else { %>📁 <%= t('plans.completed') %><% } %>
+                        </span>
+                    </div>
+                </div>
+
+                <!-- Calories Info -->
+                <div class="mb-4">
+                    <div class="flex items-center justify-between text-sm text-gray-600 mb-2">
+                        <span><%= t('plans.dailyCalories') %></span>
+                        <span class="font-medium"><%= Math.round(plan.target_calories) %> kcal</span>
+                    </div>
+                    <div class="w-full bg-gray-200 rounded-full h-2">
+                        <div class="bg-blue-600 h-2 rounded-full" 
+                             style="width: <%= Math.min((plan.target_calories / 3000) * 100, 100) %>%"></div>
+                    </div>
+                </div>
+
+                <!-- Quick Stats -->
+                <div class="grid grid-cols-3 gap-4 mb-6 text-center">
+                    <div>
+                        <div class="text-lg font-semibold text-gray-900">4</div>
+                        <div class="text-xs text-gray-600"><%= t('plans.meals') %></div>
+                    </div>
+                    <div>
+                        <div class="text-lg font-semibold text-gray-900">-</div>
+                        <div class="text-xs text-gray-600"><%= t('plans.items') %></div>
+                    </div>
+                    <div>
+                        <div class="text-lg font-semibold text-gray-900">-</div>
+                        <div class="text-xs text-gray-600"><%= t('plans.protein') %></div>
+                    </div>
+                </div>
+
+                <!-- Actions -->
+                <div class="flex space-x-2">
+                    <a href="/plans/<%= plan.id %>" 
+                       class="flex-1 bg-blue-600 text-white text-center py-2 px-4 rounded-md text-sm font-medium hover:bg-blue-700 transition-colors">
+                        <%= t('plans.viewDetails') %>
+                    </a>
+                    <button onclick="duplicatePlan('<%= plan.id %>')" 
+                            class="bg-gray-100 text-gray-700 py-2 px-4 rounded-md text-sm font-medium hover:bg-gray-200 transition-colors">
+                        📋
+                    </button>
+                    <button onclick="deletePlan('<%= plan.id %>')" 
+                            class="bg-red-100 text-red-700 py-2 px-4 rounded-md text-sm font-medium hover:bg-red-200 transition-colors">
+                        🗑️
+                    </button>
+                </div>
+
+                <!-- Created Date -->
+                <div class="mt-4 pt-4 border-t border-gray-100">
+                    <p class="text-xs text-gray-500">
+                        <%= t('plans.created') %> <%= new Date(plan.created_at).toLocaleDateString() %>
+                    </p>
+                </div>
+            </div>
+        </div>
+        <% }); %>
+        <% } %>
+    </div>
+
+    <!-- Pagination (if needed) -->
+    <% if (plans.length > 9) { %>
+    <div class="mt-8 flex justify-center">
+        <nav class="relative z-0 inline-flex rounded-md shadow-sm -space-x-px">
+            <button class="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
+                <%= t('plans.previous') %>
+            </button>
+            <button class="bg-blue-50 border-blue-500 text-blue-600 relative inline-flex items-center px-4 py-2 border text-sm font-medium">
+                1
+            </button>
+            <button class="bg-white border-gray-300 text-gray-500 hover:bg-gray-50 relative inline-flex items-center px-4 py-2 border text-sm font-medium">
+                2
+            </button>
+            <button class="bg-white border-gray-300 text-gray-500 hover:bg-gray-50 relative inline-flex items-center px-4 py-2 border text-sm font-medium">
+                3
+            </button>
+            <button class="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
+                <%= t('plans.next') %>
+            </button>
+        </nav>
+    </div>
+    <% } %>
+</div>
+
+<script>
+// Translation variables for JavaScript
+const translations = {
+    duplicateConfirm: '<%= t("plans.duplicateConfirm") %>',
+    deleteConfirm: '<%= t("plans.deleteConfirm") %>',
+    implementationComingSoon: '<%= t("plans.implementationComingSoon") %>'
+};
+
+// Filter plans functionality
+function filterPlans() {
+    const searchTerm = document.querySelector('input[type="text"]').value.toLowerCase();
+    const statusFilter = document.querySelector('select').value;
+    const cards = document.querySelectorAll('.meal-plan-card');
+    
+    cards.forEach(card => {
+        const name = card.dataset.name;
+        const status = card.dataset.status;
+        
+        const matchesSearch = name.includes(searchTerm);
+        const matchesStatus = !statusFilter || status === statusFilter;
+        
+        if (matchesSearch && matchesStatus) {
+            card.style.display = 'block';
+        } else {
+            card.style.display = 'none';
+        }
+    });
+}
+
+// Sort plans functionality
+function sortPlans() {
+    const sortBy = document.querySelectorAll('select')[1].value;
+    const grid = document.getElementById('plansGrid');
+    const cards = Array.from(document.querySelectorAll('.meal-plan-card'));
+    
+    cards.sort((a, b) => {
+        if (sortBy === 'name') {
+            return a.dataset.name.localeCompare(b.dataset.name);
+        } else if (sortBy === 'calories') {
+            return parseInt(b.dataset.calories) - parseInt(a.dataset.calories);
+        } else {
+            // Sort by date (default)
+            return new Date(b.dataset.date || 0) - new Date(a.dataset.date || 0);
+        }
+    });
+    
+    // Re-append sorted cards
+    cards.forEach(card => grid.appendChild(card));
+}
+
+// Plan actions
+function duplicatePlan(planId) {
+    if (confirm(translations.duplicateConfirm)) {
+        alert(`Duplicating plan ${planId} - ${translations.implementationComingSoon}`);
+        // Implementation would call API to duplicate the plan
+    }
+}
+
+function deletePlan(planId) {
+    if (confirm(translations.deleteConfirm)) {
+        alert(`Deleting plan ${planId} - ${translations.implementationComingSoon}`);
+        // Implementation would call API to delete the plan
+    }
+}
+
+// Load dynamic stats (if needed)
+document.addEventListener('DOMContentLoaded', function() {
+    // Any additional initialization
+    console.log('Meal plans page loaded');
+});
+</script>

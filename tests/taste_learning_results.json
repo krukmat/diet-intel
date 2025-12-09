@@ -1,0 +1,383 @@
+{
+  "test_summary": {
+    "total_users_tested": 3,
+    "total_ratings_analyzed": 15,
+    "test_cases_passed": 6,
+    "test_cases_total": 6
+  },
+  "basic_generation": {
+    "user_1": "GeneratedRecipe(id='recipe_20250914_134547_9499', name='Lunch Mediterranean Bowl', description='A fresh and healthy Mediterranean-inspired dish packed with nutritious ingredients and vibrant flavors.', cuisine_type='mediterranean', difficulty_level='easy', prep_time_minutes=15, cook_time_minutes=16, servings=2, ingredients=[RecipeIngredient(name='Greek Yogurt', quantity=182.14936247723134, unit='g', barcode=None, calories_per_unit=100, protein_g_per_unit=10, fat_g_per_unit=0.4, carbs_g_per_unit=6, is_optional=False, preparation_note=None), RecipeIngredient(name='Brown Rice', quantity=91.07468123861567, unit='g', barcode=None, calories_per_unit=112, protein_g_per_unit=2.3, fat_g_per_unit=0.9, carbs_g_per_unit=23, is_optional=False, preparation_note=None), RecipeIngredient(name='Spinach', quantity=121.43290831815423, unit='g', barcode=None, calories_per_unit=7, protein_g_per_unit=0.9, fat_g_per_unit=0.1, carbs_g_per_unit=1.1, is_optional=False, preparation_note=None), RecipeIngredient(name='Olive Oil', quantity=12.143290831815424, unit='ml', barcode=None, calories_per_unit=884, protein_g_per_unit=0, fat_g_per_unit=100, carbs_g_per_unit=0, is_optional=False, preparation_note=None)], instructions=[RecipeInstruction(step_number=1, instruction='Prepare all ingredients by washing and chopping as needed.', cooking_method='prep', duration_minutes=10, temperature_celsius=None), RecipeInstruction(step_number=2, instruction='Heat olive oil in a large pan over medium heat.', cooking_method='heat', duration_minutes=2, temperature_celsius=None), RecipeInstruction(step_number=3, instruction='Cook protein until golden brown and cooked through.', cooking_method='pan_fry', duration_minutes=8, temperature_celsius=None), RecipeInstruction(step_number=4, instruction='Add vegetables and cook until tender.', cooking_method='saute', duration_minutes=5, temperature_celsius=None), RecipeInstruction(step_number=5, instruction='Serve hot with grain of choice. Season to taste.', cooking_method='serve', duration_minutes=1, temperature_celsius=None)], nutrition=RecipeNutrition(calories_per_serving=200.00000000000003, protein_g_per_serving=10.701275045537342, fat_g_per_serving=6.906496660595023, carbs_g_per_serving=16.60595021250759, fiber_g_per_serving=1.6605950212507592, sugar_g_per_serving=0.0, sodium_mg_per_serving=0.0, recipe_score=0.890234770289415), created_by='ai_generated', confidence_score=0.68235, generation_time_ms=0.14100000000000001, tags=['mediterranean', 'lunch', 'healthy', 'ai_generated', 'balanced_nutrition'])",
+    "user_2": "GeneratedRecipe(id='recipe_20250914_134547_1763', name='Lunch Tuscan Style', description='A classic Italian-inspired recipe featuring fresh ingredients and traditional cooking methods.', cuisine_type='italian', difficulty_level='easy', prep_time_minutes=15, cook_time_minutes=16, servings=2, ingredients=[RecipeIngredient(name='Greek Yogurt', quantity=169.7792869269949, unit='g', barcode=None, calories_per_unit=100, protein_g_per_unit=10, fat_g_per_unit=0.4, carbs_g_per_unit=6, is_optional=False, preparation_note=None), RecipeIngredient(name='Quinoa', quantity=84.88964346349745, unit='g', barcode=None, calories_per_unit=120, protein_g_per_unit=4.4, fat_g_per_unit=1.9, carbs_g_per_unit=22, is_optional=False, preparation_note=None), RecipeIngredient(name='Broccoli', quantity=113.18619128466327, unit='g', barcode=None, calories_per_unit=25, protein_g_per_unit=3, fat_g_per_unit=0.3, carbs_g_per_unit=5, is_optional=False, preparation_note=None), RecipeIngredient(name='Olive Oil', quantity=11.318619128466327, unit='ml', barcode=None, calories_per_unit=884, protein_g_per_unit=0, fat_g_per_unit=100, carbs_g_per_unit=0, is_optional=False, preparation_note=None)], instructions=[RecipeInstruction(step_number=1, instruction='Prepare all ingredients by washing and chopping as needed.', cooking_method='prep', duration_minutes=10, temperature_celsius=None), RecipeInstruction(step_number=2, instruction='Heat olive oil in a large pan over medium heat.', cooking_method='heat', duration_minutes=2, temperature_celsius=None), RecipeInstruction(step_number=3, instruction='Cook protein until golden brown and cooked through.', cooking_method='pan_fry', duration_minutes=8, temperature_celsius=None), RecipeInstruction(step_number=4, instruction='Add vegetables and cook until tender.', cooking_method='saute', duration_minutes=5, temperature_celsius=None), RecipeInstruction(step_number=5, instruction='Serve hot with grain of choice. Season to taste.', cooking_method='serve', duration_minutes=1, temperature_celsius=None)], nutrition=RecipeNutrition(calories_per_serving=199.99999999999997, protein_g_per_serving=12.054329371816639, fat_g_per_serving=6.975099037917374, carbs_g_per_serving=17.260894170911147, fiber_g_per_serving=1.7260894170911147, sugar_g_per_serving=0.0, sodium_mg_per_serving=0.0, recipe_score=0.9149500094321826), created_by='ai_generated', confidence_score=0.68835, generation_time_ms=0.043000000000000003, tags=['italian', 'lunch', 'high_protein', 'healthy', 'ai_generated', 'balanced_nutrition'])",
+    "user_3": "GeneratedRecipe(id='recipe_20250914_134547_5574', name='Lunch Greek Style Dish', description='A fresh and healthy Mediterranean-inspired dish packed with nutritious ingredients and vibrant flavors.', cuisine_type='mediterranean', difficulty_level='easy', prep_time_minutes=15, cook_time_minutes=16, servings=2, ingredients=[RecipeIngredient(name='Quinoa', quantity=158.9825119236884, unit='g', barcode=None, calories_per_unit=120, protein_g_per_unit=4.4, fat_g_per_unit=1.9, carbs_g_per_unit=22, is_optional=False, preparation_note=None), RecipeIngredient(name='Brown Rice', quantity=79.4912559618442, unit='g', barcode=None, calories_per_unit=112, protein_g_per_unit=2.3, fat_g_per_unit=0.9, carbs_g_per_unit=23, is_optional=False, preparation_note=None), RecipeIngredient(name='Broccoli', quantity=105.98834128245893, unit='g', barcode=None, calories_per_unit=25, protein_g_per_unit=3, fat_g_per_unit=0.3, carbs_g_per_unit=5, is_optional=False, preparation_note=None), RecipeIngredient(name='Olive Oil', quantity=10.598834128245894, unit='ml', barcode=None, calories_per_unit=884, protein_g_per_unit=0, fat_g_per_unit=100, carbs_g_per_unit=0, is_optional=False, preparation_note=None)], instructions=[RecipeInstruction(step_number=1, instruction='Prepare all ingredients by washing and chopping as needed.', cooking_method='prep', duration_minutes=10, temperature_celsius=None), RecipeInstruction(step_number=2, instruction='Heat olive oil in a large pan over medium heat.', cooking_method='heat', duration_minutes=2, temperature_celsius=None), RecipeInstruction(step_number=3, instruction='Cook protein until golden brown and cooked through.', cooking_method='pan_fry', duration_minutes=8, temperature_celsius=None), RecipeInstruction(step_number=4, instruction='Add vegetables and cook until tender.', cooking_method='saute', duration_minutes=5, temperature_celsius=None), RecipeInstruction(step_number=5, instruction='Serve hot with grain of choice. Season to taste.', cooking_method='serve', duration_minutes=1, temperature_celsius=None)], nutrition=RecipeNutrition(calories_per_serving=200.0, protein_g_per_serving=6.001589825119237, fat_g_per_serving=7.326444091149974, carbs_g_per_serving=29.27927927927928, fiber_g_per_serving=2.927927927927928, sugar_g_per_serving=0.0, sodium_mg_per_serving=0.0, recipe_score=0.8031708178767002), created_by='ai_generated', confidence_score=0.69435, generation_time_ms=0.034, tags=['mediterranean', 'lunch', 'high_protein', 'healthy', 'ai_generated', 'balanced_nutrition'])"
+  },
+  "preference_adaptation": {
+    "user_1": {
+      "preferred_cuisines": [
+        "mediterranean",
+        "asian"
+      ],
+      "disliked_cuisines": [
+        "mexican"
+      ],
+      "preferred_ingredients": [
+        "chicken",
+        "quinoa",
+        "vegetables",
+        "salmon",
+        "brown_rice",
+        "broccoli",
+        "greek_yogurt",
+        "berries",
+        "nuts"
+      ],
+      "disliked_ingredients": [
+        "beans",
+        "rice",
+        "cheese"
+      ],
+      "cuisine_scores": {
+        "mediterranean": 5.0,
+        "asian": 4.0,
+        "mexican": 2.0,
+        "italian": 3.0
+      },
+      "ingredient_scores": {
+        "chicken": 5.0,
+        "quinoa": 5.0,
+        "vegetables": 5.0,
+        "salmon": 4.0,
+        "brown_rice": 4.0,
+        "broccoli": 4.0,
+        "beans": 2.0,
+        "rice": 2.0,
+        "cheese": 2.5,
+        "greek_yogurt": 5.0,
+        "berries": 5.0,
+        "nuts": 5.0,
+        "pasta": 3.0,
+        "tomatoes": 3.0
+      }
+    },
+    "user_2": {
+      "preferred_cuisines": [
+        "american",
+        "italian"
+      ],
+      "disliked_cuisines": [
+        "asian"
+      ],
+      "preferred_ingredients": [
+        "beef",
+        "cheese",
+        "bread",
+        "pasta",
+        "eggs",
+        "dough",
+        "tomatoes",
+        "mozzarella"
+      ],
+      "disliked_ingredients": [
+        "vegetables",
+        "tofu",
+        "rice"
+      ],
+      "cuisine_scores": {
+        "american": 5.0,
+        "italian": 5.0,
+        "asian": 2.0,
+        "mediterranean": 3.0
+      },
+      "ingredient_scores": {
+        "beef": 5.0,
+        "cheese": 5.0,
+        "bread": 5.0,
+        "pasta": 5.0,
+        "eggs": 5.0,
+        "vegetables": 2.5,
+        "tofu": 2.0,
+        "rice": 2.0,
+        "olive_oil": 3.0,
+        "feta": 3.0,
+        "dough": 5.0,
+        "tomatoes": 5.0,
+        "mozzarella": 5.0
+      }
+    },
+    "user_3": {
+      "preferred_cuisines": [
+        "mediterranean",
+        "asian",
+        "mexican",
+        "healthy"
+      ],
+      "disliked_cuisines": [],
+      "preferred_ingredients": [
+        "quinoa",
+        "vegetables",
+        "tahini",
+        "tofu",
+        "brown_rice",
+        "beans",
+        "avocado",
+        "spinach",
+        "banana",
+        "berries"
+      ],
+      "disliked_ingredients": [],
+      "cuisine_scores": {
+        "mediterranean": 5.0,
+        "asian": 5.0,
+        "mexican": 4.0,
+        "healthy": 5.0,
+        "italian": 3.0
+      },
+      "ingredient_scores": {
+        "quinoa": 5.0,
+        "vegetables": 4.25,
+        "tahini": 5.0,
+        "tofu": 5.0,
+        "brown_rice": 5.0,
+        "beans": 4.0,
+        "avocado": 4.0,
+        "spinach": 5.0,
+        "banana": 5.0,
+        "berries": 5.0,
+        "pasta": 3.0,
+        "olive_oil": 3.0
+      }
+    }
+  },
+  "personalized_generation": {
+    "user_1": "GeneratedRecipe(id='recipe_20250914_134547_6203', name='Dinner Tuscan Inspired', description='A fresh and healthy Mediterranean-inspired dish packed with nutritious ingredients and vibrant flavors.', cuisine_type='mediterranean', difficulty_level='easy', prep_time_minutes=15, cook_time_minutes=16, servings=2, ingredients=[RecipeIngredient(name='Greek Yogurt', quantity=191.00169779286927, unit='g', barcode=None, calories_per_unit=100, protein_g_per_unit=10, fat_g_per_unit=0.4, carbs_g_per_unit=6, is_optional=False, preparation_note=None), RecipeIngredient(name='Quinoa', quantity=95.50084889643463, unit='g', barcode=None, calories_per_unit=120, protein_g_per_unit=4.4, fat_g_per_unit=1.9, carbs_g_per_unit=22, is_optional=False, preparation_note=None), RecipeIngredient(name='Broccoli', quantity=127.33446519524618, unit='g', barcode=None, calories_per_unit=25, protein_g_per_unit=3, fat_g_per_unit=0.3, carbs_g_per_unit=5, is_optional=False, preparation_note=None), RecipeIngredient(name='Olive Oil', quantity=12.733446519524618, unit='ml', barcode=None, calories_per_unit=884, protein_g_per_unit=0, fat_g_per_unit=100, carbs_g_per_unit=0, is_optional=False, preparation_note=None)], instructions=[RecipeInstruction(step_number=1, instruction='Prepare all ingredients by washing and chopping as needed.', cooking_method='prep', duration_minutes=10, temperature_celsius=None), RecipeInstruction(step_number=2, instruction='Heat olive oil in a large pan over medium heat.', cooking_method='heat', duration_minutes=2, temperature_celsius=None), RecipeInstruction(step_number=3, instruction='Cook protein until golden brown and cooked through.', cooking_method='pan_fry', duration_minutes=8, temperature_celsius=None), RecipeInstruction(step_number=4, instruction='Add vegetables and cook until tender.', cooking_method='saute', duration_minutes=5, temperature_celsius=None), RecipeInstruction(step_number=5, instruction='Serve hot with grain of choice. Season to taste.', cooking_method='serve', duration_minutes=1, temperature_celsius=None)], nutrition=RecipeNutrition(calories_per_serving=225.0, protein_g_per_serving=13.561120543293718, fat_g_per_serving=7.846986417657046, carbs_g_per_serving=19.418505942275043, fiber_g_per_serving=1.9418505942275044, sugar_g_per_serving=0.0, sodium_mg_per_serving=0.0, recipe_score=0.9149500094321826), created_by='ai_generated', confidence_score=0.5499733333333333, generation_time_ms=0.039, tags=['mediterranean', 'dinner', 'high_protein', 'healthy', 'ai_generated', 'balanced_nutrition'])",
+    "user_2": "GeneratedRecipe(id='recipe_20250914_134547_4835', name='Dinner Stir-Fry Delight', description='An Asian-inspired recipe combining fresh ingredients with authentic flavors and balanced nutrition.', cuisine_type='asian', difficulty_level='easy', prep_time_minutes=15, cook_time_minutes=16, servings=2, ingredients=[RecipeIngredient(name='Salmon', quantity=158.07962529274005, unit='g', barcode=None, calories_per_unit=208, protein_g_per_unit=22, fat_g_per_unit=13, carbs_g_per_unit=0, is_optional=False, preparation_note=None), RecipeIngredient(name='Quinoa', quantity=79.03981264637002, unit='g', barcode=None, calories_per_unit=120, protein_g_per_unit=4.4, fat_g_per_unit=1.9, carbs_g_per_unit=22, is_optional=False, preparation_note=None), RecipeIngredient(name='Broccoli', quantity=105.3864168618267, unit='g', barcode=None, calories_per_unit=25, protein_g_per_unit=3, fat_g_per_unit=0.3, carbs_g_per_unit=5, is_optional=False, preparation_note=None)], instructions=[RecipeInstruction(step_number=1, instruction='Prepare all ingredients by washing and chopping as needed.', cooking_method='prep', duration_minutes=10, temperature_celsius=None), RecipeInstruction(step_number=2, instruction='Heat olive oil in a large pan over medium heat.', cooking_method='heat', duration_minutes=2, temperature_celsius=None), RecipeInstruction(step_number=3, instruction='Cook protein until golden brown and cooked through.', cooking_method='pan_fry', duration_minutes=8, temperature_celsius=None), RecipeInstruction(step_number=4, instruction='Add vegetables and cook until tender.', cooking_method='saute', duration_minutes=5, temperature_celsius=None), RecipeInstruction(step_number=5, instruction='Serve hot with grain of choice. Season to taste.', cooking_method='serve', duration_minutes=1, temperature_celsius=None)], nutrition=RecipeNutrition(calories_per_serving=225.00000000000003, protein_g_per_serving=20.70843091334895, fat_g_per_serving=11.18413348946136, carbs_g_per_serving=11.329039812646371, fiber_g_per_serving=1.132903981264637, sugar_g_per_serving=0.0, sodium_mg_per_serving=0.0, recipe_score=0.6572599531615926), created_by='ai_generated', confidence_score=0.4864222222222222, generation_time_ms=0.034999999999999996, tags=['asian', 'dinner', 'high_protein', 'omega_3', 'healthy', 'ai_generated', 'balanced_nutrition'])",
+    "user_3": "GeneratedRecipe(id='recipe_20250914_134547_7558', name='Dinner Mediterranean Bowl', description='A fresh and healthy Mediterranean-inspired dish packed with nutritious ingredients and vibrant flavors.', cuisine_type='mediterranean', difficulty_level='easy', prep_time_minutes=15, cook_time_minutes=16, servings=2, ingredients=[RecipeIngredient(name='Salmon', quantity=137.36263736263737, unit='g', barcode=None, calories_per_unit=208, protein_g_per_unit=22, fat_g_per_unit=13, carbs_g_per_unit=0, is_optional=False, preparation_note=None), RecipeIngredient(name='Brown Rice', quantity=68.68131868131869, unit='g', barcode=None, calories_per_unit=112, protein_g_per_unit=2.3, fat_g_per_unit=0.9, carbs_g_per_unit=23, is_optional=False, preparation_note=None), RecipeIngredient(name='Spinach', quantity=91.57509157509158, unit='g', barcode=None, calories_per_unit=7, protein_g_per_unit=0.9, fat_g_per_unit=0.1, carbs_g_per_unit=1.1, is_optional=False, preparation_note=None), RecipeIngredient(name='Olive Oil', quantity=9.157509157509159, unit='ml', barcode=None, calories_per_unit=884, protein_g_per_unit=0, fat_g_per_unit=100, carbs_g_per_unit=0, is_optional=False, preparation_note=None)], instructions=[RecipeInstruction(step_number=1, instruction='Prepare all ingredients by washing and chopping as needed.', cooking_method='prep', duration_minutes=10, temperature_celsius=None), RecipeInstruction(step_number=2, instruction='Heat olive oil in a large pan over medium heat.', cooking_method='heat', duration_minutes=2, temperature_celsius=None), RecipeInstruction(step_number=3, instruction='Cook protein until golden brown and cooked through.', cooking_method='pan_fry', duration_minutes=8, temperature_celsius=None), RecipeInstruction(step_number=4, instruction='Add vegetables and cook until tender.', cooking_method='saute', duration_minutes=5, temperature_celsius=None), RecipeInstruction(step_number=5, instruction='Serve hot with grain of choice. Season to taste.', cooking_method='serve', duration_minutes=1, temperature_celsius=None)], nutrition=RecipeNutrition(calories_per_serving=225.00000000000003, protein_g_per_serving=16.311813186813186, fat_g_per_serving=13.862179487179489, carbs_g_per_serving=8.402014652014653, fiber_g_per_serving=0.8402014652014653, sugar_g_per_serving=0.0, sodium_mg_per_serving=0.0, recipe_score=0.6032627865961199), created_by='ai_generated', confidence_score=0.49644, generation_time_ms=0.036000000000000004, tags=['mediterranean', 'dinner', 'omega_3', 'healthy', 'ai_generated', 'balanced_nutrition'])"
+  },
+  "learning_evolution": {
+    "user_1": [
+      {
+        "period": "Month 1-2",
+        "avg_rating": 4.2,
+        "preference_strength": 0.8400000000000001,
+        "generated_recipe": "Mediterranean Bowl",
+        "cuisine_match": true,
+        "confidence": 0.68835
+      },
+      {
+        "period": "Month 3-4",
+        "avg_rating": 4.2,
+        "preference_strength": 0.8400000000000001,
+        "generated_recipe": "Asian Style",
+        "cuisine_match": true,
+        "confidence": 0.6853750000000001
+      },
+      {
+        "period": "Month 5-6",
+        "avg_rating": 4.6,
+        "preference_strength": 0.9199999999999999,
+        "generated_recipe": "Greek Style Dish",
+        "cuisine_match": true,
+        "confidence": 0.702975
+      }
+    ],
+    "user_2": [
+      {
+        "period": "Month 1-2",
+        "avg_rating": 4.2,
+        "preference_strength": 0.8400000000000001,
+        "generated_recipe": "Greek Style Dish",
+        "cuisine_match": true,
+        "confidence": 0.702975
+      },
+      {
+        "period": "Month 3-4",
+        "avg_rating": 4.2,
+        "preference_strength": 0.8400000000000001,
+        "generated_recipe": "Stir-Fry Delight",
+        "cuisine_match": true,
+        "confidence": 0.66025
+      },
+      {
+        "period": "Month 5-6",
+        "avg_rating": 4.6,
+        "preference_strength": 0.9199999999999999,
+        "generated_recipe": "Greek Style Dish",
+        "cuisine_match": true,
+        "confidence": 0.6868500000000001
+      }
+    ],
+    "user_3": [
+      {
+        "period": "Month 1-2",
+        "avg_rating": 4.2,
+        "preference_strength": 0.8400000000000001,
+        "generated_recipe": "Mediterranean Bowl",
+        "cuisine_match": true,
+        "confidence": 0.7074750000000001
+      },
+      {
+        "period": "Month 3-4",
+        "avg_rating": 4.2,
+        "preference_strength": 0.8400000000000001,
+        "generated_recipe": "Asian Fusion Bowl",
+        "cuisine_match": true,
+        "confidence": 0.6861250000000001
+      },
+      {
+        "period": "Month 5-6",
+        "avg_rating": 4.6,
+        "preference_strength": 0.9199999999999999,
+        "generated_recipe": "Greek Style Dish",
+        "cuisine_match": true,
+        "confidence": 0.6838500000000001
+      }
+    ]
+  },
+  "dietary_restrictions": {
+    "gradual_vegan": [
+      {
+        "period": "Initial",
+        "restrictions": [],
+        "avoided_foods": [],
+        "generated_recipe": "Tuscan Style",
+        "violations": [],
+        "compliance": true
+      },
+      {
+        "period": "Reducing meat",
+        "restrictions": [],
+        "avoided_foods": [
+          "beef",
+          "pork"
+        ],
+        "generated_recipe": "Indian Fusion",
+        "violations": [],
+        "compliance": true
+      },
+      {
+        "period": "Vegetarian",
+        "restrictions": [
+          "vegetarian"
+        ],
+        "avoided_foods": [
+          "beef",
+          "pork",
+          "chicken",
+          "fish"
+        ],
+        "generated_recipe": "Greek Style Dish",
+        "violations": [],
+        "compliance": true
+      },
+      {
+        "period": "Vegan",
+        "restrictions": [
+          "vegan"
+        ],
+        "avoided_foods": [
+          "beef",
+          "pork",
+          "chicken",
+          "fish",
+          "dairy",
+          "eggs"
+        ],
+        "generated_recipe": "Indian Fusion",
+        "violations": [],
+        "compliance": true
+      }
+    ],
+    "health_focused": [
+      {
+        "period": "Initial",
+        "restrictions": [],
+        "avoided_foods": [],
+        "generated_recipe": "Tuscan Inspired",
+        "violations": [],
+        "compliance": true
+      },
+      {
+        "period": "Low sodium",
+        "restrictions": [
+          "low_sodium"
+        ],
+        "avoided_foods": [
+          "processed_foods"
+        ],
+        "generated_recipe": "Indian Spiced",
+        "violations": [],
+        "compliance": true
+      },
+      {
+        "period": "Low fat",
+        "restrictions": [
+          "low_sodium",
+          "low_fat"
+        ],
+        "avoided_foods": [
+          "processed_foods",
+          "fried_foods"
+        ],
+        "generated_recipe": "Tex-Mex Style",
+        "violations": [],
+        "compliance": true
+      },
+      {
+        "period": "Heart healthy",
+        "restrictions": [
+          "low_sodium",
+          "low_fat",
+          "heart_healthy"
+        ],
+        "avoided_foods": [
+          "processed_foods",
+          "fried_foods",
+          "high_cholesterol"
+        ],
+        "generated_recipe": "Latin Inspired",
+        "violations": [],
+        "compliance": true
+      }
+    ]
+  },
+  "accuracy_metrics": {
+    "user_1": {
+      "predictions": [
+        5.0,
+        3.0
+      ],
+      "actual_ratings": [
+        5,
+        3
+      ],
+      "mae": 0.0,
+      "rmse": 0.0,
+      "accuracy_within_1": 1.0
+    },
+    "user_2": {
+      "predictions": [
+        3.0,
+        5.0
+      ],
+      "actual_ratings": [
+        3,
+        5
+      ],
+      "mae": 0.0,
+      "rmse": 0.0,
+      "accuracy_within_1": 1.0
+    },
+    "user_3": {
+      "predictions": [
+        3.0,
+        3.0
+      ],
+      "actual_ratings": [
+        5,
+        3
+      ],
+      "mae": 1.0,
+      "rmse": 1.4142135623730951,
+      "accuracy_within_1": 0.5
+    }
+  }
+}

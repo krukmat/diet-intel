@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><%= title %> - <%= user.full_name %></title>
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="stylesheet" href="https://cdn.tailwindcss.com">
+</head>
+<body>
+    <%- include('../partials/navbar') %>
+
+    <div class="container mx-auto mt-8 max-w-4xl">
+        <div class="bg-white shadow-md rounded-lg">
+            <div class="p-6">
+                <div class="flex items-center justify-between mb-6">
+                    <div>
+                        <h1 class="text-2xl font-bold text-gray-900">Social Activity</h1>
+                        <p class="text-gray-600">Recent social events from people you follow</p>
+                    </div>
+                    <div class="flex space-x-2">
+                        <a href="/feed"
+                           class="px-4 py-2 text-sm font-medium rounded-md transition
+                           <%= activeFeedTab === 'following'
+                                ? 'bg-blue-500 text-white shadow'
+                                : 'bg-blue-50 text-blue-600 hover:bg-blue-100' %>">
+                            Following
+                        </a>
+                        <a href="/feed/discover"
+                           class="px-4 py-2 text-sm font-medium rounded-md transition
+                           <%= activeFeedTab === 'discover'
+                                ? 'bg-white border border-blue-500 text-blue-600'
+                                : 'bg-blue-50 text-blue-600 hover:bg-blue-100' %>">
+                            Discover
+                        </a>
+                    </div>
+                </div>
+
+                <% if (feed && feed.items && feed.items.length > 0) { %>
+                    <div class="space-y-4">
+                        <% feed.items.forEach(item => { %>
+                            <div class="flex items-start space-x-4 p-4 border-b border-gray-200 last:border-b-0">
+                                <!-- Avatar placeholder -->
+                                <div class="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 font-semibold">
+                                    <% const initials = item.actor_id.substring(0, 2).toUpperCase(); %>
+                                    <%= initials %>
+                                </div>
+
+                                <!-- Content -->
+                                <div class="flex-1 min-w-0">
+                                    <div class="text-sm text-gray-900">
+                                        <% if (item.event_name === 'UserAction.UserFollowed') { %>
+                                            <span class="font-medium"><%= item.payload.target_id ? item.payload.target_id.substring(0, 8) : 'someone' %></span>
+                                            was followed
+                                        <% } else if (item.event_name === 'UserAction.UserUnfollowed') { %>
+                                            <span class="font-medium"><%= item.payload.target_id ? item.payload.target_id.substring(0, 8) : 'someone' %></span>
+                                            was unfollowed
+                                        <% } else if (item.event_name === 'UserAction.UserBlocked') { %>
+                                            <span class="font-medium"><%= item.payload.blocked_id ? item.payload.blocked_id.substring(0, 8) : 'someone' %></span>
+                                            was blocked
+                                            <% if (item.payload.reason) { %>
+                                                <span class="text-gray-500">(<%= item.payload.reason %>)</span>
+                                            <% } %>
+                                        <% } else if (item.event_name === 'UserAction.UserUnblocked') { %>
+                                            <span class="font-medium"><%= item.payload.blocked_id ? item.payload.blocked_id.substring(0, 8) : 'someone' %></span>
+                                            was unblocked
+                                        <% } else { %>
+                                            <span class="text-gray-500">Unknown activity</span>
+                                        <% } %>
+                                    </div>
+                                    <div class="text-xs text-gray-500 mt-1">
+                                        <%= new Date(item.created_at).toLocaleString() %>
+                                    </div>
+                                </div>
+                            </div>
+                        <% }); %>
+                    </div>
+
+                    <!-- Load more button -->
+                    <% if (pagination.hasMore) { %>
+                        <div class="text-center mt-6">
+                            <button id="load-more-btn" class="bg-blue-500 hover:bg-blue-600 text-white font-medium py-2 px-4 rounded-md transition duration-200">
+                                Load More Activity
+                            </button>
+                        </div>
+                    <% } %>
+
+                <% } else { %>
+                    <% if (error) { %>
+                        <!-- Error state -->
+                        <div class="text-center py-8">
+                            <div class="text-red-600 mb-2">
+                                <svg class="w-16 h-16 mx-auto" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path>
+                                </svg>
+                            </div>
+                            <h3 class="text-lg font-medium text-gray-900 mb-1">Unable to load activity</h3>
+                            <p class="text-gray-500 mb-4"><%= error %></p>
+                            <button onclick="window.location.reload()" class="bg-blue-500 hover:bg-blue-600 text-white font-medium py-2 px-4 rounded-md">
+                                Try Again
+                            </button>
+                        </div>
+                    <% } else { %>
+                        <!-- Empty state -->
+                        <div class="text-center py-8">
+                            <div class="text-gray-400 mb-4">
+                                <svg class="w-16 h-16 mx-auto" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clip-rule="evenodd"></path>
+                                </svg>
+                            </div>
+                            <h3 class="text-lg font-medium text-gray-900 mb-1">No activity yet</h3>
+                            <p class="text-gray-500">Start following people to see their social activity here</p>
+                        </div>
+                    <% } %>
+                <% } %>
+            </div>
+        </div>
+
+        <!-- Navigation links -->
+        <div class="mt-8 text-center">
+            <a href="/dashboard/profile" class="text-blue-600 hover:text-blue-500 font-medium">
+                ← Back to Profile
+            </a>
+        </div>
+    </div>
+
+    <script>
+        // Optional: Enhanced UX for loading more content
+        <% if (pagination.hasMore) { %>
+            document.getElementById('load-more-btn').addEventListener('click', function() {
+                const btn = this;
+                const originalText = btn.textContent;
+
+                btn.textContent = 'Loading...';
+                btn.disabled = true;
+
+                // Calculate next URL with cursor
+                <% if (pagination.cursor) { %>
+                    const nextUrl = `/feed?cursor=<%= encodeURIComponent(pagination.cursor) %>&limit=<%= pagination.limit %>`;
+                <% } else { %>
+                    const nextUrl = `/feed?limit=<%= pagination.limit %>`;
+                <% } %>
+
+                // Redirect to load more (or implement AJAX if desired)
+                window.location.href = nextUrl;
+            });
+        <% } %>
+    </script>
+</body>
+</html>

@@ -1,0 +1,155 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  db:
+    image: postgres:15-alpine
+    container_name: dietintel_postgres
+    environment:
+      POSTGRES_DB: dietintel
+      POSTGRES_USER: dietintel_user
+      POSTGRES_PASSWORD: dietintel_password
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./database/init:/docker-entrypoint-initdb.d
+    ports:
+      - "5432:5432"
+    networks:
+      - dietintel_network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dietintel_user -d dietintel"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: dietintel_redis
+    command: redis-server --appendonly yes --requirepass dietintel_redis_password
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"
+    networks:
+      - dietintel_network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # FastAPI Application
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: development
+    container_name: dietintel_api
+    environment:
+      # Database Configuration
+      DATABASE_URL: postgresql://dietintel_user:dietintel_password@db:5432/dietintel
+      
+      # Redis Configuration
+      REDIS_URL: redis://:dietintel_redis_password@redis:6379/0
+      REDIS_CACHE_TTL_HOURS: 24
+      REDIS_MAX_CONNECTIONS: 20
+      
+      # OpenFoodFacts API Configuration
+      OFF_BASE_URL: https://world.openfoodfacts.org
+      OFF_TIMEOUT: 10.0
+      OFF_RATE_LIMIT_DELAY: 0.1
+      OFF_MAX_RETRIES: 3
+      OFF_RETRY_DELAY: 1.0
+      
+      # Application Configuration
+      LOG_LEVEL: DEBUG
+      ENVIRONMENT: development
+      
+      # Security
+      SECRET_KEY: your-secret-key-change-in-production
+      
+    volumes:
+      - .:/app
+      - /app/__pycache__
+      - /app/.pytest_cache
+    ports:
+      - "8000:8000"
+    networks:
+      - dietintel_network
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Express.js WebApp
+  webapp:
+    build:
+      context: ./webapp
+      dockerfile: Dockerfile
+    container_name: dietintel_webapp
+    environment:
+      NODE_ENV: development
+      DIETINTEL_API_URL: http://api:8000
+      API_TIMEOUT: 30000
+      PORT: 3000
+      SESSION_SECRET: webapp-session-secret-change-in-production
+    volumes:
+      - ./webapp:/app
+      - /app/node_modules
+    ports:
+      - "3000:3000"
+    networks:
+      - dietintel_network
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # pgAdmin for database management (optional)
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: dietintel_pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@dietintel.com
+      PGADMIN_DEFAULT_PASSWORD: admin_password
+      PGADMIN_CONFIG_SERVER_MODE: 'False'
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    ports:
+      - "8080:80"
+    networks:
+      - dietintel_network
+    depends_on:
+      - db
+    restart: unless-stopped
+    profiles:
+      - tools
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  pgadmin_data:
+    driver: local
+
+networks:
+  dietintel_network:
+    driver: bridge

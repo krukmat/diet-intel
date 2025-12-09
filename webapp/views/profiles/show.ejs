@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><%= profile?.handle %> - Profile</title>
+    <link rel="stylesheet" href="/stylesheets/main.css">
+</head>
+<body>
+    <%- include('../partials/header') %>
+
+    <div class="container">
+        <div class="profile-card">
+            <!-- Avatar -->
+            <% if (profile.avatar_url) { %>
+                <img src="<%= profile.avatar_url %>" alt="Profile picture" class="profile-avatar">
+            <% } else { %>
+                <div class="profile-avatar-placeholder">👤</div>
+            <% } %>
+
+            <!-- Handle -->
+            <h1>@<%= profile.handle %></h1>
+
+            <!-- Bio -->
+            <% if (profile.bio) { %>
+                <p class="profile-bio"><%= profile.bio %></p>
+            <% } %>
+
+            <!-- Visibility status -->
+            <p class="profile-visibility">
+                Visibility: <%= profile.visibility.split('_').join(' ') %>
+            </p>
+
+            <!-- Edit button for owner -->
+            <% if (canEdit) { %>
+                <a href="/profiles/me/edit" class="btn btn-primary">Edit Profile</a>
+            <% } %>
+
+            <!-- EPIC A.A2/A.A3: Follow/Unfollow + Block/Unblock buttons for non-owners -->
+            <% if (!canEdit && currentUser) { %>
+                <% const isFollowing = profile.follow_relation === 'active'; %>
+                <% const isBlocked = profile.block_relation === 'blocked'; %>
+                <% const isBlockedBy = profile.block_relation === 'blocked_by'; %>
+                <div class="social-actions">
+                    <div id="social-feedback" class="social-feedback" hidden></div>
+
+                    <!-- Follow/Unfollow -->
+                    <div class="follow-actions">
+                        <form action="/profiles/<%= profile.user_id %>/follow" method="POST" class="follow-form">
+                            <input type="hidden" name="action" value="<%= isFollowing ? 'unfollow' : 'follow' %>" id="follow-action">
+                            <button
+                                type="submit"
+                                class="btn <%= isFollowing ? 'btn-secondary' : 'btn-follow' %>"
+                                data-follow-state="<%= isFollowing ? 'following' : 'idle' %>"
+                                onclick="toggleFollow(event, '<%= profile.user_id %>')"
+                                <%= (isBlocked || isBlockedBy) ? 'disabled' : '' %>"
+                            >
+                                <%= isFollowing ? 'Unfollow' : 'Follow' %>
+                            </button>
+                        </form>
+                    </div>
+
+                    <!-- EPIC A.A3: Block/Unblock -->
+                    <div class="block-actions">
+                        <form action="/profiles/<%= profile.user_id %>/block" method="POST" class="block-form">
+                            <input type="hidden" name="action" value="<%= isBlocked ? 'unblock' : 'block' %>" id="block-action">
+                            <button
+                                type="submit"
+                                class="btn btn-danger"
+                                onclick="toggleBlock(event, '<%= profile.user_id %>')"
+                            >
+                                <%= isBlocked ? 'Unblock' : 'Block' %>
+                            </button>
+                        </form>
+                    </div>
+
+                    <!-- Block relation notice -->
+                    <% if (isBlockedBy) { %>
+                        <div class="block-notice">
+                            <small>This user has blocked you</small>
+                        </div>
+                    <% } %>
+
+                    <!-- EPIC A.A3: Links to blocked/blockers lists -->
+                    <div class="block-lists mt-2">
+                        <a href="/profiles/<%= currentUser.id %>/blocked" class="btn btn-sm btn-outline-secondary mr-2">
+                            View Blocked Users
+                        </a>
+                        <a href="/profiles/<%= currentUser.id %>/blockers" class="btn btn-sm btn-outline-secondary">
+                            View Users Who Blocked You
+                        </a>
+                    </div>
+                </div>
+            <% } %>
+
+            <!-- Stats section -->
+            <div class="profile-stats">
+                <div class="stat-item">
+                    <span class="stat-number"><%= profile.stats.followers_count %></span>
+                    <span class="stat-label">Followers</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-number"><%= profile.stats.following_count %></span>
+                    <span class="stat-label">Following</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-number"><%= profile.stats.posts_count %></span>
+                    <span class="stat-label">Posts</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-number"><%= profile.stats.points_total %></span>
+                    <span class="stat-label">Points</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Posts section -->
+        <div class="profile-posts">
+            <h2>Recent Posts</h2>
+            <% if (profile.posts_notice) { %>
+                <div class="posts-notice">
+                    <p><%= profile.posts_notice %></p>
+                </div>
+            <% } else { %>
+                <% if (profile.posts && profile.posts.length > 0) { %>
+                    <% profile.posts.forEach(function(post) { %>
+                        <div class="post-card">
+                            <p class="post-text"><%= post.text %></p>
+                            <small class="post-date"><%= new Date(post.created_at).toLocaleDateString() %></small>
+                            <div class="post-stats">
+                                <span>👍 <%= post.counters.likes || 0 %></span>
+                                <span>💬 <%= post.counters.comments || 0 %></span>
+                            </div>
+                        </div>
+                    <% }); %>
+                <% } else { %>
+                    <p class="no-posts">No posts yet.</p>
+                <% } %>
+            <% } %>
+        </div>
+
+        <!-- Navigation -->
+        <div class="profile-nav">
+            <a href="/dashboard" class="btn btn-secondary">← Back to Dashboard</a>
+        </div>
+    </div>
+
+    <%- include('../partials/footer') %>
+
+    <!-- EPIC A.A2: Include follow functionality JS -->
+    <script src="/js/profile.js"></script>
+</body>
+</html>

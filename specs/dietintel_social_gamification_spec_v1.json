@@ -1,0 +1,851 @@
+{
+  "meta": {
+    "spec_name": "DietIntel Social + Gamification",
+    "version": "1.0.0",
+    "created_at": "2025-10-10T16:59:35.570682+02:00",
+    "owner": "Product",
+    "intended_consumers": [
+      "Architects",
+      "Developers",
+      "QA",
+      "Codex/AI agents"
+    ],
+    "primary_kpis": [
+      "30d_retained_users",
+      "dau_wau_ratio",
+      "posts_per_user_per_week",
+      "reactions_per_post",
+      "challenge_participation_rate",
+      "referral_conversion_rate"
+    ],
+    "secondary_kpis": [
+      "avg_session_duration",
+      "notification_open_rate",
+      "pct_users_level_ge_2",
+      "abuse_reports_per_1k_posts"
+    ],
+    "non_goals_v1": [
+      "External social sharing",
+      "Marketplace/monetization",
+      "Advanced groups/forums",
+      "Long-form UGC editing",
+      "Real-time DMs (consider for v2)"
+    ]
+  },
+  "personas": [
+    {
+      "name": "Explorer",
+      "goal": "Discover value quickly; follow people; earn early rewards"
+    },
+    {
+      "name": "Contributor",
+      "goal": "Post, react, comment; join challenges; climb leaderboards"
+    },
+    {
+      "name": "Champion",
+      "goal": "Invite others; maintain streaks; earn advanced badges; be featured"
+    },
+    {
+      "name": "Admin/Moderator",
+      "goal": "Enforce content policy; configure challenges/badges; moderate reports"
+    }
+  ],
+  "feature_flags": [
+    "social.enabled",
+    "gamification.points.enabled",
+    "badges.enabled",
+    "leaderboards.enabled",
+    "challenges.enabled",
+    "referrals.enabled"
+  ],
+  "services": {
+    "social_graph_ugc": [
+      "profiles",
+      "follows",
+      "posts",
+      "reactions",
+      "comments",
+      "feeds"
+    ],
+    "gamification_engine": [
+      "points",
+      "levels",
+      "badges",
+      "leaderboards",
+      "challenges",
+      "referrals"
+    ],
+    "notifications": [
+      "in_app",
+      "push",
+      "bundling",
+      "rate_limit"
+    ],
+    "moderation": [
+      "report_content",
+      "block_user",
+      "policy_enforcement"
+    ]
+  },
+  "security_privacy": {
+    "authorization": [
+      "Users can edit/delete own posts/comments",
+      "Admins/mods can moderate content and users"
+    ],
+    "privacy_controls": {
+      "profile_visibility": [
+        "public",
+        "followers_only"
+      ],
+      "post_visibility_inherits_profile": true
+    },
+    "content_safety": {
+      "max_post_length": 500,
+      "max_comment_length": 280,
+      "max_media_per_post": 4,
+      "allowed_media": [
+        "image/*",
+        "video/mp4"
+      ],
+      "rate_limits": {
+        "posts_per_day": 10,
+        "comments_per_day": 30,
+        "reactions_per_day": 200,
+        "follows_per_day": 200
+      }
+    },
+    "pii": "Do not expose emails/usernames unless intended; use user_id surrogates",
+    "audit": "Immutable moderation log",
+    "slos": {
+      "feed_load_p95_ms": 800,
+      "post_create_p95_ms": 300,
+      "notification_fanout_p95_s": 5,
+      "availability": {
+        "ugc": "99.9%",
+        "notifications": "99.9%"
+      }
+    },
+    "observability": [
+      "Trace post create, feed read, event→points, event→notification",
+      "Emit business metrics per event"
+    ]
+  },
+  "epics": [
+    {
+      "code": "A",
+      "name": "Profiles & Social Graph",
+      "stories": [
+        {
+          "id": "A1",
+          "title": "View Profile",
+          "rules": [
+            "If profile is followers_only and viewer not following -> hide posts",
+            "Stats include total_posts, points_total, level, badges_count"
+          ],
+          "acceptance": [
+            "Public profile shows avatar, bio, stats, last 10 posts",
+            "Private profile for non-follower hides posts and shows 'Follow to see posts'"
+          ]
+        },
+        {
+          "id": "A2",
+          "title": "Follow/Unfollow",
+          "rules": [
+            "No duplicates",
+            "Cannot follow self",
+            "Soft-fail if blocked"
+          ],
+          "events": [
+            "UserAction.FollowCreated",
+            "UserAction.FollowRemoved"
+          ],
+          "acceptance": [
+            "Follow creates edge (A→B), updates counters, notifies B",
+            "Unfollow removes edge and updates counters"
+          ]
+        }
+      ]
+    },
+    {
+      "code": "B",
+      "name": "UGC & Feed",
+      "stories": [
+        {
+          "id": "B1",
+          "title": "Create Post",
+          "rules": [
+            "Max 500 chars",
+            "Up to 4 images OR one short video",
+            "Policy checks pre-publish",
+            "Rate limit 10/day"
+          ],
+          "events": [
+            "UserAction.PostCreated"
+          ],
+          "acceptance": [
+            "Valid post appears in author profile and followers' feeds",
+            "Returns post_id on success"
+          ]
+        },
+        {
+          "id": "B2",
+          "title": "React to Post",
+          "rules": [
+            "Toggle like",
+            "One reaction/user/post",
+            "No self-like for points accrual"
+          ],
+          "events": [
+            "UserAction.PostReacted"
+          ],
+          "acceptance": [
+            "First like increments like_count and notifies author",
+            "Second tap removes like"
+          ]
+        },
+        {
+          "id": "B3",
+          "title": "Comment on Post",
+          "rules": [
+            "One-level comments",
+            "Max 280 chars",
+            "Rate limit 30/day"
+          ],
+          "events": [
+            "UserAction.PostCommented"
+          ],
+          "acceptance": [
+            "Comment appears by recency",
+            "Author notified of new comment"
+          ]
+        },
+        {
+          "id": "B4",
+          "title": "Feed Consumption",
+          "rules": [
+            "Default Following feed; optional Discover",
+            "Pagination page_size=20",
+            "Respect profile visibility and blocks"
+          ],
+          "acceptance": [
+            "Opening feed shows ranked recent posts from followed users",
+            "Stable ordering by (score, created_at)"
+          ]
+        }
+      ]
+    },
+    {
+      "code": "C",
+      "name": "Notifications",
+      "stories": [
+        {
+          "id": "C1",
+          "title": "In-App Notifications",
+          "types": [
+            "follow",
+            "like",
+            "comment",
+            "badge",
+            "challenge",
+            "referral"
+          ],
+          "rules": [
+            "De-duplicate bundles",
+            "Read/unread state",
+            "TTL 30 days"
+          ],
+          "acceptance": [
+            "Events create visible notifications",
+            "Marking as read updates badge count"
+          ]
+        }
+      ]
+    },
+    {
+      "code": "D",
+      "name": "Gamification: Points & Levels",
+      "stories": [
+        {
+          "id": "D1",
+          "title": "Points Engine",
+          "earning_rules_defaults": {
+            "post_create": 5,
+            "first_post_of_day_bonus": 3,
+            "like_received": {
+              "points": 1,
+              "daily_cap": 20
+            },
+            "comment_made": {
+              "points": 2,
+              "daily_cap": 30
+            },
+            "follow_gained": {
+              "points": 2,
+              "daily_cap": 10
+            },
+            "referral_completed": 25,
+            "challenge_completed": 15
+          },
+          "rules": [
+            "Idempotency by event_id",
+            "Daily caps per rule",
+            "Fraud checks (no self-like, collusion heuristics later)"
+          ],
+          "acceptance": [
+            "Duplicate events do not double-count",
+            "p95 awarding <= 200ms"
+          ]
+        },
+        {
+          "id": "D2",
+          "title": "Levels",
+          "thresholds": {
+            "L1": 0,
+            "L2": 100,
+            "L3": 250,
+            "L4": 500,
+            "L5": 1000
+          },
+          "rules": [
+            "Level up triggers notification",
+            "No level down in v1"
+          ],
+          "acceptance": [
+            "Crossing threshold increments level once; profile shows new level"
+          ]
+        }
+      ]
+    },
+    {
+      "code": "E",
+      "name": "Badges",
+      "stories": [
+        {
+          "id": "E1",
+          "title": "Badge Catalog & Awarding",
+          "examples": [
+            "Starter (first post)",
+            "Conversationalist (10 comments)",
+            "Appreciated (100 likes received)",
+            "Connector (5 followers)",
+            "Ambassador (3 referrals)",
+            "Streak-7 (7 active days)",
+            "Champion (win a challenge)"
+          ],
+          "rules": [
+            "Rule expressions per badge",
+            "Unique per user",
+            "Visible on profile; optional 'share to feed' prompt"
+          ],
+          "acceptance": [
+            "Eligible user receives badge once and event is logged"
+          ]
+        }
+      ]
+    },
+    {
+      "code": "F",
+      "name": "Leaderboards",
+      "stories": [
+        {
+          "id": "F1",
+          "title": "Weekly Leaderboard",
+          "window": "last_7d",
+          "size": 100,
+          "tiebreak": "recency",
+          "acceptance": [
+            "Top list visible",
+            "User sees own rank/percentile even if not in top 100"
+          ]
+        }
+      ]
+    },
+    {
+      "code": "G",
+      "name": "Challenges",
+      "stories": [
+        {
+          "id": "G1",
+          "title": "Create/Join/Complete Challenge",
+          "types_v1": [
+            "admin_defined_weekly",
+            "admin_defined_monthly"
+          ],
+          "rule_descriptor_example": "user must create >=3 posts during window",
+          "reward_descriptor_example": "15 points + special badge",
+          "acceptance": [
+            "Completion recorded exactly once per user",
+            "Rewards applied on completion"
+          ]
+        }
+      ]
+    },
+    {
+      "code": "H",
+      "name": "Referrals",
+      "stories": [
+        {
+          "id": "H1",
+          "title": "Invite & Reward",
+          "rules": [
+            "Unique referral link/code per inviter",
+            "Reward both sides on signup + first qualifying action within 7 days",
+            "Abuse checks: domain/device throttling"
+          ],
+          "acceptance": [
+            "On qualification, inviter +25 points (+Ambassador progress), invitee +10 welcome points"
+          ]
+        }
+      ]
+    },
+    {
+      "code": "I",
+      "name": "Moderation & Safety",
+      "stories": [
+        {
+          "id": "I1",
+          "title": "Report & Block",
+          "rules": [
+            "Reported content goes to moderation queue",
+            "Blocked users cannot follow/interact and are hidden in feeds"
+          ],
+          "acceptance": [
+            "After block, target cannot react/comment/follow; feed hides their posts"
+          ]
+        }
+      ]
+    }
+  ],
+  "data_contracts": {
+    "UserProfile": {
+      "user_id": "string",
+      "handle": "string",
+      "avatar_url": "uri",
+      "bio": "string",
+      "visibility": "public|followers_only",
+      "stats": {
+        "posts": "int",
+        "points_total": "int",
+        "level": "int",
+        "badges_count": "int",
+        "followers": "int",
+        "following": "int"
+      }
+    },
+    "FollowEdge": {
+      "follower_id": "string",
+      "followee_id": "string",
+      "created_at": "ts",
+      "status": "active|blocked"
+    },
+    "Post": {
+      "post_id": "string",
+      "author_id": "string",
+      "text": "string",
+      "media": [
+        {
+          "type": "image|video",
+          "uri": "uri",
+          "w": "int",
+          "h": "int",
+          "duration": "ms?"
+        }
+      ],
+      "visibility": "inherit_profile",
+      "created_at": "ts",
+      "updated_at": "ts",
+      "status": "active|hidden|deleted",
+      "counters": {
+        "likes": "int",
+        "comments": "int"
+      }
+    },
+    "Reaction": {
+      "post_id": "string",
+      "user_id": "string",
+      "kind": "like",
+      "created_at": "ts"
+    },
+    "Comment": {
+      "comment_id": "string",
+      "post_id": "string",
+      "author_id": "string",
+      "text": "string",
+      "created_at": "ts",
+      "status": "active|hidden|deleted"
+    },
+    "Notification": {
+      "notification_id": "string",
+      "user_id": "string",
+      "type": "enum",
+      "actor_id": "string",
+      "object_ref": "union",
+      "created_at": "ts",
+      "read": "bool",
+      "payload": "object"
+    },
+    "PointsLedger": {
+      "entry_id": "string",
+      "user_id": "string",
+      "event_id": "string",
+      "event_type": "enum",
+      "points": "int",
+      "created_at": "ts",
+      "cap_applied": "bool",
+      "meta": "object"
+    },
+    "LevelState": {
+      "user_id": "string",
+      "points_total": "int",
+      "level": "int",
+      "last_levelup_at": "ts"
+    },
+    "BadgeState": {
+      "user_id": "string",
+      "badge_id": "string",
+      "earned_at": "ts",
+      "source_event_id": "string"
+    },
+    "LeaderboardSnapshot": {
+      "window_id": "string",
+      "rankings": [
+        {
+          "rank": "int",
+          "user_id": "string",
+          "points_window": "int",
+          "tie_break": "ts"
+        }
+      ]
+    },
+    "Challenge": {
+      "challenge_id": "string",
+      "name": "string",
+      "window": {
+        "start": "ts",
+        "end": "ts",
+        "tz": "string"
+      },
+      "rule_descriptor": "string",
+      "reward_descriptor": "string",
+      "status": "scheduled|active|ended",
+      "visibility": "global|cohort"
+    },
+    "ChallengeProgress": {
+      "challenge_id": "string",
+      "user_id": "string",
+      "state": "enrolled|completed",
+      "progress_counter": "int",
+      "completed_at": "ts"
+    },
+    "Referral": {
+      "referral_code": "string",
+      "inviter_id": "string",
+      "invitee_id": "string?",
+      "status": "issued|redeemed|qualified|rejected",
+      "created_at": "ts",
+      "qualified_at": "ts?"
+    }
+  },
+  "events": {
+    "namespace": "UserAction.*",
+    "schemas": [
+      {
+        "name": "UserAction.PostCreated",
+        "fields": [
+          "event_id",
+          "user_id",
+          "post_id",
+          "ts"
+        ]
+      },
+      {
+        "name": "UserAction.PostReacted",
+        "fields": [
+          "event_id",
+          "user_id",
+          "post_id",
+          "ts"
+        ]
+      },
+      {
+        "name": "UserAction.PostCommented",
+        "fields": [
+          "event_id",
+          "user_id",
+          "post_id",
+          "comment_id",
+          "ts"
+        ]
+      },
+      {
+        "name": "UserAction.FollowCreated",
+        "fields": [
+          "event_id",
+          "follower_id",
+          "followee_id",
+          "ts"
+        ]
+      },
+      {
+        "name": "UserAction.ReferralQualified",
+        "fields": [
+          "event_id",
+          "inviter_id",
+          "invitee_id",
+          "ts"
+        ]
+      },
+      {
+        "name": "UserAction.ChallengeCompleted",
+        "fields": [
+          "event_id",
+          "user_id",
+          "challenge_id",
+          "ts"
+        ]
+      },
+      {
+        "name": "UserAction.DailyLogin",
+        "fields": [
+          "event_id",
+          "user_id",
+          "ts"
+        ]
+      }
+    ],
+    "processing": {
+      "delivery": "at_least_once",
+      "idempotency": "event_id",
+      "latency_targets": {
+        "points_ms_p95": 200,
+        "notification_enqueue_s_p95": 1
+      }
+    }
+  },
+  "apis": {
+    "profiles_graph": [
+      "GET /profiles/:user_id",
+      "PATCH /profiles/me",
+      "POST /follows/:target_id",
+      "GET /profiles/:user_id/followers",
+      "GET /profiles/:user_id/following"
+    ],
+    "ugc_feed": [
+      "POST /posts",
+      "GET /feeds/home",
+      "POST /posts/:id/reactions",
+      "POST /posts/:id/comments",
+      "GET /posts/:id/comments"
+    ],
+    "notifications": [
+      "GET /notifications",
+      "POST /notifications/:id/read"
+    ],
+    "gamification": [
+      "GET /me/points",
+      "GET /me/level",
+      "GET /me/badges",
+      "GET /leaderboards/weekly"
+    ],
+    "challenges": [
+      "GET /challenges/active",
+      "POST /challenges/:id/enroll",
+      "GET /challenges/:id/status"
+    ],
+    "referrals": [
+      "POST /referrals/code",
+      "POST /referrals/redeem",
+      "GET /referrals/me"
+    ],
+    "moderation": [
+      "POST /posts/:id/report",
+      "POST /users/:id/block"
+    ],
+    "admin": [
+      "POST /admin/challenges",
+      "POST /admin/badges",
+      "POST /admin/leaderboards/rebuild"
+    ]
+  },
+  "feed_ranking_rules": {
+    "home_following": {
+      "score_formula": "w_recency*time_decay + w_engagement*(likes+comments_by_others) + w_relationship",
+      "weights": {
+        "w_recency": 0.6,
+        "w_engagement": 0.25,
+        "w_relationship": 0.15
+      },
+      "constraints": [
+        "hide_blocked",
+        "respect_visibility"
+      ],
+      "pagination": {
+        "size": 20,
+        "order": [
+          "score desc",
+          "created_at desc"
+        ]
+      }
+    },
+    "discover_v1_1": {
+      "window_h": 48,
+      "min_engagement": 3,
+      "author_diversity": {
+        "max_per_author_per_screen": 2
+      }
+    }
+  },
+  "abuse_safety": {
+    "caps": {
+      "posts_day": 10,
+      "comments_day": 30,
+      "reactions_day": 200,
+      "follows_day": 200
+    },
+    "antifraud": [
+      "block_self_reactions_for_points",
+      "suspicious_referral_domain_device_throttling",
+      "cooldowns_on_reporting"
+    ],
+    "report_reasons": [
+      "spam",
+      "abuse",
+      "nsfw",
+      "misinformation",
+      "other"
+    ]
+  },
+  "analytics_experimentation": {
+    "events": [
+      "FeedViewed",
+      "PostCreated",
+      "PostReacted",
+      "CommentCreated",
+      "NotificationOpened",
+      "ChallengeJoined",
+      "ChallengeCompleted",
+      "ReferralRedeemed"
+    ],
+    "properties": [
+      "user_hash",
+      "surface",
+      "dwell_time_ms",
+      "rank_position",
+      "ctr"
+    ],
+    "ab_tests": [
+      "points_weights",
+      "feed_weights",
+      "notification_bundling",
+      "challenge_copy_reward_size"
+    ]
+  },
+  "rollout_plan": [
+    {
+      "milestone": "M0",
+      "scope": [
+        "profiles",
+        "follow",
+        "post(text+image)",
+        "like",
+        "following_feed",
+        "in_app_notifications",
+        "points",
+        "levels",
+        "5_core_badges",
+        "weekly_leaderboard"
+      ]
+    },
+    {
+      "milestone": "M1",
+      "scope": [
+        "comments",
+        "1_global_challenge",
+        "referrals",
+        "badge_gallery",
+        "profile_privacy",
+        "reporting_blocking"
+      ]
+    },
+    {
+      "milestone": "M2",
+      "scope": [
+        "discover_feed",
+        "admin_consoles",
+        "notification_variants",
+        "anti_abuse_v1"
+      ]
+    },
+    {
+      "milestone": "M3",
+      "scope": [
+        "streaks",
+        "seasonal_events",
+        "cohort_challenges",
+        "leaderboard_variants"
+      ]
+    }
+  ],
+  "admin_console": {
+    "challenges": [
+      "create",
+      "schedule",
+      "rule_template",
+      "reward_template",
+      "publish",
+      "metrics"
+    ],
+    "badges": [
+      "define_rule",
+      "icon_upload",
+      "description",
+      "publish"
+    ],
+    "leaderboards": [
+      "view_snapshots",
+      "rebuild_window",
+      "export_topN"
+    ],
+    "moderation": [
+      "review_queue",
+      "hide_content",
+      "warn_user",
+      "suspend_user"
+    ]
+  },
+  "definition_of_done": [
+    "All acceptance tests pass; privacy enforced; rate limits enforced",
+    "Traces/metrics/logs present; KPI dashboards live",
+    "API/event schema docs; admin runbooks; abuse playbook",
+    "AuthZ tests; PII review completed",
+    "Meets SLOs at 2x week-4 expected traffic"
+  ],
+  "risks_mitigations": [
+    {
+      "risk": "Abuse/Spam",
+      "mitigation": "Conservative caps, heuristics, admin tooling, trust scores"
+    },
+    {
+      "risk": "Cold Start",
+      "mitigation": "Seed leaderboards; starter badges; recommended follows in onboarding"
+    },
+    {
+      "risk": "Feed Quality",
+      "mitigation": "Iterate weights via A/B; diversity constraints"
+    },
+    {
+      "risk": "Cost/Latency",
+      "mitigation": "Cache feed slices & counters; async event processing; CDN for media"
+    }
+  ],
+  "backlog_seeds": [
+    "Profile view/edit; follow flows; privacy setting; counters",
+    "Post create (text+image); media storage link; reaction toggle; comments; feed read API + ranking; pagination",
+    "Notification model; fan-out workers; read/unread; UI badge",
+    "Points ledger + rules engine; level thresholds; badge evaluator (cron + event-driven); gallery view",
+    "Rolling 7-day aggregation; weekly snapshot; rank API; my-rank endpoint",
+    "Challenge catalog; rule templates; participation tracking; reward application; status UI",
+    "Referral code minting; redeem; qualification; rewards; abuse checks",
+    "Report model; admin actions; block list enforcement"
+  ]
+}

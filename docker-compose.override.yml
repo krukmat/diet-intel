@@ -1,0 +1,23 @@
+# Development overrides for docker-compose.yml
+# This file is automatically loaded by docker-compose for development
+
+version: '3.8'
+
+services:
+  api:
+    environment:
+      - LOG_LEVEL=DEBUG
+      - ENVIRONMENT=development
+    volumes:
+      # Mount source code for hot reloading
+      - .:/app
+      # Exclude cache directories
+      - /app/__pycache__
+      - /app/.pytest_cache
+      - /app/node_modules
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload --log-level debug
+
+  # Development tools (only loaded with --profile tools)  
+  pgadmin:
+    profiles:
+      - tools
