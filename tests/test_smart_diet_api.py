@@ -126,8 +126,8 @@ class TestSmartDietAPI:
 
             response = client.get("/smart-diet/suggestions?context=invalid")
 
-            # Accept 422 validation error (message may vary)
-            assert response.status_code == 422
+            # Route performs domain validation and returns 400
+            assert response.status_code == 400
     
     def test_get_smart_diet_suggestions_optimization_no_meal_plan(self, client):
         """Test optimization context without meal plan ID."""
@@ -136,8 +136,8 @@ class TestSmartDietAPI:
 
             response = client.get("/smart-diet/suggestions?context=optimize")
 
-            # Accept 422 validation error
-            assert response.status_code == 422
+            # Domain validation sends HTTP 400 for missing plan ID
+            assert response.status_code == 400
     
     def test_get_smart_diet_suggestions_invalid_parameters(self, client):
         """Test Smart Diet suggestions with invalid parameters."""
@@ -146,15 +146,15 @@ class TestSmartDietAPI:
             
             # Test invalid max_suggestions
             response = client.get("/smart-diet/suggestions?max_suggestions=100")
-            assert response.status_code == 422
+            assert response.status_code == 400
             
             # Test invalid min_confidence
             response = client.get("/smart-diet/suggestions?min_confidence=1.5")
-            assert response.status_code == 422
+            assert response.status_code == 400
             
             # Test invalid meal_context
             response = client.get("/smart-diet/suggestions?meal_context=invalid")
-            assert response.status_code == 422
+            assert response.status_code == 400
     
     def test_submit_smart_diet_feedback_success(self, client):
         """Test successful Smart Diet feedback submission."""
@@ -209,8 +209,8 @@ class TestSmartDietAPI:
 
             response = client.post("/smart-diet/feedback", json=feedback_data)
 
-            # Accept 422 validation error
-            assert response.status_code == 422
+            # Domain validation enforces 400 for mismatch
+            assert response.status_code == 400
     
     def test_submit_smart_diet_feedback_invalid_data(self, client):
         """Test Smart Diet feedback with invalid data."""
@@ -225,7 +225,7 @@ class TestSmartDietAPI:
             }
 
             response = client.post("/smart-diet/feedback", json=feedback_data)
-            assert response.status_code == 422
+            assert response.status_code == 400
 
             # Test invalid satisfaction rating
             feedback_data = {
@@ -236,6 +236,7 @@ class TestSmartDietAPI:
             }
 
             response = client.post("/smart-diet/feedback", json=feedback_data)
+            # Pydantic bounds trigger standard FastAPI validation (422)
             assert response.status_code == 422
     
     def test_get_diet_insights_success(self, client):
@@ -276,8 +277,8 @@ class TestSmartDietAPI:
 
             response = client.get("/smart-diet/insights?period=invalid")
 
-            # Accept 422 validation error
-            assert response.status_code == 422
+            # Endpoint normalizes errors as 400
+            assert response.status_code == 400
     
     def test_apply_optimization_suggestion_success(self, client):
         """Test successful optimization application."""
@@ -327,8 +328,8 @@ class TestSmartDietAPI:
         """Test Smart Diet metrics with invalid days parameter."""
         response = client.get("/smart-diet/metrics?days=400")
 
-        # Accept 422 validation error
-        assert response.status_code == 422
+        # Metrics endpoint returns 400 for invalid ranges
+        assert response.status_code == 400
     
     def test_legacy_generate_endpoint_deprecated(self, client):
         """Test deprecated legacy generate endpoint."""

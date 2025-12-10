@@ -20,3 +20,11 @@ Recent history uses Conventional Commit prefixes (`feat:`, `fix:`). Keep subject
 
 ## Configuration & Security Notes
 Secrets belong in `.env`; never commit concrete credentials. The Docker workflow expects PostgreSQL and Redis variables defined there, so coordinate defaults with the `docker-compose.override.yml`. When touching OCR or CV dependencies, document extra system packages in `install_ocr_deps.py` and mirror them in the `Dockerfile` for parity.
+
+## Cross-Project Practices
+- Keep modules grouped by feature across tiers and mirror filenames/routes between backend and frontend surfaces so related functionality is easy to trace end-to-end.
+- Capture plans inside the repo (Markdown or similar) whenever you scope a task; avoid leaving the plan only in chat so the backlog stays auditable.
+- Run backend pytest suites with coverage and linting before finishing any change, and apply the equivalent Jest/Playwright checks for UI work.
+- Document every new or updated feature in the relevant README/docs section and process any pending review documents or CLAUDE-style prompts before closing a task.
+- When preparing to commit, craft a Conventional Commit-style subject (<72 chars) and share it for approval before pushing; include verification steps and attach QA artifacts in PRs.
+- Produce deployment notes (`DEPLOY_STEPS.md`) when a change affects release workflows, and when a feature branch is finalized, write a “project memory” doc under `docs/` and retire superseded internal notes with user confirmation.

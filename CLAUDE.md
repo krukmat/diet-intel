@@ -87,3 +87,8 @@ DietIntel is a FastAPI application for nutrition tracking with product lookup, O
 - when you plan, create an md in plan folder. put the date and the objective in the file name.
 - for every task/phase you plan save it in a file md file in plan folder. when you finish save in that file the files you changed and the goals reached. the file should have the date and time.
 - when I say push all, you have to be in the root folder of the project always. Also should ask to update readme or not.
+- always run the entire pytest suite (with coverage) before committing; subset runs are fine during iteration but do not skip the final full run.
+- capture every plan, report, or QA artifact inside the repository (plan/ for planning docs, docs/ or artifacts/ for outputs) so nothing lives only in chat logs.
+- keep provider and tooling configuration (LLM keys, CLI requirements, env vars) documented near the workflows that need them to avoid misconfigured roles.
+- enforce TDD: each story/feature should land with automated tests, and QA feedback loops must be satisfied before declaring the work done.
+- never rewrite past artifact snapshots; append follow-up notes or create new docs instead so the historical record stays immutable.
