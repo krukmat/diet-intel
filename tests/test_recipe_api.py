@@ -21,7 +21,7 @@ class TestRecipeAIAPI:
 
     def setup_method(self):
         """Set up test fixtures"""
-        
+
         # Create mock user for authentication
         self.mock_user = User(
             id="test_user_123",
@@ -97,6 +97,12 @@ class TestRecipeAIAPI:
             generation_time_ms=1200.0,
             tags=["mediterranean", "healthy", "vegetarian", "high_protein"]
         )
+        self.client = TestClient(app)
+
+    def teardown_method(self):
+        """Tear down TestClient after each test."""
+        if hasattr(self, "client"):
+            self.client.close()
     
     def test_health_check(self, client):
         """Test Recipe AI health check endpoint"""

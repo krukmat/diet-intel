@@ -12,6 +12,7 @@ class CacheService:
     def __init__(self, redis_url: str = "redis://localhost:6379"):
         self.redis_url = redis_url
         self._redis: Optional[redis.Redis] = None
+        self._last_error: Optional[Exception] = None
     
     async def get_redis(self) -> redis.Redis:
         if self._redis is None:
@@ -39,6 +40,7 @@ class CacheService:
     
     async def get(self, key: str) -> Optional[Union[str, dict]]:
         try:
+            self._last_error = None
             redis_client = await self.get_redis()
             cached_data = await redis_client.get(key)
             if cached_data:
@@ -52,9 +54,16 @@ class CacheService:
             return None
         except Exception as e:
             logger.error(f"Error getting from cache: {e}")
+            self._last_error = e
             return None
     
-    async def set(self, key: str, value: Union[str, dict], ttl: int = 86400) -> bool:
+    async def set(
+        self,
+        key: str,
+        value: Union[str, dict],
+        ttl: int = 86400,
+        ttl_hours: Optional[int] = None
+    ) -> bool:
         """
         Set cache value with TTL in seconds.
         
@@ -62,8 +71,13 @@ class CacheService:
             key: Cache key
             value: Value to cache (string or dict)
             ttl: Time to live in seconds (default 24 hours)
+            ttl_hours: Optional TTL in hours (used by tests and convenience helpers)
         """
         try:
+            if ttl_hours is not None:
+                ttl = int(ttl_hours) * 3600
+            self._last_error = None
+
             redis_client = await self.get_redis()
             
             # Convert value to string if it's a dict
@@ -77,6 +91,7 @@ class CacheService:
             return True
         except Exception as e:
             logger.error(f"Error setting cache: {e}")
+            self._last_error = e
             return False
     
     async def delete(self, key: str) -> bool:
@@ -92,6 +107,11 @@ class CacheService:
     async def close(self):
         if self._redis:
             await self._redis.close()
+
+    def consume_last_error(self) -> Optional[Exception]:
+        error = self._last_error
+        self._last_error = None
+        return error
 
 
 # Singleton instance

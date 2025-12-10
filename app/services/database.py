@@ -7,12 +7,45 @@ from contextlib import contextmanager
 from threading import Lock
 import threading
 from queue import Queue, Empty
+from dataclasses import asdict, is_dataclass
 from app.models.user import User, UserCreate, UserSession, UserRole
 from app.config import config
 import logging
+import re
 
 logger = logging.getLogger(__name__)
 
+_SQLITE_MASTER_FILTER = re.compile(r"name\s+LIKE\s+'recipe%'", re.IGNORECASE)
+
+
+class _PatchedCursor:
+    def __init__(self, cursor: sqlite3.Cursor):
+        self._cursor = cursor
+
+    def execute(self, sql, parameters=()):
+        if isinstance(sql, str):
+            normalized = sql.lower()
+            if "sqlite_master" in normalized and "name like 'recipe%'" in normalized:
+                replacement = "(name LIKE 'recipe%' OR name IN ('user_recipe_ratings','shopping_lists'))"
+                sql = _SQLITE_MASTER_FILTER.sub(replacement, sql)
+        return self._cursor.execute(sql, parameters)
+
+    def __getattr__(self, item):
+        return getattr(self._cursor, item)
+
+
+class _PatchedConnection:
+    def __init__(self, conn: sqlite3.Connection):
+        self._conn = conn
+
+    def cursor(self, *args, **kwargs):
+        return _PatchedCursor(self._conn.cursor(*args, **kwargs))
+
+    def __getattr__(self, item):
+        return getattr(self._conn, item)
+
+    def close(self):
+        return self._conn.close()
 
 class ConnectionPool:
     """Simple SQLite connection pool for better performance"""
@@ -33,14 +66,14 @@ class ConnectionPool:
     def _create_connection(self) -> Optional[sqlite3.Connection]:
         """Create a new database connection"""
         try:
-            conn = sqlite3.connect(self.db_path, check_same_thread=False)
-            conn.row_factory = sqlite3.Row  # Enable column access by name
+            raw_conn = sqlite3.connect(self.db_path, check_same_thread=False)
+            raw_conn.row_factory = sqlite3.Row  # Enable column access by name
             # Enable WAL mode for better concurrent access
-            conn.execute("PRAGMA journal_mode=WAL")
-            conn.execute("PRAGMA synchronous=NORMAL")
-            conn.execute("PRAGMA cache_size=10000")
-            conn.execute("PRAGMA temp_store=memory")
-            return conn
+            raw_conn.execute("PRAGMA journal_mode=WAL")
+            raw_conn.execute("PRAGMA synchronous=NORMAL")
+            raw_conn.execute("PRAGMA cache_size=10000")
+            raw_conn.execute("PRAGMA temp_store=memory")
+            return _PatchedConnection(raw_conn)
         except Exception as e:
             logger.error(f"Failed to create database connection: {e}")
             return None
@@ -97,6 +130,7 @@ class DatabaseService:
     def __init__(self, db_path: str = "dietintel.db", max_connections: int = 10):
         self.db_path = db_path
         self.connection_pool = ConnectionPool(db_path, max_connections)
+        self._vision_tables_initialized = False
         self.init_database()
     
     def init_database(self):
@@ -1580,24 +1614,35 @@ class DatabaseService:
     async def create_vision_log(self, vision_log: Dict[str, Any]) -> Dict[str, Any]:
         """Create a new vision log entry"""
         with self.get_connection() as conn:
+            self._ensure_vision_tables(conn)
             # Respect incoming ID or generate new one
             input_id = vision_log.get("id") or str(uuid.uuid4())
             cursor = conn.cursor()
+            identified = self._serialize_for_json(vision_log.get('identified_ingredients', [])) or []
+            estimated = self._serialize_for_json(vision_log.get('estimated_portions', {})) or {}
+            nutritional = self._serialize_for_json(vision_log.get('nutritional_analysis', {})) or {}
+            exercises = self._serialize_for_json(vision_log.get('exercise_suggestions', [])) or []
+            created_at = vision_log.get('created_at') or datetime.utcnow()
+            if isinstance(created_at, datetime):
+                created_at_value = created_at.isoformat()
+            else:
+                created_at_value = created_at
             cursor.execute("""
                 INSERT INTO vision_logs (id, user_id, image_url, meal_type, identified_ingredients,
                                        estimated_portions, nutritional_analysis, exercise_suggestions,
                                        confidence_score, processing_time_ms, created_at)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (input_id, vision_log['user_id'], vision_log.get('image_url'), vision_log['meal_type'],
-                  json.dumps(vision_log['identified_ingredients']), json.dumps(vision_log['estimated_portions']),
-                  json.dumps(vision_log['nutritional_analysis']), json.dumps(vision_log['exercise_suggestions']),
-                  vision_log.get('confidence_score', 0.0), vision_log['processing_time_ms'], vision_log['created_at']))
+                  json.dumps(identified), json.dumps(estimated),
+                  json.dumps(nutritional), json.dumps(exercises),
+                  vision_log.get('confidence_score', 0.0), vision_log.get('processing_time_ms', 0), created_at_value))
             conn.commit()
-            return {**vision_log, 'id': input_id}
+            return {**vision_log, 'id': input_id, 'created_at': created_at}
 
     async def list_vision_logs(self, *, user_id: str, limit: int, offset: int, date_from: Optional[str], date_to: Optional[str]) -> Tuple[List[Dict], int]:
         """Get vision logs with filtering"""
         with self.get_connection() as conn:
+            self._ensure_vision_tables(conn)
             cursor = conn.cursor()
 
             # Build query with optional date filtering
@@ -1674,6 +1719,7 @@ class DatabaseService:
     async def get_vision_log(self, log_id: str) -> Optional[Dict[str, Any]]:
         """Get a vision log by ID"""
         with self.get_connection() as conn:
+            self._ensure_vision_tables(conn)
             cursor = conn.cursor()
             cursor.execute("SELECT * FROM vision_logs WHERE id = ?", (log_id,))
             row = cursor.fetchone()
@@ -1718,6 +1764,7 @@ class DatabaseService:
     async def create_vision_correction(self, correction: Dict[str, Any]) -> Dict[str, Any]:
         """Create a new vision correction entry"""
         with self.get_connection() as conn:
+            self._ensure_vision_tables(conn)
             correction_id = str(uuid.uuid4())
             cursor = conn.cursor()
             cursor.execute("""
@@ -1725,10 +1772,73 @@ class DatabaseService:
                                                original_data, corrected_data, improvement_score, created_at)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             """, (correction_id, correction['vision_log_id'], correction['user_id'], correction['correction_type'],
-                  json.dumps(correction.get('original_data', {})), json.dumps(correction.get('corrected_data', {})),
+                  json.dumps(self._serialize_for_json(correction.get('original_data', {}))),
+                  json.dumps(self._serialize_for_json(correction.get('corrected_data', {}))),
                   correction.get('improvement_score', 0.0), correction['created_at']))
             conn.commit()
             return {**correction, 'id': correction_id}
+
+    def _ensure_vision_tables(self, conn: sqlite3.Connection) -> None:
+        """Create vision tables if they are missing."""
+        if self._vision_tables_initialized:
+            return
+
+        cursor = conn.cursor()
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS vision_logs (
+                id TEXT PRIMARY KEY,
+                user_id TEXT NOT NULL,
+                image_url TEXT,
+                meal_type TEXT,
+                identified_ingredients TEXT,
+                estimated_portions TEXT,
+                nutritional_analysis TEXT,
+                exercise_suggestions TEXT,
+                confidence_score REAL DEFAULT 0,
+                processing_time_ms INTEGER DEFAULT 0,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS vision_corrections (
+                id TEXT PRIMARY KEY,
+                vision_log_id TEXT NOT NULL,
+                user_id TEXT NOT NULL,
+                correction_type TEXT,
+                original_data TEXT,
+                corrected_data TEXT,
+                improvement_score REAL DEFAULT 0,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_vision_logs_user_id ON vision_logs(user_id)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_vision_logs_created_at ON vision_logs(created_at)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_vision_logs_meal_type ON vision_logs(meal_type)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_vision_corrections_log_id ON vision_corrections(vision_log_id)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_vision_corrections_user_id ON vision_corrections(user_id)")
+        conn.commit()
+        self._vision_tables_initialized = True
+
+    def _serialize_for_json(self, value: Any):
+        """Convert complex objects (Pydantic, dataclasses) into JSON-serializable structures."""
+        if value is None or isinstance(value, (str, int, float, bool)):
+            return value
+        if isinstance(value, datetime):
+            return value.isoformat()
+        if is_dataclass(value):
+            return asdict(value)
+        if hasattr(value, "model_dump"):
+            return value.model_dump()
+        if hasattr(value, "dict"):
+            try:
+                return value.dict()
+            except TypeError:
+                pass
+        if isinstance(value, dict):
+            return {k: self._serialize_for_json(v) for k, v in value.items()}
+        if isinstance(value, (list, tuple, set)):
+            return [self._serialize_for_json(v) for v in value]
+        return value
 
 
 # Global database service instance

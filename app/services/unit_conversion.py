@@ -374,6 +374,11 @@ class UnitConversionEngine:
         category = self.get_unit_category(normalized_unit)
 
         if category == UnitCategory.VOLUME:
+            if ingredient_name:
+                density_result = self._convert_using_density(quantity, normalized_unit, ingredient_name)
+                if density_result:
+                    return density_result
+
             # Convert to milliliters
             if normalized_unit in self.VOLUME_CONVERSIONS:
                 conversion_factor = self.VOLUME_CONVERSIONS[normalized_unit]
@@ -408,12 +413,6 @@ class UnitConversionEngine:
                     category=category,
                     confidence=1.0
                 )
-
-        # Try ingredient-specific density conversion if available
-        if ingredient_name and category == UnitCategory.VOLUME:
-            density_result = self._convert_using_density(quantity, normalized_unit, ingredient_name)
-            if density_result:
-                return density_result
 
         # Return as-is if no conversion available
         return ConversionResult(

@@ -377,7 +377,7 @@ class TestTokenRefresh:
             
             assert exc_info.value.status_code == status.HTTP_401_UNAUTHORIZED
             assert "Session expired" in str(exc_info.value.detail)
-            mock_delete.assert_called_once_with(expired_session.id)
+            mock_delete.assert_called_once_with(int(expired_session.id))
     
     @pytest.mark.asyncio
     async def test_refresh_token_inactive_user(self):
@@ -425,7 +425,7 @@ class TestLogoutFlow:
             
             await self.auth_service.logout_user(refresh_token)
             
-            mock_delete.assert_called_once_with(session.id)
+            mock_delete.assert_called_once_with(int(session.id))
     
     @pytest.mark.asyncio
     async def test_logout_user_session_not_found(self):

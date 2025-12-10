@@ -95,7 +95,7 @@ class TestTDEECalculations:
             (ActivityLevel.LIGHTLY_ACTIVE, 1.375, 2062.5),        # 1500 * 1.375
             (ActivityLevel.MODERATELY_ACTIVE, 1.55, 2325.0),      # 1500 * 1.55
             (ActivityLevel.VERY_ACTIVE, 1.725, 2587.5),       # 1500 * 1.725
-            (ActivityLevel.VERY_ACTIVE, 1.9, 2850.0),    # 1500 * 1.9
+            (ActivityLevel.EXTRA_ACTIVE, 1.9, 2850.0),    # 1500 * 1.9
         ]
         
         for activity_level, multiplier, expected_tdee in test_cases:

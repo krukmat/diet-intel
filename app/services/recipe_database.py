@@ -5,6 +5,7 @@ from datetime import datetime, timedelta
 from typing import Optional, List, Dict, Any
 from contextlib import contextmanager
 import logging
+import asyncio
 
 from app.services.database import DatabaseService
 from app.services.recipe_ai_engine import GeneratedRecipe, RecipeIngredient, RecipeInstruction, RecipeNutrition
@@ -17,9 +18,24 @@ class RecipeDatabaseService(DatabaseService):
     
     def __init__(self, db_path: str = "dietintel.db", max_connections: int = 10):
         super().__init__(db_path, max_connections)
+        self._recipe_tables_ready = False
         self.init_recipe_tables()
         # Task 10 related comment: Initialize shopping optimization tables automatically
         self.init_shopping_optimization_tables_sync()
+        self._recipe_tables_ready = True
+
+    def _ensure_tables_initialized(self):
+        if getattr(self, "_recipe_tables_ready", False):
+            return
+        try:
+            self.init_recipe_tables()
+        except Exception as exc:
+            logger.debug(f"Deferred recipe table init encountered error: {exc}")
+        try:
+            self.init_shopping_optimization_tables_sync()
+        except Exception as exc:
+            logger.debug(f"Deferred shopping optimization init encountered error: {exc}")
+        self._recipe_tables_ready = True
     
     def init_recipe_tables(self):
         """Initialize recipe-related database tables"""
@@ -179,12 +195,55 @@ class RecipeDatabaseService(DatabaseService):
             
             conn.commit()
             logger.info("Recipe tables created manually")
-    
+
+    async def get_recipe_by_id(self, recipe_id: str) -> Optional[Dict[str, Any]]:
+        """Fetch a recipe along with its ingredients."""
+        return await asyncio.to_thread(self._get_recipe_by_id_sync, recipe_id)
+
+    def _get_recipe_by_id_sync(self, recipe_id: str) -> Optional[Dict[str, Any]]:
+        self._ensure_tables_initialized()
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT * FROM recipes WHERE id = ?", (recipe_id,))
+            recipe_row = cursor.fetchone()
+            if not recipe_row:
+                return None
+
+            cursor.execute(
+                """
+                SELECT ingredient_name, quantity, unit, preparation_note
+                FROM recipe_ingredients
+                WHERE recipe_id = ?
+                ORDER BY id
+                """,
+                (recipe_id,)
+            )
+            ingredients = []
+            for row in cursor.fetchall():
+                ingredients.append({
+                    'ingredient': row['ingredient_name'],
+                    'quantity': row['quantity'],
+                    'unit': row['unit'],
+                    'notes': row['preparation_note']
+                })
+
+            return {
+                'id': recipe_row['id'],
+                'user_id': recipe_row['user_id'],
+                'name': recipe_row['name'],
+                'description': recipe_row['description'],
+                'cuisine_type': recipe_row['cuisine_type'],
+                'servings': recipe_row['servings'],
+                'ingredients': ingredients,
+                'created_at': recipe_row['created_at']
+            }
+
     # ===== RECIPE CRUD OPERATIONS =====
     
     async def create_recipe(self, recipe: GeneratedRecipe, user_id: Optional[str] = None) -> str:
         """Store a generated recipe in the database"""
         try:
+            self._ensure_tables_initialized()
             recipe_id = recipe.id or str(uuid.uuid4())
             
             with self.get_connection() as conn:
@@ -259,6 +318,7 @@ class RecipeDatabaseService(DatabaseService):
     async def get_recipe(self, recipe_id: str) -> Optional[GeneratedRecipe]:
         """Retrieve a recipe by ID"""
         try:
+            self._ensure_tables_initialized()
             with self.get_connection() as conn:
                 cursor = conn.cursor()
                 
@@ -366,6 +426,7 @@ class RecipeDatabaseService(DatabaseService):
     ) -> List[Dict[str, Any]]:
         """Search recipes based on criteria"""
         try:
+            self._ensure_tables_initialized()
             with self.get_connection() as conn:
                 cursor = conn.cursor()
                 
@@ -439,6 +500,7 @@ class RecipeDatabaseService(DatabaseService):
                          would_make_again: Optional[bool] = None) -> str:
         """Add or update a recipe rating"""
         try:
+            self._ensure_tables_initialized()
             rating_id = str(uuid.uuid4())
             
             with self.get_connection() as conn:
@@ -461,6 +523,7 @@ class RecipeDatabaseService(DatabaseService):
     async def get_recipe_ratings(self, recipe_id: str) -> Dict[str, Any]:
         """Get rating statistics for a recipe"""
         try:
+            self._ensure_tables_initialized()
             with self.get_connection() as conn:
                 cursor = conn.cursor()
                 
@@ -475,10 +538,14 @@ class RecipeDatabaseService(DatabaseService):
                 
                 stats = cursor.fetchone()
                 
+                total = stats['total_ratings'] or 0
+                would_make_again = stats['would_make_again_count'] or 0
+                percentage = round((would_make_again / total) * 100, 2) if total else 0
+
                 return {
-                    'total_ratings': stats['total_ratings'],
+                    'total_ratings': total,
                     'average_rating': round(stats['average_rating'], 2) if stats['average_rating'] else 0,
-                    'would_make_again_percentage': (stats['would_make_again_count'] / max(stats['total_ratings'], 1)) * 100
+                    'would_make_again_percentage': percentage
                 }
                 
         except Exception as e:
@@ -500,6 +567,7 @@ class RecipeDatabaseService(DatabaseService):
     ) -> str:
         """Log a recipe generation request for analytics"""
         try:
+            self._ensure_tables_initialized()
             request_id = str(uuid.uuid4())
             
             with self.get_connection() as conn:
@@ -534,6 +602,7 @@ class RecipeDatabaseService(DatabaseService):
     ) -> str:
         """Create a shopping list from recipes"""
         try:
+            self._ensure_tables_initialized()
             shopping_list_id = str(uuid.uuid4())
             expires_at = datetime.now() + timedelta(hours=ttl_hours)
             
@@ -563,6 +632,7 @@ class RecipeDatabaseService(DatabaseService):
     async def get_recipe_analytics(self, days: int = 30) -> Dict[str, Any]:
         """Get recipe generation analytics"""
         try:
+            self._ensure_tables_initialized()
             since_date = (datetime.now() - timedelta(days=days)).isoformat()
             
             with self.get_connection() as conn:
@@ -635,6 +705,7 @@ class RecipeDatabaseService(DatabaseService):
     async def get_user_taste_profile(self, user_id: str) -> Optional[Dict[str, Any]]:
         """Get user taste profile with all preferences"""
         try:
+            self._ensure_tables_initialized()
             with self.get_connection() as conn:
                 cursor = conn.cursor()
 
@@ -677,6 +748,7 @@ class RecipeDatabaseService(DatabaseService):
     async def create_or_update_user_taste_profile(self, user_id: str, profile_data: Dict[str, Any]) -> bool:
         """Create or update user taste profile"""
         try:
+            self._ensure_tables_initialized()
             with self.get_connection() as conn:
                 cursor = conn.cursor()
 
@@ -727,6 +799,7 @@ class RecipeDatabaseService(DatabaseService):
     async def get_user_ratings_for_learning(self, user_id: str, limit: int = 50) -> List[Dict[str, Any]]:
         """Get user ratings with recipe details for taste learning"""
         try:
+            self._ensure_tables_initialized()
             with self.get_connection() as conn:
                 cursor = conn.cursor()
 
@@ -793,6 +866,7 @@ class RecipeDatabaseService(DatabaseService):
                                       preference_data: Dict[str, Any]) -> bool:
         """Update individual cuisine preference"""
         try:
+            self._ensure_tables_initialized()
             with self.get_connection() as conn:
                 cursor = conn.cursor()
 
@@ -826,6 +900,7 @@ class RecipeDatabaseService(DatabaseService):
                                          preference_data: Dict[str, Any]) -> bool:
         """Update individual ingredient preference"""
         try:
+            self._ensure_tables_initialized()
             with self.get_connection() as conn:
                 cursor = conn.cursor()
 

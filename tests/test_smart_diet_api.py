@@ -216,17 +216,17 @@ class TestSmartDietAPI:
         """Test Smart Diet feedback with invalid data."""
         with patch('app.utils.auth_context.get_session_user_id') as mock_auth:
             mock_auth.return_value = "test_user_123"
-            
+
             # Test invalid action
             feedback_data = {
                 "user_id": "test_user_123",
                 "suggestion_id": "suggestion_001",
                 "action": "invalid_action"
             }
-            
+
             response = client.post("/smart-diet/feedback", json=feedback_data)
-            assert response.status_code == 400
-            
+            assert response.status_code == 422
+
             # Test invalid satisfaction rating
             feedback_data = {
                 "user_id": "test_user_123",
@@ -234,9 +234,9 @@ class TestSmartDietAPI:
                 "action": "accepted",
                 "satisfaction_rating": 6
             }
-            
+
             response = client.post("/smart-diet/feedback", json=feedback_data)
-            assert response.status_code == 400
+            assert response.status_code == 422
     
     def test_get_diet_insights_success(self, client):
         """Test successful diet insights retrieval."""

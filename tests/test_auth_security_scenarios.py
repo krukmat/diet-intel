@@ -153,10 +153,10 @@ class TestSessionSecurityScenarios:
             # Both sessions should be handled independently
             with patch('app.services.database.db_service.delete_session', new_callable=AsyncMock) as mock_delete:
                 await self.auth_service.logout_user(refresh_token_1)
-                mock_delete.assert_called_with(1)
+                mock_delete.assert_called_with(int(session_1.id))
                 
                 await self.auth_service.logout_user(refresh_token_2)
-                mock_delete.assert_called_with(2)
+                mock_delete.assert_called_with(int(session_2.id))
     
     @pytest.mark.asyncio
     async def test_session_cleanup_on_expired_refresh(self):
@@ -176,7 +176,7 @@ class TestSessionSecurityScenarios:
                 await self.auth_service.refresh_access_token("expired_token")
             
             # Should delete expired session
-            mock_delete.assert_called_once_with(expired_session.id)
+            mock_delete.assert_called_once_with(int(expired_session.id))
             assert exc_info.value.status_code == status.HTTP_401_UNAUTHORIZED
 
 

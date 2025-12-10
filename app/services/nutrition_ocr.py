@@ -2,14 +2,41 @@ import os
 import re
 import time
 import logging
+from types import SimpleNamespace
 from typing import Dict, Any, Optional, Tuple, List
 import cv2
 import numpy as np
 from PIL import Image, ImageEnhance, ImageFilter
 import pytesseract
-import easyocr
 
 logger = logging.getLogger(__name__)
+
+try:
+    import easyocr  # type: ignore
+    EASY_OCR_AVAILABLE = True
+    EASY_OCR_IMPORT_ERROR = None
+except Exception as easyocr_error:
+    EASY_OCR_AVAILABLE = False
+    EASY_OCR_IMPORT_ERROR = easyocr_error
+
+    class _FallbackEasyOCRReader:
+        """Minimal EasyOCR stub used when the real dependency cannot load."""
+
+        def __init__(self, languages, gpu=False):
+            self.languages = languages
+            self.gpu = gpu
+            logger.warning(
+                "EasyOCR import failed (%s); using fallback CPU-only reader", easyocr_error
+            )
+
+        def readtext(self, image_path):
+            logger.debug(
+                "Fallback EasyOCR reader invoked for %s; returning empty result",
+                image_path,
+            )
+            return []
+
+    easyocr = SimpleNamespace(Reader=_FallbackEasyOCRReader)
 
 
 class ImagePreprocessor:
@@ -135,11 +162,17 @@ class NutritionTextParser:
             # Spanish
             r'energ[ií]a.*?(\d+[.,]\d+|\d+)\s*k?cal',
             r'calor[ií]as.*?(\d+[.,]\d+|\d+)',
+
+            # German
+            r'brennwert.*?(\d+[.,]\d+|\d+)\s*k?cal',
         ],
         'energy_kj': [
             r'energ[yi].*?(\d+[.,]\d+|\d+)\s*kj',
             r'(\d+[.,]\d+|\d+)\s*kj',
             r'energ[ií]a.*?(\d+[.,]\d+|\d+)\s*kj',
+
+            # German
+            r'brennwert.*?(\d+[.,]\d+|\d+)\s*kj',
         ],
         'protein_g': [
             # English - more specific patterns to avoid matching serving sizes
@@ -151,6 +184,10 @@ class NutritionTextParser:
             r'prote[íi]nas?.*?(\d+[.,]\d+|\d+)\s*g',
             r'prote[íi]nas?\s*:?\s*(\d+[.,]\d+|\d+)\s*g',
             r'(\d+[.,]\d+|\d+)\s*g\s*prote[íi]nas?(?:\s|$)',
+
+            # German
+            r'eiwei[ßs].*?(\d+[.,]\d+|\d+)\s*g',
+            r'eiwei[ßs]\s*:?\s*(\d+[.,]\d+|\d+)\s*g',
         ],
         'fat_g': [
             # English - more specific patterns to avoid matching serving sizes
@@ -164,6 +201,10 @@ class NutritionTextParser:
             r'gras[as]?\s*:?\s*(\d+[.,]\d+|\d+)\s*g',
             r'l[íi]pidos?.*?(\d+[.,]\d+|\d+)\s*g',
             r'(\d+[.,]\d+|\d+)\s*g\s*gras[as]?(?:\s|$)',
+
+            # German
+            r'fett.*?(\d+[.,]\d+|\d+)\s*g',
+            r'fett\s*:?\s*(\d+[.,]\d+|\d+)\s*g',
         ],
         'carbs_g': [
             # English - more specific patterns to avoid matching serving sizes
@@ -178,6 +219,10 @@ class NutritionTextParser:
             r'carbohidrato[s]?\s*:?\s*(\d+[.,]\d+|\d+)\s*g',
             r'hidratos?.*?(\d+[.,]\d+|\d+)\s*g',
             r'(\d+[.,]\d+|\d+)\s*g\s*carbohidrato[s]?(?:\s|$)',
+
+            # German
+            r'kohlenhydrate.*?(\d+[.,]\d+|\d+)\s*g',
+            r'kohlenhydrate\s*:?\s*(\d+[.,]\d+|\d+)\s*g',
         ],
         'sugars_g': [
             # English - more specific patterns to avoid matching serving sizes
@@ -189,6 +234,10 @@ class NutritionTextParser:
             r'az[úu]car[es]?.*?(\d+[.,]\d+|\d+)\s*g',
             r'az[úu]car[es]?\s*:?\s*(\d+[.,]\d+|\d+)\s*g',
             r'(\d+[.,]\d+|\d+)\s*g\s*az[úu]car[es]?(?:\s|$)',
+
+            # German
+            r'zucker.*?(\d+[.,]\d+|\d+)\s*g',
+            r'davon\s+zucker.*?(\d+[.,]\d+|\d+)\s*g',
         ],
         'salt_g': [
             # English - more specific patterns to avoid matching serving sizes
@@ -202,6 +251,10 @@ class NutritionTextParser:
             r'sal\s*:?\s*(\d+[.,]\d+|\d+)\s*g',
             r'sodio.*?(\d+[.,]\d+|\d+)\s*(?:g|mg)',
             r'(\d+[.,]\d+|\d+)\s*g\s*sal(?:\s|$)',
+
+            # German
+            r'salz.*?(\d+[.,]\d+|\d+)\s*(?:g|mg)',
+            r'natrium.*?(\d+[.,]\d+|\d+)\s*(?:g|mg)',
         ],
         'fiber_g': [
             # English
@@ -270,13 +323,28 @@ class NutritionTextParser:
                         logger.debug(f"Converted {value} kJ to {kcal_value} kcal")
                     else:
                         logger.debug(f"Kept existing kcal value instead of converting {value} kJ")
-                elif nutrient.endswith('_mg') and matched_text and 'sodium' in matched_text.lower():
-                    # Convert sodium mg to salt g (approximate: sodium_mg * 2.5 / 1000)
-                    salt_g = round(value * 2.5 / 1000, 2)
-                    nutrients['salt_g'] = salt_g
-                    extraction_details['salt_g'] = {
-                        'original_value': value,
-                        'original_unit': 'mg_sodium',
+                elif nutrient == 'salt_g' and matched_text:
+                    lowered_match = matched_text.lower()
+                    if 'mg' in lowered_match:
+                        original_value = value
+                        if any(keyword in lowered_match for keyword in ['sodium', 'sodio', 'natrium']):
+                            salt_g = round(original_value * 2.5 / 1000, 2)
+                            original_unit = 'mg_sodium'
+                        else:
+                            salt_g = round(original_value / 1000, 3)
+                            original_unit = 'mg_salt'
+
+                        nutrients['salt_g'] = salt_g
+                        extraction_details['salt_g'] = {
+                            'original_value': original_value,
+                            'original_unit': original_unit,
+                            'pattern': matched_text,
+                            'confidence': confidence
+                        }
+                        continue
+
+                    nutrients[nutrient] = value
+                    extraction_details[nutrient] = {
                         'pattern': matched_text,
                         'confidence': confidence
                     }
@@ -286,6 +354,8 @@ class NutritionTextParser:
                         'pattern': matched_text,
                         'confidence': confidence
                     }
+
+        self._convert_to_per_100g_if_needed(nutrients, extraction_details, serving_size, normalized_text)
         # Calculate overall confidence
         confidence_score = self._calculate_confidence(nutrients, extraction_details, normalized_text)
 
@@ -408,6 +478,57 @@ class NutritionTextParser:
             return fallback_match.group(1).strip()
 
         return None
+
+    def _parse_serving_weight(self, serving_size: Optional[str]) -> Optional[float]:
+        """Parse the numeric serving size in grams."""
+        if not serving_size:
+            return None
+        match = re.match(r'(\d+(?:\.\d+)?)\s*(g|gram|grams|ml|mililitros?)', serving_size)
+        if not match:
+            return None
+        amount = float(match.group(1))
+        return amount if amount > 0 else None
+
+    def _is_per_serving_context(self, text: str) -> bool:
+        """Determine if the label describes values per serving."""
+        if not text:
+            return False
+        keywords = [
+            r'per\s+serving',
+            r'per\s+portion',
+            r'per\s+porci[oó]n',
+            r'per\s+porcion',
+            r'por\s+porci[oó]n',
+            r'por\s+raci[oó]n',
+            r'serving\s+size',
+        ]
+        return any(re.search(pattern, text) for pattern in keywords)
+
+    def _convert_to_per_100g_if_needed(
+        self,
+        nutrients: Dict[str, float],
+        extraction_details: Dict[str, Dict[str, Any]],
+        serving_size: Optional[str],
+        normalized_text: str,
+    ) -> None:
+        """Convert per-serving values to per-100g when serving context is detected."""
+        serving_weight = self._parse_serving_weight(serving_size)
+        if not serving_weight or abs(serving_weight - 100.0) < 1e-3:
+            return
+        if not self._is_per_serving_context(normalized_text):
+            return
+
+        conversion_factor = serving_weight / 100.0
+        if conversion_factor <= 0:
+            return
+
+        for key in list(nutrients.keys()):
+            original_value = nutrients[key]
+            nutrients[key] = round(original_value / conversion_factor, 2)
+            detail = extraction_details.get(key)
+            if detail is not None:
+                detail['converted_from_serving'] = True
+                detail['serving_size_grams'] = serving_weight
     
     def _extract_nutrient_value(self, text: str, patterns: List[str], nutrient_name: str) -> Tuple[Optional[float], float, str]:
         """
@@ -436,7 +557,7 @@ class NutritionTextParser:
                         value = float(value_str)
                         
                         # Sanity check values
-                        if not self._is_reasonable_value(value, nutrient_name):
+                        if not self._is_reasonable_value(value, nutrient_name, matched_text):
                             continue
                         
                         # Calculate confidence based on pattern specificity and context
@@ -457,7 +578,7 @@ class NutritionTextParser:
         
         return best_value, best_confidence, best_match_text
     
-    def _is_reasonable_value(self, value: float, nutrient_name: str) -> bool:
+    def _is_reasonable_value(self, value: float, nutrient_name: str, context: Optional[str] = None) -> bool:
         """
         Check if extracted value is within reasonable ranges.
         """
@@ -473,6 +594,12 @@ class NutritionTextParser:
         }
         
         min_val, max_val = ranges.get(nutrient_name, (0, 1000))
+        
+        if context:
+            lowered = context.lower()
+            if nutrient_name == 'salt_g' and 'mg' in lowered:
+                max_val = 5000.0  # allow mg scale extractions
+
         return min_val <= value <= max_val
     
     def _calculate_pattern_confidence(self, match: re.Match, pattern: str, text: str) -> float:

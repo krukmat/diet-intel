@@ -15,6 +15,11 @@ auth_service = auth_module.auth_service
 async def _get_current_user_dependency(
     credentials: HTTPAuthorizationCredentials = Depends(auth_module.security),
 ):
+    if credentials is None:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authenticated"
+        )
     return await auth_module.get_current_user(credentials)
 
 

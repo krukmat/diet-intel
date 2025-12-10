@@ -264,15 +264,10 @@ class AuthService:
         """Refresh access token using refresh token"""
         # Get session from database first so we can clean up even if token is invalid
         session = await db_service.get_session_by_refresh_token(refresh_token)
-        if not session:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Session not found"
-            )
 
         # Check if session is expired
-        if datetime.utcnow() > session.expires_at:
-            await db_service.delete_session(session.id)
+        if session and datetime.utcnow() > session.expires_at:
+            await db_service.delete_session(self._normalize_session_id(session.id))
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Session expired"
@@ -281,10 +276,17 @@ class AuthService:
         # Verify refresh token after confirming session still exists
         token_data = self.verify_token(refresh_token, "refresh")
         if not token_data:
-            await db_service.delete_session(session.id)
+            if session:
+                await db_service.delete_session(self._normalize_session_id(session.id))
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid refresh token"
+            )
+
+        if not session:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Session not found"
             )
 
         # Get user
@@ -368,11 +370,10 @@ class AuthService:
 
     @staticmethod
     def _normalize_session_id(session_id):
-        """Return session identifier using original type semantics."""
+        """Ensure numeric session identifiers use int type for database operations."""
         if isinstance(session_id, str) and session_id.isdigit():
             return int(session_id)
         return session_id
-
 
 # Global auth service instance
 auth_service = AuthService()

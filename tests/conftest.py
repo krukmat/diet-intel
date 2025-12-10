@@ -78,11 +78,14 @@ class InMemoryAsyncCacheService:
 
     def __init__(self):
         self._store: Dict[str, Any] = {}
+        self._last_error = None
 
     async def get(self, key: str) -> Optional[Any]:
         return self._store.get(key)
 
-    async def set(self, key: str, value: Any, ttl: int = 86400) -> bool:
+    async def set(self, key: str, value: Any, ttl: int = 86400, ttl_hours: Optional[int] = None) -> bool:
+        if ttl_hours is not None:
+            ttl = int(ttl_hours) * 3600
         self._store[key] = value
         return True
 
@@ -96,6 +99,9 @@ class InMemoryAsyncCacheService:
 
     async def ping(self) -> bool:
         return True
+
+    def consume_last_error(self):
+        return None
 
 
 class FakeOpenFoodFactsService:

@@ -156,7 +156,7 @@ class IngredientMatcher:
             'fresh', 'dried', 'ground', 'whole', 'chopped', 'sliced', 'diced',
             'minced', 'crushed', 'grated', 'shredded', 'organic', 'natural',
             'raw', 'cooked', 'frozen', 'canned', 'jarred', 'bottled',
-            'extra', 'virgin', 'pure', 'premium', 'grade', 'a', 'quality',
+            'pure', 'premium', 'grade', 'a', 'quality',
             'brand', 'name', 'store', 'generic'
         }
 
@@ -391,8 +391,42 @@ class IngredientConsolidator:
         if not group.ingredients:
             return None
 
+        if len(group.ingredients) == 1:
+            ingredient = group.ingredients[0]
+            category = self.unit_converter.get_unit_category(ingredient.unit)
+            return ConsolidatedIngredient(
+                id=str(uuid.uuid4()),
+                name=ingredient.ingredient_name,
+                total_quantity=ingredient.quantity,
+                unit=ingredient.unit,
+                source_recipes=[{
+                    'recipe_id': ingredient.recipe_id,
+                    'recipe_name': ingredient.recipe_name,
+                    'original_quantity': ingredient.quantity,
+                    'unit': ingredient.unit,
+                    'original_unit': ingredient.unit,
+                    'converted_quantity': ingredient.quantity,
+                    'notes': ingredient.notes
+                }],
+                category=category
+            )
+
         # Choose the best name for the consolidated ingredient
         consolidated_name = self._choose_best_name(group.ingredients)
+
+        # Determine if we need density conversions (mixed categories)
+        ingredient_categories = [
+            self.unit_converter.get_unit_category(ingredient.unit)
+            for ingredient in group.ingredients
+        ]
+        primary_category = next(
+            (category for category in ingredient_categories if category != UnitCategory.UNKNOWN),
+            UnitCategory.UNKNOWN
+        )
+        requires_density = any(
+            category != primary_category and category != UnitCategory.UNKNOWN
+            for category in ingredient_categories
+        )
 
         # Convert all ingredients to standard units
         converted_ingredients = []
@@ -404,7 +438,7 @@ class IngredientConsolidator:
             conversion_result = self.unit_converter.convert_to_standard_unit(
                 ingredient.quantity,
                 ingredient.unit,
-                ingredient.ingredient_name
+                ingredient.ingredient_name if requires_density else None
             )
 
             if conversion_result.confidence >= 0.5:  # Acceptable conversion confidence
@@ -427,6 +461,7 @@ class IngredientConsolidator:
                 'recipe_id': ingredient.recipe_id,
                 'recipe_name': ingredient.recipe_name,
                 'original_quantity': ingredient.quantity,
+                'unit': ingredient.unit,
                 'original_unit': ingredient.unit,
                 'converted_quantity': conversion_result.quantity,
                 'notes': ingredient.notes
@@ -1119,24 +1154,44 @@ class ShoppingOptimizationService:
                 ))
 
             # Step 10: Build response
+            consolidated_models = []
+            for ingredient in consolidated_ingredients:
+                formatted_sources = []
+                for recipe in ingredient.source_recipes:
+                    if not recipe.get('recipe_id'):
+                        continue
+
+                    formatted_sources.append({
+                        'recipe_id': recipe.get('recipe_id'),
+                        'recipe_name': recipe.get('recipe_name'),
+                        'original_quantity': recipe.get('original_quantity', 0.0),
+                        'unit': recipe.get('unit') or recipe.get('original_unit') or ingredient.unit
+                    })
+
+                if not formatted_sources:
+                    continue
+
+                consolidated_models.append(
+                    IngredientConsolidation(
+                        id=ingredient.id,
+                        shopping_optimization_id=optimization_id,
+                        consolidated_ingredient_name=ingredient.name,
+                        source_recipes=formatted_sources,
+                        total_consolidated_quantity=ingredient.total_quantity,
+                        final_unit=ingredient.unit,
+                        total_cost=ingredient.estimated_cost,
+                        bulk_discount_available=ingredient.bulk_discount_available
+                    )
+                )
+
             response = ShoppingOptimizationResponse(
                 optimization_id=optimization_id,
                 optimization_name=optimization_data['optimization_name'],
                 recipe_ids=recipe_ids,
-                consolidated_ingredients=[
-                    IngredientConsolidation(
-                        id=ingredient.id,
-                        name=ingredient.name,
-                        total_quantity=ingredient.total_quantity,
-                        unit=ingredient.unit,
-                        source_recipes=ingredient.source_recipes,
-                        estimated_cost=ingredient.estimated_cost,
-                        bulk_discount_available=ingredient.bulk_discount_available
-                    )
-                    for ingredient in consolidated_ingredients
-                ],
+                consolidated_ingredients=consolidated_models,
                 optimization_metrics=optimization_metrics,
                 bulk_suggestions=bulk_suggestions,
+                shopping_path=[],
                 estimated_total_cost=optimization_metrics.get('estimated_cost', 0.0),
                 estimated_savings=sum(sugg.immediate_savings for sugg in bulk_suggestions),
                 created_at=datetime.now()

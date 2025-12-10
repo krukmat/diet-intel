@@ -1,23 +1,55 @@
 import os
-import tempfile
 import logging
 from typing import Optional, Tuple
-import cv2
-import numpy as np
-from PIL import Image
-import pytesseract
-import easyocr
+
+try:
+    import cv2
+except Exception as exc:  # pragma: no cover - import guard
+    cv2 = None
+    _CV2_IMPORT_ERROR = exc
+else:  # pragma: no cover - import guard
+    _CV2_IMPORT_ERROR = None
+
+try:
+    from PIL import Image
+except Exception as exc:  # pragma: no cover - import guard
+    Image = None
+    _PIL_IMPORT_ERROR = exc
+else:  # pragma: no cover - import guard
+    _PIL_IMPORT_ERROR = None
+
+try:
+    import pytesseract
+except Exception as exc:  # pragma: no cover - import guard
+    pytesseract = None
+    _PYTESSERACT_IMPORT_ERROR = exc
+else:  # pragma: no cover - import guard
+    _PYTESSERACT_IMPORT_ERROR = None
+
+try:
+    import easyocr
+except Exception as exc:  # pragma: no cover - import guard
+    easyocr = None
+    _EASYOCR_IMPORT_ERROR = exc
+else:  # pragma: no cover - import guard
+    _EASYOCR_IMPORT_ERROR = None
 
 logger = logging.getLogger(__name__)
 
 
 class ImageProcessor:
     def __init__(self, use_easyocr: bool = False):
-        self.use_easyocr = use_easyocr
-        if use_easyocr:
-            self.easyocr_reader = easyocr.Reader(['en'])
-        else:
-            self.easyocr_reader = None
+        self.use_easyocr = bool(use_easyocr and easyocr is not None)
+        self.easyocr_reader = None
+        if use_easyocr and easyocr is None:
+            logger.warning("EasyOCR requested but not installed: %s", _EASYOCR_IMPORT_ERROR)
+        if self.use_easyocr:
+            try:
+                self.easyocr_reader = easyocr.Reader(['en'])
+            except Exception as exc:
+                logger.warning("Failed to initialize EasyOCR reader: %s", exc)
+                self.use_easyocr = False
+                self.easyocr_reader = None
     
     async def preprocess_image(self, image_path: str) -> str:
         """
@@ -28,6 +60,10 @@ class ImageProcessor:
         - Apply adaptive thresholding
         """
         try:
+            if cv2 is None:
+                logger.warning("OpenCV not available for preprocessing: %s", _CV2_IMPORT_ERROR)
+                return image_path
+
             image = cv2.imread(image_path)
             if image is None:
                 raise ValueError("Unable to load image")
@@ -75,6 +111,13 @@ class ImageProcessor:
                 text = ' '.join([result[1] for result in results])
                 logger.info(f"EasyOCR extracted {len(results)} text blocks")
             else:
+                if Image is None or pytesseract is None:
+                    logger.warning(
+                        "Cannot extract text because Pillow or pytesseract is unavailable: %s / %s",
+                        _PIL_IMPORT_ERROR,
+                        _PYTESSERACT_IMPORT_ERROR,
+                    )
+                    return ""
                 # Use Tesseract
                 image = Image.open(processed_path)
                 # Use PSM 6 (uniform block of text) for better nutrition table recognition

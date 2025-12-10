@@ -22,6 +22,15 @@ security = HTTPBearer(auto_error=False)
 
 logger = logging.getLogger(__name__)
 
+
+async def _get_authenticated_context(
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+) -> auth_module.RequestContext:
+    """Ensure we return a context but respond with 403 when token is missing."""
+    if credentials is None:
+        raise HTTPException(status_code=403, detail="Authentication required")
+    return await auth_module.get_current_request_context(credentials)
+
 @router.post("/analyze", response_model=VisionLogResponse)
 async def analyze_food_image(
     file: UploadFile = File(...),
@@ -29,7 +38,7 @@ async def analyze_food_image(
     current_weight_kg: Optional[float] = Form(None, description="Peso actual en kg"),
     activity_level: Optional[str] = Form(None, description="Nivel de actividad"),
     goal: Optional[str] = Form(None, description="Objetivo: lose_weight|maintain|gain_weight"),
-    current_context: auth_module.RequestContext = Depends(auth_module.get_current_request_context),
+    current_context: auth_module.RequestContext = Depends(_get_authenticated_context),
 ) -> VisionLogResponse:
     """
     Analyze food image and return nutritional breakdown with exercise suggestions
@@ -51,7 +60,7 @@ async def analyze_food_image(
     # Enforce JWT authentication
     user_id = current_context.user_id
     if not user_id:
-        raise HTTPException(status_code=401, detail="Authentication required for analysis")
+        raise HTTPException(status_code=403, detail="Authentication required for analysis")
 
     # Read and validate file
     try:
@@ -116,7 +125,7 @@ async def get_user_analysis_history(
     offset: int = Query(0, ge=0, description="Number of records to skip"),
     date_from: Optional[str] = Query(None, description="Start date (YYYY-MM-DD)"),
     date_to: Optional[str] = Query(None, description="End date (YYYY-MM-DD)"),
-    current_context: auth_module.RequestContext = Depends(auth_module.get_current_request_context),
+    current_context: auth_module.RequestContext = Depends(_get_authenticated_context),
 ) -> Dict[str, Any]:
     """
     Retrieve user's food analysis history
@@ -129,7 +138,7 @@ async def get_user_analysis_history(
     # Enforce JWT authentication
     user_id = current_context.user_id
     if not user_id:
-        raise HTTPException(status_code=401, detail="Authentication required for history")
+        raise HTTPException(status_code=403, detail="Authentication required for history")
 
     try:
         # Get user history con filtering
@@ -161,7 +170,7 @@ async def submit_analysis_correction(
     corrected_carbs_g: Optional[str] = Form(None, description="Corrected carbs in grams"),
     correction_notes: Optional[str] = Form("", description="Additional correction notes"),
     feedback_type: str = Form("portion_correction", description="Type of correction feedback"),
-    current_context: auth_module.RequestContext = Depends(auth_module.get_current_request_context),
+    current_context: auth_module.RequestContext = Depends(_get_authenticated_context),
 ) -> Dict[str, Any]:
     """
     Submit user correction for improving future analysis
@@ -174,7 +183,7 @@ async def submit_analysis_correction(
     # Cambiar ruta para requerir auth
     user_id = current_context.user_id
     if not user_id:
-        raise HTTPException(status_code=401, detail="Authentication required for corrections")
+        raise HTTPException(status_code=403, detail="Authentication required for corrections")
 
     # Validate log_id with uuid.UUID
     try:
