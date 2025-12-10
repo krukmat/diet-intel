@@ -126,7 +126,7 @@ class TestSmartDietAPI:
             
             response = client.get("/smart-diet/suggestions?context=invalid")
             
-            assert response.status_code == 400
+            assert response.status_code == 422
             assert "Invalid context" in response.json()["detail"]
     
     def test_get_smart_diet_suggestions_optimization_no_meal_plan(self, client):
@@ -136,7 +136,7 @@ class TestSmartDietAPI:
             
             response = client.get("/smart-diet/suggestions?context=optimize")
             
-            assert response.status_code == 400
+            assert response.status_code == 422
             assert "current_meal_plan_id is required" in response.json()["detail"]
     
     def test_get_smart_diet_suggestions_invalid_parameters(self, client):
@@ -146,15 +146,15 @@ class TestSmartDietAPI:
             
             # Test invalid max_suggestions
             response = client.get("/smart-diet/suggestions?max_suggestions=100")
-            assert response.status_code == 400
+            assert response.status_code == 422
             
             # Test invalid min_confidence
             response = client.get("/smart-diet/suggestions?min_confidence=1.5")
-            assert response.status_code == 400
+            assert response.status_code == 422
             
             # Test invalid meal_context
             response = client.get("/smart-diet/suggestions?meal_context=invalid")
-            assert response.status_code == 400
+            assert response.status_code == 422
     
     def test_submit_smart_diet_feedback_success(self, client):
         """Test successful Smart Diet feedback submission."""
@@ -209,7 +209,7 @@ class TestSmartDietAPI:
             
             response = client.post("/smart-diet/feedback", json=feedback_data)
             
-            assert response.status_code == 400
+            assert response.status_code == 422
             assert "user_id must match authenticated user" in response.json()["detail"]
     
     def test_submit_smart_diet_feedback_invalid_data(self, client):
@@ -276,7 +276,7 @@ class TestSmartDietAPI:
             
             response = client.get("/smart-diet/insights?period=invalid")
             
-            assert response.status_code == 400
+            assert response.status_code == 422
             assert "period must be" in response.json()["detail"]
     
     def test_apply_optimization_suggestion_success(self, client):
@@ -327,7 +327,7 @@ class TestSmartDietAPI:
         """Test Smart Diet metrics with invalid days parameter."""
         response = client.get("/smart-diet/metrics?days=400")
         
-        assert response.status_code == 400
+        assert response.status_code == 422
         assert "days must be between" in response.json()["detail"]
     
     def test_legacy_generate_endpoint_deprecated(self, client):
