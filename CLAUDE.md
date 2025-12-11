@@ -92,3 +92,10 @@ DietIntel is a FastAPI application for nutrition tracking with product lookup, O
 - keep provider and tooling configuration (LLM keys, CLI requirements, env vars) documented near the workflows that need them to avoid misconfigured roles.
 - enforce TDD: each story/feature should land with automated tests, and QA feedback loops must be satisfied before declaring the work done.
 - never rewrite past artifact snapshots; append follow-up notes or create new docs instead so the historical record stays immutable.
+
+## Cross-Project Process Notes
+- Continue to use `plan/` for every newly scoped phase; include the date and the objective in the filename, and when the phase closes append the files modified plus every verification command (including manual tests tracked in `manual-user-tests.md`) so the artifact remains immutable.
+- Capture QA and coverage artifacts in the repo (`plan/`, `docs/`, or `artifacts/`) so nothing is lost in chat logs; when a manual verification step is executed, log it in `manual-user-tests.md`.
+- Enforce TDD, minimal mocking, and the QA feedback loop—tests should arrive with a change, and broader integration coverage should be rerun before a task is declared done.
+- Run the complete backend pytest suite (with coverage) before committing; you can use `.venv/bin/pytest` if a `.venv` exists, otherwise `python -m pytest --cov=app`.
+- Keep provider/tooling configuration near the workflows that require them and respect instructions about not deleting historical artifacts (append updates instead).
