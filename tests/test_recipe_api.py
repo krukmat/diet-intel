@@ -6,6 +6,7 @@ from fastapi.testclient import TestClient
 
 from main import app
 from app.services.recipe_ai_engine import GeneratedRecipe, RecipeIngredient, RecipeInstruction, RecipeNutrition
+from app.models.recipe import UserTasteProfileResponse
 from app.models.user import User, UserRole
 
 
@@ -494,3 +495,192 @@ class TestRecipeAIAPI:
             error_data = response.json()
             assert "error_code" in error_data["detail"]
             assert "suggestions" in error_data["detail"]
+
+    def test_learn_user_preferences_success(self):
+        """Test taste learning path when data is available"""
+        with patch('app.routes.recipe_ai.get_current_user') as mock_auth, \
+             patch('app.routes.recipe_ai.taste_learning_service.analyze_cuisine_preferences', new_callable=AsyncMock) as mock_analyze_cuisine, \
+             patch('app.routes.recipe_ai.taste_learning_service.update_cuisine_preferences_in_db', new_callable=AsyncMock) as mock_update_cuisine, \
+             patch('app.routes.recipe_ai.taste_learning_service.analyze_ingredient_preferences', new_callable=AsyncMock) as mock_analyze_ingredients, \
+             patch('app.routes.recipe_ai.taste_learning_service.update_ingredient_preferences_in_db', new_callable=AsyncMock) as mock_update_ingredients, \
+             patch('app.routes.recipe_ai.recipe_db_service.create_or_update_user_taste_profile', new_callable=AsyncMock) as mock_save_profile:
+
+            mock_auth.return_value = self.mock_user
+            mock_analyze_cuisine.return_value = {
+                "confidence_score": 0.75,
+                "total_ratings_analyzed": 12,
+                "cuisine_preferences": {
+                    "mediterranean": {"raw_score": 0.82, "total_ratings": 6}
+                }
+            }
+            mock_analyze_ingredients.return_value = {
+                "ingredient_preferences": {
+                    "tomato": {"raw_score": 0.9, "total_occurrences": 5},
+                    "pepper": {"raw_score": -0.6, "total_occurrences": 3}
+                },
+                "categorized_ingredients": {
+                    "loved": ["tomato"],
+                    "liked": [],
+                    "disliked": ["pepper"],
+                    "avoided": []
+                },
+                "error": False
+            }
+
+            response = self.client.post(
+                "/recipe/learn-preferences",
+                json={"user_id": self.mock_user.id, "learning_data": {"dummy": True}},
+                headers={"Authorization": "Bearer fake_token"}
+            )
+
+            assert response.status_code == 200
+            payload = response.json()
+            assert payload["user_id"] == self.mock_user.id
+            assert payload["profile_confidence"] == 0.75
+            mock_save_profile.assert_awaited_once()
+
+    def test_learn_user_preferences_insufficient_data(self):
+        """Should return 400 when cuisine learning cannot proceed"""
+        with patch('app.routes.recipe_ai.get_current_user') as mock_auth, \
+             patch('app.routes.recipe_ai.taste_learning_service.analyze_cuisine_preferences', new_callable=AsyncMock) as mock_analyze_cuisine:
+            mock_auth.return_value = self.mock_user
+            mock_analyze_cuisine.return_value = {"error": "need more ratings"}
+
+            response = self.client.post(
+                "/recipe/learn-preferences",
+                json={"user_id": self.mock_user.id},
+                headers={"Authorization": "Bearer fake_token"}
+            )
+
+            assert response.status_code == 400
+            assert "Insufficient data" in response.json()["detail"]
+
+    def test_get_user_taste_profile_triggers_learning_when_missing(self):
+        """Fall back to taste learning when profile is absent"""
+        with patch('app.routes.recipe_ai.get_current_user') as mock_auth, \
+             patch('app.routes.recipe_ai.recipe_db_service.get_user_taste_profile', new_callable=AsyncMock) as mock_get_profile, \
+             patch('app.routes.recipe_ai.learn_user_preferences', new_callable=AsyncMock) as mock_learn:
+
+            mock_auth.return_value = self.mock_user
+            mock_get_profile.return_value = None
+            profile_payload = UserTasteProfileResponse(
+                user_id=self.mock_user.id,
+                profile_confidence=0.65,
+                total_ratings_analyzed=7,
+                cuisine_preferences=[],
+                difficulty_preferences={},
+                liked_ingredients=[],
+                disliked_ingredients=[],
+                cooking_method_preferences={},
+                preferred_prep_time_minutes=30,
+                preferred_cook_time_minutes=45,
+                quick_meal_preference=0.5,
+                preferred_calories_per_serving=420.0,
+                preferred_protein_ratio=0.25,
+                preferred_carb_ratio=0.45,
+                preferred_fat_ratio=0.3,
+                modification_tendency=0.2,
+                repeat_cooking_tendency=0.4,
+                last_learning_update=datetime.now(),
+                created_at=datetime.now(),
+                updated_at=datetime.now()
+            )
+            mock_learn.return_value = profile_payload
+
+            response = self.client.get(
+                f"/recipe/preferences/{self.mock_user.id}",
+                headers={"Authorization": "Bearer fake_token"}
+            )
+
+            assert response.status_code == 200
+            assert response.json()["user_id"] == self.mock_user.id
+            mock_learn.assert_awaited_once()
+
+    def test_get_user_learning_progress_initializes_record(self):
+        """Should create baseline progress record when none exists"""
+        class _DummyCursor:
+            def execute(self, *args, **kwargs):
+                return None
+
+        class _DummyConnection:
+            def __enter__(self):
+                return self
+
+            def __exit__(self, exc_type, exc, tb):
+                return False
+
+            def cursor(self):
+                return _DummyCursor()
+
+            def commit(self):
+                return None
+
+        with patch('app.routes.recipe_ai.get_current_user') as mock_auth, \
+             patch('app.routes.recipe_ai.recipe_db_service.get_user_learning_progress', new_callable=AsyncMock) as mock_progress, \
+             patch('app.routes.recipe_ai.recipe_db_service.get_connection', return_value=_DummyConnection()):
+
+            mock_auth.return_value = self.mock_user
+            mock_progress.return_value = None
+
+            response = self.client.get(
+                f"/recipe/preferences/{self.mock_user.id}/progress",
+                headers={"Authorization": "Bearer fake_token"}
+            )
+
+            assert response.status_code == 200
+            assert response.json()["ratings_milestone"] == 0
+
+    def test_generate_personalized_recipe_applies_taste_profile(self):
+        """Ensure personalized generation extends base request with learned data"""
+        with patch('app.routes.recipe_ai.get_current_user') as mock_auth, \
+             patch('app.routes.recipe_ai.recipe_db_service.get_user_taste_profile', new_callable=AsyncMock) as mock_profile, \
+             patch('app.routes.recipe_ai.recipe_engine.generate_recipe', new_callable=AsyncMock) as mock_generate, \
+             patch('app.routes.recipe_ai.recipe_db_service.create_recipe', new_callable=AsyncMock) as mock_create_recipe:
+
+            mock_auth.return_value = self.mock_user
+            mock_profile.return_value = {
+                "profile_confidence": 0.8,
+                "preferred_prep_time_minutes": 25,
+                "preferred_cook_time_minutes": 30,
+                "preferred_calories_per_serving": 360,
+                "cuisine_preferences": [{"cuisine": "mediterranean", "score": 0.9}],
+                "disliked_ingredients": [{"ingredient": "garlic", "preference": -0.7}],
+                "liked_ingredients": [{"ingredient": "tomato", "preference": 0.95}],
+            }
+            mock_generate.return_value = self.sample_recipe
+            mock_create_recipe.return_value = "personalized_recipe_id"
+
+            payload = {
+                "user_id": self.mock_user.id,
+                "use_taste_profile": True,
+                "base_request": {
+                    "cuisine_preferences": [],
+                    "dietary_restrictions": [],
+                    "difficulty_preference": "easy",
+                    "meal_type": "lunch",
+                    "servings": 2,
+                    "preferred_ingredients": [],
+                    "excluded_ingredients": [],
+                    "max_prep_time_minutes": None,
+                    "max_cook_time_minutes": None,
+                    "target_calories_per_serving": None,
+                    "target_protein_g": None,
+                    "target_carbs_g": None,
+                    "target_fat_g": None,
+                    "target_language": "en",
+                    "cooking_skill_level": "beginner",
+                    "available_equipment": []
+                }
+            }
+
+            response = self.client.post(
+                "/recipe/generate-personalized",
+                json=payload,
+                headers={"Authorization": "Bearer fake_token"}
+            )
+
+            assert response.status_code == 200
+            engine_request = mock_generate.await_args.args[0]
+            assert "garlic" in engine_request.excluded_ingredients
+            assert "tomato" in engine_request.available_ingredients
+            mock_create_recipe.assert_awaited_once()
