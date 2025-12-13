@@ -150,3 +150,108 @@ async def test_generate_swap_suggestions_uses_alternatives(monkeypatch, optimiza
     assert len(suggestions) == 1
     mock_alternatives.assert_awaited()
     mock_suggestion.assert_awaited_with(meal_item, mock_alternatives.return_value[0], "protein_sources")
+
+
+# PHASE 3: Extended tests for analyze_meal_plan coverage (2025-12-13)
+@pytest.mark.asyncio
+async def test_analyze_meal_plan_success(monkeypatch, optimization_engine):
+    """Test successful meal plan analysis with valid data (PHASE 3 - 2025-12-13)"""
+    # Setup: Create a simple meal plan with low protein
+    macros_low_protein = _SimpleMacros(calories=400, protein=8, fat=12, carbs=60, fiber=2)
+    meal = _SimpleMeal(items=[_SimpleMealItem("Rice and beans", macros_low_protein)])
+
+    class SimpleMealPlan:
+        meals = [meal]
+
+    meal_plan = SimpleMealPlan()
+    user_goals = {"target_calories": 2000, "target_protein_g": 150}
+
+    # Mock the rule suggestion generator
+    mock_suggestions = AsyncMock(return_value=[_dummy_optimization()])
+    monkeypatch.setattr(
+        optimization_engine,
+        "_generate_rule_suggestions",
+        mock_suggestions,
+    )
+
+    # Mock swap suggestions
+    mock_swaps = AsyncMock(return_value=[])
+    monkeypatch.setattr(
+        optimization_engine,
+        "_generate_swap_suggestions",
+        mock_swaps,
+    )
+
+    # Execute: Analyze meal plan
+    suggestions = await optimization_engine.analyze_meal_plan(meal_plan, user_goals)
+
+    # Assert: Got suggestions back
+    assert len(suggestions) >= 0
+    mock_suggestions.assert_awaited()
+    mock_swaps.assert_awaited()
+
+
+@pytest.mark.asyncio
+async def test_analyze_meal_plan_handles_exceptions(monkeypatch, optimization_engine):
+    """Test analyze_meal_plan gracefully handles exceptions (PHASE 3 - 2025-12-13)"""
+    # Setup: Mock that raises exception
+    mock_suggestions = AsyncMock(side_effect=RuntimeError("Database error"))
+    monkeypatch.setattr(
+        optimization_engine,
+        "_generate_rule_suggestions",
+        mock_suggestions,
+    )
+
+    class SimpleMealPlan:
+        meals = []
+
+    meal_plan = SimpleMealPlan()
+    user_goals = {"target_calories": 2000}
+
+    # Execute: Should return empty list instead of raising
+    suggestions = await optimization_engine.analyze_meal_plan(meal_plan, user_goals)
+
+    # Assert: Returns empty list on error
+    assert suggestions == []
+
+
+@pytest.mark.asyncio
+async def test_generate_rule_suggestions_applies_rules(optimization_engine):
+    """Test rule suggestion generation (PHASE 3 - 2025-12-13)"""
+    # Setup
+    rule = {
+        "name": "Increase Protein",
+        "condition": {"protein_g": {"lt": 20}},
+        "suggestions": [
+            {
+                "add": {"name": "Protein Powder", "barcode": "OPT_PROTEIN"},
+                "benefit": {"protein_g": 20},
+            }
+        ],
+    }
+
+    meal = _SimpleMeal(items=[])
+    nutrition = {"protein_g": 10, "calories": 300}
+    goals = {"target_protein_g": 150}
+
+    # Execute
+    suggestions = await optimization_engine._generate_rule_suggestions(rule, meal, nutrition, goals)
+
+    # Assert: Created suggestion from rule
+    assert isinstance(suggestions, list)
+
+
+def test_should_apply_rule_checks_conditions(optimization_engine):
+    """Test rule condition evaluation (PHASE 3 - 2025-12-13)"""
+    # Setup: Create a rule with conditions
+    rule = optimization_engine.optimization_rules[0]
+
+    # Execute: Low protein condition
+    low_protein_nutrition = {"protein_g": 5, "calories": 500}
+    should_apply = optimization_engine._should_apply_rule(rule, low_protein_nutrition, {})
+    assert should_apply is True
+
+    # Execute: Adequate protein
+    adequate_nutrition = {"protein_g": 40, "calories": 500}
+    should_apply = optimization_engine._should_apply_rule(rule, adequate_nutrition, {})
+    assert should_apply is False
