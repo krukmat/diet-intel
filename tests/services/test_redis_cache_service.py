@@ -3,13 +3,42 @@ import pytest
 from app.services.redis_cache import redis_cache_service
 
 
+class DummyRedisPipeline:
+    def __init__(self, client):
+        self.client = client
+        self.commands = []
+
+    def get(self, key):
+        self.commands.append(('get', key))
+        return self
+
+    def setex(self, key, ttl, value):
+        self.commands.append(('setex', key, ttl, value))
+        return self
+
+    def delete(self, *keys):
+        self.commands.append(('delete',) + keys)
+        return self
+
+    def execute(self):
+        results = []
+        for cmd in self.commands:
+            action = cmd[0]
+            if action == 'get':
+                results.append(self.client.get(cmd[1]))
+            elif action == 'setex':
+                results.append(self.client.setex(cmd[1], cmd[2], cmd[3]))
+            elif action == 'delete':
+                results.append(self.client.delete(*cmd[1:]))
+        self.commands.clear()
+        return results
+
+
 class DummyRedisClient:
     def __init__(self):
         self.data = {}
         self.last_set = None
 
-    def get(self, key):
-        return self.data.get(key)
 
     def setex(self, key, ttl, value):
         self.last_set = (key, ttl, value)
@@ -32,6 +61,24 @@ class DummyRedisClient:
 
     def exists(self, key):
         return 1 if key in self.data else 0
+
+    def pipeline(self):
+        return DummyRedisPipeline(self)
+
+    def execute(self):
+        results = []
+        for cmd in self._pipeline_cmds:
+            action = cmd[0]
+            if action == 'get':
+                results.append(self.get(cmd[1]))
+            elif action == 'setex':
+                results.append(self.setex(cmd[1], cmd[2], cmd[3]))
+            elif action == 'delete':
+                results.append(self.delete(*cmd[1:]))
+        return results
+
+    def get(self, key):
+        return self.data.get(key)
 
 
 @pytest.fixture(autouse=True)
@@ -122,3 +169,50 @@ async def test_set_handles_errors_and_counts():
 
     assert result is False
     assert service.metrics['errors'] == 1
+
+
+@pytest.mark.asyncio
+async def test_get_multiple_reports_misses_and_hits():
+    service = redis_cache_service
+    service.redis_client.data[service._normalize_key('one')] = '1'
+
+    result = await service.get_multiple(['one', 'missing'])
+
+    assert result['one'] == '1'
+    assert result['missing'] is None
+    assert service.metrics['hits'] == 1
+    assert service.metrics['misses'] == 1
+    assert service.metrics['total_requests'] == 2
+
+
+@pytest.mark.asyncio
+async def test_set_multiple_stores_all_entries():
+    service = redis_cache_service
+    pairs = {'first': 'value1', 'second': 'value2'}
+
+    success = await service.set_multiple(pairs)
+
+    assert success
+    assert service.metrics['sets'] == len(pairs)
+    assert all(service._normalize_key(key) in service.redis_client.data for key in pairs)
+
+
+@pytest.mark.asyncio
+async def test_invalidate_pattern_deletes_all_matches():
+    service = redis_cache_service
+    service.redis_client.data[service._normalize_key('invalidate-me')] = 'x'
+    service.redis_client.data[service._normalize_key('invalidate-other')] = 'y'
+    # pattern normalized internally
+    count = await service.invalidate_pattern('invalidate*')
+
+    assert count >= 2
+    assert not any(key.startswith(service._normalize_key('invalidate')) for key in service.redis_client.data)
+
+
+@pytest.mark.asyncio
+async def test_health_check_returns_success():
+    service = redis_cache_service
+    response = await service.health_check()
+
+    assert response['healthy'] is True
+    assert response['connected'] is True

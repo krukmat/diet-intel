@@ -1,3 +1,4 @@
+import builtins
 import pytest
 
 from app.services import ocr
@@ -64,3 +65,60 @@ def test_extract_serving_size_variants():
 async def test_call_external_ocr_stub():
     result = await ocr.call_external_ocr("path")
     assert result is None
+
+
+@pytest.mark.asyncio
+async def test_easyocr_reader_failure_disables_use_easyocr(monkeypatch):
+    class BrokenReader:
+        def __init__(self, *args, **kwargs):
+            raise RuntimeError("init failed")
+
+    class FakeEasyOCRModule:
+        Reader = BrokenReader
+
+    monkeypatch.setattr(ocr, "easyocr", FakeEasyOCRModule)
+    processor = ocr.ImageProcessor(use_easyocr=True)
+
+    assert processor.use_easyocr is False
+
+
+@pytest.mark.asyncio
+async def test_extract_text_uses_easyocr_reader(monkeypatch, tmp_path):
+    class DummyReader:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def readtext(self, path):
+            return [((0, 0, 0, 0), "hello"), ((1, 1, 1, 1), "world")]
+
+    class FakeEasyOCRModule:
+        Reader = DummyReader
+
+    async def fake_preprocess(path):
+        return path
+
+    monkeypatch.setattr(ocr, "easyocr", FakeEasyOCRModule)
+    processor = ocr.ImageProcessor(use_easyocr=True)
+    processor.preprocess_image = fake_preprocess
+
+    test_image = tmp_path / "dummy.jpg"
+    test_image.write_bytes(b"fake-image-bytes")
+
+    result = await processor.extract_text(str(test_image))
+    assert result == "hello world"
+
+
+@pytest.mark.asyncio
+async def test_extract_nutrients_handles_missing_module(monkeypatch):
+    real_import = builtins.__import__
+
+    def fake_import(name, globals=None, locals=None, fromlist=(), level=0):
+        if name == "app.services.nutrition_ocr":
+            raise ImportError("missing")
+        return real_import(name, globals, locals, fromlist, level)
+
+    monkeypatch.setattr(builtins, "__import__", fake_import)
+    processor = ocr.ImageProcessor()
+
+    result = await processor.extract_nutrients("dummy-path")
+    assert result["confidence"] == 0.0

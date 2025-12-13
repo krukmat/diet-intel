@@ -32,3 +32,10 @@ Estos apuntes describen la estrategia aplicada para subir la cobertura de los m�
 - **Caching**: usar la caché en memoria (`_MemoryCache`) para mantener comportamiento real sin dependencias externas.
 
 Los tests propuestos priorizan el uso de datos reales/estructuras simples cuando es posible y sólo simulan lo estrictamente necesario (p. ej. clientes HTTP). El objetivo es garantizar un paso claro por cada `try/except` crítico sin recurrir a infra innecesaria.
+
+## 6. `app/services/database.py`, `app/services/smart_diet_cache.py`, `app/services/smart_diet_optimized.py` (60% range)
+- **Database resilience**: realice pruebas en `tests/services/test_database_service.py` que disparen `OperationalError`, `IntegrityError` y `ConnectionError` dentro de las transacciones de `database.py`, y compruebe que los helpers de rollback/caching responden con valores previsibles cuando la base de datos cae.
+- **Smart Diet cache**: en `tests/services/test_smart_diet_cache.py`, fuerce series de TTL expiradas, valores corruptos y `redis_client` inaccesible para cubrir los bordes de `get_cached_suggestion`, `store_suggestion` e `invalidate`.
+- **Smart Diet optimized**: en `tests/services/test_smart_diet_optimized_utils.py` o el suite de integración respectivo, simule que Redis está caído y que el motor de optimización responde con listas vacías; asegúrese de que los caminos de fallback (plan predeterminado, logging y métricas de cache hit/miss) estén cubiertos.
+
+Agregar estos tests antes de la próxima corrida `python -m pytest --cov=app` debería empujar estos módulos por encima del 80%. Recuerde documentar los scripts nuevos/modificados dentro de `plan/` y actualizar `coverage.json` tras cada barrida global para conservar una trazabilidad clara de los avances.

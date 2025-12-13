@@ -188,25 +188,6 @@ class ImageProcessor:
         logger.debug(f"Mock cleanup of: {image_path}")
         return True
 
-
-# Lightweight helpers for tests to exercise TODO branches without touching real FS
-def save_temp_image(content: bytes, suffix: str = ".jpg") -> str:
-    """Save temp image content to a temporary file for testing."""
-    import tempfile
-    import os
-    fd, path = tempfile.mkstemp(suffix=suffix)
-    with os.fdopen(fd, "wb") as f:
-        f.write(content)
-    return path
-
-
-def cleanup_temp_file(path: str) -> None:
-    """Best-effort removal of temporary files."""
-    try:
-        os.remove(path)
-    except Exception:
-        logger.debug(f"Cleanup ignored for temp file: {path}")
-
     @staticmethod
     def calculate_image_hash(content: bytes) -> Optional[str]:
         """
@@ -293,3 +274,22 @@ def cleanup_temp_file(path: str) -> None:
         except Exception as e:
             logger.warning(f"Thumbnail generation failed: {e}")
             return None
+
+
+# Lightweight helpers for tests to exercise TODO branches without touching real FS
+def save_temp_image(content: bytes, suffix: str = ".jpg") -> str:
+    """Save temp image content to a temporary file for testing."""
+    import tempfile
+    import os
+    fd, path = tempfile.mkstemp(suffix=suffix)
+    with os.fdopen(fd, "wb") as f:
+        f.write(content)
+    return path
+
+
+def cleanup_temp_file(path: str) -> None:
+    """Best-effort removal of temporary files."""
+    try:
+        os.remove(path)
+    except Exception:
+        logger.debug(f"Cleanup ignored for temp file: {path}")
