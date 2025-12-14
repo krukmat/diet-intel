@@ -99,3 +99,54 @@ DietIntel is a FastAPI application for nutrition tracking with product lookup, O
 - Enforce TDD, minimal mocking, and the QA feedback loop—tests should arrive with a change, and broader integration coverage should be rerun before a task is declared done.
 - Run the complete backend pytest suite (with coverage) before committing; you can use `.venv/bin/pytest` if a `.venv` exists, otherwise `python -m pytest --cov=app`.
 - Keep provider/tooling configuration near the workflows that require them and respect instructions about not deleting historical artifacts (append updates instead).
+
+## Claude Code - Memory & Task Management Protocol
+
+### For Complex Implementations
+**BEFORE STARTING**: When an implementation is complex (involves multiple steps, decision points, or changes across files):
+
+1. **Create Memory Document**: Add reasoning to `plan/` with:
+   - What you're going to do (breakdown into tasks/subtasks)
+   - Why each decision (mocking strategy, file structure, etc.)
+   - Expected changes vs original plan
+
+2. **Use TodoWrite Tool**: Track progress with subtasks:
+   - Mark as `in_progress` BEFORE starting work
+   - Update IMMEDIATELY after completing each subtask
+   - Show user high-level progress
+
+3. **After Completion**: Provide summary with:
+   - What was actually done (list of changes)
+   - Justification for deviations from original plan:
+     - What was added and why
+     - What was removed/changed and why
+     - What stayed the same and why
+   - Link to memory document in `plan/`
+
+### Example Format
+```markdown
+## Task Summary
+- ✅ Subtask 1: [description] - COMPLETED
+- ✅ Subtask 2: [description] - COMPLETED
+
+## Justification vs Original Plan
+### Added:
+- Item X (reason: ...)
+
+### Changed:
+- Item Y from [original] to [new] (reason: ...)
+
+### Removed:
+- Item Z (reason: ...)
+
+### Unchanged:
+- Items A, B, C (reason: ...)
+
+See plan/YYYY-MM-DD-[description].md for full details.
+```
+
+### Key Rules
+- **Never skip cleanup**: If imports/functions become unused due to implementation changes, document and remove them
+- **Document decisions**: Why you chose a certain mocking strategy, architecture pattern, etc.
+- **Justify deviations**: Original plan vs actual implementation should have clear reasoning
+- **Keep artifacts**: Plan documents are immutable records (append notes, don't rewrite)
