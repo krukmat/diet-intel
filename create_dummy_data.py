@@ -7,6 +7,7 @@ import asyncio
 import json
 from datetime import datetime, timedelta
 from app.services.database import db_service
+from app.services.tracking_service import tracking_service
 from app.models.user import UserCreate, UserRole
 import bcrypt
 
@@ -231,7 +232,7 @@ async def create_dummy_data():
                 self.items = items
         
         meal_request = MockMealRequest(f"Breakfast Day {i+1}", meal_items)
-        meal_id = await db_service.create_meal(
+        meal_id = await tracking_service.create_meal(
             user_id=standard_user.id,
             meal_data=meal_request,
             photo_url=None
@@ -251,7 +252,7 @@ async def create_dummy_data():
                 self.date = date
         
         weight_request = MockWeightRequest(weight, weight_time)
-        weight_id = await db_service.create_weight_entry(
+        weight_id = await tracking_service.create_weight_entry(
             user_id=standard_user.id,
             weight_data=weight_request,
             photo_url=None

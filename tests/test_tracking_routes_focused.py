@@ -89,7 +89,7 @@ class TestMealTrackingRoutesCore:
             "logged_at": datetime.now().isoformat()
         }
         
-        with patch('app.services.database.db_service.track_meal', new_callable=AsyncMock) as mock_track_meal:
+        with patch('app.routes.track.tracking_service.track_meal', new_callable=AsyncMock) as mock_track_meal:
             
             # Mock successful database save
             mock_track_meal.return_value = {"id": "meal_123", "status": "saved"}
@@ -106,7 +106,7 @@ class TestMealTrackingRoutesCore:
     
     def test_track_meal_multiple_items_success(self, client, sample_meal_tracking_data):
         """Test successful meal tracking with multiple items"""
-        with patch('app.services.database.db_service.track_meal', new_callable=AsyncMock) as mock_track_meal:
+        with patch('app.routes.track.tracking_service.track_meal', new_callable=AsyncMock) as mock_track_meal:
             
             # Mock successful database save
             mock_track_meal.return_value = {"id": "meal_multi_456", "total_calories": 280}
@@ -159,7 +159,7 @@ class TestMealTrackingRoutesCore:
     
     def test_track_meal_database_error_handling(self, client, sample_meal_tracking_data):
         """Test meal tracking database error handling"""
-        with patch('app.services.database.db_service.track_meal', new_callable=AsyncMock) as mock_track_meal:
+        with patch('app.routes.track.tracking_service.track_meal', new_callable=AsyncMock) as mock_track_meal:
             # Mock database error
             mock_track_meal.side_effect = Exception("Database connection failed")
             response = client.post("/track/meal", json=sample_meal_tracking_data)
@@ -172,7 +172,7 @@ class TestWeightTrackingRoutesCore:
     
     def test_track_weight_success_without_photo(self, client, sample_weight_tracking_data):
         """Test successful weight tracking without photo"""
-        with patch('app.services.database.db_service.track_weight', new_callable=AsyncMock) as mock_track_weight:
+        with patch('app.routes.track.tracking_service.track_weight', new_callable=AsyncMock) as mock_track_weight:
             
             # Mock successful database save
             mock_track_weight.return_value = {"id": "weight_789", "weight_kg": 75.5}
@@ -195,7 +195,7 @@ class TestWeightTrackingRoutesCore:
             "notes": "Progress photo included"
         }
         
-        with patch('app.services.database.db_service.track_weight', new_callable=AsyncMock) as mock_track_weight, \
+        with patch('app.routes.track.tracking_service.track_weight', new_callable=AsyncMock) as mock_track_weight, \
              patch('app.services.storage.save_photo', new_callable=AsyncMock) as mock_save_photo:
             
             # Mock successful save operations
@@ -249,7 +249,7 @@ class TestWeightHistoryRoutesCore:
     
     def test_get_weight_history_success(self, client):
         """Test successful weight history retrieval"""
-        with patch('app.services.database.db_service.get_weight_history', new_callable=AsyncMock) as mock_get_history:
+        with patch('app.routes.track.tracking_service.get_weight_history', new_callable=AsyncMock) as mock_get_history:
             
             # Mock weight history data
             mock_history = [
@@ -274,7 +274,7 @@ class TestWeightHistoryRoutesCore:
     
     def test_get_weight_history_with_limit(self, client):
         """Test weight history retrieval with limit parameter"""
-        with patch('app.services.database.db_service.get_weight_history', new_callable=AsyncMock) as mock_get_history:
+        with patch('app.routes.track.tracking_service.get_weight_history', new_callable=AsyncMock) as mock_get_history:
             
             # Mock limited history data
             mock_history = [
@@ -296,7 +296,7 @@ class TestWeightHistoryRoutesCore:
     
     def test_get_weight_history_empty_result(self, client):
         """Test weight history retrieval with no data"""
-        with patch('app.services.database.db_service.get_weight_history', new_callable=AsyncMock) as mock_get_history:
+        with patch('app.routes.track.tracking_service.get_weight_history', new_callable=AsyncMock) as mock_get_history:
             
             # Mock empty history
             mock_get_history.return_value = []
@@ -329,7 +329,7 @@ class TestPhotoLogsRoutesCore:
     
     def test_get_photo_logs_success(self, client):
         """Test successful photo logs retrieval"""
-        with patch('app.services.database.db_service.get_photo_logs', new_callable=AsyncMock) as mock_get_logs:
+        with patch('app.routes.track.tracking_service.get_photo_logs', new_callable=AsyncMock) as mock_get_logs:
             
             # Mock photo logs data
             mock_logs = [
@@ -352,7 +352,7 @@ class TestPhotoLogsRoutesCore:
     
     def test_get_photo_logs_with_type_filter(self, client):
         """Test photo logs retrieval with type filter"""
-        with patch('app.services.database.db_service.get_photo_logs', new_callable=AsyncMock) as mock_get_logs:
+        with patch('app.routes.track.tracking_service.get_photo_logs', new_callable=AsyncMock) as mock_get_logs:
             
             # Mock filtered photo logs
             mock_logs = [
@@ -372,7 +372,7 @@ class TestPhotoLogsRoutesCore:
     
     def test_get_photo_logs_empty_result(self, client):
         """Test photo logs retrieval with no photos"""
-        with patch('app.services.database.db_service.get_photo_logs', new_callable=AsyncMock) as mock_get_logs:
+        with patch('app.routes.track.tracking_service.get_photo_logs', new_callable=AsyncMock) as mock_get_logs:
             
             # Mock empty logs
             mock_get_logs.return_value = []
@@ -420,7 +420,7 @@ class TestTrackingRoutesIntegrationWorkflows:
             "logged_at": datetime.now().isoformat()
         }
         
-        with patch('app.services.database.db_service.track_meal', new_callable=AsyncMock) as mock_track_meal:
+        with patch('app.routes.track.tracking_service.track_meal', new_callable=AsyncMock) as mock_track_meal:
             mock_track_meal.return_value = {"id": "breakfast_456", "status": "saved"}
             
             breakfast_response = client.post("/track/meal", json=breakfast_data)
@@ -433,14 +433,14 @@ class TestTrackingRoutesIntegrationWorkflows:
             "notes": "Post-breakfast weight"
         }
         
-        with patch('app.services.database.db_service.track_weight', new_callable=AsyncMock) as mock_track_weight:
+        with patch('app.routes.track.tracking_service.track_weight', new_callable=AsyncMock) as mock_track_weight:
             mock_track_weight.return_value = {"id": "weight_789", "weight_kg": 73.8}
             
             weight_response = client.post("/track/weight", json=weight_data)
             assert weight_response.status_code == 200
         
         # Step 3: Check photo logs (should include any photos from weight tracking)
-        with patch('app.services.database.db_service.get_photo_logs', new_callable=AsyncMock) as mock_get_photos:
+        with patch('app.routes.track.tracking_service.get_photo_logs', new_callable=AsyncMock) as mock_get_photos:
             mock_get_photos.return_value = []
             
             photos_response = client.get("/track/photos")
@@ -467,7 +467,7 @@ class TestTrackingRoutesIntegrationWorkflows:
                 "logged_at": datetime.now().isoformat()
             }
             
-            with patch('app.services.database.db_service.track_meal', new_callable=AsyncMock) as mock_track_meal:
+            with patch('app.routes.track.tracking_service.track_meal', new_callable=AsyncMock) as mock_track_meal:
                 mock_track_meal.return_value = {"id": f"{meal_type}_meal_id", "status": "saved"}
                 
                 response = client.post("/track/meal", json=meal_data)
@@ -495,7 +495,7 @@ class TestTrackingRoutesValidationAndErrors:
     
     def test_tracking_routes_database_connectivity_issues(self, client, sample_meal_tracking_data):
         """Test tracking routes handling database connectivity issues"""
-        with patch('app.services.database.db_service.track_meal', new_callable=AsyncMock) as mock_track_meal:
+        with patch('app.routes.track.tracking_service.track_meal', new_callable=AsyncMock) as mock_track_meal:
             
             # Mock database connectivity error
             mock_track_meal.side_effect = ConnectionError("Database unavailable")

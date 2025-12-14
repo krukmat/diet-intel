@@ -260,7 +260,7 @@ async def get_meal_history(req: Request, limit: Optional[int] = 50):
         user_id = await get_session_user_id(req)
 
         # Pull meals from persistent storage
-        meals_raw = await db_service.get_user_meals(user_id, limit or 50)
+        meals_raw = await tracking_service.get_user_meals(user_id, limit or 50)
 
         meals: List[MealTrackingResponse] = []
         for record in meals_raw:
@@ -309,7 +309,7 @@ async def get_weight_history(req: Request, limit: Optional[int] = 30):
         user_id = await get_session_user_id(req)
         
         # Get weight history from database
-        weight_history = await db_service.get_weight_history(user_id, limit or 30)
+        weight_history = await tracking_service.get_weight_history(user_id, limit or 30)
         
         # Convert to response models (accept legacy keys)
         entries: List[WeightTrackingResponse] = []

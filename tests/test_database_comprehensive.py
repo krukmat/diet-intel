@@ -20,6 +20,7 @@ from unittest.mock import patch, MagicMock
 from datetime import datetime, timedelta
 
 from app.services.database import DatabaseService, db_service
+from app.services.tracking_service import TrackingService
 from app.models.tracking import MealTrackingRequest, WeightTrackingRequest, MealItem
 from app.models.reminder import ReminderRequest, ReminderType
 from app.models.meal_plan import MealPlanResponse
@@ -183,19 +184,25 @@ class TestDatabaseTransactionIntegrity:
         """Create temporary database service for testing"""
         with tempfile.NamedTemporaryFile(delete=False, suffix='.db') as tmp_file:
             temp_db_path = tmp_file.name
-        
+
         test_service = DatabaseService(db_path=temp_db_path)
         yield test_service
-        
+
         # Cleanup
         if os.path.exists(temp_db_path):
             os.unlink(temp_db_path)
-    
-    def test_transaction_rollback_scenarios(self, temp_db_service):
+
+    @pytest.fixture
+    def temp_tracking_service(self, temp_db_service):
+        """Create temporary tracking service for testing"""
+        return TrackingService(temp_db_service)
+
+    @pytest.mark.asyncio
+    async def test_transaction_rollback_scenarios(self, temp_db_service, temp_tracking_service):
         """Test transaction rollback on errors"""
         # Create a test user first
         user_id = "test_user_rollback"
-        
+
         # Test meal creation with intentional failure
         meal_request = MealTrackingRequest(
             meal_name="Test Meal",
@@ -210,10 +217,10 @@ class TestDatabaseTransactionIntegrity:
             ],
             timestamp=datetime.now().isoformat()
         )
-        
+
         # Test rollback by using direct database manipulation to simulate mid-transaction failure
         # We'll use a more realistic approach by testing actual constraint violations
-        
+
         # First, create a meal successfully to establish baseline
         baseline_meal_request = MealTrackingRequest(
             meal_name="Baseline Meal",
@@ -228,9 +235,9 @@ class TestDatabaseTransactionIntegrity:
             ],
             timestamp=datetime.now().isoformat()
         )
-        
+
         # Create baseline meal
-        baseline_meal_id = asyncio.run(temp_db_service.create_meal(user_id, baseline_meal_request))
+        baseline_meal_id = await temp_tracking_service.create_meal(user_id, baseline_meal_request)
         
         # Count existing records before attempting rollback scenario
         with temp_db_service.get_connection() as conn:
@@ -242,41 +249,41 @@ class TestDatabaseTransactionIntegrity:
         
         # Now test rollback by creating a meal with invalid data that will cause constraint violation
         # We'll patch the create_meal method to simulate mid-transaction failure
-        original_create_meal = temp_db_service.create_meal
-        
+        original_create_meal = temp_tracking_service.create_meal
+
         async def failing_create_meal(user_id_param, meal_data_param, photo_url_param=None):
             # Start transaction normally but fail midway
             meal_id = str(uuid.uuid4())
             total_calories = sum(item.calories for item in meal_data_param.items)
-            
+
             try:
                 timestamp = datetime.fromisoformat(meal_data_param.timestamp.replace("Z", "+00:00"))
             except ValueError:
                 timestamp = datetime.now()
-            
+
             with temp_db_service.get_connection() as conn:
                 cursor = conn.cursor()
-                
+
                 try:
                     # Insert meal record successfully
                     cursor.execute("""
                         INSERT INTO meals (id, user_id, meal_name, total_calories, photo_url, timestamp, created_at)
                         VALUES (?, ?, ?, ?, ?, ?, ?)
-                    """, (meal_id, user_id_param, meal_data_param.meal_name, total_calories, photo_url_param, 
+                    """, (meal_id, user_id_param, meal_data_param.meal_name, total_calories, photo_url_param,
                           timestamp.isoformat(), datetime.now().isoformat()))
-                    
+
                     # Simulate failure during meal_items insertion
                     raise sqlite3.IntegrityError("Simulated mid-transaction failure")
-                    
+
                 except Exception as db_error:
                     # This should trigger rollback
                     conn.rollback()
                     raise RuntimeError(f"Failed to create meal: {str(db_error)}")
-        
+
         # Test that failure causes proper rollback
-        with patch.object(temp_db_service, 'create_meal', failing_create_meal):
+        with patch.object(temp_tracking_service, 'create_meal', failing_create_meal):
             try:
-                asyncio.run(temp_db_service.create_meal(user_id, meal_request))
+                await temp_tracking_service.create_meal(user_id, meal_request)
                 assert False, "Expected operation to fail"
             except RuntimeError as e:
                 assert "Simulated mid-transaction failure" in str(e)
@@ -293,10 +300,11 @@ class TestDatabaseTransactionIntegrity:
             assert meals_after == meals_before, f"Expected {meals_before} meals, got {meals_after}"
             assert items_after == items_before, f"Expected {items_before} items, got {items_after}"
     
-    def test_atomic_operations_validation(self, temp_db_service):
+    @pytest.mark.asyncio
+    async def test_atomic_operations_validation(self, temp_db_service, temp_tracking_service):
         """Test complex multi-table operations"""
         user_id = "test_user_atomic"
-        
+
         # Test meal creation (involves meals + meal_items tables)
         meal_request = MealTrackingRequest(
             meal_name="Atomic Test Meal",
@@ -318,9 +326,9 @@ class TestDatabaseTransactionIntegrity:
             ],
             timestamp=datetime.now().isoformat()
         )
-        
+
         # Perform atomic operation
-        meal_id = asyncio.run(temp_db_service.create_meal(user_id, meal_request))
+        meal_id = await temp_tracking_service.create_meal(user_id, meal_request)
         
         # Verify both tables were updated consistently
         with temp_db_service.get_connection() as conn:
@@ -360,15 +368,20 @@ class TestDatabasePerformance:
         """Create temporary database service for testing"""
         with tempfile.NamedTemporaryFile(delete=False, suffix='.db') as tmp_file:
             temp_db_path = tmp_file.name
-        
+
         test_service = DatabaseService(db_path=temp_db_path)
         yield test_service
-        
+
         # Cleanup
         if os.path.exists(temp_db_path):
             os.unlink(temp_db_path)
-    
-    def test_query_optimization_paths(self, temp_db_service):
+
+    @pytest.fixture
+    def temp_tracking_service(self, temp_db_service):
+        """Create temporary tracking service for testing"""
+        return TrackingService(temp_db_service)
+
+    def test_query_optimization_paths(self, temp_db_service, temp_tracking_service):
         """Test database query performance with indexes"""
         user_id = "perf_test_user"
         
@@ -389,14 +402,14 @@ class TestDatabasePerformance:
                 timestamp=(datetime.now() - timedelta(days=i)).isoformat()
             )
             
-            meal_id = asyncio.run(temp_db_service.create_meal(user_id, meal_request))
+            meal_id = asyncio.run(temp_tracking_service.create_meal(user_id, meal_request))
             meals_created.append(meal_id)
         
         # Test query performance with timing
         
         # Query with user_id (should use index)
         start_time = time.time()
-        user_meals = asyncio.run(temp_db_service.get_user_meals(user_id, limit=25))
+        user_meals = asyncio.run(temp_tracking_service.get_user_meals(user_id, limit=25))
         indexed_query_time = time.time() - start_time
         
         assert len(user_meals) == 25
@@ -407,7 +420,7 @@ class TestDatabasePerformance:
         for i in range(1, len(meal_timestamps)):
             assert meal_timestamps[i-1] >= meal_timestamps[i], "Meals should be ordered by timestamp DESC"
     
-    def test_bulk_operation_efficiency(self, temp_db_service):
+    def test_bulk_operation_efficiency(self, temp_db_service, temp_tracking_service):
         """Test bulk data operations performance"""
         user_id = "bulk_test_user"
         
@@ -438,7 +451,7 @@ class TestDatabasePerformance:
                 timestamp=datetime.now().isoformat()
             )
             
-            meal_id = asyncio.run(temp_db_service.create_meal(user_id, meal_request))
+            meal_id = asyncio.run(temp_tracking_service.create_meal(user_id, meal_request))
             meal_ids.append(meal_id)
         
         bulk_creation_time = time.time() - start_time
@@ -448,7 +461,7 @@ class TestDatabasePerformance:
         
         # Test bulk retrieval performance
         start_time = time.time()
-        all_meals = asyncio.run(temp_db_service.get_user_meals(user_id, limit=50))
+        all_meals = asyncio.run(temp_tracking_service.get_user_meals(user_id, limit=50))
         bulk_retrieval_time = time.time() - start_time
         
         assert len(all_meals) == 20

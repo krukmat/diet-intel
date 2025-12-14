@@ -19,6 +19,7 @@ import httpx
 from main import app
 from app.services.cache import cache_service
 from app.services.database import db_service
+from app.routes import track as track_routes
 
 
 @pytest.fixture
@@ -137,13 +138,13 @@ class TestDatabaseFailureResilience:
             ],
             "timestamp": datetime.now().isoformat()
         }
-        
+
         # Mock database write failure after first operation
-        with patch.object(db_service, 'create_meal') as mock_create:
+        with patch.object(track_routes.tracking_service, 'track_meal') as mock_create:
             mock_create.side_effect = Exception("Database write failed")
-            
+
             response = client.post("/track/meal", json=meal_request)
-            
+
             # Should return proper error
             assert response.status_code == 500
             error_data = response.json()
@@ -152,10 +153,10 @@ class TestDatabaseFailureResilience:
     def test_database_read_failure_fallback(self, client):
         """Test fallback behavior when database reads fail"""
         # Mock database read failure
-        with patch.object(db_service, 'get_user_meals', side_effect=Exception("Database read failed")):
+        with patch.object(track_routes.tracking_service, 'get_user_meals', side_effect=Exception("Database read failed")):
             # Try to get meal history
             response = client.get("/track/meals")
-            
+
             # Should return proper error
             assert response.status_code == 500
             error_data = response.json()
