@@ -54,7 +54,7 @@ def _patch_connection(monkeypatch, rows, tracker):
 def test_get_analytics_summary_success(analytics_client, monkeypatch):
     summary = {"lookups": 10}
     monkeypatch.setattr(
-        analytics_routes.db_service,
+        analytics_routes.analytics_service,
         "get_analytics_summary",
         AsyncMock(return_value=summary),
     )
@@ -69,7 +69,7 @@ def test_get_analytics_summary_failure(analytics_client, monkeypatch):
         raise RuntimeError("boom")
 
     monkeypatch.setattr(
-        analytics_routes.db_service,
+        analytics_routes.analytics_service,
         "get_analytics_summary",
         AsyncMock(side_effect=_raise),
     )

@@ -183,7 +183,10 @@ class MealPlannerService:
         
         try:
             from app.services.database import db_service
-            await db_service.log_user_product_interaction(
+            from app.services.analytics_service import AnalyticsService
+            # Task: Phase 2 Batch 6 - Analytics Service Extraction
+            analytics_service = AnalyticsService(db_service)
+            await analytics_service.log_user_product_interaction(
                 user_id=user_id,
                 session_id=None,  # Could be enhanced with session tracking
                 barcode=barcode,

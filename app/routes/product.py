@@ -112,7 +112,11 @@ def _get_cache_backend():
 def _get_openfoodfacts_backend():
     return getattr(openfoodfacts_module, 'openfoodfacts_service', openfoodfacts_service)
 from app.services.database import db_service
+from app.services.analytics_service import AnalyticsService
 from app.services.auth import RequestContext, get_optional_request_context
+
+# Task: Phase 2 Batch 6 - Analytics Service Extraction
+analytics_service = AnalyticsService(db_service)
 import aiofiles
 
 
@@ -347,7 +351,7 @@ async def get_product_by_barcode(
         cached_product = await cache.get(cache_key)
         if cached_product:
             response_time = int((datetime.now() - start_time).total_seconds() * 1000)
-            await db_service.log_product_lookup(
+            await analytics_service.log_product_lookup(
                 user_id, session_id, barcode, cached_product.get('name'), 
                 True, response_time, "Cache"
             )
@@ -359,7 +363,7 @@ async def get_product_by_barcode(
             product = await product_client.get_product(barcode)
         except timeout_exc:
             response_time = int((datetime.now() - start_time).total_seconds() * 1000)
-            await db_service.log_product_lookup(
+            await analytics_service.log_product_lookup(
                 user_id, session_id, barcode, None,
                 False, response_time, "OpenFoodFacts", "Timeout"
             )
@@ -370,7 +374,7 @@ async def get_product_by_barcode(
             )
         except request_error_exc as e:
             response_time = int((datetime.now() - start_time).total_seconds() * 1000)
-            await db_service.log_product_lookup(
+            await analytics_service.log_product_lookup(
                 user_id, session_id, barcode, None,
                 False, response_time, "OpenFoodFacts", f"Network error: {str(e)}"
             )
@@ -382,7 +386,7 @@ async def get_product_by_barcode(
         except Exception as api_error:
             # Log API error and convert to appropriate HTTP status
             response_time = int((datetime.now() - start_time).total_seconds() * 1000)
-            await db_service.log_product_lookup(
+            await analytics_service.log_product_lookup(
                 user_id, session_id, barcode, None,
                 False, response_time, "OpenFoodFacts", f"API error: {str(api_error)}"
             )
@@ -394,7 +398,7 @@ async def get_product_by_barcode(
         
         if product is None:
             response_time = int((datetime.now() - start_time).total_seconds() * 1000)
-            await db_service.log_product_lookup(
+            await analytics_service.log_product_lookup(
                 user_id, session_id, barcode, None, 
                 False, response_time, "OpenFoodFacts", "Product not found"
             )
@@ -420,11 +424,11 @@ async def get_product_by_barcode(
         )
         
         response_time = int((datetime.now() - start_time).total_seconds() * 1000)
-        await db_service.log_product_lookup(
+        await analytics_service.log_product_lookup(
             user_id, session_id, barcode, product.name, 
             True, response_time, "OpenFoodFacts"
         )
-        await db_service.log_user_product_interaction(
+        await analytics_service.log_user_product_interaction(
             user_id, session_id, barcode, "lookup", "api_fetch"
         )
         
@@ -434,7 +438,7 @@ async def get_product_by_barcode(
         if _is_http_exception(exc):
             raise exc
         response_time = int((datetime.now() - start_time).total_seconds() * 1000)
-        await db_service.log_product_lookup(
+        await analytics_service.log_product_lookup(
             user_id, session_id, barcode, None, 
             False, response_time, "System", f"Unexpected error: {str(exc)}"
         )
@@ -510,7 +514,7 @@ async def scan_nutrition_label(
         
         if not ocr_result['raw_text'].strip():
             processing_time_ms = int((datetime.now() - start_time).total_seconds() * 1000)
-            await db_service.log_ocr_scan(
+            await analytics_service.log_ocr_scan(
                 user_id, session_id, upload.size, 0.0, processing_time_ms,
                 ocr_result.get('processing_details', {}).get('ocr_engine', 'tesseract'),
                 0, False, "No text extracted"
@@ -532,7 +536,7 @@ async def scan_nutrition_label(
         
         # Log OCR analytics
         nutrients_extracted = len([v for v in nutrition_data.values() if v is not None])
-        await db_service.log_ocr_scan(
+        await analytics_service.log_ocr_scan(
             user_id, session_id, upload.size, confidence, processing_time_ms,
             ocr_result.get('processing_details', {}).get('ocr_engine', 'tesseract'),
             nutrients_extracted, True
@@ -576,7 +580,7 @@ async def scan_nutrition_label(
         if _is_http_exception(exc):
             raise exc
         processing_time_ms = int((datetime.now() - start_time).total_seconds() * 1000)
-        await db_service.log_ocr_scan(
+        await analytics_service.log_ocr_scan(
             user_id, session_id, upload.size or 0, 0.0, processing_time_ms,
             "tesseract", 0, False, f"Processing error: {str(exc)}"
         )
@@ -677,7 +681,7 @@ async def scan_label_with_external_ocr(
         
         if not ocr_result['raw_text'].strip():
             processing_time_ms = int((datetime.now() - start_time).total_seconds() * 1000)
-            await db_service.log_ocr_scan(
+            await analytics_service.log_ocr_scan(
                 user_id, session_id, upload.size, 0.0, processing_time_ms,
                 source.replace(" OCR", "").lower() + "_api", 0, False, "No text extracted"
             )
@@ -698,7 +702,7 @@ async def scan_label_with_external_ocr(
         
         # Log OCR analytics
         nutrients_extracted = len([v for v in nutrition_data.values() if v is not None])
-        await db_service.log_ocr_scan(
+        await analytics_service.log_ocr_scan(
             user_id, session_id, upload.size, confidence, processing_time_ms,
             ocr_result.get('processing_details', {}).get('ocr_engine', 'external_api'),
             nutrients_extracted, True
@@ -739,7 +743,7 @@ async def scan_label_with_external_ocr(
         if _is_http_exception(exc):
             raise exc
         processing_time_ms = int((datetime.now() - start_time).total_seconds() * 1000)
-        await db_service.log_ocr_scan(
+        await analytics_service.log_ocr_scan(
             user_id, session_id, upload.size or 0, 0.0, processing_time_ms,
             "external_api", 0, False, f"Processing error: {str(exc)}"
         )

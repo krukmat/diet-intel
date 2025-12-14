@@ -1230,48 +1230,6 @@ class DatabaseService:
         
         return deleted
 
-    # Analytics methods for 100% database integration
-    
-    async def log_product_lookup(self, user_id: Optional[str], session_id: Optional[str], 
-                               barcode: str, product_name: Optional[str], success: bool,
-                               response_time_ms: Optional[int], source: Optional[str],
-                               error_message: Optional[str] = None) -> str:
-        """Log a product lookup for analytics"""
-        lookup_id = str(uuid.uuid4())
-        
-        with self.get_connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute("""
-                INSERT INTO user_product_lookups 
-                (id, user_id, session_id, barcode, product_name, success, response_time_ms, source, error_message)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (lookup_id, user_id, session_id, barcode, product_name, success, 
-                  response_time_ms, source, error_message))
-            conn.commit()
-        
-        return lookup_id
-    
-    async def log_ocr_scan(self, user_id: Optional[str], session_id: Optional[str],
-                          image_size: Optional[int], confidence_score: Optional[float],
-                          processing_time_ms: Optional[int], ocr_engine: Optional[str],
-                          nutrients_extracted: int, success: bool,
-                          error_message: Optional[str] = None) -> str:
-        """Log an OCR scan for analytics"""
-        scan_id = str(uuid.uuid4())
-        
-        with self.get_connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute("""
-                INSERT INTO ocr_scan_analytics 
-                (id, user_id, session_id, image_size, confidence_score, processing_time_ms, 
-                 ocr_engine, nutrients_extracted, success, error_message)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (scan_id, user_id, session_id, image_size, confidence_score, 
-                  processing_time_ms, ocr_engine, nutrients_extracted, success, error_message))
-            conn.commit()
-        
-        return scan_id
-    
     async def store_product(self, barcode: str, name: str, brand: Optional[str],
                            categories: Optional[str], nutriments: dict,
                            serving_size: Optional[str], image_url: Optional[str],
@@ -1372,84 +1330,6 @@ class DatabaseService:
         except Exception as e:
             logger.error(f"Error retrieving product {barcode}: {e}")
             return None
-    
-    async def log_user_product_interaction(self, user_id: Optional[str], session_id: Optional[str],
-                                         barcode: str, action: str, context: Optional[str] = None) -> str:
-        """Log a user's interaction with a product"""
-        interaction_id = str(uuid.uuid4())
-        
-        with self.get_connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute("""
-                INSERT INTO user_product_history 
-                (id, user_id, session_id, barcode, action, context)
-                VALUES (?, ?, ?, ?, ?, ?)
-            """, (interaction_id, user_id, session_id, barcode, action, context))
-            conn.commit()
-        
-        return interaction_id
-    
-    async def get_analytics_summary(self, user_id: Optional[str] = None, 
-                                  days: int = 7) -> dict:
-        """Get analytics summary for the specified period"""
-        from datetime import timedelta
-        
-        since_date = (datetime.now() - timedelta(days=days)).isoformat()
-        
-        with self.get_connection() as conn:
-            cursor = conn.cursor()
-            
-            # Product lookup stats
-            lookup_filter = "WHERE timestamp >= ?" if user_id is None else "WHERE user_id = ? AND timestamp >= ?"
-            lookup_params = (since_date,) if user_id is None else (user_id, since_date)
-            
-            cursor.execute(f"""
-                SELECT COUNT(*) as total, 
-                       SUM(CASE WHEN success THEN 1 ELSE 0 END) as successful,
-                       AVG(response_time_ms) as avg_response_time
-                FROM user_product_lookups {lookup_filter}
-            """, lookup_params)
-            lookup_stats = cursor.fetchone()
-            
-            # OCR scan stats
-            ocr_filter = "WHERE timestamp >= ?" if user_id is None else "WHERE user_id = ? AND timestamp >= ?"
-            ocr_params = (since_date,) if user_id is None else (user_id, since_date)
-            
-            cursor.execute(f"""
-                SELECT COUNT(*) as total,
-                       SUM(CASE WHEN success THEN 1 ELSE 0 END) as successful,
-                       AVG(confidence_score) as avg_confidence,
-                       AVG(processing_time_ms) as avg_processing_time
-                FROM ocr_scan_analytics {ocr_filter}
-            """, ocr_params)
-            ocr_stats = cursor.fetchone()
-            
-            # Most accessed products
-            cursor.execute("""
-                SELECT name, brand, access_count 
-                FROM products 
-                ORDER BY access_count DESC 
-                LIMIT 10
-            """)
-            top_products = cursor.fetchall()
-            
-            return {
-                'period_days': days,
-                'product_lookups': {
-                    'total': lookup_stats['total'] or 0,
-                    'successful': lookup_stats['successful'] or 0,
-                    'success_rate': (lookup_stats['successful'] or 0) / max(lookup_stats['total'] or 1, 1),
-                    'avg_response_time_ms': lookup_stats['avg_response_time'] or 0
-                },
-                'ocr_scans': {
-                    'total': ocr_stats['total'] or 0,
-                    'successful': ocr_stats['successful'] or 0,
-                    'success_rate': (ocr_stats['successful'] or 0) / max(ocr_stats['total'] or 1, 1),
-                    'avg_confidence': ocr_stats['avg_confidence'] or 0,
-                    'avg_processing_time_ms': ocr_stats['avg_processing_time'] or 0
-                },
-                'top_products': [dict(row) for row in top_products]
-            }
 
 
 # Global database service instance

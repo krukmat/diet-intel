@@ -5,6 +5,7 @@ import pytest
 
 from app.models.user import UserCreate, UserSession
 from app.services.database import ConnectionPool, DatabaseService
+from app.services.analytics_service import AnalyticsService
 
 
 @pytest.fixture
@@ -108,7 +109,8 @@ def test_connection_pool_creation_failure_raises(monkeypatch, tmp_path):
 @pytest.mark.asyncio
 async def test_log_product_lookup_creates_entry(temp_database):
     service = temp_database
-    lookup_id = await service.log_product_lookup(
+    analytics_service = AnalyticsService(service)
+    lookup_id = await analytics_service.log_product_lookup(
         user_id="user-x",
         session_id="session-x",
         barcode="123XYZ",
@@ -130,7 +132,8 @@ async def test_log_product_lookup_creates_entry(temp_database):
 @pytest.mark.asyncio
 async def test_log_ocr_scan_creates_entry(temp_database):
     service = temp_database
-    scan_id = await service.log_ocr_scan(
+    analytics_service = AnalyticsService(service)
+    scan_id = await analytics_service.log_ocr_scan(
         user_id="user-x",
         session_id="session-x",
         image_size=1024,
