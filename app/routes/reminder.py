@@ -12,11 +12,13 @@ from app.models.reminder import (
 from app.services.cache import cache_service
 from app.services import cache as cache_module
 from app.services.database import db_service
+from app.services.reminders_service import RemindersService  # Task: Phase 2 Batch 5
 from app.utils.auth_context import get_session_user_id
 import logging
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
+reminders_service = RemindersService(db_service)  # Task: Phase 2 Batch 5
 
 _REMINDER_STORE: Dict[str, List[dict]] = {}
 
@@ -203,7 +205,7 @@ async def _load_user_reminders(user_id: str) -> List[dict]:
         return [dict(reminder) for reminder in _REMINDER_STORE[user_id]]
 
     try:
-        db_records = await db_service.get_user_reminders(user_id)
+        db_records = await reminders_service.get_user_reminders(user_id)  # Task: Phase 2 Batch 5
     except Exception as db_error:
         logger.debug(f"Failed to fetch reminders from DB for {user_id}: {db_error}")
         db_records = []
@@ -274,7 +276,7 @@ async def create_reminder(request: ReminderRequest, req: Request):
         await _save_user_reminders(user_id, reminders)
 
         try:
-            await db_service.create_reminder(user_id, request)
+            await reminders_service.create_reminder(user_id, request)  # Task: Phase 2 Batch 5
         except Exception as db_error:
             logger.debug(f"DB reminder persistence skipped: {db_error}")
 
@@ -393,7 +395,7 @@ async def update_reminder(
             db_payload = updates.copy()
             if "type" in db_payload and isinstance(db_payload["type"], ReminderType):
                 db_payload["type"] = db_payload["type"].value
-            success = await db_service.update_reminder(reminder_id, db_payload)
+            success = await reminders_service.update_reminder(reminder_id, db_payload)  # Task: Phase 2 Batch 5
             if not success:
                 logger.debug(f"DB reminder update reported missing reminder {reminder_id}")
         except Exception as db_error:
@@ -439,7 +441,7 @@ async def delete_reminder(
         await _save_user_reminders(user_id, new_reminders)
 
         try:
-            success = await db_service.delete_reminder(reminder_id)
+            success = await reminders_service.delete_reminder(reminder_id)  # Task: Phase 2 Batch 5
             if not success:
                 logger.debug(f"DB reminder delete reported missing reminder {reminder_id}")
         except Exception as db_error:
@@ -475,7 +477,7 @@ async def get_reminder(
 
         if target is None:
             try:
-                reminder_data = await db_service.get_reminder_by_id(reminder_id)
+                reminder_data = await reminders_service.get_reminder_by_id(reminder_id)  # Task: Phase 2 Batch 5
             except Exception as db_error:
                 logger.debug(f"DB get reminder failed: {db_error}")
                 reminder_data = None
