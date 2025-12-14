@@ -16,6 +16,8 @@ import logging
 
 # Import SessionService for session management - Phase 2 Batch 7
 from app.services.session_service import SessionService
+# Import UserService for user management - Phase 2 Batch 9
+from app.services.user_service import UserService
 
 logger = logging.getLogger(__name__)
 
@@ -72,7 +74,7 @@ class RequestContext:
 class AuthService:
     """Authentication service for user management and JWT tokens"""
 
-    def __init__(self, session_service: Optional[SessionService] = None):
+    def __init__(self, session_service: Optional[SessionService] = None, user_service: Optional[UserService] = None):
         try:
             if os.environ.get("TZ") != "UTC":
                 os.environ["TZ"] = "UTC"
@@ -88,6 +90,8 @@ class AuthService:
         self._dummy_password_hash = bcrypt.hashpw(b"dietintel_dummy", bcrypt.gensalt()).decode('utf-8')
         # Phase 2 Batch 7: Session service dependency
         self.session_service = session_service
+        # Phase 2 Batch 9: User service dependency
+        self.user_service = user_service
     
     def hash_password(self, password: str) -> str:
         """Hash password using bcrypt"""
@@ -174,19 +178,22 @@ class AuthService:
     
     async def register_user(self, user_data: UserCreate) -> Token:
         """Register a new user"""
+        # Phase 2 Batch 9: Use UserService for user management
+        user_service = self.user_service or UserService(db_service)
+
         # Check if user already exists
-        existing_user = await db_service.get_user_by_email(user_data.email)
+        existing_user = await user_service.get_user_by_email(user_data.email)
         if existing_user:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
                 detail="User with this email already exists"
             )
-        
+
         # Hash password
         password_hash = self.hash_password(user_data.password)
-        
+
         # Create user
-        user = await db_service.create_user(user_data, password_hash)
+        user = await user_service.create_user(user_data, password_hash)
         
         # Create tokens
         access_token = self.create_access_token(user)
@@ -217,8 +224,11 @@ class AuthService:
     
     async def login_user(self, login_data: UserLogin) -> Token:
         """Authenticate user and return tokens"""
+        # Phase 2 Batch 9: Use UserService for user management
+        user_service = self.user_service or UserService(db_service)
+
         # Get user by email
-        user = await db_service.get_user_by_email(login_data.email)
+        user = await user_service.get_user_by_email(login_data.email)
         if not user:
             # Simulate password verification to mitigate timing attacks
             self._simulate_password_check()
@@ -233,9 +243,9 @@ class AuthService:
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Account is deactivated"
             )
-        
+
         # Verify password
-        password_hash = await db_service.get_password_hash(user.id)
+        password_hash = await user_service.get_password_hash(user.id)
         if not password_hash or not self.verify_password(login_data.password, password_hash):
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
@@ -393,9 +403,10 @@ class AuthService:
             return int(session_id)
         return session_id
 
-# Global service instances - Phase 2 Batch 7: SessionService added
+# Global service instances - Phase 2 Batch 7: SessionService added, Phase 2 Batch 9: UserService added
 session_service = SessionService(db_service)
-auth_service = AuthService(session_service)
+user_service = UserService(db_service)
+auth_service = AuthService(session_service, user_service)
 
 
 # FastAPI dependency for getting current user

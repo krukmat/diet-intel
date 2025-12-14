@@ -17,7 +17,7 @@ from datetime import datetime, timedelta
 from unittest.mock import AsyncMock, patch, MagicMock
 from fastapi import HTTPException, status
 
-from app.services.auth import AuthService, auth_service, session_service as auth_session_service
+from app.services.auth import AuthService, auth_service, session_service as auth_session_service, user_service
 from app.models.user import User, UserCreate, UserLogin, UserRole, Token, UserSession
 from app.services.database import db_service
 from app.services.session_service import SessionService
@@ -99,8 +99,8 @@ class TestUserRegistration:
     async def test_register_user_success(self):
         """Test successful user registration"""
         # Mock database operations
-        with patch.object(db_service, 'get_user_by_email', new_callable=AsyncMock, return_value=None), \
-             patch.object(db_service, 'create_user', new_callable=AsyncMock) as mock_create_user, \
+        with patch.object(user_service, 'get_user_by_email', new_callable=AsyncMock, return_value=None), \
+             patch.object(user_service, 'create_user', new_callable=AsyncMock) as mock_create_user, \
              patch.object(session_service, 'create_session', new_callable=AsyncMock) as mock_create_session:
             
             # Mock created user
@@ -144,7 +144,7 @@ class TestUserRegistration:
             created_at=datetime.utcnow()
         )
         
-        with patch.object(db_service, 'get_user_by_email', new_callable=AsyncMock, return_value=existing_user):
+        with patch.object(user_service, 'get_user_by_email', new_callable=AsyncMock, return_value=existing_user):
             with pytest.raises(HTTPException) as exc_info:
                 await self.auth_service.register_user(self.valid_user_data)
             
@@ -161,8 +161,8 @@ class TestUserRegistration:
             developer_code="DIETINTEL_DEV_2024"
         )
         
-        with patch.object(db_service, 'get_user_by_email', new_callable=AsyncMock, return_value=None), \
-             patch.object(db_service, 'create_user', new_callable=AsyncMock) as mock_create_user, \
+        with patch.object(user_service, 'get_user_by_email', new_callable=AsyncMock, return_value=None), \
+             patch.object(user_service, 'create_user', new_callable=AsyncMock) as mock_create_user, \
              patch.object(session_service, 'create_session', new_callable=AsyncMock):
             
             created_user = User(
@@ -189,8 +189,8 @@ class TestUserRegistration:
     @pytest.mark.asyncio
     async def test_register_user_password_hashing(self):
         """Test that password is properly hashed during registration"""
-        with patch.object(db_service, 'get_user_by_email', new_callable=AsyncMock, return_value=None), \
-             patch.object(db_service, 'create_user', new_callable=AsyncMock) as mock_create_user, \
+        with patch.object(user_service, 'get_user_by_email', new_callable=AsyncMock, return_value=None), \
+             patch.object(user_service, 'create_user', new_callable=AsyncMock) as mock_create_user, \
              patch.object(session_service, 'create_session', new_callable=AsyncMock):
             
             created_user = User(
@@ -241,8 +241,8 @@ class TestUserLogin:
         """Test successful user login"""
         password_hash = self.auth_service.hash_password(self.login_data.password)
         
-        with patch.object(db_service, 'get_user_by_email', new_callable=AsyncMock, return_value=self.test_user), \
-             patch.object(db_service, 'get_password_hash', new_callable=AsyncMock, return_value=password_hash), \
+        with patch.object(user_service, 'get_user_by_email', new_callable=AsyncMock, return_value=self.test_user), \
+             patch.object(user_service, 'get_password_hash', new_callable=AsyncMock, return_value=password_hash), \
              patch.object(session_service, 'create_session', new_callable=AsyncMock):
             
             result = await self.auth_service.login_user(self.login_data)
@@ -256,7 +256,7 @@ class TestUserLogin:
     @pytest.mark.asyncio
     async def test_login_user_not_found(self):
         """Test login fails when user doesn't exist"""
-        with patch.object(db_service, 'get_user_by_email', new_callable=AsyncMock, return_value=None):
+        with patch.object(user_service, 'get_user_by_email', new_callable=AsyncMock, return_value=None):
             with pytest.raises(HTTPException) as exc_info:
                 await self.auth_service.login_user(self.login_data)
             
@@ -272,7 +272,7 @@ class TestUserLogin:
             email_verified=True, created_at=datetime.utcnow()
         )
         
-        with patch.object(db_service, 'get_user_by_email', new_callable=AsyncMock, return_value=inactive_user):
+        with patch.object(user_service, 'get_user_by_email', new_callable=AsyncMock, return_value=inactive_user):
             with pytest.raises(HTTPException) as exc_info:
                 await self.auth_service.login_user(self.login_data)
             
@@ -284,8 +284,8 @@ class TestUserLogin:
         """Test login fails with wrong password"""
         wrong_password_hash = self.auth_service.hash_password("wrong_password")
         
-        with patch.object(db_service, 'get_user_by_email', new_callable=AsyncMock, return_value=self.test_user), \
-             patch.object(db_service, 'get_password_hash', new_callable=AsyncMock, return_value=wrong_password_hash):
+        with patch.object(user_service, 'get_user_by_email', new_callable=AsyncMock, return_value=self.test_user), \
+             patch.object(user_service, 'get_password_hash', new_callable=AsyncMock, return_value=wrong_password_hash):
             
             with pytest.raises(HTTPException) as exc_info:
                 await self.auth_service.login_user(self.login_data)
@@ -296,8 +296,8 @@ class TestUserLogin:
     @pytest.mark.asyncio
     async def test_login_no_password_hash(self):
         """Test login fails when password hash is missing"""
-        with patch.object(db_service, 'get_user_by_email', new_callable=AsyncMock, return_value=self.test_user), \
-             patch.object(db_service, 'get_password_hash', new_callable=AsyncMock, return_value=None):
+        with patch.object(user_service, 'get_user_by_email', new_callable=AsyncMock, return_value=self.test_user), \
+             patch.object(user_service, 'get_password_hash', new_callable=AsyncMock, return_value=None):
             
             with pytest.raises(HTTPException) as exc_info:
                 await self.auth_service.login_user(self.login_data)

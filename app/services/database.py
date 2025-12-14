@@ -582,92 +582,15 @@ class DatabaseService:
         with self.connection_pool.get_connection() as conn:
             yield conn
     
-    async def create_user(self, user_data: UserCreate, password_hash: str) -> User:
-        """Create a new user in the database"""
-        user_id = str(uuid.uuid4())
-        now = datetime.utcnow().isoformat()
-        
-        # Check for developer code
-        is_developer = user_data.developer_code == "DIETINTEL_DEV_2024"
-        role = UserRole.DEVELOPER if is_developer else UserRole.STANDARD
-        
-        with self.get_connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute("""
-                INSERT INTO users (id, email, password_hash, full_name, is_developer, role, created_at, updated_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            """, (user_id, user_data.email, password_hash, user_data.full_name, is_developer, role.value, now, now))
-            conn.commit()
-        
-        return await self.get_user_by_id(user_id)
-    
-    async def get_user_by_email(self, email: str) -> Optional[User]:
-        """Get user by email address"""
-        with self.get_connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute("SELECT * FROM users WHERE email = ?", (email,))
-            row = cursor.fetchone()
-            
-            if row:
-                return self._row_to_user(row)
-            return None
-    
-    async def get_user_by_id(self, user_id: str) -> Optional[User]:
-        """Get user by ID"""
-        with self.get_connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute("SELECT * FROM users WHERE id = ?", (user_id,))
-            row = cursor.fetchone()
-            
-            if row:
-                return self._row_to_user(row)
-            return None
-    
-    async def get_password_hash(self, user_id: str) -> Optional[str]:
-        """Get password hash for user"""
-        with self.get_connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute("SELECT password_hash FROM users WHERE id = ?", (user_id,))
-            row = cursor.fetchone()
-            
-            if row:
-                return row['password_hash']
-            return None
-    
-    async def update_user(self, user_id: str, updates: Dict[str, Any]) -> Optional[User]:
-        """Update user information"""
-        if not updates:
-            return await self.get_user_by_id(user_id)
-        
-        updates['updated_at'] = datetime.utcnow().isoformat()
-        
-        # Build dynamic update query
-        set_clause = ", ".join([f"{key} = ?" for key in updates.keys()])
-        values = list(updates.values()) + [user_id]
-        
-        with self.get_connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute(f"UPDATE users SET {set_clause} WHERE id = ?", values)
-            conn.commit()
-        
-        return await self.get_user_by_id(user_id)
-    
-    # ===== SESSION MANAGEMENT METHODS EXTRACTED TO session_service.py (Phase 2 Batch 7) =====
+    # ===== USER MANAGEMENT METHODS EXTRACTED TO user_service.py (Phase 2 Batch 9) =====
+    # - create_user(user_data, password_hash)
+    # - get_user_by_email(email)
+    # - get_user_by_id(user_id)
+    # - get_password_hash(user_id)
+    # - update_user(user_id, updates)
+    # - _row_to_user(row)
 
-    def _row_to_user(self, row) -> User:
-        """Convert database row to User model"""
-        return User(
-            id=row['id'],
-            email=row['email'],
-            full_name=row['full_name'],
-            avatar_url=row['avatar_url'],
-            is_developer=bool(row['is_developer']),
-            role=UserRole(row['role']),
-            is_active=bool(row['is_active']),
-            email_verified=bool(row['email_verified']),
-            created_at=datetime.fromisoformat(row['created_at']),
-            updated_at=datetime.fromisoformat(row['updated_at'])
-        )
+    # ===== SESSION MANAGEMENT METHODS EXTRACTED TO session_service.py (Phase 2 Batch 7) ====
 
 
     # ===== MEAL AND WEIGHT TRACKING METHODS EXTRACTED TO tracking_service.py (Phase 2 Batch 8) =====

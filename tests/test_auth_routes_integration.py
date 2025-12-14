@@ -20,7 +20,7 @@ from fastapi import status
 
 from main import app
 from app.models.user import User, UserCreate, UserLogin, UserRole, Token, RefreshToken, UserUpdate, ChangePassword
-from app.services.auth import auth_service, session_service
+from app.services.auth import auth_service, session_service, user_service
 from app.services.database import db_service
 from app.services.session_service import SessionService
 
@@ -399,7 +399,7 @@ class TestProtectedEndpoints:
         )
         
         with patch('app.services.auth.get_current_user', return_value=test_user), \
-             patch.object(db_service, 'update_user', new_callable=AsyncMock, return_value=updated_user):
+             patch.object(user_service, 'update_user', new_callable=AsyncMock, return_value=updated_user):
             
             response = client.put(
                 "/auth/me",
@@ -437,10 +437,10 @@ class TestProtectedEndpoints:
         current_hash = "hashed_old_password"
         
         with patch('app.services.auth.get_current_user', return_value=test_user), \
-             patch.object(db_service, 'get_password_hash', new_callable=AsyncMock, return_value=current_hash), \
+             patch.object(user_service, 'get_password_hash', new_callable=AsyncMock, return_value=current_hash), \
              patch.object(auth_service, 'verify_password', return_value=True), \
              patch.object(auth_service, 'hash_password', return_value="hashed_new_password"), \
-             patch.object(db_service, 'update_user', new_callable=AsyncMock), \
+             patch.object(user_service, 'update_user', new_callable=AsyncMock), \
              patch.object(session_service, 'delete_user_sessions', new_callable=AsyncMock):
             
             response = client.post(
@@ -461,7 +461,7 @@ class TestProtectedEndpoints:
         current_hash = "hashed_old_password"
         
         with patch('app.services.auth.get_current_user', return_value=test_user), \
-             patch.object(db_service, 'get_password_hash', new_callable=AsyncMock, return_value=current_hash), \
+             patch.object(user_service, 'get_password_hash', new_callable=AsyncMock, return_value=current_hash), \
              patch.object(auth_service, 'verify_password', return_value=False):
             
             response = client.post(
@@ -479,7 +479,7 @@ class TestFastAPIDependencies:
     
     def test_get_current_user_dependency(self, test_user):
         """Test get_current_user FastAPI dependency"""
-        from app.services.auth import get_current_user
+        from app.services.auth import get_current_user, user_service
         from fastapi.security import HTTPAuthorizationCredentials
         
         # Mock credentials
@@ -498,7 +498,7 @@ class TestFastAPIDependencies:
     
     def test_get_current_developer_user_dependency(self, developer_user):
         """Test get_current_developer_user dependency"""
-        from app.services.auth import get_current_developer_user
+        from app.services.auth import get_current_developer_user, user_service
         
         async def test_dependency():
             user = await get_current_developer_user(developer_user)
@@ -509,7 +509,7 @@ class TestFastAPIDependencies:
     
     def test_get_current_developer_user_access_denied(self, test_user):
         """Test developer dependency denies non-developer users"""
-        from app.services.auth import get_current_developer_user
+        from app.services.auth import get_current_developer_user, user_service
         from fastapi import HTTPException
         
         async def test_dependency():
@@ -524,7 +524,7 @@ class TestFastAPIDependencies:
     
     def test_get_current_admin_user_dependency(self, developer_user):
         """Test get_current_admin_user dependency"""
-        from app.services.auth import get_current_admin_user
+        from app.services.auth import get_current_admin_user, user_service
         
         async def test_dependency():
             user = await get_current_admin_user(developer_user)
@@ -535,7 +535,7 @@ class TestFastAPIDependencies:
     
     def test_get_current_admin_user_access_denied(self, test_user):
         """Test admin dependency denies non-admin users"""
-        from app.services.auth import get_current_admin_user
+        from app.services.auth import get_current_admin_user, user_service
         from fastapi import HTTPException
         
         async def test_dependency():

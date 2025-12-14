@@ -17,7 +17,7 @@ import jwt
 from datetime import datetime, timedelta
 from unittest.mock import AsyncMock, patch, MagicMock
 
-from app.services.auth import session_service as auth_session_service, AuthService, security
+from app.services.auth import session_service as auth_session_service, AuthService, security, user_service
 from app.models.user import User, UserRole, TokenData
 from fastapi import HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials
@@ -122,7 +122,7 @@ class TestSessionSecurityScenarios:
 
     def setup_method(self):
         # Phase 2 Batch 7: Use global auth_service with SessionService
-        from app.services.auth import auth_service
+        from app.services.auth import auth_service, user_service
         self.auth_service = auth_service
     
     @pytest.mark.asyncio
@@ -253,7 +253,7 @@ class TestRoleSecurityScenarios:
     @pytest.mark.asyncio
     async def test_role_escalation_prevention(self):
         """Test prevention of role escalation attacks"""
-        from app.services.auth import session_service as auth_session_service,  get_current_developer_user, get_current_admin_user
+        from app.services.auth import session_service as auth_session_service,  get_current_developer_user, get_current_admin_user, user_service
         
         # Standard user trying to access developer functionality
         standard_user = User(
@@ -315,7 +315,7 @@ class TestSecurityConfiguration:
     
     def test_secure_defaults(self):
         """Test that security defaults are appropriately configured"""
-        from app.services.auth import session_service as auth_session_service,  ACCESS_TOKEN_EXPIRE_MINUTES, REFRESH_TOKEN_EXPIRE_DAYS, ALGORITHM
+        from app.services.auth import session_service as auth_session_service,  ACCESS_TOKEN_EXPIRE_MINUTES, REFRESH_TOKEN_EXPIRE_DAYS, ALGORITHM, user_service
         
         # Access tokens should have short expiration
         assert ACCESS_TOKEN_EXPIRE_MINUTES <= 60  # Max 1 hour
@@ -328,7 +328,7 @@ class TestSecurityConfiguration:
     
     def test_httpsecurity_configuration(self):
         """Test HTTPBearer security configuration"""
-        from app.services.auth import session_service as auth_session_service,  security
+        from app.services.auth import session_service as auth_session_service,  security, user_service
         from fastapi.security import HTTPBearer
         
         assert isinstance(security, HTTPBearer)
@@ -362,7 +362,7 @@ class TestErrorHandlingSecurity:
         # Test login with non-existent user
         login_data = UserLogin(email="nonexistent@example.com", password="password")
         
-        with patch.object(db_service, 'get_user_by_email', new_callable=AsyncMock, return_value=None):
+        with patch.object(user_service, 'get_user_by_email', new_callable=AsyncMock, return_value=None):
             with pytest.raises(HTTPException) as exc_info:
                 await self.auth_service.login_user(login_data)
             
@@ -406,8 +406,8 @@ class TestErrorHandlingSecurity:
         # Real user, wrong password
         login_real = UserLogin(email="real@example.com", password="wrong_password")
         
-        with patch.object(db_service, 'get_user_by_email', new_callable=AsyncMock, return_value=real_user), \
-             patch.object(db_service, 'get_password_hash', new_callable=AsyncMock, return_value=real_hash):
+        with patch.object(user_service, 'get_user_by_email', new_callable=AsyncMock, return_value=real_user), \
+             patch.object(user_service, 'get_password_hash', new_callable=AsyncMock, return_value=real_hash):
             
             start_time = time.time()
             try:
@@ -419,7 +419,7 @@ class TestErrorHandlingSecurity:
         # Non-existent user
         login_fake = UserLogin(email="fake@example.com", password="any_password")
         
-        with patch.object(db_service, 'get_user_by_email', new_callable=AsyncMock, return_value=None):
+        with patch.object(user_service, 'get_user_by_email', new_callable=AsyncMock, return_value=None):
             start_time = time.time()
             try:
                 await self.auth_service.login_user(login_fake)
