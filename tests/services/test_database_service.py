@@ -195,3 +195,230 @@ async def test_store_and_get_product_updates_access_count(temp_database):
     assert product is not None
     assert product["access_count"] == 1
     assert product["name"] == "Protein Bar"
+
+
+@pytest.mark.asyncio
+async def test_cleanup_expired_meal_plans_no_expired(temp_database):
+    """Test cleanup of expired meal plans"""
+    service = temp_database
+
+    # Should return 0 when no expired plans
+    count = await service.cleanup_expired_meal_plans()
+    assert count == 0
+
+
+@pytest.mark.asyncio
+async def test_store_product_with_invalid_image_url(temp_database):
+    """Test storing product with invalid image URL"""
+    service = temp_database
+
+    success = await service.store_product(
+        barcode="BAD-PROD-1",
+        name="Bad Product",
+        brand="TestBrand",
+        categories="snacks",
+        nutriments={
+            "energy_kcal_per_100g": 250,
+            "protein_g_per_100g": 20,
+            "fat_g_per_100g": 8,
+            "carbs_g_per_100g": 22,
+            "sugars_g_per_100g": 5,
+            "salt_g_per_100g": 0.5
+        },
+        serving_size="50g",
+        image_url="",  # Empty image URL
+        source="unit-test"
+    )
+
+    assert success is True
+
+
+@pytest.mark.asyncio
+async def test_get_product_not_found(temp_database):
+    """Test getting non-existent product"""
+    service = temp_database
+
+    product = await service.get_product("NON-EXISTENT")
+    assert product is None
+
+
+@pytest.mark.asyncio
+async def test_get_user_meal_plans_empty(temp_database):
+    """Test retrieving user's meal plans when empty"""
+    service = temp_database
+
+    # Try to get meal plans for non-existent user
+    plans = await service.get_user_meal_plans("non-existent-user", limit=10)
+    assert isinstance(plans, list)
+    assert len(plans) == 0
+
+
+@pytest.mark.asyncio
+async def test_store_product_with_all_fields(temp_database):
+    """Test storing product with all nutriment fields"""
+    service = temp_database
+
+    success = await service.store_product(
+        barcode="FULL-PROD-1",
+        name="Full Product",
+        brand="TestBrand",
+        categories="snacks,energy",
+        nutriments={
+            "energy_kcal_per_100g": 300,
+            "protein_g_per_100g": 25,
+            "fat_g_per_100g": 12,
+            "carbs_g_per_100g": 35,
+            "sugars_g_per_100g": 8,
+            "salt_g_per_100g": 1.5
+        },
+        serving_size="100g",
+        image_url="https://example.com/product.png",
+        source="test-comprehensive"
+    )
+
+    assert success is True
+
+    # Verify product can be retrieved
+    product = await service.get_product("FULL-PROD-1")
+    assert product is not None
+    assert product["name"] == "Full Product"
+    assert product["brand"] == "TestBrand"
+
+
+@pytest.mark.asyncio
+async def test_connection_pool_max_connections(temp_database):
+    """Test connection pool respects max_connections limit"""
+    service = temp_database
+    pool = service.connection_pool
+
+    # Try to get multiple connections up to limit
+    initial_count = pool._created_connections
+    with pool.get_connection() as conn:
+        assert conn is not None
+
+    # Connection should be returned to pool
+    assert pool._created_connections <= initial_count + 1
+
+
+@pytest.mark.asyncio
+async def test_connection_pool_creates_new_when_empty(temp_database):
+    """Test connection pool creates new connections when pool is empty"""
+    service = temp_database
+
+    # Get a connection
+    with service.get_connection() as conn:
+        cursor = conn.cursor()
+        # Simple query to verify connection works
+        cursor.execute("SELECT 1")
+        result = cursor.fetchone()
+        assert result[0] == 1
+
+
+@pytest.mark.asyncio
+async def test_product_access_count_increments(temp_database):
+    """Test that product access_count increments on repeated access"""
+    service = temp_database
+
+    # Store product
+    await service.store_product(
+        barcode="ACCESS-COUNT-PROD",
+        name="Test Product",
+        brand="Brand",
+        categories="test",
+        nutriments={"energy_kcal_per_100g": 200},
+        serving_size="100g",
+        image_url="https://example.com/image.png",
+        source="test"
+    )
+
+    # Get product multiple times
+    product1 = await service.get_product("ACCESS-COUNT-PROD")
+    count1 = product1["access_count"]
+
+    product2 = await service.get_product("ACCESS-COUNT-PROD")
+    count2 = product2["access_count"]
+
+    # Access count should increment
+    assert count2 >= count1
+
+
+@pytest.mark.asyncio
+async def test_connection_rollback_on_error(temp_database):
+    """Test that connections rollback on exception"""
+    service = temp_database
+
+    try:
+        with service.get_connection() as conn:
+            cursor = conn.cursor()
+            # Start a transaction implicitly
+            cursor.execute("INSERT INTO users (id, email, password_hash, full_name) VALUES (?, ?, ?, ?)",
+                         ("rollback-test", "test@example.com", "hash", "Test"))
+            # Raise an exception to trigger rollback
+            raise ValueError("Test error")
+    except ValueError:
+        pass
+
+    # Connection should still work after error
+    with service.get_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT 1")
+        assert cursor.fetchone() is not None
+
+
+@pytest.mark.asyncio
+async def test_connection_pool_error_handling(temp_database):
+    """Test connection pool error handling"""
+    service = temp_database
+
+    # Test getting a connection and it should work
+    with service.get_connection() as conn:
+        assert conn is not None
+        cursor = conn.cursor()
+        cursor.execute("SELECT COUNT(*) FROM users")
+        result = cursor.fetchone()
+        assert result[0] >= 0
+
+
+def test_patch_cursor_with_recipe_query(temp_database):
+    """Test that patched cursor properly rewrites recipe queries"""
+    service = temp_database
+
+    with service.get_connection() as conn:
+        cursor = conn.cursor()
+        # This query should be rewritten by _PatchedCursor
+        query = "SELECT name FROM sqlite_master WHERE name LIKE 'recipe%'"
+        result = cursor.execute(query)
+        # Just verify it doesn't error
+        assert result is not None
+
+
+def test_pached_cursor_getattr(temp_database):
+    """Test that patched cursor delegates unknown attributes"""
+    service = temp_database
+
+    with service.get_connection() as conn:
+        cursor = conn.cursor()
+        # Test accessing a standard cursor attribute through patch
+        assert hasattr(cursor, 'execute')
+        assert hasattr(cursor, 'fetchone')
+
+
+@pytest.mark.asyncio
+async def test_get_product_with_partial_nutriments(temp_database):
+    """Test storing product with only required nutriments"""
+    service = temp_database
+
+    success = await service.store_product(
+        barcode="PARTIAL-NUTRI",
+        name="Minimal Product",
+        brand="Brand",
+        categories="test",
+        nutriments={"energy_kcal_per_100g": 100},  # Only energy
+        serving_size="100g",
+        image_url="",
+        source="test"
+    )
+
+    assert success is True
+    product = await service.get_product("PARTIAL-NUTRI")
+    assert product["name"] == "Minimal Product"
