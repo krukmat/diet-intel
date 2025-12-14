@@ -20,8 +20,9 @@ from fastapi import status
 
 from main import app
 from app.models.user import User, UserCreate, UserLogin, UserRole, Token, RefreshToken, UserUpdate, ChangePassword
-from app.services.auth import auth_service
+from app.services.auth import auth_service, session_service
 from app.services.database import db_service
+from app.services.session_service import SessionService
 
 
 @pytest.fixture
@@ -440,7 +441,7 @@ class TestProtectedEndpoints:
              patch.object(auth_service, 'verify_password', return_value=True), \
              patch.object(auth_service, 'hash_password', return_value="hashed_new_password"), \
              patch.object(db_service, 'update_user', new_callable=AsyncMock), \
-             patch.object(db_service, 'delete_user_sessions', new_callable=AsyncMock):
+             patch.object(session_service, 'delete_user_sessions', new_callable=AsyncMock):
             
             response = client.post(
                 "/auth/change-password",

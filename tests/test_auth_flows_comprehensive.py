@@ -17,16 +17,21 @@ from datetime import datetime, timedelta
 from unittest.mock import AsyncMock, patch, MagicMock
 from fastapi import HTTPException, status
 
-from app.services.auth import AuthService
+from app.services.auth import AuthService, auth_service, session_service as auth_session_service
 from app.models.user import User, UserCreate, UserLogin, UserRole, Token, UserSession
 from app.services.database import db_service
+from app.services.session_service import SessionService
+
+# Phase 2 Batch 7: Use the global session_service instance from auth module
+session_service = auth_session_service
 
 
 class TestPasswordSecurity:
     """Test password hashing and verification functionality"""
-    
+
     def setup_method(self):
-        self.auth_service = AuthService()
+        # Use global auth_service with SessionService dependency
+        self.auth_service = auth_service
     
     def test_hash_password_creates_valid_hash(self):
         """Test password hashing creates valid bcrypt hash"""
@@ -82,7 +87,8 @@ class TestUserRegistration:
     """Test user registration workflow"""
     
     def setup_method(self):
-        self.auth_service = AuthService()
+        # Use global auth_service with SessionService dependency
+        self.auth_service = auth_service
         self.valid_user_data = UserCreate(
             email="test@example.com",
             password="password123",
@@ -95,7 +101,7 @@ class TestUserRegistration:
         # Mock database operations
         with patch.object(db_service, 'get_user_by_email', new_callable=AsyncMock, return_value=None), \
              patch.object(db_service, 'create_user', new_callable=AsyncMock) as mock_create_user, \
-             patch.object(db_service, 'create_session', new_callable=AsyncMock) as mock_create_session:
+             patch.object(session_service, 'create_session', new_callable=AsyncMock) as mock_create_session:
             
             # Mock created user
             created_user = User(
@@ -157,7 +163,7 @@ class TestUserRegistration:
         
         with patch.object(db_service, 'get_user_by_email', new_callable=AsyncMock, return_value=None), \
              patch.object(db_service, 'create_user', new_callable=AsyncMock) as mock_create_user, \
-             patch.object(db_service, 'create_session', new_callable=AsyncMock):
+             patch.object(session_service, 'create_session', new_callable=AsyncMock):
             
             created_user = User(
                 id="1",
@@ -185,7 +191,7 @@ class TestUserRegistration:
         """Test that password is properly hashed during registration"""
         with patch.object(db_service, 'get_user_by_email', new_callable=AsyncMock, return_value=None), \
              patch.object(db_service, 'create_user', new_callable=AsyncMock) as mock_create_user, \
-             patch.object(db_service, 'create_session', new_callable=AsyncMock):
+             patch.object(session_service, 'create_session', new_callable=AsyncMock):
             
             created_user = User(
                 id="1", email=self.valid_user_data.email, full_name=self.valid_user_data.full_name,
@@ -213,7 +219,8 @@ class TestUserLogin:
     """Test user login workflow"""
     
     def setup_method(self):
-        self.auth_service = AuthService()
+        # Use global auth_service with SessionService dependency
+        self.auth_service = auth_service
         self.login_data = UserLogin(
             email="test@example.com",
             password="password123"
@@ -236,7 +243,7 @@ class TestUserLogin:
         
         with patch.object(db_service, 'get_user_by_email', new_callable=AsyncMock, return_value=self.test_user), \
              patch.object(db_service, 'get_password_hash', new_callable=AsyncMock, return_value=password_hash), \
-             patch.object(db_service, 'create_session', new_callable=AsyncMock):
+             patch.object(session_service, 'create_session', new_callable=AsyncMock):
             
             result = await self.auth_service.login_user(self.login_data)
             
@@ -303,7 +310,8 @@ class TestTokenRefresh:
     """Test token refresh workflow"""
     
     def setup_method(self):
-        self.auth_service = AuthService()
+        # Use global auth_service with SessionService dependency
+        self.auth_service = auth_service
         self.test_user = User(
             id="1", email="test@example.com", full_name="Test User",
             role=UserRole.STANDARD, is_developer=False, is_active=True,
@@ -324,9 +332,9 @@ class TestTokenRefresh:
             device_info=None
         )
         
-        with patch.object(db_service, 'get_session_by_refresh_token', new_callable=AsyncMock, return_value=session), \
+        with patch.object(session_service, 'get_session_by_refresh_token', new_callable=AsyncMock, return_value=session), \
              patch.object(db_service, 'get_user_by_id', new_callable=AsyncMock, return_value=self.test_user), \
-             patch.object(db_service, 'update_session', new_callable=AsyncMock):
+             patch.object(session_service, 'update_session', new_callable=AsyncMock):
             
             result = await self.auth_service.refresh_access_token(refresh_token)
             
@@ -351,7 +359,7 @@ class TestTokenRefresh:
         """Test token refresh fails when session doesn't exist"""
         refresh_token = self.auth_service.create_refresh_token(self.test_user)
         
-        with patch.object(db_service, 'get_session_by_refresh_token', new_callable=AsyncMock, return_value=None):
+        with patch.object(session_service, 'get_session_by_refresh_token', new_callable=AsyncMock, return_value=None):
             with pytest.raises(HTTPException) as exc_info:
                 await self.auth_service.refresh_access_token(refresh_token)
             
@@ -369,8 +377,8 @@ class TestTokenRefresh:
             device_info=None
         )
         
-        with patch.object(db_service, 'get_session_by_refresh_token', new_callable=AsyncMock, return_value=expired_session), \
-             patch.object(db_service, 'delete_session', new_callable=AsyncMock) as mock_delete:
+        with patch.object(session_service, 'get_session_by_refresh_token', new_callable=AsyncMock, return_value=expired_session), \
+             patch.object(session_service, 'delete_session', new_callable=AsyncMock) as mock_delete:
             
             with pytest.raises(HTTPException) as exc_info:
                 await self.auth_service.refresh_access_token(refresh_token)
@@ -395,7 +403,7 @@ class TestTokenRefresh:
             expires_at=datetime.utcnow() + timedelta(days=30), device_info=None
         )
         
-        with patch.object(db_service, 'get_session_by_refresh_token', new_callable=AsyncMock, return_value=session), \
+        with patch.object(session_service, 'get_session_by_refresh_token', new_callable=AsyncMock, return_value=session), \
              patch.object(db_service, 'get_user_by_id', new_callable=AsyncMock, return_value=inactive_user):
             
             with pytest.raises(HTTPException) as exc_info:
@@ -409,7 +417,8 @@ class TestLogoutFlow:
     """Test user logout workflow"""
     
     def setup_method(self):
-        self.auth_service = AuthService()
+        # Use global auth_service with SessionService dependency
+        self.auth_service = auth_service
     
     @pytest.mark.asyncio
     async def test_logout_user_success(self):
@@ -420,8 +429,8 @@ class TestLogoutFlow:
             expires_at=datetime.utcnow() + timedelta(days=30), device_info=None
         )
         
-        with patch.object(db_service, 'get_session_by_refresh_token', new_callable=AsyncMock, return_value=session), \
-             patch.object(db_service, 'delete_session', new_callable=AsyncMock) as mock_delete:
+        with patch.object(session_service, 'get_session_by_refresh_token', new_callable=AsyncMock, return_value=session), \
+             patch.object(session_service, 'delete_session', new_callable=AsyncMock) as mock_delete:
             
             await self.auth_service.logout_user(refresh_token)
             
@@ -432,8 +441,8 @@ class TestLogoutFlow:
         """Test logout handles missing session gracefully"""
         refresh_token = "nonexistent.refresh.token"
         
-        with patch.object(db_service, 'get_session_by_refresh_token', new_callable=AsyncMock, return_value=None), \
-             patch.object(db_service, 'delete_session', new_callable=AsyncMock) as mock_delete:
+        with patch.object(session_service, 'get_session_by_refresh_token', new_callable=AsyncMock, return_value=None), \
+             patch.object(session_service, 'delete_session', new_callable=AsyncMock) as mock_delete:
             
             # Should not raise exception
             await self.auth_service.logout_user(refresh_token)
@@ -446,7 +455,8 @@ class TestCurrentUserFromToken:
     """Test getting current user from token"""
     
     def setup_method(self):
-        self.auth_service = AuthService()
+        # Use global auth_service with SessionService dependency
+        self.auth_service = auth_service
         self.test_user = User(
             id="1", email="test@example.com", full_name="Test User",
             role=UserRole.STANDARD, is_developer=False, is_active=True,

@@ -42,9 +42,14 @@ async def test_create_and_update_user(temp_database):
 
 @pytest.mark.asyncio
 async def test_session_lifecycle_and_cleanup(temp_database):
-    service = temp_database
+    # Phase 2 Batch 7: Session tests now use SessionService
+    from app.services.session_service import SessionService
+
+    db_service = temp_database
+    session_service = SessionService(db_service)
+
     user_payload = UserCreate(email="player@example.com", password="seasonpass", full_name="Player One")
-    user = await service.create_user(user_payload, password_hash="pw")
+    user = await db_service.create_user(user_payload, password_hash="pw")
 
     session = UserSession(
         user_id=user.id,
@@ -54,21 +59,26 @@ async def test_session_lifecycle_and_cleanup(temp_database):
         device_info="pytest-device"
     )
 
-    session_id = await service.create_session(session)
+    session_id = await session_service.create_session(session)
     assert session_id
 
-    fetched = await service.get_session_by_refresh_token(session.refresh_token)
+    fetched = await session_service.get_session_by_refresh_token(session.refresh_token)
     assert fetched and fetched.user_id == user.id
 
-    await service.delete_session(session_id)
-    assert await service.get_session_by_access_token(session.access_token) is None
+    await session_service.delete_session(session_id)
+    assert await session_service.get_session_by_access_token(session.access_token) is None
 
 
 @pytest.mark.asyncio
 async def test_cleanup_expired_sessions(temp_database):
-    service = temp_database
+    # Phase 2 Batch 7: Session tests now use SessionService
+    from app.services.session_service import SessionService
+
+    db_service = temp_database
+    session_service = SessionService(db_service)
+
     user_payload = UserCreate(email="stale@example.com", password="stale1234", full_name="Stale User")
-    user = await service.create_user(user_payload, password_hash="temp")
+    user = await db_service.create_user(user_payload, password_hash="temp")
 
     session = UserSession(
         user_id=user.id,
@@ -78,10 +88,10 @@ async def test_cleanup_expired_sessions(temp_database):
         device_info="stale-device"
     )
 
-    await service.create_session(session)
-    await service.cleanup_expired_sessions()
+    await session_service.create_session(session)
+    await session_service.cleanup_expired_sessions()
 
-    assert await service.get_session_by_access_token(session.access_token) is None
+    assert await session_service.get_session_by_access_token(session.access_token) is None
 
 
 def test_patched_cursor_rewrites_master_query(temp_database):

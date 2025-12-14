@@ -3,6 +3,7 @@ from fastapi.security import HTTPAuthorizationCredentials
 from app.models.user import UserCreate, UserLogin, UserResponse, Token, RefreshToken, ChangePassword, UserUpdate
 from app.services import auth as auth_module
 from app.services.database import db_service
+from app.services.session_service import SessionService
 import logging
 
 logger = logging.getLogger(__name__)
@@ -10,6 +11,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 auth_service = auth_module.auth_service
+session_service = SessionService(db_service)
 
 
 async def _get_current_user_dependency(
@@ -221,9 +223,9 @@ async def change_password(
         
         # Update password
         await db_service.update_user(current_user.id, {'password_hash': new_hash})
-        
-        # Invalidate all user sessions (force re-login)
-        await db_service.delete_user_sessions(current_user.id)
+
+        # Invalidate all user sessions (force re-login) - Phase 2 Batch 7: Using SessionService
+        await session_service.delete_user_sessions(current_user.id)
         
         logger.info(f"Password changed for user: {current_user.email}")
     

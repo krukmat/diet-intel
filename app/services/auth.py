@@ -14,6 +14,9 @@ from app.services.database import db_service
 from app.config import config
 import logging
 
+# Import SessionService for session management - Phase 2 Batch 7
+from app.services.session_service import SessionService
+
 logger = logging.getLogger(__name__)
 
 # Security configuration
@@ -68,8 +71,8 @@ class RequestContext:
 
 class AuthService:
     """Authentication service for user management and JWT tokens"""
-    
-    def __init__(self):
+
+    def __init__(self, session_service: Optional[SessionService] = None):
         try:
             if os.environ.get("TZ") != "UTC":
                 os.environ["TZ"] = "UTC"
@@ -83,6 +86,8 @@ class AuthService:
         self.refresh_token_expire_days = REFRESH_TOKEN_EXPIRE_DAYS
         # Precompute a dummy hash to keep timing consistent for unknown users
         self._dummy_password_hash = bcrypt.hashpw(b"dietintel_dummy", bcrypt.gensalt()).decode('utf-8')
+        # Phase 2 Batch 7: Session service dependency
+        self.session_service = session_service
     
     def hash_password(self, password: str) -> str:
         """Hash password using bcrypt"""
@@ -196,9 +201,11 @@ class AuthService:
             expires_at=expires_at,
             device_info=None  # Can be populated from request headers
         )
-        
-        await db_service.create_session(session)
-        
+
+        # Phase 2 Batch 7: Using SessionService for session creation
+        if self.session_service:
+            await self.session_service.create_session(session)
+
         logger.info(f"User registered: {user.email}")
         
         return Token(
@@ -248,9 +255,11 @@ class AuthService:
             expires_at=expires_at,
             device_info=None  # Can be populated from request headers
         )
-        
-        await db_service.create_session(session)
-        
+
+        # Phase 2 Batch 7: Using SessionService for session creation
+        if self.session_service:
+            await self.session_service.create_session(session)
+
         logger.info(f"User logged in: {user.email}")
         
         return Token(
@@ -262,12 +271,16 @@ class AuthService:
     
     async def refresh_access_token(self, refresh_token: str) -> Token:
         """Refresh access token using refresh token"""
+        # Phase 2 Batch 7: Using SessionService for session retrieval
         # Get session from database first so we can clean up even if token is invalid
-        session = await db_service.get_session_by_refresh_token(refresh_token)
+        session = None
+        if self.session_service:
+            session = await self.session_service.get_session_by_refresh_token(refresh_token)
 
         # Check if session is expired
         if session and datetime.utcnow() > session.expires_at:
-            await db_service.delete_session(self._normalize_session_id(session.id))
+            if self.session_service:
+                await self.session_service.delete_session(self._normalize_session_id(session.id))
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Session expired"
@@ -276,8 +289,8 @@ class AuthService:
         # Verify refresh token after confirming session still exists
         token_data = self.verify_token(refresh_token, "refresh")
         if not token_data:
-            if session:
-                await db_service.delete_session(self._normalize_session_id(session.id))
+            if session and self.session_service:
+                await self.session_service.delete_session(self._normalize_session_id(session.id))
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid refresh token"
@@ -301,15 +314,16 @@ class AuthService:
         new_access_token = self.create_access_token(user)
         new_refresh_token = self.create_refresh_token(user)
         
-        # Update session
+        # Update session - Phase 2 Batch 7: Using SessionService
         new_expires_at = datetime.utcnow() + timedelta(days=self.refresh_token_expire_days)
-        await db_service.update_session(
-            session.id,
-            new_access_token,
-            new_refresh_token,
-            new_expires_at
-        )
-        
+        if self.session_service:
+            await self.session_service.update_session(
+                session.id,
+                new_access_token,
+                new_refresh_token,
+                new_expires_at
+            )
+
         logger.info(f"Token refreshed for user: {user.email}")
         
         return Token(
@@ -321,9 +335,13 @@ class AuthService:
     
     async def logout_user(self, refresh_token: str):
         """Logout user by invalidating session"""
-        session = await db_service.get_session_by_refresh_token(refresh_token)
+        # Phase 2 Batch 7: Using SessionService for session retrieval and deletion
+        session = None
+        if self.session_service:
+            session = await self.session_service.get_session_by_refresh_token(refresh_token)
         if session:
-            await db_service.delete_session(self._normalize_session_id(session.id))
+            if self.session_service:
+                await self.session_service.delete_session(self._normalize_session_id(session.id))
             logger.info(f"User logged out: session {session.id}")
     
     async def get_current_user_from_token(self, token: str) -> User:
@@ -375,8 +393,9 @@ class AuthService:
             return int(session_id)
         return session_id
 
-# Global auth service instance
-auth_service = AuthService()
+# Global service instances - Phase 2 Batch 7: SessionService added
+session_service = SessionService(db_service)
+auth_service = AuthService(session_service)
 
 
 # FastAPI dependency for getting current user
@@ -400,7 +419,8 @@ async def get_current_request_context(
             detail="Not authenticated"
         )
     user = await auth_service.get_current_user_from_token(credentials.credentials)
-    session = await db_service.get_session_by_access_token(credentials.credentials)
+    # Phase 2 Batch 7: Using SessionService for session retrieval
+    session = await session_service.get_session_by_access_token(credentials.credentials)
     session_id = session.id if session else None
     return RequestContext(user=user, session_id=session_id, token=credentials.credentials)
 
@@ -430,7 +450,8 @@ async def get_optional_request_context(
     except HTTPException:
         return RequestContext(user=None, session_id=None, token=None)
 
-    session = await db_service.get_session_by_access_token(credentials.credentials)
+    # Phase 2 Batch 7: Using SessionService for session retrieval
+    session = await session_service.get_session_by_access_token(credentials.credentials)
     session_id = session.id if session else None
     return RequestContext(user=user, session_id=session_id, token=credentials.credentials)
 
