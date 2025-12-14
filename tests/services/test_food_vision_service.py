@@ -227,7 +227,8 @@ async def test_save_analysis_persists(monkeypatch):
     async def fake_create(record):
         return {**record}
 
-    monkeypatch.setattr(food_vision_service.db_service, "create_vision_log", AsyncMock(side_effect=fake_create))
+    service.vision_service = AsyncMock()
+    service.vision_service.create_vision_log = AsyncMock(side_effect=fake_create)
 
     persisted = await service.save_analysis("user-save", analysis)
 
@@ -256,7 +257,8 @@ async def test_save_analysis_handles_db_failure(monkeypatch):
         processing_time_ms=1
     )
 
-    monkeypatch.setattr(food_vision_service.db_service, "create_vision_log", AsyncMock(side_effect=RuntimeError("boom")))
+    service.vision_service = AsyncMock()
+    service.vision_service.create_vision_log = AsyncMock(side_effect=RuntimeError("boom"))
 
     with pytest.raises(RuntimeError):
         await service.save_analysis("user-save", response)
@@ -265,7 +267,8 @@ async def test_save_analysis_handles_db_failure(monkeypatch):
 @pytest.mark.asyncio
 async def test_submit_correction_missing_log(monkeypatch):
     service = FoodVisionService()
-    monkeypatch.setattr(food_vision_service.db_service, "get_vision_log", AsyncMock(return_value=None))
+    service.vision_service = AsyncMock()
+    service.vision_service.get_vision_log = AsyncMock(return_value=None)
 
     with pytest.raises(Exception, match="not found"):
         await service.submit_correction("missing", "user-x", {})
@@ -274,7 +277,8 @@ async def test_submit_correction_missing_log(monkeypatch):
 @pytest.mark.asyncio
 async def test_submit_correction_unauthorized(monkeypatch):
     service = FoodVisionService()
-    monkeypatch.setattr(food_vision_service.db_service, "get_vision_log", AsyncMock(return_value={"user_id": "other"}))
+    service.vision_service = AsyncMock()
+    service.vision_service.get_vision_log = AsyncMock(return_value={"user_id": "other"})
 
     with pytest.raises(Exception, match="Unauthorized"):
         await service.submit_correction("log-1", "user-x", {})
@@ -300,7 +304,8 @@ async def test_get_user_history_parses_rows(monkeypatch):
     async def fake_list(*args, **kwargs):
         return ([row], 1)
 
-    monkeypatch.setattr(food_vision_service.db_service, "list_vision_logs", AsyncMock(side_effect=fake_list))
+    service.vision_service = AsyncMock()
+    service.vision_service.list_vision_logs = AsyncMock(side_effect=fake_list)
 
     history = await service.get_user_history("user-h")
 
@@ -335,7 +340,8 @@ async def test_get_user_history_parses_string_fields(monkeypatch):
     async def fake_list(*args, **kwargs):
         return ([sample_row], 1)
 
-    monkeypatch.setattr(food_vision_service.db_service, "list_vision_logs", AsyncMock(side_effect=fake_list))
+    service.vision_service = AsyncMock()
+    service.vision_service.list_vision_logs = AsyncMock(side_effect=fake_list)
 
     history = await service.get_user_history("user-s")
 
@@ -358,8 +364,9 @@ async def test_submit_correction_success(monkeypatch):
     async def fake_create(correction):
         return {"id": "correction-1", **correction}
 
-    monkeypatch.setattr(food_vision_service.db_service, "get_vision_log", AsyncMock(side_effect=fake_get))
-    monkeypatch.setattr(food_vision_service.db_service, "create_vision_correction", AsyncMock(side_effect=fake_create))
+    service.vision_service = AsyncMock()
+    service.vision_service.get_vision_log = AsyncMock(side_effect=fake_get)
+    service.vision_service.create_vision_correction = AsyncMock(side_effect=fake_create)
     monkeypatch.setattr(service, "_calculate_improvement_score", lambda data: 0.5)
 
     result = await service.submit_correction("corr-1", "user-c", {"feedback_type": "general"})

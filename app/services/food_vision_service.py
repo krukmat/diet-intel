@@ -19,6 +19,7 @@ from app.models.food_vision import (
 from app.services.vision_analyzer import VisionAnalyzer
 from app.services.exercise_calculator import ExerciseCalculator
 from app.services.database import db_service
+from app.services.vision_service import VisionService
 from app.models.exercise_suggestion import ExerciseRecommendation
 
 logger = logging.getLogger(__name__)
@@ -29,6 +30,7 @@ class FoodVisionService:
     def __init__(self):
         self.vision_analyzer = VisionAnalyzer()
         self.exercise_calculator = ExerciseCalculator()
+        self.vision_service = VisionService(db_service)  # Task: Phase 2 Batch 5 - Database refactoring
 
     async def analyze_food_image(
         self,
@@ -354,7 +356,7 @@ class FoodVisionService:
                 "created_at": response.created_at,
             }
 
-            persisted = await db_service.create_vision_log(vision_log_dict)
+            persisted = await self.vision_service.create_vision_log(vision_log_dict)  # Task: Phase 2 Batch 5
 
             logger.info(f"Analysis {response.id} persisted for user {user_id}")
             return VisionLogResponse(**persisted)
@@ -376,7 +378,7 @@ class FoodVisionService:
         """
         try:
             # Get records from database
-            rows, total_count = await db_service.list_vision_logs(
+            rows, total_count = await self.vision_service.list_vision_logs(  # Task: Phase 2 Batch 5
                 user_id=user_id,
                 limit=limit,
                 offset=offset,
@@ -453,7 +455,7 @@ class FoodVisionService:
         """
         try:
             # Verify log belongs to user
-            log = await db_service.get_vision_log(log_id)
+            log = await self.vision_service.get_vision_log(log_id)  # Task: Phase 2 Batch 5
             if not log:
                 raise Exception(f"Analysis log {log_id} not found")
             if log["user_id"] != user_id:
@@ -473,7 +475,7 @@ class FoodVisionService:
                 "created_at": datetime.utcnow(),
             }
 
-            correction_result = await db_service.create_vision_correction(correction_dict)
+            correction_result = await self.vision_service.create_vision_correction(correction_dict)  # Task: Phase 2 Batch 5
 
             # Log the correction
             logger.info(f"Correction submitted for log {log_id} by user {user_id}, improvement: {improvement_score}")
