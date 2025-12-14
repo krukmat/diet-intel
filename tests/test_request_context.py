@@ -6,6 +6,7 @@ from fastapi.security import HTTPAuthorizationCredentials
 from app.models.user import UserCreate, UserSession
 from app.services.auth import session_service, auth_service, get_optional_request_context
 from app.services.database import db_service
+from app.services.user_service import UserService
 from app.services.session_service import SessionService
 
 
@@ -21,7 +22,8 @@ async def test_optional_request_context_returns_user_and_session():
     )
 
     password_hash = auth_service.hash_password(password)
-    user = await db_service.create_user(user_data, password_hash)
+    user_service = UserService(db_service)
+    user = await user_service.create_user(user_data, password_hash)
 
     access_token = auth_service.create_access_token(user)
     refresh_token = auth_service.create_refresh_token(user)

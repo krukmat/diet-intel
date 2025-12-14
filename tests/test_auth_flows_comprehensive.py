@@ -333,7 +333,7 @@ class TestTokenRefresh:
         )
         
         with patch.object(session_service, 'get_session_by_refresh_token', new_callable=AsyncMock, return_value=session), \
-             patch.object(db_service, 'get_user_by_id', new_callable=AsyncMock, return_value=self.test_user), \
+             patch.object(user_service, 'get_user_by_id', new_callable=AsyncMock, return_value=self.test_user), \
              patch.object(session_service, 'update_session', new_callable=AsyncMock):
             
             result = await self.auth_service.refresh_access_token(refresh_token)
@@ -404,7 +404,7 @@ class TestTokenRefresh:
         )
         
         with patch.object(session_service, 'get_session_by_refresh_token', new_callable=AsyncMock, return_value=session), \
-             patch.object(db_service, 'get_user_by_id', new_callable=AsyncMock, return_value=inactive_user):
+             patch.object(user_service, 'get_user_by_id', new_callable=AsyncMock, return_value=inactive_user):
             
             with pytest.raises(HTTPException) as exc_info:
                 await self.auth_service.refresh_access_token(refresh_token)
@@ -467,8 +467,8 @@ class TestCurrentUserFromToken:
     async def test_get_current_user_from_token_success(self):
         """Test successful user retrieval from token"""
         access_token = self.auth_service.create_access_token(self.test_user)
-        
-        with patch.object(db_service, 'get_user_by_id', new_callable=AsyncMock, return_value=self.test_user):
+
+        with patch.object(user_service, 'get_user_by_id', new_callable=AsyncMock, return_value=self.test_user):
             user = await self.auth_service.get_current_user_from_token(access_token)
             
             assert user == self.test_user
@@ -490,8 +490,8 @@ class TestCurrentUserFromToken:
     async def test_get_current_user_not_found(self):
         """Test user retrieval fails when user doesn't exist"""
         access_token = self.auth_service.create_access_token(self.test_user)
-        
-        with patch.object(db_service, 'get_user_by_id', new_callable=AsyncMock, return_value=None):
+
+        with patch.object(user_service, 'get_user_by_id', new_callable=AsyncMock, return_value=None):
             with pytest.raises(HTTPException) as exc_info:
                 await self.auth_service.get_current_user_from_token(access_token)
             
@@ -502,14 +502,14 @@ class TestCurrentUserFromToken:
     async def test_get_current_user_inactive(self):
         """Test user retrieval fails for inactive user"""
         access_token = self.auth_service.create_access_token(self.test_user)
-        
+
         inactive_user = User(
             id="1", email="test@example.com", full_name="Test User",
             role=UserRole.STANDARD, is_developer=False, is_active=False,
             email_verified=True, created_at=datetime.utcnow()
         )
-        
-        with patch.object(db_service, 'get_user_by_id', new_callable=AsyncMock, return_value=inactive_user):
+
+        with patch.object(user_service, 'get_user_by_id', new_callable=AsyncMock, return_value=inactive_user):
             with pytest.raises(HTTPException) as exc_info:
                 await self.auth_service.get_current_user_from_token(access_token)
             

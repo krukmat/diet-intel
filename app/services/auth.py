@@ -312,8 +312,8 @@ class AuthService:
                 detail="Session not found"
             )
 
-        # Get user
-        user = await db_service.get_user_by_id(token_data.user_id)
+        # Get user (Phase 2 Batch 9: Use UserService)
+        user = await self.user_service.get_user_by_id(token_data.user_id)
         if not user or not user.is_active:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
@@ -374,19 +374,19 @@ class AuthService:
                 detail="Could not validate credentials"
             )
         
-        user = await db_service.get_user_by_id(token_data.user_id)
+        user = await self.user_service.get_user_by_id(token_data.user_id)
         if not user:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="User not found"
             )
-        
+
         if not user.is_active:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="User account is deactivated"
             )
-        
+
         return user
 
     def _simulate_password_check(self) -> None:

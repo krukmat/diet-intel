@@ -23,6 +23,7 @@ from app.models.social import ProfileVisibility, ProfileUpdateRequest
 def in_memory_db():
     """Create in-memory database with social tables"""
     conn = sqlite3.connect(':memory:', check_same_thread=False)
+    conn.row_factory = sqlite3.Row  # Enable column name access (Phase 2 Batch 9)
     cursor = conn.cursor()
 
     # Create users table (minimal version)
@@ -91,15 +92,20 @@ class InMemoryDatabase:
         return self.conn
 
     async def get_user_by_id(self, user_id):
+        """Get user by ID - returns User model (Phase 2 Batch 9)"""
+        from app.models.user import User, UserRole
+        from datetime import datetime
+
         cursor = self.conn.cursor()
         cursor.execute("SELECT * FROM users WHERE id = ?", (user_id,))
         row = cursor.fetchone()
         if row:
-            return {
-                'id': row[0], 'email': row[1], 'full_name': row[2],
-                'is_developer': row[3], 'role': row[4], 'avatar_url': row[5],
-                'is_active': row[6], 'email_verified': row[7]
-            }
+            return User(
+                id=row[0], email=row[1], full_name=row[2],
+                is_developer=bool(row[3]), role=UserRole(row[4]) if row[4] else UserRole.STANDARD,
+                avatar_url=row[5], is_active=bool(row[6]),
+                email_verified=bool(row[7]), created_at=datetime.utcnow()
+            )
         return None
 
 
@@ -112,9 +118,12 @@ def client():
 @pytest.fixture
 def profile_service_in_memory(in_memory_db):
     """Profile service with in-memory database"""
+    from app.services.user_service import UserService
     db_service = InMemoryDatabase(in_memory_db)
+    user_service = UserService(db_service)
     return ProfileService(
         database_service=db_service,
+        user_service=user_service,
         post_read_svc=PostReadService(),
         gamification_gw=GamificationGateway(),
         follow_gw=FollowGateway()

@@ -5,6 +5,7 @@ import pytest
 
 from app.models.user import UserCreate, UserSession
 from app.services.database import ConnectionPool, DatabaseService
+from app.services.user_service import UserService
 from app.services.analytics_service import AnalyticsService
 
 
@@ -21,22 +22,23 @@ def temp_database(tmp_path):
 
 @pytest.mark.asyncio
 async def test_create_and_update_user(temp_database):
-    service = temp_database
+    db_service = temp_database
+    user_service = UserService(db_service)
     user_payload = UserCreate(
         email="developer@example.com", password="securepass", full_name="Dev User", developer_code="DIETINTEL_DEV_2024"
     )
-    user = await service.create_user(user_payload, password_hash="hashed")
+    user = await user_service.create_user(user_payload, password_hash="hashed")
 
     assert user.email == "developer@example.com"
     assert user.is_developer is True
 
-    fetched = await service.get_user_by_email(user.email)
+    fetched = await user_service.get_user_by_email(user.email)
     assert fetched and fetched.id == user.id
 
-    updated = await service.update_user(user.id, {"full_name": "Updated Name"})
+    updated = await user_service.update_user(user.id, {"full_name": "Updated Name"})
     assert updated.full_name == "Updated Name"
 
-    hash_value = await service.get_password_hash(user.id)
+    hash_value = await user_service.get_password_hash(user.id)
     assert hash_value == "hashed"
 
 
@@ -46,10 +48,11 @@ async def test_session_lifecycle_and_cleanup(temp_database):
     from app.services.session_service import SessionService
 
     db_service = temp_database
+    user_service = UserService(db_service)
     session_service = SessionService(db_service)
 
     user_payload = UserCreate(email="player@example.com", password="seasonpass", full_name="Player One")
-    user = await db_service.create_user(user_payload, password_hash="pw")
+    user = await user_service.create_user(user_payload, password_hash="pw")
 
     session = UserSession(
         user_id=user.id,
@@ -75,10 +78,11 @@ async def test_cleanup_expired_sessions(temp_database):
     from app.services.session_service import SessionService
 
     db_service = temp_database
+    user_service = UserService(db_service)
     session_service = SessionService(db_service)
 
     user_payload = UserCreate(email="stale@example.com", password="stale1234", full_name="Stale User")
-    user = await db_service.create_user(user_payload, password_hash="temp")
+    user = await user_service.create_user(user_payload, password_hash="temp")
 
     session = UserSession(
         user_id=user.id,

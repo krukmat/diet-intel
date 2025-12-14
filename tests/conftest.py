@@ -69,6 +69,7 @@ import pytest
 from app.services.cache import CacheService
 from app.services.recommendation_engine import RecommendationEngine
 from app.services.database import db_service
+from app.services.user_service import UserService
 from app.models.user import UserSession
 from app.services import auth as auth_module
 
@@ -329,8 +330,9 @@ def sample_nutritional_summary():
 
 def seed_test_user():
     """Sync seeding of test user/session using direct DB operations."""
-    from app.models.user import User, UserRole
+    from app.models.user import User, UserRole, UserCreate
     from datetime import datetime, timezone, timedelta
+    import asyncio
 
     user_id = "vision_test_user_123"
 
@@ -347,39 +349,24 @@ def seed_test_user():
     # Create user data
     password = "testpassword123"
     hashed_password = auth_module.auth_service.hash_password(password)
-    role = UserRole.DEVELOPER
-    now = datetime.utcnow().isoformat()
-
-    # Insert user directly
-    with db_service.get_connection() as conn:
-        cursor = conn.cursor()
-        cursor.execute("""
-            INSERT INTO users (id, email, password_hash, full_name, is_developer, role, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        """, (user_id, "vision_test@example.com", hashed_password, "Vision Test User",
-              1 if role == UserRole.DEVELOPER else 0, role.value, now, now))
-        conn.commit()
-
-    # Get user object from database
-    from app.models.user import User
-    user = User(
-        id=user_id,
+    user_data = UserCreate(
         email="vision_test@example.com",
+        password=password,
         full_name="Vision Test User",
-        is_developer=True,
-        role=UserRole.DEVELOPER,
-        is_active=True,
-        email_verified=True,
-        created_at=datetime.utcnow(),
-        updated_at=datetime.utcnow(),
-        avatar_url=None
+        developer_code="DIETINTEL_DEV_2024"
     )
+
+    # Create user using user_service (Phase 2 Batch 9)
+    user_service = UserService(db_service)
+    user = asyncio.run(user_service.create_user(user_data, hashed_password))
+    user_id = user.id
 
     # Create tokens using auth service
     access_token = auth_module.auth_service.create_access_token(user)
     refresh_token = auth_module.auth_service.create_refresh_token(user)
 
     # Create session directly
+    now = datetime.utcnow().isoformat()
     expires_at = datetime.now(timezone.utc) + timedelta(days=30)
 
     with db_service.get_connection() as conn:

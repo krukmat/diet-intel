@@ -5,6 +5,7 @@ from fastapi import HTTPException
 from app.models.social import ProfileUpdateRequest, ProfileVisibility
 from app.models.user import UserCreate
 from app.services.database import DatabaseService
+from app.services.user_service import UserService
 from app.services.social.profile_service import ProfileService
 
 
@@ -49,9 +50,12 @@ def temp_database(tmp_path):
 
 @pytest.mark.asyncio
 async def test_ensure_profile_initialized_creates_records(temp_database):
-    service = temp_database
+    db_service = temp_database
+    user_service = UserService(db_service)
     user_payload = UserCreate(email="User.Name+Test@example.com", password="passw0rd", full_name="User Test")
-    user = await service.create_user(user_payload, password_hash="hash")
+    user = await user_service.create_user(user_payload, password_hash="hash")
+
+    service = db_service
 
     profile_service = ProfileService(database_service=service)
     await profile_service.ensure_profile_initialized(user.id)
@@ -79,9 +83,12 @@ async def test_ensure_profile_initialized_missing_user_raises(temp_database):
 
 @pytest.mark.asyncio
 async def test_get_profile_filters_posts_for_followers_only(temp_database):
-    service = temp_database
+    db_service = temp_database
+    user_service = UserService(db_service)
     user_payload = UserCreate(email="sociable@example.com", password="passw0rd", full_name="Sociable User")
-    user = await service.create_user(user_payload, password_hash="hash")
+    user = await user_service.create_user(user_payload, password_hash="hash")
+
+    service = db_service
 
     # Initialize profile manually (ensure_profile already inserts records)
     profile_service = ProfileService(
@@ -113,9 +120,12 @@ def test_validate_handle_format():
 
 @pytest.mark.asyncio
 async def test_update_profile_applies_changes(temp_database):
-    service = temp_database
+    db_service = temp_database
+    user_service = UserService(db_service)
     user_payload = UserCreate(email="author@example.com", password="authpass", full_name="Author User")
-    user = await service.create_user(user_payload, password_hash="hash")
+    user = await user_service.create_user(user_payload, password_hash="hash")
+
+    service = db_service
 
     profile_service = ProfileService(database_service=service)
     await profile_service.ensure_profile_initialized(user.id)
@@ -141,9 +151,12 @@ async def test_update_profile_applies_changes(temp_database):
 
 @pytest.mark.asyncio
 async def test_update_profile_rejects_duplicate_handle(temp_database):
-    service = temp_database
-    user_primary = await service.create_user(UserCreate(email="primary@example.com", password="passw0rd", full_name="Primary"), password_hash="hash")
-    user_secondary = await service.create_user(UserCreate(email="secondary@example.com", password="passw0rd", full_name="Secondary"), password_hash="hash")
+    db_service = temp_database
+    user_service = UserService(db_service)
+    user_primary = await user_service.create_user(UserCreate(email="primary@example.com", password="passw0rd", full_name="Primary"), password_hash="hash")
+    user_secondary = await user_service.create_user(UserCreate(email="secondary@example.com", password="passw0rd", full_name="Secondary"), password_hash="hash")
+
+    service = db_service
 
     profile_service = ProfileService(database_service=service)
     await profile_service.ensure_profile_initialized(user_primary.id)
@@ -158,8 +171,11 @@ async def test_update_profile_rejects_duplicate_handle(temp_database):
 
 @pytest.mark.asyncio
 async def test_can_view_profile_respects_visibility_and_followers(temp_database):
-    service = temp_database
-    user = await service.create_user(UserCreate(email="visible@example.com", password="passw0rd", full_name="Visible User"), password_hash="hash")
+    db_service = temp_database
+    user_service = UserService(db_service)
+    user = await user_service.create_user(UserCreate(email="visible@example.com", password="passw0rd", full_name="Visible User"), password_hash="hash")
+
+    service = db_service
 
     profile_service = ProfileService(
         database_service=service,

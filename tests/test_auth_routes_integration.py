@@ -385,7 +385,7 @@ class TestProtectedEndpoints:
             "full_name": "Updated Name",
             "avatar_url": "https://example.com/avatar.jpg"
         }
-        
+
         updated_user = User(
             id=test_user.id,
             email=test_user.email,
@@ -397,16 +397,20 @@ class TestProtectedEndpoints:
             email_verified=test_user.email_verified,
             created_at=test_user.created_at
         )
-        
-        with patch('app.services.auth.get_current_user', return_value=test_user), \
-             patch.object(user_service, 'update_user', new_callable=AsyncMock, return_value=updated_user):
-            
+
+        # Create a real access token for test_user
+        access_token = auth_service.create_access_token(test_user)
+
+        # Patch at the import locations in auth module
+        with patch('app.services.auth.user_service.get_user_by_id', new_callable=AsyncMock, return_value=test_user), \
+             patch('app.routes.auth.user_service.update_user', new_callable=AsyncMock, return_value=updated_user):
+
             response = client.put(
                 "/auth/me",
                 json=update_data,
-                headers={"Authorization": "Bearer valid_token"}
+                headers={"Authorization": f"Bearer {access_token}"}
             )
-            
+
             assert response.status_code == status.HTTP_200_OK
             data = response.json()
             assert data["full_name"] == "Updated Name"
@@ -433,22 +437,26 @@ class TestProtectedEndpoints:
             "current_password": "old_password",
             "new_password": "new_password123"
         }
-        
+
         current_hash = "hashed_old_password"
-        
-        with patch('app.services.auth.get_current_user', return_value=test_user), \
-             patch.object(user_service, 'get_password_hash', new_callable=AsyncMock, return_value=current_hash), \
+
+        # Create a real access token for test_user
+        access_token = auth_service.create_access_token(test_user)
+
+        # Patch at the import locations
+        with patch('app.services.auth.user_service.get_user_by_id', new_callable=AsyncMock, return_value=test_user), \
+             patch('app.routes.auth.user_service.get_password_hash', new_callable=AsyncMock, return_value=current_hash), \
              patch.object(auth_service, 'verify_password', return_value=True), \
              patch.object(auth_service, 'hash_password', return_value="hashed_new_password"), \
-             patch.object(user_service, 'update_user', new_callable=AsyncMock), \
-             patch.object(session_service, 'delete_user_sessions', new_callable=AsyncMock):
-            
+             patch('app.routes.auth.user_service.update_user', new_callable=AsyncMock), \
+             patch('app.routes.auth.session_service.delete_user_sessions', new_callable=AsyncMock):
+
             response = client.post(
                 "/auth/change-password",
                 json=password_data,
-                headers={"Authorization": "Bearer valid_token"}
+                headers={"Authorization": f"Bearer {access_token}"}
             )
-            
+
             assert response.status_code == status.HTTP_204_NO_CONTENT
     
     def test_change_password_wrong_current_password(self, client, test_user):
@@ -457,19 +465,23 @@ class TestProtectedEndpoints:
             "current_password": "wrong_password",
             "new_password": "new_password123"
         }
-        
+
         current_hash = "hashed_old_password"
-        
-        with patch('app.services.auth.get_current_user', return_value=test_user), \
-             patch.object(user_service, 'get_password_hash', new_callable=AsyncMock, return_value=current_hash), \
+
+        # Create a real access token for test_user
+        access_token = auth_service.create_access_token(test_user)
+
+        # Patch at the import locations
+        with patch('app.services.auth.user_service.get_user_by_id', new_callable=AsyncMock, return_value=test_user), \
+             patch('app.routes.auth.user_service.get_password_hash', new_callable=AsyncMock, return_value=current_hash), \
              patch.object(auth_service, 'verify_password', return_value=False):
-            
+
             response = client.post(
                 "/auth/change-password",
                 json=password_data,
-                headers={"Authorization": "Bearer valid_token"}
+                headers={"Authorization": f"Bearer {access_token}"}
             )
-            
+
             assert response.status_code == status.HTTP_400_BAD_REQUEST
             assert "incorrect" in response.json()["detail"]
 

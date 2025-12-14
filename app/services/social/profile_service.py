@@ -11,6 +11,7 @@ from typing import Optional, List
 from fastapi import HTTPException
 
 from app.services.database import db_service
+from app.services.user_service import UserService
 from app.models.social import (
     ProfileVisibility,
     ProfileStats,
@@ -32,6 +33,7 @@ class ProfileService:
     def __init__(
         self,
         database_service=None,
+        user_service=None,
         post_read_svc=None,
         gamification_gw=None,
         follow_gw=None,
@@ -39,6 +41,7 @@ class ProfileService:
     ):
         """Initialize with dependency injection"""
         self.database_service = database_service or db_service
+        self.user_service = user_service or UserService(self.database_service)
         self.post_read_service = post_read_svc or post_read_service
         self.gamification_gateway = gamification_gw or gamification_gateway
         self.follow_gateway = follow_gw or follow_gateway
@@ -59,8 +62,8 @@ class ProfileService:
             existing = cursor.fetchone()
 
         if not existing:
-            # Get user details for default handle
-            user = await self.database_service.get_user_by_id(user_id)
+            # Get user details for default handle (Phase 2 Batch 9: Use UserService)
+            user = await self.user_service.get_user_by_id(user_id)
             if isinstance(user, dict):
                 from app.models.user import User
                 user = User(**user)
@@ -291,11 +294,12 @@ class ProfileService:
             return False
 
 
-# Singleton instance
+# Singleton instance (Phase 2 Batch 9: Added user_service parameter)
 profile_service = ProfileService(
-    db_service,
-    post_read_service,
-    gamification_gateway,
-    follow_gateway,
-    moderation_gateway
+    database_service=db_service,
+    user_service=None,  # Will use default UserService(db_service)
+    post_read_svc=post_read_service,
+    gamification_gw=gamification_gateway,
+    follow_gw=follow_gateway,
+    moderation_gw=moderation_gateway
 )
