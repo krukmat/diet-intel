@@ -35,6 +35,10 @@ async def test_optional_request_context_returns_user_and_session():
     # Phase 2 Batch 7: Using SessionService
     session_id = await session_service.create_session(session)
 
+    # Verify session was created before retrieving by access token
+    verify_session = await session_service.get_session_by_access_token(access_token)
+    assert verify_session is not None, "Session should exist after creation"
+
     creds = HTTPAuthorizationCredentials(scheme="Bearer", credentials=access_token)
     context = await get_optional_request_context(creds)
 

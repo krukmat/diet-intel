@@ -284,6 +284,7 @@ class SessionService:
             pass
 
         return UserSession(
+            id=row["id"],
             user_id=row["user_id"],
             access_token=row["access_token"],
             refresh_token=row["refresh_token"],

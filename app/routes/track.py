@@ -21,9 +21,13 @@ from app.models.tracking import (
 )
 from app.services.cache import cache_service
 from app.services.database import db_service
+from app.services.tracking_service import TrackingService
 from app.services.storage import save_photo
 from app.utils.auth_context import get_session_user_id
 import logging
+
+# Phase 2 Batch 8: Using TrackingService for meal and weight tracking
+tracking_service = TrackingService(db_service)
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -118,7 +122,7 @@ async def track_meal(request: MealTrackingRequest, req: Request):
                 uploaded_photo_url = photo_result.get("photo_url")
 
         # Persist meal and retrieve stored record
-        stored_meal = await db_service.track_meal(user_id, request, uploaded_photo_url)
+        stored_meal = await tracking_service.track_meal(user_id, request, uploaded_photo_url)
 
         # Convert to response model
         if not stored_meal:
@@ -198,7 +202,7 @@ async def track_weight(
                 uploaded_photo_url = photo_result.get("photo_url")
 
         # Store weight entry in database
-        weight_data = await db_service.track_weight(user_id, weight_request, uploaded_photo_url)
+        weight_data = await tracking_service.track_weight(user_id, weight_request, uploaded_photo_url)
 
         # Convert to response model
         if not weight_data:
@@ -365,7 +369,7 @@ async def get_photo_logs(req: Request, limit: Optional[int] = 50):
         user_id = await get_session_user_id(req)
         photo_logs = []
         
-        db_logs = await db_service.get_photo_logs(user_id, limit or 50)
+        db_logs = await tracking_service.get_photo_logs(user_id, limit or 50)
 
         if limit:
             db_logs = db_logs[:limit]
