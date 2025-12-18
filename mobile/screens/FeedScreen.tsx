@@ -52,11 +52,11 @@ const FeedItem: React.FC<{ item: FeedItemType }> = ({ item }) => {
   };
 
   return (
-    <View style={styles.feedItem}>
+    <View style={styles.feedItem} testID={`feed-item-${item.id}`}>
       {/* Avatar placeholder */}
       <View style={styles.avatarContainer}>
         <View style={styles.avatar}>
-          <Text style={styles.avatarText}>
+          <Text style={styles.avatarText} testID={`avatar-${item.id}`}>
             {item.actor_id.substring(0, 2).toUpperCase()}
           </Text>
         </View>
@@ -64,7 +64,7 @@ const FeedItem: React.FC<{ item: FeedItemType }> = ({ item }) => {
 
       {/* Content */}
       <View style={styles.contentContainer}>
-        <Text style={styles.activityText}>
+        <Text style={styles.activityText} testID={`activity-text-${item.id}`}>
           {getActivityMessage()}
         </Text>
         <Text style={styles.timestamp}>
@@ -75,6 +75,7 @@ const FeedItem: React.FC<{ item: FeedItemType }> = ({ item }) => {
       {/* Optional: Click to view profile */}
       <TouchableOpacity
         style={styles.profileLink}
+        testID={`profile-link-${item.id}`}
         onPress={() => {
           // TODO: Navigate to user profile if needed
           console.log('Navigate to user:', item.actor_id);
@@ -166,6 +167,7 @@ export const FeedScreen: React.FC = () => {
 
       {/* Feed List */}
       <FlatList
+        testID="feed-list"
         data={feedItems}
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => <FeedItem item={item} />}

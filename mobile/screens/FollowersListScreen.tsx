@@ -181,6 +181,7 @@ export const FollowersListScreen: React.FC = () => {
 
       {/* Followers List */}
       <FlatList
+        testID="followers-flatlist"
         data={followers}
         keyExtractor={(item) => item.user_id}
         renderItem={renderFollowerItem}

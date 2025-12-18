@@ -15,6 +15,32 @@ jest.mock('@react-navigation/native', () => ({
   }),
 }));
 
+// Override the global FlatList mock to render children
+jest.mock('react-native', () => {
+  const RN = jest.requireActual('react-native');
+  const React = require('react');
+
+  return {
+    ...RN,
+    FlatList: (props: any) => {
+      const { data, renderItem, keyExtractor, testID, contentContainerStyle, ...rest } = props;
+
+      if (!data || data.length === 0) {
+        return React.createElement('div', { testID, ...rest }, null);
+      }
+
+      const children = data.map((item: any, index: number) => {
+        const key = keyExtractor ? keyExtractor(item, index) : `item-${index}`;
+        const element = renderItem({ item, index, separators: {} as any });
+        return React.createElement('div', { key }, element);
+      });
+
+      return React.createElement('div', { testID, ...rest }, children);
+    },
+    Alert: RN.Alert, // Preserve Alert mock
+  };
+});
+
 const mockApiService = apiService as jest.Mocked<typeof apiService>;
 const mockUseAuth = useAuth as jest.MockedFunction<typeof useAuth>;
 

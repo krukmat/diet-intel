@@ -167,6 +167,7 @@ export const BlockedByScreen: React.FC = () => {
         </View>
       ) : (
         <FlatList
+          testID="blocked-by-list"
           data={blockers}
           renderItem={renderBlocker}
           keyExtractor={(item) => item.user_id}
