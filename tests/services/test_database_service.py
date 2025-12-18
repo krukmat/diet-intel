@@ -422,3 +422,184 @@ async def test_get_product_with_partial_nutriments(temp_database):
     assert success is True
     product = await service.get_product("PARTIAL-NUTRI")
     assert product["name"] == "Minimal Product"
+
+
+# Phase 3 Batch 1: Meal Plan Methods Coverage
+# Tests for store_meal_plan, get_meal_plan, update_meal_plan, delete_meal_plan
+
+# Helper function to create valid MealPlanResponse objects for testing
+def _create_test_meal_plan(bmr=1600, tdee=2000, daily_target=2000):
+    """Create a valid MealPlanResponse for testing"""
+    from app.models.meal_plan import MealPlanResponse, DailyMacros
+
+    metrics = DailyMacros(
+        total_calories=daily_target,
+        protein_g=150,
+        fat_g=65,
+        carbs_g=250,
+        sugars_g=30,
+        salt_g=5,
+        protein_percent=30,
+        fat_percent=29,
+        carbs_percent=50
+    )
+
+    return MealPlanResponse(
+        bmr=bmr,
+        tdee=tdee,
+        daily_calorie_target=daily_target,
+        meals=[],
+        metrics=metrics,
+        flexibility_used=False,
+        optional_products_used=0
+    )
+
+
+@pytest.mark.asyncio
+async def test_store_meal_plan_success(temp_database):
+    """Test storing a meal plan"""
+    service = temp_database
+    plan = _create_test_meal_plan()
+
+    plan_id = await service.store_meal_plan("user-1", plan, ttl_hours=24)
+    assert plan_id is not None
+    assert len(plan_id) > 0  # UUID format
+
+    # Verify plan was stored
+    retrieved = await service.get_meal_plan(plan_id)
+    assert retrieved is not None
+    assert retrieved["daily_calorie_target"] == 2000
+
+
+@pytest.mark.asyncio
+async def test_get_meal_plan_not_found(temp_database):
+    """Test retrieving non-existent meal plan"""
+    service = temp_database
+
+    plan = await service.get_meal_plan("non-existent-plan-id")
+    assert plan is None
+
+
+@pytest.mark.asyncio
+async def test_get_meal_plan_expired(temp_database):
+    """Test that expired meal plans are auto-deleted"""
+    service = temp_database
+    plan = _create_test_meal_plan()
+
+    plan_id = await service.store_meal_plan("user-1", plan, ttl_hours=0)
+
+    # Immediately try to retrieve - should be auto-deleted
+    retrieved = await service.get_meal_plan(plan_id)
+    assert retrieved is None
+
+
+@pytest.mark.asyncio
+async def test_update_meal_plan_success(temp_database):
+    """Test updating an existing meal plan"""
+    service = temp_database
+
+    # Store initial plan
+    plan = _create_test_meal_plan(daily_target=2000)
+    plan_id = await service.store_meal_plan("user-1", plan, ttl_hours=24)
+
+    # Update the plan with different values
+    updated_plan = _create_test_meal_plan(tdee=2500, daily_target=2500)
+
+    success = await service.update_meal_plan(plan_id, updated_plan)
+    assert success is True
+
+    # Verify update
+    retrieved = await service.get_meal_plan(plan_id)
+    assert retrieved["daily_calorie_target"] == 2500
+    assert retrieved["tdee"] == 2500
+
+
+@pytest.mark.asyncio
+async def test_update_meal_plan_not_found(temp_database):
+    """Test updating non-existent meal plan returns False"""
+    service = temp_database
+    plan = _create_test_meal_plan()
+
+    success = await service.update_meal_plan("non-existent-plan-id", plan)
+    assert success is False
+
+
+@pytest.mark.asyncio
+async def test_delete_meal_plan_success(temp_database):
+    """Test deleting an existing meal plan"""
+    service = temp_database
+
+    # Store a plan
+    plan = _create_test_meal_plan()
+    plan_id = await service.store_meal_plan("user-1", plan, ttl_hours=24)
+
+    # Verify it exists
+    retrieved = await service.get_meal_plan(plan_id)
+    assert retrieved is not None
+
+    # Delete it
+    deleted = await service.delete_meal_plan(plan_id)
+    assert deleted is True
+
+    # Verify it's gone
+    retrieved = await service.get_meal_plan(plan_id)
+    assert retrieved is None
+
+
+@pytest.mark.asyncio
+async def test_delete_meal_plan_not_found(temp_database):
+    """Test deleting non-existent meal plan returns False"""
+    service = temp_database
+
+    deleted = await service.delete_meal_plan("non-existent-plan-id")
+    assert deleted is False
+
+
+@pytest.mark.asyncio
+async def test_get_user_meal_plans_with_data(temp_database):
+    """Test retrieving multiple meal plans for a user"""
+    service = temp_database
+
+    # Store 3 meal plans
+    for i in range(3):
+        plan = _create_test_meal_plan(daily_target=2000 + (i * 100))
+        await service.store_meal_plan("user-1", plan, ttl_hours=24)
+
+    # Retrieve all plans
+    plans = await service.get_user_meal_plans("user-1", limit=10)
+    assert len(plans) >= 3
+
+    # Verify they're for correct user and sorted
+    for plan in plans:
+        assert plan is not None
+        assert "id" in plan
+        assert "daily_calorie_target" in plan
+
+
+@pytest.mark.asyncio
+async def test_cleanup_expired_meal_plans_with_data(temp_database):
+    """Test cleanup of expired meal plans"""
+    service = temp_database
+
+    # Store one plan that will expire immediately
+    plan = _create_test_meal_plan()
+    plan_id = await service.store_meal_plan("user-1", plan, ttl_hours=0)
+
+    # Run cleanup
+    deleted = await service.cleanup_expired_meal_plans()
+    assert deleted >= 1  # At least one plan deleted
+
+
+@pytest.mark.asyncio
+async def test_meal_plan_ttl_different_values(temp_database):
+    """Test meal plans with different TTL values"""
+    service = temp_database
+
+    # Store with long TTL
+    plan = _create_test_meal_plan()
+    plan_id = await service.store_meal_plan("user-1", plan, ttl_hours=72)  # 3 days
+
+    # Should still be retrievable
+    retrieved = await service.get_meal_plan(plan_id)
+    assert retrieved is not None
+    assert retrieved["daily_calorie_target"] == 2000
