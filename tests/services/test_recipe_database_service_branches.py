@@ -331,7 +331,7 @@ async def test_get_shopping_optimization_with_related_data(recipe_db):
         optimization_id,
         consolidation_id,
         {
-            "suggestion_type": "bulk",
+            "suggestion_type": "bulk_discount",
             "current_needed_quantity": 2,
             "suggested_bulk_quantity": 10,
             "bulk_unit": "pcs",
