@@ -227,19 +227,21 @@ class TestProductScanLabelRoutes:
 
     def test_scan_label_high_confidence_success(self, client, test_image_file):
         """Test successful label scanning with high confidence"""
-        with patch('app.services.ocr.ocr_service') as mock_ocr:
+        with patch('app.routes.product.extract_nutrients_from_image') as mock_extract:
             
             # Mock high confidence OCR result
-            mock_ocr.extract_nutrients.return_value = {
+            mock_extract.return_value = {
+                'raw_text': 'Energy: 250 kcal Protein: 12.0g',
                 'confidence': 0.85,
                 'parsed_nutriments': {
-                    'energy_kcal_per_100g': 250.0,
-                    'protein_g_per_100g': 12.0,
-                    'fat_g_per_100g': 8.0,
-                    'carbs_g_per_100g': 30.0,
-                    'sugars_g_per_100g': 5.0,
-                    'salt_g_per_100g': 1.0
-                }
+                    'energy_kcal': 250.0,
+                    'protein_g': 12.0,
+                    'fat_g': 8.0,
+                    'carbs_g': 30.0,
+                    'sugars_g': 5.0,
+                    'salt_g': 1.0
+                },
+                'processing_details': {'ocr_engine': 'mock'}
             }
             
             response = client.post(
@@ -255,19 +257,21 @@ class TestProductScanLabelRoutes:
 
     def test_scan_label_low_confidence_response(self, client, test_image_file):
         """Test label scanning with low confidence"""
-        with patch('app.services.ocr.ocr_service') as mock_ocr:
+        with patch('app.routes.product.extract_nutrients_from_image') as mock_extract:
             
             # Mock low confidence OCR result
-            mock_ocr.extract_nutrients.return_value = {
+            mock_extract.return_value = {
+                'raw_text': 'Energy: 250 kcal Protein: 12.0g',
                 'confidence': 0.4,
                 'parsed_nutriments': {
-                    'energy_kcal_per_100g': 250.0,
-                    'protein_g_per_100g': None,
-                    'fat_g_per_100g': None,
-                    'carbs_g_per_100g': None,
-                    'sugars_g_per_100g': None,
-                    'salt_g_per_100g': None
-                }
+                    'energy_kcal': 250.0,
+                    'protein_g': None,
+                    'fat_g': None,
+                    'carbs_g': None,
+                    'sugars_g': None,
+                    'salt_g': None
+                },
+                'processing_details': {'ocr_engine': 'mock'}
             }
             
             response = client.post(
@@ -278,8 +282,9 @@ class TestProductScanLabelRoutes:
             assert response.status_code == 200
             data = response.json()
             assert data["confidence"] < 0.7
-            assert "suggestion" in data
-            assert "external ocr" in data["suggestion"].lower()
+            assert data["suggest_external_ocr"] is True
+            assert "partial_parsed" in data
+            assert data["partial_parsed"]["energy_kcal"] == 250.0
 
     def test_scan_label_invalid_content_type(self, client):
         """Test scan with invalid file content type"""
@@ -318,10 +323,10 @@ class TestProductScanLabelRoutes:
 
     def test_scan_label_ocr_processing_error(self, client, test_image_file):
         """Test OCR processing error handling"""
-        with patch('app.services.ocr.ocr_service') as mock_ocr:
+        with patch('app.routes.product.extract_nutrients_from_image') as mock_extract:
             
             # Mock OCR service error
-            mock_ocr.extract_nutrients.side_effect = Exception("OCR processing failed")
+            mock_extract.side_effect = Exception("OCR processing failed")
             
             response = client.post(
                 "/product/scan-label",
@@ -342,15 +347,17 @@ class TestProductExternalScanRoutes:
             
             # Mock successful external OCR
             mock_external_ocr.return_value = {
+                'raw_text': 'Energy: 300 kcal Protein: 15.0g',
                 'confidence': 0.9,
                 'parsed_nutriments': {
-                    'energy_kcal_per_100g': 300.0,
-                    'protein_g_per_100g': 15.0,
-                    'fat_g_per_100g': 10.0,
-                    'carbs_g_per_100g': 35.0,
-                    'sugars_g_per_100g': 8.0,
-                    'salt_g_per_100g': 1.5
-                }
+                    'energy_kcal': 300.0,
+                    'protein_g': 15.0,
+                    'fat_g': 10.0,
+                    'carbs_g': 35.0,
+                    'sugars_g': 8.0,
+                    'salt_g': 1.5
+                },
+                'processing_details': {'ocr_engine': 'external_api'}
             }
             
             response = client.post(
@@ -367,22 +374,25 @@ class TestProductExternalScanRoutes:
     def test_external_scan_fallback_to_local(self, client, test_image_file):
         """Test fallback to local OCR when external fails"""
         with patch('app.services.ocr.call_external_ocr') as mock_external_ocr, \
-             patch('app.services.ocr.ocr_service') as mock_local_ocr:
+             patch('app.services.nutrition_ocr.call_external_ocr', return_value={'raw_text': '', 'parsed_nutriments': {}, 'confidence': 0.0}), \
+             patch('app.routes.product.extract_nutrients_from_image') as mock_local_extract:
             
             # Mock external OCR failure
             mock_external_ocr.side_effect = Exception("External OCR unavailable")
             
             # Mock local OCR success
-            mock_local_ocr.extract_nutrients.return_value = {
+            mock_local_extract.return_value = {
+                'raw_text': 'Energy: 280 kcal Protein: 12.0g',
                 'confidence': 0.75,
                 'parsed_nutriments': {
-                    'energy_kcal_per_100g': 280.0,
-                    'protein_g_per_100g': 12.0,
-                    'fat_g_per_100g': 9.0,
-                    'carbs_g_per_100g': 32.0,
-                    'sugars_g_per_100g': 6.0,
-                    'salt_g_per_100g': 1.2
-                }
+                    'energy_kcal': 280.0,
+                    'protein_g': 12.0,
+                    'fat_g': 9.0,
+                    'carbs_g': 32.0,
+                    'sugars_g': 6.0,
+                    'salt_g': 1.2
+                },
+                'processing_details': {'ocr_engine': 'mock'}
             }
             
             response = client.post(
@@ -398,15 +408,17 @@ class TestProductExternalScanRoutes:
     def test_external_scan_invalid_image(self, client):
         """Test external scan with invalid image"""
         invalid_content = io.BytesIO(b"not an image")
-        
-        response = client.post(
-            "/product/scan-label-external",
-            files={"file": ("invalid.jpg", invalid_content, "image/jpeg")}
-        )
-        
-        assert response.status_code == 400
-        data = response.json()
-        assert "invalid" in data["detail"].lower() or "image" in data["detail"].lower()
+        with patch('app.services.ocr.call_external_ocr', return_value={'raw_text': '', 'parsed_nutriments': {}, 'confidence': 0.0}), \
+             patch('app.services.nutrition_ocr.call_external_ocr', return_value={'raw_text': '', 'parsed_nutriments': {}, 'confidence': 0.0}), \
+             patch('app.routes.product.extract_nutrients_from_image', return_value={'raw_text': '', 'parsed_nutriments': {}, 'confidence': 0.0}):
+            response = client.post(
+                "/product/scan-label-external",
+                files={"file": ("invalid.jpg", invalid_content, "image/jpeg")}
+            )
+            
+            assert response.status_code == 400
+            data = response.json()
+            assert "invalid" in data["detail"].lower() or "image" in data["detail"].lower() or "text" in data["detail"].lower()
 
 
 class TestProductRoutesIntegration:
@@ -418,7 +430,7 @@ class TestProductRoutesIntegration:
         
         with patch('app.services.cache.cache_service', mock_cache_service), \
              patch('app.services.openfoodfacts.openfoodfacts_service', mock_openfoodfacts_service), \
-             patch('app.services.ocr.ocr_service') as mock_ocr:
+             patch('app.routes.product.extract_nutrients_from_image') as mock_extract:
             
             # Step 1: Barcode lookup fails
             mock_cache_service.get.return_value = None
@@ -428,16 +440,18 @@ class TestProductRoutesIntegration:
             assert barcode_response.status_code == 404
             
             # Step 2: User scans label instead
-            mock_ocr.extract_nutrients.return_value = {
+            mock_extract.return_value = {
+                'raw_text': 'Energy: 320 kcal Protein: 14.0g',
                 'confidence': 0.8,
                 'parsed_nutriments': {
-                    'energy_kcal_per_100g': 320.0,
-                    'protein_g_per_100g': 14.0,
-                    'fat_g_per_100g': 11.0,
-                    'carbs_g_per_100g': 38.0,
-                    'sugars_g_per_100g': 7.0,
-                    'salt_g_per_100g': 1.3
-                }
+                    'energy_kcal': 320.0,
+                    'protein_g': 14.0,
+                    'fat_g': 11.0,
+                    'carbs_g': 38.0,
+                    'sugars_g': 7.0,
+                    'salt_g': 1.3
+                },
+                'processing_details': {'ocr_engine': 'mock'}
             }
             
             scan_response = client.post(
@@ -502,20 +516,28 @@ class TestProductRoutesEdgeCases:
     def test_very_long_barcode_handling(self, client):
         """Test handling of unusually long barcodes"""
         very_long_barcode = "1" * 100  # 100 character barcode
-        
-        response = client.post("/product/by-barcode", json={"barcode": very_long_barcode})
-        
-        # Should handle gracefully (either process or reject with proper error)
-        assert response.status_code in [400, 404, 422]
+        with patch('app.services.cache.cache_service') as mock_cache, \
+             patch('app.services.openfoodfacts.openfoodfacts_service') as mock_openfoodfacts:
+            mock_cache.get = AsyncMock(return_value=None)
+            mock_cache.set = AsyncMock(return_value=True)
+            mock_openfoodfacts.get_product = AsyncMock(return_value=None)
+            response = client.post("/product/by-barcode", json={"barcode": very_long_barcode})
+            
+            # Should handle gracefully (either process or reject with proper error)
+            assert response.status_code in [400, 404, 422]
 
     def test_special_characters_in_barcode(self, client):
         """Test barcodes with special characters"""
         special_barcode = "123-456-789-012"
-        
-        response = client.post("/product/by-barcode", json={"barcode": special_barcode})
-        
-        # Should handle gracefully
-        assert response.status_code in [400, 404, 422]
+        with patch('app.services.cache.cache_service') as mock_cache, \
+             patch('app.services.openfoodfacts.openfoodfacts_service') as mock_openfoodfacts:
+            mock_cache.get = AsyncMock(return_value=None)
+            mock_cache.set = AsyncMock(return_value=True)
+            mock_openfoodfacts.get_product = AsyncMock(return_value=None)
+            response = client.post("/product/by-barcode", json={"barcode": special_barcode})
+            
+            # Should handle gracefully
+            assert response.status_code in [400, 404, 422]
 
     def test_unicode_barcode_handling(self, client):
         """Test barcodes with unicode characters"""

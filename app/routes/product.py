@@ -303,6 +303,15 @@ async def _normalize_external_payload(result, legacy_ocr, *, engine_label: str) 
     return None
 
 
+def _is_empty_ocr_result(result: Optional[dict]) -> bool:
+    if not isinstance(result, dict):
+        return True
+    raw_text = (result.get('raw_text') or '').strip()
+    parsed = result.get('parsed_nutriments') or {}
+    has_parsed = any(value is not None for value in parsed.values()) if isinstance(parsed, dict) else False
+    return not raw_text and not has_parsed
+
+
 @_route_post(
     "/by-barcode",
     response_model=ProductResponse,
@@ -658,16 +667,28 @@ async def scan_label_with_external_ocr(
         external_callable = getattr(legacy_ocr, 'call_external_ocr', None) if legacy_ocr else None
         ocr_result = None
         if external_callable:
-            external_payload = external_callable(temp_file_path)
-            if inspect.isawaitable(external_payload):
-                external_payload = await external_payload
-            ocr_result = await _normalize_external_payload(external_payload, legacy_ocr, engine_label='external_ocr')
+            try:
+                external_payload = external_callable(temp_file_path)
+                if inspect.isawaitable(external_payload):
+                    external_payload = await external_payload
+                ocr_result = await _normalize_external_payload(external_payload, legacy_ocr, engine_label='external_ocr')
+                if _is_empty_ocr_result(ocr_result):
+                    ocr_result = None
+            except Exception as exc:
+                logger.warning(f"External OCR failed, falling back to local OCR: {exc}")
+                ocr_result = None
 
         if ocr_result is None:
-            fallback_payload = call_external_ocr(temp_file_path)
-            if inspect.isawaitable(fallback_payload):
-                fallback_payload = await fallback_payload
-            ocr_result = await _normalize_external_payload(fallback_payload, legacy_ocr, engine_label='external_ocr')
+            try:
+                fallback_payload = call_external_ocr(temp_file_path)
+                if inspect.isawaitable(fallback_payload):
+                    fallback_payload = await fallback_payload
+                ocr_result = await _normalize_external_payload(fallback_payload, legacy_ocr, engine_label='external_ocr')
+                if _is_empty_ocr_result(ocr_result):
+                    ocr_result = None
+            except Exception as exc:
+                logger.warning(f"External OCR hook failed, falling back to local OCR: {exc}")
+                ocr_result = None
 
         if ocr_result:
             logger.info("Using external OCR service result")

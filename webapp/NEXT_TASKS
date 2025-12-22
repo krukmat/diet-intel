@@ -1,0 +1,44 @@
+  1. Centralizar mocks de contexto/servicios (AuthContext, AsyncStorage, ApiService, NetInfo) en un helper de tests móvil y consumirlo en todas las
+  suites Smart Diet (unitarias, flows, integración). => listo
+  2. Actualizar fixtures de SmartDietService.test.ts para reflejar el contrato actual (GET + SmartDietResponse), asegurando que el cache y el fallback
+  funcionen contra datos válidos. => listo
+  3. Reescribir los tests de flujos e integración reutilizando los mocks anteriores y sustituyendo dependencias nativas (fetch, navegación) por stubs
+  controlados. => listo
+  4. Mock de PixelRatio / ActivityIndicator en setup global para desbloquear ProductDetail y ReminderSnippet. => listo
+  5. Refactorizar los tests de persistencia AsyncStorage para interactuar con los componentes funcionales mediante Testing Library en lugar de acceder a
+  instancias inexistentes.
+
+
+  actual tarea: 5.
+  subtareas
+
+  1. Inventario de mocks previos
+      - Revisar los commits anteriores y el antiguo SmartDietNavigationFlows.test.tsx / SmartDietIntegration.test.tsx para identificar los mocks que se
+  removieron (NavigationService, fetch, NetInfo, etc.) y listarlos. => Listo
+  2. Diseño de nuevo arnés de pruebas
+      - Definir un helper común que exponga esos mocks (p.ej. un factory dentro de __tests__/testUtils.tsx) y cómo inyectaremos stubs para fetch,
+  navegación y otras dependencias nativas.
+  3. Reescritura de SmartDietNavigationFlows.test.tsx
+      - Reemplazar los imports/mocks actuales por los reutilizados, añadir los stubs controlados, ajustar los tests para usar el nuevo helper.
+  4. Reescritura de SmartDietIntegration.test.tsx
+      - Aplicar el mismo patrón de mocks/stubs, asegurando que los escenarios de integración consuman el fetch stub y la navegación stub. => Listo
+  5. Ejecución y verificación
+      - Correr los suites afectados (SmartDietNavigationFlows, SmartDietIntegration) para confirmar que los stubs reproducen el comportamiento esperado
+  sin depender de APIs reales. => Listo
+
+  subtareas tarea 4
+
+  1. Revisar setup global actual para entender mocks existentes. => Listo
+  2. Definir/inyectar mocks de PixelRatio y ActivityIndicator en el setup global. => Listo
+  3. Ajustar tests de ProductDetail y ReminderSnippet para trabajar con los nuevos mocks y sus propias expectativas (incluye actualizar sus propios mocks de Notifications y expectativas de layout). => Listo
+  4. Ejecutar suites ProductDetail/ReminderSnippet y validar que todo pase. => Listo
+
+  subtareas tarea 5
+
+  1. Auditar los tests actuales de AsyncStorage para identificar dependencias directas y supuestos acoplados. => Listo
+  2. Diseñar un enfoque con Testing Library que ejercite componentes reales utilizando helpers comunes y mocks consistentes. => Listo
+  3. Refactorizar los escenarios de persistencia AsyncStorage aplicando el nuevo enfoque y limpiando accesos directos a instancias. => Listo
+  4. Ejecutar suites de AsyncStorage (unitarias, e2e) para verificar que el refactor mantiene el comportamiento esperado. => Listo
+  5. Preparar notas de revisión destacando cambios clave y riesgos para facilitar el code review. => Listo
+
+- [ ] Ejecutar Playwright `discover-analytics.spec.js` con el stack levantado y registrar resultados (Sprint siguiente)

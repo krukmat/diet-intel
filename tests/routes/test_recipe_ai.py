@@ -12,8 +12,10 @@ from app.models.recipe import (
     CuisineType, MealType, CreatedBy, RecipeSearchResponse,
     RecipeRatingRequest, ShoppingListRequest, ShoppingListResponse,
     UserTasteProfileResponse, PersonalizedRecipeRequest,
-    RecipeAnalyticsResponse, CuisinePreference, IngredientPreference
+    RecipeAnalyticsResponse, CuisinePreference, IngredientPreference,
+    BatchRecipeTranslationRequest
 )
+from app.models.shopping import ShoppingOptimizationRequest, ShoppingOptimizationResponse
 from app.models.user import User, UserRole
 from app.routes import recipe_ai as recipe_ai_module
 
@@ -689,3 +691,148 @@ async def test_analyze_recipe_nutrition(
 
     assert "message" in response
     assert response["recipe_data_received"] is True
+
+
+# ===== TESTS: SHOPPING OPTIMIZATION =====
+
+@pytest.mark.asyncio
+async def test_optimize_shopping_list_success(current_user):
+    """Test shopping optimization endpoint"""
+    request = ShoppingOptimizationRequest(recipe_ids=["recipe-123"])
+
+    consolidated = [
+        {
+            "id": "ing-1",
+            "shopping_optimization_id": "opt-1",
+            "consolidated_ingredient_name": "tomato",
+            "source_recipes": [
+                {
+                    "recipe_id": "recipe-123",
+                    "recipe_name": "Pasta",
+                    "original_quantity": 2.0,
+                    "unit": "pcs",
+                }
+            ],
+            "total_consolidated_quantity": 2.0,
+            "final_unit": "pcs",
+        }
+    ]
+
+    optimization_response = ShoppingOptimizationResponse(
+        optimization_id="opt-1",
+        optimization_name="Shopping List for 1 Recipe",
+        recipe_ids=["recipe-123"],
+        consolidated_ingredients=consolidated,
+        optimization_metrics={
+            "total_original_ingredients": 2,
+            "total_consolidated_ingredients": 1,
+            "consolidation_opportunities": 1,
+            "efficiency_score": 0.8,
+            "ingredients_reduced_percent": 50.0,
+            "estimated_cost": 10.0,
+            "optimization_score": 0.75,
+        },
+        bulk_suggestions=[],
+        shopping_path=[],
+        estimated_total_cost=10.0,
+        estimated_savings=2.0,
+        created_at=datetime.now(),
+        expires_at=None,
+    )
+
+    mock_service = AsyncMock()
+    mock_service.optimize_shopping_list = AsyncMock(return_value=optimization_response)
+
+    with patch.object(recipe_ai_module, "ShoppingOptimizationService", return_value=mock_service):
+        response = await recipe_ai_module.optimize_shopping_list(
+            request=request,
+            current_user=current_user,
+        )
+
+    assert response.optimization_id == "opt-1"
+    assert response.optimization_name == "Shopping List for 1 Recipe"
+
+
+@pytest.mark.asyncio
+async def test_get_shopping_optimization_success(current_user):
+    """Test retrieving shopping optimization"""
+    consolidated = [
+        {
+            "id": "ing-1",
+            "shopping_optimization_id": "opt-1",
+            "consolidated_ingredient_name": "tomato",
+            "source_recipes": [
+                {
+                    "recipe_id": "recipe-123",
+                    "recipe_name": "Pasta",
+                    "original_quantity": 2.0,
+                    "unit": "pcs",
+                }
+            ],
+            "total_consolidated_quantity": 2.0,
+            "final_unit": "pcs",
+        }
+    ]
+
+    optimization_response = ShoppingOptimizationResponse(
+        optimization_id="opt-1",
+        optimization_name="Shopping List for 1 Recipe",
+        recipe_ids=["recipe-123"],
+        consolidated_ingredients=consolidated,
+        optimization_metrics={
+            "total_original_ingredients": 2,
+            "total_consolidated_ingredients": 1,
+            "consolidation_opportunities": 1,
+            "efficiency_score": 0.8,
+            "ingredients_reduced_percent": 50.0,
+            "estimated_cost": 10.0,
+            "optimization_score": 0.75,
+        },
+        bulk_suggestions=[],
+        shopping_path=[],
+        estimated_total_cost=10.0,
+        estimated_savings=2.0,
+        created_at=datetime.now(),
+        expires_at=None,
+    )
+
+    mock_service = AsyncMock()
+    mock_service.get_shopping_optimization = AsyncMock(return_value=optimization_response)
+
+    with patch.object(recipe_ai_module, "ShoppingOptimizationService", return_value=mock_service):
+        response = await recipe_ai_module.get_shopping_optimization(
+            optimization_id="opt-1",
+            current_user=current_user,
+        )
+
+    assert response.optimization_id == "opt-1"
+    assert response.recipe_ids == ["recipe-123"]
+
+
+# ===== TESTS: BATCH TRANSLATION =====
+
+@pytest.mark.asyncio
+async def test_batch_translate_recipes_success(
+    current_user, mock_recipe_engine, mock_recipe_db_service
+):
+    """Test batch translation endpoint"""
+    request = BatchRecipeTranslationRequest(
+        recipe_ids=["recipe-123"],
+        target_language="es",
+    )
+
+    mock_recipe_db_service.get_recipe = AsyncMock(return_value=_create_test_recipe_response())
+    mock_recipe_engine.batch_translate_recipes = AsyncMock(
+        return_value={"recipe-123": _create_test_recipe_response("translated-1")}
+    )
+
+    with patch.object(recipe_ai_module, "recipe_engine", mock_recipe_engine):
+        with patch.object(recipe_ai_module, "recipe_db_service", mock_recipe_db_service):
+            response = await recipe_ai_module.batch_translate_recipes_to_spanish(
+                request=request,
+                current_user=current_user,
+            )
+
+    assert response["successful_count"] == 1
+    assert response["failed_count"] == 0
+    assert "recipe-123" in response["translations"]
