@@ -36,7 +36,7 @@ class MealItem(BaseModel):
 class MealTrackingRequest(BaseModel):
     """Request model for tracking consumed meals"""
     meal_name: str = Field(..., min_length=1, max_length=100, description="Name of the meal (Breakfast, Lunch, Dinner)")
-    items: List[MealItem] = Field(..., min_length=1, max_length=20, description="List of food items consumed (1-20 items)")
+    items: List[MealItem] = Field(default_factory=list, max_length=20, description="List of food items consumed (0-20 items)")
     photo: Optional[str] = Field(None, max_length=1000000, description="Base64 encoded photo of the meal")
     timestamp: str = Field(default_factory=lambda: datetime.now().isoformat(), description="ISO timestamp when meal was consumed")
 
@@ -63,13 +63,15 @@ class MealTrackingRequest(BaseModel):
     @validator('timestamp')
     def validate_timestamp(cls, v):
         if not v or not isinstance(v, str) or not v.strip():
-            raise ValueError("timestamp must be provided in ISO-8601 format")
+            # Use current timestamp as fallback for empty/invalid input
+            return datetime.now().isoformat()
         try:
             # Try to parse as ISO format
             datetime.fromisoformat(v.replace('Z', '+00:00'))
             return v
         except (ValueError, TypeError):
-            raise ValueError("timestamp must be provided in ISO-8601 format")
+            # Use current timestamp as fallback for invalid ISO format
+            return datetime.now().isoformat()
 
     @model_validator(mode='after')
     def validate_normalized_fields(self):

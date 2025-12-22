@@ -87,3 +87,66 @@ DietIntel is a FastAPI application for nutrition tracking with product lookup, O
 - when you plan, create an md in plan folder. put the date and the objective in the file name.
 - for every task/phase you plan save it in a file md file in plan folder. when you finish save in that file the files you changed and the goals reached. the file should have the date and time.
 - when I say push all, you have to be in the root folder of the project always. Also should ask to update readme or not.
+- always run the entire pytest suite (with coverage) before committing; subset runs are fine during iteration but do not skip the final full run.
+- capture every plan, report, or QA artifact inside the repository (plan/ for planning docs, docs/ or artifacts/ for outputs) so nothing lives only in chat logs.
+- keep provider and tooling configuration (LLM keys, CLI requirements, env vars) documented near the workflows that need them to avoid misconfigured roles.
+- enforce TDD: each story/feature should land with automated tests, and QA feedback loops must be satisfied before declaring the work done.
+- never rewrite past artifact snapshots; append follow-up notes or create new docs instead so the historical record stays immutable.
+
+## Cross-Project Process Notes
+- Continue to use `plan/` for every newly scoped phase; include the date and the objective in the filename, and when the phase closes append the files modified plus every verification command (including manual tests tracked in `manual-user-tests.md`) so the artifact remains immutable.
+- Capture QA and coverage artifacts in the repo (`plan/`, `docs/`, or `artifacts/`) so nothing is lost in chat logs; when a manual verification step is executed, log it in `manual-user-tests.md`.
+- Enforce TDD, minimal mocking, and the QA feedback loop—tests should arrive with a change, and broader integration coverage should be rerun before a task is declared done.
+- Run the complete backend pytest suite (with coverage) before committing; you can use `.venv/bin/pytest` if a `.venv` exists, otherwise `python -m pytest --cov=app`.
+- Keep provider/tooling configuration near the workflows that require them and respect instructions about not deleting historical artifacts (append updates instead).
+
+## Claude Code - Memory & Task Management Protocol
+
+### For Complex Implementations
+**BEFORE STARTING**: When an implementation is complex (involves multiple steps, decision points, or changes across files):
+
+1. **Create Memory Document**: Add reasoning to `plan/` with:
+   - What you're going to do (breakdown into tasks/subtasks)
+   - Why each decision (mocking strategy, file structure, etc.)
+   - Expected changes vs original plan
+
+2. **Use TodoWrite Tool**: Track progress with subtasks:
+   - Mark as `in_progress` BEFORE starting work
+   - Update IMMEDIATELY after completing each subtask
+   - Show user high-level progress
+
+3. **After Completion**: Provide summary with:
+   - What was actually done (list of changes)
+   - Justification for deviations from original plan:
+     - What was added and why
+     - What was removed/changed and why
+     - What stayed the same and why
+   - Link to memory document in `plan/`
+
+### Example Format
+```markdown
+## Task Summary
+- ✅ Subtask 1: [description] - COMPLETED
+- ✅ Subtask 2: [description] - COMPLETED
+
+## Justification vs Original Plan
+### Added:
+- Item X (reason: ...)
+
+### Changed:
+- Item Y from [original] to [new] (reason: ...)
+
+### Removed:
+- Item Z (reason: ...)
+
+### Unchanged:
+- Items A, B, C (reason: ...)
+
+See plan/YYYY-MM-DD-[description].md for full details.
+```
+
+### Key Rules
+- **Never skip cleanup**: If imports/functions become unused due to implementation changes, document and remove them
+- **Document decisions**: Why you chose a certain mocking strategy, architecture pattern, etc.
+- **Justify deviations**: Original plan vs actual implementation should have clear reasoning
+- **Keep artifacts**: Plan documents are immutable records (append notes, don't rewrite)

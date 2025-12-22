@@ -47,7 +47,7 @@ class TestBMRCalculation:
         # Expected: 10*75 + 6.25*175 - 5*30 + 5 = 750 + 1093.75 - 150 + 5 = 1698.75
         bmr = self.calculator.calculate_bmr(profile)
         
-        assert bmr == 1698.8  # Rounded to 1 decimal
+        assert bmr == 1698.75
     
     def test_bmr_female_calculation(self):
         """Test BMR calculation for female profile"""
@@ -59,7 +59,7 @@ class TestBMRCalculation:
         # Expected: 10*60 + 6.25*165 - 5*25 - 161 = 600 + 1031.25 - 125 - 161 = 1345.25
         bmr = self.calculator.calculate_bmr(profile)
         
-        assert bmr == 1345.2
+        assert bmr == 1345.25
     
     def test_bmr_edge_cases(self):
         """Test BMR calculation for edge cases"""

@@ -12,9 +12,8 @@ class BarcodeRequest(BaseModel):
             raise ValueError("Barcode cannot be empty")
 
         # Defer strict format validation to downstream services/routes so tests can
-        # inject sentinel values (e.g., timeout/network fallbacks). Just return the
-        # trimmed barcode to ensure it propagates through the pipeline.
-        return value.strip()
+        # inject sentinel values (e.g., timeout/network fallbacks).
+        return value
 
 
 class Nutriments(BaseModel):

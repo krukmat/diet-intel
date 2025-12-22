@@ -154,23 +154,35 @@ class ReportService:
         Args:
             report_id: Report to moderate
             moderator_id: Moderator performing action
-            action: Moderation action ('approved', 'dismissed', 'escalated')
+            action: Moderation action ('approve', 'dismiss', 'escalate')
             notes: Optional moderation notes
 
         Returns:
             True if moderated successfully
         """
+        # Map action names to status values (PHASE 3: Added mapping for API action names - 2025-12-13)
+        action_to_status = {
+            'approve': 'moderated_approved',
+            'dismiss': 'moderated_dismissed',
+            'escalate': 'moderated_escalated'
+        }
+
         try:
             with db_service.get_connection() as conn:
                 cursor = conn.cursor()
 
-                # Update report status
+                # Verify report exists first (PHASE 3: Added to return False for non-existent reports - 2025-12-13)
+                cursor.execute("SELECT id FROM content_reports WHERE id = ?", (report_id,))
+                if cursor.fetchone() is None:
+                    return False
+
+                # Update report status with mapped action
                 cursor.execute("""
                     UPDATE content_reports
                     SET status = ?, reviewed_at = ?, reviewed_by = ?
                     WHERE id = ?
                 """, (
-                    f"moderated_{action}",
+                    action_to_status.get(action, f"moderated_{action}"),
                     datetime.utcnow().isoformat(),
                     moderator_id,
                     report_id

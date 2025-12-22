@@ -27,6 +27,7 @@ import MyRecipesScreen from './screens/MyRecipesScreen';
 import RecipeDetailScreen from './screens/RecipeDetailScreen';
 import TastePreferencesScreen from './screens/TastePreferencesScreen';
 import ShoppingOptimizationScreen from './screens/ShoppingOptimizationScreen';
+import IntelligentFlowScreen from './screens/IntelligentFlowScreen';
 import { ProfileScreen } from './screens/ProfileScreen';
 import { ProfileEditScreen } from './screens/ProfileEditScreen';
 import { DiscoverFeedScreen } from './screens/DiscoverFeedScreen';
@@ -116,7 +117,8 @@ function MainApp({ user, onLogout }: { user: any; onLogout: () => void }) {
     | 'vision'
     | 'discover-feed'
     | 'profile'
-    | 'profile-edit';
+    | 'profile-edit'
+    | 'intelligent-flow';
   const [currentScreen, setCurrentScreen] = useState<ScreenType>('scanner');
   const [navigationContext, setNavigationContext] = useState<{
     targetContext?: string;
@@ -328,6 +330,14 @@ function MainApp({ user, onLogout }: { user: any; onLogout: () => void }) {
     />;
   }
 
+  if (currentScreen === 'intelligent-flow') {
+    return (
+      <IntelligentFlowScreen
+        onBackPress={() => setCurrentScreen('scanner')}
+      />
+    );
+  }
+
   if (currentScreen === 'vision') {
     console.log('Rendering VisionLogScreen...');
     return <VisionLogScreen
@@ -511,6 +521,17 @@ function MainApp({ user, onLogout }: { user: any; onLogout: () => void }) {
           >
             <Text style={[styles.navButtonText, isActiveScreen('track') && styles.navButtonTextActive]}>
               {t('navigation.track')}
+            </Text>
+          </TouchableOpacity>
+        )}
+
+        {featureToggles?.intelligentFlowFeature && (
+          <TouchableOpacity
+            style={[styles.navButton, isActiveScreen('intelligent-flow') && styles.navButtonActive]}
+            onPress={() => setCurrentScreen('intelligent-flow')}
+          >
+            <Text style={[styles.navButtonText, isActiveScreen('intelligent-flow') && styles.navButtonTextActive]}>
+              {t('navigation.intelligentFlow', '🤖 Intelligent Flow')}
             </Text>
           </TouchableOpacity>
         )}

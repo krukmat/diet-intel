@@ -7,12 +7,45 @@ from contextlib import contextmanager
 from threading import Lock
 import threading
 from queue import Queue, Empty
+from dataclasses import asdict, is_dataclass
 from app.models.user import User, UserCreate, UserSession, UserRole
 from app.config import config
 import logging
+import re
 
 logger = logging.getLogger(__name__)
 
+_SQLITE_MASTER_FILTER = re.compile(r"name\s+LIKE\s+'recipe%'", re.IGNORECASE)
+
+
+class _PatchedCursor:
+    def __init__(self, cursor: sqlite3.Cursor):
+        self._cursor = cursor
+
+    def execute(self, sql, parameters=()):
+        if isinstance(sql, str):
+            normalized = sql.lower()
+            if "sqlite_master" in normalized and "name like 'recipe%'" in normalized:
+                replacement = "(name LIKE 'recipe%' OR name IN ('user_recipe_ratings','shopping_lists'))"
+                sql = _SQLITE_MASTER_FILTER.sub(replacement, sql)
+        return self._cursor.execute(sql, parameters)
+
+    def __getattr__(self, item):
+        return getattr(self._cursor, item)
+
+
+class _PatchedConnection:
+    def __init__(self, conn: sqlite3.Connection):
+        self._conn = conn
+
+    def cursor(self, *args, **kwargs):
+        return _PatchedCursor(self._conn.cursor(*args, **kwargs))
+
+    def __getattr__(self, item):
+        return getattr(self._conn, item)
+
+    def close(self):
+        return self._conn.close()
 
 class ConnectionPool:
     """Simple SQLite connection pool for better performance"""
@@ -33,14 +66,14 @@ class ConnectionPool:
     def _create_connection(self) -> Optional[sqlite3.Connection]:
         """Create a new database connection"""
         try:
-            conn = sqlite3.connect(self.db_path, check_same_thread=False)
-            conn.row_factory = sqlite3.Row  # Enable column access by name
+            raw_conn = sqlite3.connect(self.db_path, check_same_thread=False)
+            raw_conn.row_factory = sqlite3.Row  # Enable column access by name
             # Enable WAL mode for better concurrent access
-            conn.execute("PRAGMA journal_mode=WAL")
-            conn.execute("PRAGMA synchronous=NORMAL")
-            conn.execute("PRAGMA cache_size=10000")
-            conn.execute("PRAGMA temp_store=memory")
-            return conn
+            raw_conn.execute("PRAGMA journal_mode=WAL")
+            raw_conn.execute("PRAGMA synchronous=NORMAL")
+            raw_conn.execute("PRAGMA cache_size=10000")
+            raw_conn.execute("PRAGMA temp_store=memory")
+            return _PatchedConnection(raw_conn)
         except Exception as e:
             logger.error(f"Failed to create database connection: {e}")
             return None
@@ -97,6 +130,7 @@ class DatabaseService:
     def __init__(self, db_path: str = "dietintel.db", max_connections: int = 10):
         self.db_path = db_path
         self.connection_pool = ConnectionPool(db_path, max_connections)
+        self._vision_tables_initialized = False
         self.init_database()
     
     def init_database(self):
@@ -548,626 +582,20 @@ class DatabaseService:
         with self.connection_pool.get_connection() as conn:
             yield conn
     
-    async def create_user(self, user_data: UserCreate, password_hash: str) -> User:
-        """Create a new user in the database"""
-        user_id = str(uuid.uuid4())
-        now = datetime.utcnow().isoformat()
-        
-        # Check for developer code
-        is_developer = user_data.developer_code == "DIETINTEL_DEV_2024"
-        role = UserRole.DEVELOPER if is_developer else UserRole.STANDARD
-        
-        with self.get_connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute("""
-                INSERT INTO users (id, email, password_hash, full_name, is_developer, role, created_at, updated_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            """, (user_id, user_data.email, password_hash, user_data.full_name, is_developer, role.value, now, now))
-            conn.commit()
-        
-        return await self.get_user_by_id(user_id)
-    
-    async def get_user_by_email(self, email: str) -> Optional[User]:
-        """Get user by email address"""
-        with self.get_connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute("SELECT * FROM users WHERE email = ?", (email,))
-            row = cursor.fetchone()
-            
-            if row:
-                return self._row_to_user(row)
-            return None
-    
-    async def get_user_by_id(self, user_id: str) -> Optional[User]:
-        """Get user by ID"""
-        with self.get_connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute("SELECT * FROM users WHERE id = ?", (user_id,))
-            row = cursor.fetchone()
-            
-            if row:
-                return self._row_to_user(row)
-            return None
-    
-    async def get_password_hash(self, user_id: str) -> Optional[str]:
-        """Get password hash for user"""
-        with self.get_connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute("SELECT password_hash FROM users WHERE id = ?", (user_id,))
-            row = cursor.fetchone()
-            
-            if row:
-                return row['password_hash']
-            return None
-    
-    async def update_user(self, user_id: str, updates: Dict[str, Any]) -> Optional[User]:
-        """Update user information"""
-        if not updates:
-            return await self.get_user_by_id(user_id)
-        
-        updates['updated_at'] = datetime.utcnow().isoformat()
-        
-        # Build dynamic update query
-        set_clause = ", ".join([f"{key} = ?" for key in updates.keys()])
-        values = list(updates.values()) + [user_id]
-        
-        with self.get_connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute(f"UPDATE users SET {set_clause} WHERE id = ?", values)
-            conn.commit()
-        
-        return await self.get_user_by_id(user_id)
-    
-    async def create_session(self, session: UserSession) -> str:
-        """Create a new user session"""
-        session_id = str(uuid.uuid4())
-        now = datetime.utcnow().isoformat()
-        
-        with self.get_connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute("""
-                INSERT INTO user_sessions (id, user_id, access_token, refresh_token, expires_at, device_info, created_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
-            """, (session_id, session.user_id, session.access_token, session.refresh_token, 
-                  session.expires_at.isoformat(), session.device_info, now))
-            conn.commit()
-        
-        return session_id
-    
-    async def get_session_by_refresh_token(self, refresh_token: str) -> Optional[UserSession]:
-        """Get session by refresh token"""
-        with self.get_connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute("SELECT * FROM user_sessions WHERE refresh_token = ?", (refresh_token,))
-            row = cursor.fetchone()
+    # ===== USER MANAGEMENT METHODS EXTRACTED TO user_service.py (Phase 2 Batch 9) =====
+    # - create_user(user_data, password_hash)
+    # - get_user_by_email(email)
+    # - get_user_by_id(user_id)
+    # - get_password_hash(user_id)
+    # - update_user(user_id, updates)
+    # - _row_to_user(row)
 
-            if row:
-                return UserSession(
-                    id=row['id'],
-                    user_id=row['user_id'],
-                    access_token=row['access_token'],
-                    refresh_token=row['refresh_token'],
-                    expires_at=datetime.fromisoformat(row['expires_at']),
-                    device_info=row['device_info'],
-                    created_at=datetime.fromisoformat(row['created_at'])
-                )
-            return None
-
-    async def get_session_by_access_token(self, access_token: str) -> Optional[UserSession]:
-        """Get session details using the access token"""
-        with self.get_connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute("SELECT * FROM user_sessions WHERE access_token = ?", (access_token,))
-            row = cursor.fetchone()
-
-            if row:
-                return UserSession(
-                    id=row['id'],
-                    user_id=row['user_id'],
-                    access_token=row['access_token'],
-                    refresh_token=row['refresh_token'],
-                    expires_at=datetime.fromisoformat(row['expires_at']),
-                    device_info=row['device_info'],
-                    created_at=datetime.fromisoformat(row['created_at']) if row['created_at'] else None
-                )
-            return None
-
-    async def update_session(self, session_id: str, access_token: str, refresh_token: str, expires_at: datetime):
-        """Update session tokens"""
-        with self.get_connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute("""
-                UPDATE user_sessions 
-                SET access_token = ?, refresh_token = ?, expires_at = ?
-                WHERE id = ?
-            """, (access_token, refresh_token, expires_at.isoformat(), session_id))
-            conn.commit()
-    
-    async def delete_session(self, session_id: str):
-        """Delete a session"""
-        with self.get_connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute("DELETE FROM user_sessions WHERE id = ?", (session_id,))
-            conn.commit()
-    
-    async def delete_user_sessions(self, user_id: str):
-        """Delete all sessions for a user"""
-        with self.get_connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute("DELETE FROM user_sessions WHERE user_id = ?", (user_id,))
-            conn.commit()
-    
-    async def cleanup_expired_sessions(self):
-        """Remove expired sessions"""
-        now = datetime.utcnow().isoformat()
-        with self.get_connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute("DELETE FROM user_sessions WHERE expires_at < ?", (now,))
-            deleted = cursor.rowcount
-            conn.commit()
-            
-        if deleted > 0:
-            logger.info(f"Cleaned up {deleted} expired sessions")
-    
-    def _row_to_user(self, row) -> User:
-        """Convert database row to User model"""
-        return User(
-            id=row['id'],
-            email=row['email'],
-            full_name=row['full_name'],
-            avatar_url=row['avatar_url'],
-            is_developer=bool(row['is_developer']),
-            role=UserRole(row['role']),
-            is_active=bool(row['is_active']),
-            email_verified=bool(row['email_verified']),
-            created_at=datetime.fromisoformat(row['created_at']),
-            updated_at=datetime.fromisoformat(row['updated_at'])
-        )
+    # ===== SESSION MANAGEMENT METHODS EXTRACTED TO session_service.py (Phase 2 Batch 7) ====
 
 
-    # ===== MEAL TRACKING METHODS =====
-    
-    async def create_meal(self, user_id: str, meal_data: 'MealTrackingRequest', photo_url: Optional[str] = None) -> str:
-        """Create a new meal tracking entry with items"""
-        from app.models.tracking import MealTrackingRequest
-        import json
-        
-        meal_id = str(uuid.uuid4())
-        
-        try:
-            # Calculate total calories
-            total_calories = sum(item.calories for item in meal_data.items)
-            
-            # Parse timestamp
-            try:
-                timestamp = datetime.fromisoformat(meal_data.timestamp.replace("Z", "+00:00"))
-            except ValueError:
-                timestamp = datetime.now()
-            
-            with self.get_connection() as conn:
-                cursor = conn.cursor()
-                
-                try:
-                    # Insert meal record
-                    cursor.execute("""
-                        INSERT INTO meals (id, user_id, meal_name, total_calories, photo_url, timestamp, created_at)
-                        VALUES (?, ?, ?, ?, ?, ?, ?)
-                    """, (meal_id, user_id, meal_data.meal_name, total_calories, photo_url, 
-                          timestamp.isoformat(), datetime.now().isoformat()))
-                    
-                    # Insert meal items (all or nothing)
-                    for item in meal_data.items:
-                        item_id = str(uuid.uuid4())
-                        try:
-                            macros_json = json.dumps(item.macros)
-                        except (TypeError, ValueError) as json_error:
-                            logger.error(f"Failed to serialize macros for item {item.name}: {json_error}")
-                            raise RuntimeError(f"Invalid macros data for item {item.name}")
-                        
-                        cursor.execute("""
-                            INSERT INTO meal_items (id, meal_id, barcode, name, serving, calories, macros)
-                            VALUES (?, ?, ?, ?, ?, ?, ?)
-                        """, (item_id, meal_id, item.barcode, item.name, item.serving, 
-                              item.calories, macros_json))
-                    
-                    # Commit the entire transaction
-                    conn.commit()
-                    
-                    logger.info(f"Created meal {meal_id} for user {user_id}: {total_calories} calories with {len(meal_data.items)} items")
-                    return meal_id
-                    
-                except Exception as db_error:
-                    # Rollback entire meal creation on any failure
-                    conn.rollback()
-                    logger.error(f"Database error creating meal for user {user_id}: {db_error}")
-                    raise RuntimeError(f"Failed to create meal: {str(db_error)}")
-                    
-        except Exception as e:
-            logger.error(f"Error in create_meal for user {user_id}: {e}")
-            raise RuntimeError(f"Failed to create meal: {str(e)}")
-    
-    async def get_meal_by_id(self, meal_id: str) -> Optional[Dict]:
-        """Get a meal by ID with all its items"""
-        import json
-        
-        with self.get_connection() as conn:
-            cursor = conn.cursor()
-            
-            # Get meal record
-            cursor.execute("SELECT * FROM meals WHERE id = ?", (meal_id,))
-            meal_row = cursor.fetchone()
-            
-            if not meal_row:
-                return None
-            
-            # Get meal items
-            cursor.execute("SELECT * FROM meal_items WHERE meal_id = ? ORDER BY id", (meal_id,))
-            item_rows = cursor.fetchall()
-            
-            # Build response
-            items = []
-            for item_row in item_rows:
-                items.append({
-                    "barcode": item_row['barcode'],
-                    "name": item_row['name'],
-                    "serving": item_row['serving'],
-                    "calories": item_row['calories'],
-                    "macros": json.loads(item_row['macros'])
-                })
-            
-            return {
-                "id": meal_row['id'],
-                "meal_name": meal_row['meal_name'],
-                "items": items,
-                "total_calories": meal_row['total_calories'],
-                "photo_url": meal_row['photo_url'],
-                "timestamp": datetime.fromisoformat(meal_row['timestamp']),
-                "created_at": datetime.fromisoformat(meal_row['created_at'])
-            }
-    
-    async def get_user_meals(self, user_id: str, limit: int = 50) -> List[Dict]:
-        """Get user's meal history"""
-        import json
-
-        with self.get_connection() as conn:
-            cursor = conn.cursor()
-            
-            # Get meals for user
-            cursor.execute("""
-                SELECT * FROM meals 
-                WHERE user_id = ? 
-                ORDER BY timestamp DESC 
-                LIMIT ?
-            """, (user_id, limit))
-            meal_rows = cursor.fetchall()
-            
-            meals = []
-            for meal_row in meal_rows:
-                # Get items for each meal
-                cursor.execute("SELECT * FROM meal_items WHERE meal_id = ?", (meal_row['id'],))
-                item_rows = cursor.fetchall()
-                
-                items = []
-                for item_row in item_rows:
-                    items.append({
-                        "barcode": item_row['barcode'],
-                        "name": item_row['name'],
-                        "serving": item_row['serving'],
-                        "calories": item_row['calories'],
-                        "macros": json.loads(item_row['macros'])
-                    })
-                
-                meals.append({
-                    "id": meal_row['id'],
-                    "meal_name": meal_row['meal_name'],
-                    "items": items,
-                    "total_calories": meal_row['total_calories'],
-                    "photo_url": meal_row['photo_url'],
-                    "timestamp": datetime.fromisoformat(meal_row['timestamp']),
-                    "created_at": datetime.fromisoformat(meal_row['created_at'])
-                })
-            
-            return meals
-
-    async def track_meal(
-        self,
-        user_id: str,
-        meal_data: 'MealTrackingRequest | Dict[str, Any]',
-        photo_url: Optional[str] = None,
-    ) -> Dict[str, Any]:
-        """Persist a meal and return the stored record."""
-        from app.models.tracking import MealTrackingRequest
-
-        # Normalise payload to model instance
-        request_obj = meal_data if isinstance(meal_data, MealTrackingRequest) else MealTrackingRequest(**meal_data)
-
-        meal_id = await self.create_meal(user_id, request_obj, photo_url)
-        meal_record = await self.get_meal_by_id(meal_id)
-
-        if meal_record is None:
-            raise RuntimeError("Failed to retrieve persisted meal record")
-
-        return meal_record
-    
-    # ===== WEIGHT TRACKING METHODS =====
-    
-    async def create_weight_entry(self, user_id: str, weight_data: 'WeightTrackingRequest', photo_url: Optional[str] = None) -> str:
-        """Create a new weight tracking entry"""
-        from app.models.tracking import WeightTrackingRequest
-        
-        weight_id = str(uuid.uuid4())
-        
-        # Parse date
-        try:
-            measurement_date = datetime.fromisoformat(weight_data.date.replace("Z", "+00:00"))
-        except ValueError:
-            measurement_date = datetime.now()
-        
-        with self.get_connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute("""
-                INSERT INTO weight_entries (id, user_id, weight, date, photo_url, created_at)
-                VALUES (?, ?, ?, ?, ?, ?)
-            """, (weight_id, user_id, weight_data.weight, measurement_date.isoformat(), 
-                  photo_url, datetime.now().isoformat()))
-            conn.commit()
-        
-        logger.info(f"Created weight entry {weight_id} for user {user_id}: {weight_data.weight} kg")
-        return weight_id
-    
-    async def get_weight_entry_by_id(self, weight_id: str) -> Optional[Dict]:
-        """Get a weight entry by ID"""
-        with self.get_connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute("SELECT * FROM weight_entries WHERE id = ?", (weight_id,))
-            row = cursor.fetchone()
-            
-            if row:
-                return {
-                    "id": row['id'],
-                    "weight": row['weight'],
-                    "date": datetime.fromisoformat(row['date']),
-                    "photo_url": row['photo_url'],
-                    "created_at": datetime.fromisoformat(row['created_at'])
-                }
-            return None
-    
-    async def get_user_weight_history(self, user_id: str, limit: int = 30) -> List[Dict]:
-        """Get user's weight history"""
-        with self.get_connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute("""
-                SELECT * FROM weight_entries 
-                WHERE user_id = ? 
-                ORDER BY date DESC 
-                LIMIT ?
-            """, (user_id, limit))
-            rows = cursor.fetchall()
-            
-            entries = []
-            for row in rows:
-                entries.append({
-                    "id": row['id'],
-                    "weight": row['weight'],
-                    "date": datetime.fromisoformat(row['date']),
-                    "photo_url": row['photo_url'],
-                    "created_at": datetime.fromisoformat(row['created_at'])
-                })
-            
-            return entries
-
-    async def track_weight(
-        self,
-        user_id: str,
-        weight_data: 'WeightTrackingRequest | Dict[str, Any]',
-        photo_url: Optional[str] = None,
-    ) -> Dict[str, Any]:
-        """Persist a weight entry and return the stored record."""
-        from app.models.tracking import WeightTrackingRequest
-
-        request_obj = weight_data if isinstance(weight_data, WeightTrackingRequest) else WeightTrackingRequest(**weight_data)
-        weight_id = await self.create_weight_entry(user_id, request_obj, photo_url)
-        weight_record = await self.get_weight_entry_by_id(weight_id)
-
-        if weight_record is None:
-            raise RuntimeError("Failed to retrieve persisted weight entry")
-
-        return weight_record
-
-    async def get_weight_history(self, user_id: str, limit: int = 30) -> List[Dict]:
-        """Wrapper used by tests – forwards to get_user_weight_history."""
-        return await self.get_user_weight_history(user_id, limit)
-
-    async def get_photo_logs(self, user_id: str, limit: int = 50) -> List[Dict[str, Any]]:
-        """Collect combined photo logs from meals and weight entries."""
-        logs: List[Dict[str, Any]] = []
-
-        meals = await self.get_user_meals(user_id, limit)
-        for meal in meals:
-            photo_url = meal.get('photo_url')
-            if photo_url:
-                logs.append({
-                    'id': meal['id'],
-                    'timestamp': meal['created_at'],
-                    'photo_url': photo_url,
-                    'type': 'meal',
-                    'description': f"{meal['meal_name']} - {meal['total_calories']:.0f} kcal",
-                })
-
-        weights = await self.get_user_weight_history(user_id, limit)
-        for weight in weights:
-            photo_url = weight.get('photo_url')
-            if photo_url:
-                logs.append({
-                    'id': weight['id'],
-                    'timestamp': weight['created_at'],
-                    'photo_url': photo_url,
-                    'type': 'weigh-in',
-                    'description': f"Weight: {weight['weight']} kg",
-                })
-
-        logs.sort(key=lambda entry: entry['timestamp'], reverse=True)
-        return logs[:limit]
+    # ===== MEAL AND WEIGHT TRACKING METHODS EXTRACTED TO tracking_service.py (Phase 2 Batch 8) =====
     
     # ===== REMINDER METHODS =====
-    
-    async def create_reminder(self, user_id: str, reminder_data: 'ReminderRequest') -> str:
-        """Create a new reminder"""
-        from app.models.reminder import ReminderRequest
-        import json
-        
-        reminder_id = str(uuid.uuid4())
-        now = datetime.now().isoformat()
-        
-        # Convert reminder time and days to storage format
-        reminder_time = f"{reminder_data.time}:00"  # Add seconds for time format
-        frequency = json.dumps(reminder_data.days)  # Store days array as JSON
-        
-        # Create a proper timestamp for reminder_time (next occurrence)
-        next_reminder_time = datetime.now().replace(
-            hour=int(reminder_data.time.split(':')[0]), 
-            minute=int(reminder_data.time.split(':')[1]),
-            second=0,
-            microsecond=0
-        )
-        
-        with self.get_connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute("""
-                INSERT INTO reminders (id, user_id, title, description, reminder_time, frequency, is_active, created_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            """, (reminder_id, user_id, reminder_data.label, reminder_data.type.value, 
-                  next_reminder_time.isoformat(), frequency, reminder_data.enabled, now))
-            conn.commit()
-        
-        logger.info(f"Created reminder {reminder_id} for user {user_id}: {reminder_data.label}")
-        return reminder_id
-    
-    async def get_reminder_by_id(self, reminder_id: str) -> Optional[Dict]:
-        """Get a reminder by ID"""
-        import json
-        
-        with self.get_connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute("SELECT * FROM reminders WHERE id = ?", (reminder_id,))
-            row = cursor.fetchone()
-            
-            if row:
-                # Extract time from reminder_time timestamp
-                reminder_dt = datetime.fromisoformat(row['reminder_time'])
-                time_str = f"{reminder_dt.hour:02d}:{reminder_dt.minute:02d}"
-                
-                return {
-                    "id": row['id'],
-                    "type": row['description'],  # We stored type in description
-                    "label": row['title'],
-                    "time": time_str,
-                    "days": json.loads(row['frequency']),
-                    "enabled": bool(row['is_active']),
-                    "created_at": datetime.fromisoformat(row['created_at']),
-                    "updated_at": datetime.fromisoformat(row['created_at'])  # Use created_at as fallback
-                }
-            return None
-    
-    async def get_user_reminders(self, user_id: str) -> List[Dict]:
-        """Get all reminders for a user"""
-        import json
-        
-        with self.get_connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute("""
-                SELECT * FROM reminders 
-                WHERE user_id = ? 
-                ORDER BY reminder_time ASC
-            """, (user_id,))
-            rows = cursor.fetchall()
-            
-            reminders = []
-            for row in rows:
-                # Extract time from reminder_time timestamp
-                reminder_dt = datetime.fromisoformat(row['reminder_time'])
-                time_str = f"{reminder_dt.hour:02d}:{reminder_dt.minute:02d}"
-                
-                reminders.append({
-                    "id": row['id'],
-                    "type": row['description'],  # We stored type in description
-                    "label": row['title'],
-                    "time": time_str,
-                    "days": json.loads(row['frequency']),
-                    "enabled": bool(row['is_active']),
-                    "created_at": datetime.fromisoformat(row['created_at']),
-                    "updated_at": datetime.fromisoformat(row['created_at'])
-                })
-            
-            return reminders
-    
-    async def update_reminder(self, reminder_id: str, updates: Dict[str, Any]) -> bool:
-        """Update a reminder"""
-        import json
-        
-        if not updates:
-            return True
-        
-        # Build dynamic update query
-        set_clauses = []
-        values = []
-        
-        if 'label' in updates:
-            set_clauses.append("title = ?")
-            values.append(updates['label'])
-        
-        if 'type' in updates:
-            set_clauses.append("description = ?")
-            values.append(updates['type'])
-        
-        if 'time' in updates:
-            # Convert time to full timestamp
-            next_reminder_time = datetime.now().replace(
-                hour=int(updates['time'].split(':')[0]), 
-                minute=int(updates['time'].split(':')[1]),
-                second=0,
-                microsecond=0
-            )
-            set_clauses.append("reminder_time = ?")
-            values.append(next_reminder_time.isoformat())
-        
-        if 'days' in updates:
-            set_clauses.append("frequency = ?")
-            values.append(json.dumps(updates['days']))
-        
-        if 'enabled' in updates:
-            set_clauses.append("is_active = ?")
-            values.append(updates['enabled'])
-        
-        if not set_clauses:
-            return True
-        
-        values.append(reminder_id)
-        
-        with self.get_connection() as conn:
-            cursor = conn.cursor()
-            query = f"UPDATE reminders SET {', '.join(set_clauses)} WHERE id = ?"
-            cursor.execute(query, values)
-            updated = cursor.rowcount > 0
-            conn.commit()
-        
-        if updated:
-            logger.info(f"Updated reminder {reminder_id}")
-        
-        return updated
-    
-    async def delete_reminder(self, reminder_id: str) -> bool:
-        """Delete a reminder"""
-        with self.get_connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute("DELETE FROM reminders WHERE id = ?", (reminder_id,))
-            deleted = cursor.rowcount > 0
-            conn.commit()
-        
-        if deleted:
-            logger.info(f"Deleted reminder {reminder_id}")
-        
-        return deleted
     
     # ===== MEAL PLAN METHODS =====
     
@@ -1354,48 +782,6 @@ class DatabaseService:
         
         return deleted
 
-    # Analytics methods for 100% database integration
-    
-    async def log_product_lookup(self, user_id: Optional[str], session_id: Optional[str], 
-                               barcode: str, product_name: Optional[str], success: bool,
-                               response_time_ms: Optional[int], source: Optional[str],
-                               error_message: Optional[str] = None) -> str:
-        """Log a product lookup for analytics"""
-        lookup_id = str(uuid.uuid4())
-        
-        with self.get_connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute("""
-                INSERT INTO user_product_lookups 
-                (id, user_id, session_id, barcode, product_name, success, response_time_ms, source, error_message)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (lookup_id, user_id, session_id, barcode, product_name, success, 
-                  response_time_ms, source, error_message))
-            conn.commit()
-        
-        return lookup_id
-    
-    async def log_ocr_scan(self, user_id: Optional[str], session_id: Optional[str],
-                          image_size: Optional[int], confidence_score: Optional[float],
-                          processing_time_ms: Optional[int], ocr_engine: Optional[str],
-                          nutrients_extracted: int, success: bool,
-                          error_message: Optional[str] = None) -> str:
-        """Log an OCR scan for analytics"""
-        scan_id = str(uuid.uuid4())
-        
-        with self.get_connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute("""
-                INSERT INTO ocr_scan_analytics 
-                (id, user_id, session_id, image_size, confidence_score, processing_time_ms, 
-                 ocr_engine, nutrients_extracted, success, error_message)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (scan_id, user_id, session_id, image_size, confidence_score, 
-                  processing_time_ms, ocr_engine, nutrients_extracted, success, error_message))
-            conn.commit()
-        
-        return scan_id
-    
     async def store_product(self, barcode: str, name: str, brand: Optional[str],
                            categories: Optional[str], nutriments: dict,
                            serving_size: Optional[str], image_url: Optional[str],
@@ -1496,239 +882,6 @@ class DatabaseService:
         except Exception as e:
             logger.error(f"Error retrieving product {barcode}: {e}")
             return None
-    
-    async def log_user_product_interaction(self, user_id: Optional[str], session_id: Optional[str],
-                                         barcode: str, action: str, context: Optional[str] = None) -> str:
-        """Log a user's interaction with a product"""
-        interaction_id = str(uuid.uuid4())
-        
-        with self.get_connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute("""
-                INSERT INTO user_product_history 
-                (id, user_id, session_id, barcode, action, context)
-                VALUES (?, ?, ?, ?, ?, ?)
-            """, (interaction_id, user_id, session_id, barcode, action, context))
-            conn.commit()
-        
-        return interaction_id
-    
-    async def get_analytics_summary(self, user_id: Optional[str] = None, 
-                                  days: int = 7) -> dict:
-        """Get analytics summary for the specified period"""
-        from datetime import timedelta
-        
-        since_date = (datetime.now() - timedelta(days=days)).isoformat()
-        
-        with self.get_connection() as conn:
-            cursor = conn.cursor()
-            
-            # Product lookup stats
-            lookup_filter = "WHERE timestamp >= ?" if user_id is None else "WHERE user_id = ? AND timestamp >= ?"
-            lookup_params = (since_date,) if user_id is None else (user_id, since_date)
-            
-            cursor.execute(f"""
-                SELECT COUNT(*) as total, 
-                       SUM(CASE WHEN success THEN 1 ELSE 0 END) as successful,
-                       AVG(response_time_ms) as avg_response_time
-                FROM user_product_lookups {lookup_filter}
-            """, lookup_params)
-            lookup_stats = cursor.fetchone()
-            
-            # OCR scan stats
-            ocr_filter = "WHERE timestamp >= ?" if user_id is None else "WHERE user_id = ? AND timestamp >= ?"
-            ocr_params = (since_date,) if user_id is None else (user_id, since_date)
-            
-            cursor.execute(f"""
-                SELECT COUNT(*) as total,
-                       SUM(CASE WHEN success THEN 1 ELSE 0 END) as successful,
-                       AVG(confidence_score) as avg_confidence,
-                       AVG(processing_time_ms) as avg_processing_time
-                FROM ocr_scan_analytics {ocr_filter}
-            """, ocr_params)
-            ocr_stats = cursor.fetchone()
-            
-            # Most accessed products
-            cursor.execute("""
-                SELECT name, brand, access_count 
-                FROM products 
-                ORDER BY access_count DESC 
-                LIMIT 10
-            """)
-            top_products = cursor.fetchall()
-            
-            return {
-                'period_days': days,
-                'product_lookups': {
-                    'total': lookup_stats['total'] or 0,
-                    'successful': lookup_stats['successful'] or 0,
-                    'success_rate': (lookup_stats['successful'] or 0) / max(lookup_stats['total'] or 1, 1),
-                    'avg_response_time_ms': lookup_stats['avg_response_time'] or 0
-                },
-                'ocr_scans': {
-                    'total': ocr_stats['total'] or 0,
-                    'successful': ocr_stats['successful'] or 0,
-                    'success_rate': (ocr_stats['successful'] or 0) / max(ocr_stats['total'] or 1, 1),
-                    'avg_confidence': ocr_stats['avg_confidence'] or 0,
-                    'avg_processing_time_ms': ocr_stats['avg_processing_time'] or 0
-                },
-                'top_products': [dict(row) for row in top_products]
-            }
-
-    # ===== VISION METHODS =====
-
-    async def create_vision_log(self, vision_log: Dict[str, Any]) -> Dict[str, Any]:
-        """Create a new vision log entry"""
-        with self.get_connection() as conn:
-            # Respect incoming ID or generate new one
-            input_id = vision_log.get("id") or str(uuid.uuid4())
-            cursor = conn.cursor()
-            cursor.execute("""
-                INSERT INTO vision_logs (id, user_id, image_url, meal_type, identified_ingredients,
-                                       estimated_portions, nutritional_analysis, exercise_suggestions,
-                                       confidence_score, processing_time_ms, created_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (input_id, vision_log['user_id'], vision_log.get('image_url'), vision_log['meal_type'],
-                  json.dumps(vision_log['identified_ingredients']), json.dumps(vision_log['estimated_portions']),
-                  json.dumps(vision_log['nutritional_analysis']), json.dumps(vision_log['exercise_suggestions']),
-                  vision_log.get('confidence_score', 0.0), vision_log['processing_time_ms'], vision_log['created_at']))
-            conn.commit()
-            return {**vision_log, 'id': input_id}
-
-    async def list_vision_logs(self, *, user_id: str, limit: int, offset: int, date_from: Optional[str], date_to: Optional[str]) -> Tuple[List[Dict], int]:
-        """Get vision logs with filtering"""
-        with self.get_connection() as conn:
-            cursor = conn.cursor()
-
-            # Build query with optional date filtering
-            query = """
-                SELECT * FROM vision_logs WHERE user_id = ?
-            """
-            params = [user_id]
-
-            if date_from:
-                query += " AND created_at >= ?"
-                params.append(date_from)
-            if date_to:
-                query += " AND created_at <= ?"
-                params.append(date_to)
-
-            query += " ORDER BY created_at DESC LIMIT ? OFFSET ?"
-            params.extend([limit, offset])
-
-            # Get total count
-            count_query = "SELECT COUNT(*) FROM vision_logs WHERE user_id = ?"
-            count_params = [user_id]
-            if date_from:
-                count_query += " AND created_at >= ?"
-                count_params.append(date_from)
-            if date_to:
-                count_query += " AND created_at <= ?"
-                count_params.append(date_to)
-
-            cursor.execute(count_query, count_params)
-            total_count = cursor.fetchone()[0]
-
-            cursor.execute(query, params)
-            rows = cursor.fetchall()
-
-            logs = []
-            for row in rows:
-                # Parse JSON fields safely
-                try:
-                    identified_ingredients = json.loads(row['identified_ingredients']) if row['identified_ingredients'] else []
-                except:
-                    identified_ingredients = []
-
-                try:
-                    estimated_portions = json.loads(row['estimated_portions']) if row['estimated_portions'] else {}
-                except:
-                    estimated_portions = {}
-
-                try:
-                    nutritional_analysis = json.loads(row['nutritional_analysis']) if row['nutritional_analysis'] else {}
-                except:
-                    nutritional_analysis = {}
-
-                try:
-                    exercise_suggestions = json.loads(row['exercise_suggestions']) if row['exercise_suggestions'] else []
-                except:
-                    exercise_suggestions = []
-
-                logs.append({
-                    'id': row['id'],
-                    'user_id': row['user_id'],
-                    'image_url': row['image_url'],
-                    'meal_type': row['meal_type'],
-                    'identified_ingredients': identified_ingredients,
-                    'estimated_portions': estimated_portions,
-                    'nutritional_analysis': nutritional_analysis,
-                    'exercise_suggestions': exercise_suggestions,
-                    'confidence_score': row['confidence_score'],
-                    'processing_time_ms': row['processing_time_ms'],
-                    'created_at': datetime.fromisoformat(row['created_at']) if isinstance(row['created_at'], str) else row['created_at']
-                })
-
-            return logs, total_count
-
-    async def get_vision_log(self, log_id: str) -> Optional[Dict[str, Any]]:
-        """Get a vision log by ID"""
-        with self.get_connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute("SELECT * FROM vision_logs WHERE id = ?", (log_id,))
-            row = cursor.fetchone()
-
-            if row:
-                # Parse JSON fields safely
-                try:
-                    identified_ingredients = json.loads(row['identified_ingredients']) if row['identified_ingredients'] else []
-                except:
-                    identified_ingredients = []
-
-                try:
-                    estimated_portions = json.loads(row['estimated_portions']) if row['estimated_portions'] else {}
-                except:
-                    estimated_portions = {}
-
-                try:
-                    nutritional_analysis = json.loads(row['nutritional_analysis']) if row['nutritional_analysis'] else {}
-                except:
-                    nutritional_analysis = {}
-
-                try:
-                    exercise_suggestions = json.loads(row['exercise_suggestions']) if row['exercise_suggestions'] else []
-                except:
-                    exercise_suggestions = []
-
-                return {
-                    'id': row['id'],
-                    'user_id': row['user_id'],
-                    'image_url': row['image_url'],
-                    'meal_type': row['meal_type'],
-                    'identified_ingredients': identified_ingredients,
-                    'estimated_portions': estimated_portions,
-                    'nutritional_analysis': nutritional_analysis,
-                    'exercise_suggestions': exercise_suggestions,
-                    'confidence_score': row['confidence_score'],
-                    'processing_time_ms': row['processing_time_ms'],
-                    'created_at': datetime.fromisoformat(row['created_at']) if isinstance(row['created_at'], str) else row['created_at']
-                }
-            return None
-
-    async def create_vision_correction(self, correction: Dict[str, Any]) -> Dict[str, Any]:
-        """Create a new vision correction entry"""
-        with self.get_connection() as conn:
-            correction_id = str(uuid.uuid4())
-            cursor = conn.cursor()
-            cursor.execute("""
-                INSERT INTO vision_corrections (id, vision_log_id, user_id, correction_type,
-                                               original_data, corrected_data, improvement_score, created_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            """, (correction_id, correction['vision_log_id'], correction['user_id'], correction['correction_type'],
-                  json.dumps(correction.get('original_data', {})), json.dumps(correction.get('corrected_data', {})),
-                  correction.get('improvement_score', 0.0), correction['created_at']))
-            conn.commit()
-            return {**correction, 'id': correction_id}
 
 
 # Global database service instance

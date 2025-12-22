@@ -141,7 +141,7 @@ async def cleanup_old_notifications(
         deleted_count = NotificationService.cleanup_old_notifications(days_old)
         return {
             "deleted_count": deleted_count,
-            "message": f"Cleaned up {deleted_count} old notifications older than {days_old} days"
+            "message": deleted_count
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to cleanup notifications: {str(e)}")

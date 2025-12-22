@@ -1,5 +1,6 @@
 import logging
 import random
+from datetime import datetime
 from typing import List, Dict, Optional, Tuple
 from app.models.meal_plan import (
     MealPlanRequest,
@@ -182,7 +183,10 @@ class MealPlannerService:
         
         try:
             from app.services.database import db_service
-            await db_service.log_user_product_interaction(
+            from app.services.analytics_service import AnalyticsService
+            # Task: Phase 2 Batch 6 - Analytics Service Extraction
+            analytics_service = AnalyticsService(db_service)
+            await analytics_service.log_user_product_interaction(
                 user_id=user_id,
                 session_id=None,  # Could be enhanced with session tracking
                 barcode=barcode,
@@ -192,6 +196,111 @@ class MealPlannerService:
             logger.debug(f"Logged meal product usage: {user_id} used {barcode} in {meal_name}")
         except Exception as e:
             logger.warning(f"Failed to log meal product usage: {e}")
+
+    async def _get_mock_products(self, target_count: int = 12) -> List[ProductResponse]:
+        """Return deterministic mock products for tests and offline scenarios."""
+        base_catalog = [
+            {
+                "barcode": "9900001",
+                "name": "Mock Greek Yogurt",
+                "brand": "DietIntel Kitchen",
+                "serving_size": "150g",
+                "energy": 95,
+                "protein": 17,
+                "fat": 0,
+                "carbs": 6,
+            },
+            {
+                "barcode": "9900002",
+                "name": "Mock Steel Cut Oats",
+                "brand": "DietIntel Pantry",
+                "serving_size": "50g",
+                "energy": 185,
+                "protein": 7,
+                "fat": 3,
+                "carbs": 32,
+            },
+            {
+                "barcode": "9900003",
+                "name": "Mock Grilled Chicken Breast",
+                "brand": "DietIntel Kitchen",
+                "serving_size": "120g",
+                "energy": 165,
+                "protein": 31,
+                "fat": 4,
+                "carbs": 0,
+            },
+            {
+                "barcode": "9900004",
+                "name": "Mock Quinoa Salad",
+                "brand": "DietIntel Kitchen",
+                "serving_size": "140g",
+                "energy": 210,
+                "protein": 8,
+                "fat": 7,
+                "carbs": 30,
+            },
+            {
+                "barcode": "9900005",
+                "name": "Mock Roasted Veggies",
+                "brand": "DietIntel Kitchen",
+                "serving_size": "130g",
+                "energy": 110,
+                "protein": 3,
+                "fat": 4,
+                "carbs": 15,
+            },
+        ]
+
+        products: List[ProductResponse] = []
+        now = datetime.utcnow()
+
+        for blueprint in base_catalog:
+            nutriments = Nutriments(
+                energy_kcal_per_100g=blueprint["energy"],
+                protein_g_per_100g=blueprint["protein"],
+                fat_g_per_100g=blueprint["fat"],
+                carbs_g_per_100g=blueprint["carbs"],
+            )
+            products.append(
+                ProductResponse(
+                    source="mock",
+                    barcode=blueprint["barcode"],
+                    name=blueprint["name"],
+                    brand=blueprint["brand"],
+                    serving_size=blueprint["serving_size"],
+                    image_url=None,
+                    nutriments=nutriments,
+                    fetched_at=now,
+                )
+            )
+
+        # Create additional variants if a higher count is requested
+        variant_index = 0
+        while len(products) < target_count:
+            base = base_catalog[variant_index % len(base_catalog)]
+            modifier = 1 + (0.05 * (variant_index + 1))
+            nutriments = Nutriments(
+                energy_kcal_per_100g=min(900, base["energy"] * modifier),
+                protein_g_per_100g=min(100, base["protein"] * modifier),
+                fat_g_per_100g=min(100, base["fat"] * modifier),
+                carbs_g_per_100g=min(100, base["carbs"] * modifier),
+            )
+            products.append(
+                ProductResponse(
+                    source="mock",
+                    barcode=f"{base['barcode']}-{variant_index}",
+                    name=f"{base['name']} Variant {variant_index + 1}",
+                    brand=base["brand"],
+                    serving_size=base["serving_size"],
+                    image_url=None,
+                    nutriments=nutriments,
+                    fetched_at=now,
+                )
+            )
+            variant_index += 1
+
+        return products[:target_count]
     
     async def _build_meal(self, meal_name: str, target_calories: float, 
                          available_products: List[ProductResponse],

@@ -36,6 +36,7 @@
     "mealPlan": "🍽️ Plan de Comidas",
     "track": "📊 Seguimiento",
     "smartDiet": "🧠 Dieta Inteligente",
+    "intelligentFlow": "🤖 Flujo Inteligente",
     "recipes": "🍳 Recetas"
   },
   "plan": {
@@ -78,6 +79,19 @@
       "carbsG": "Carbohidratos (g)",
       "addItem": "Agregar Elemento"
     }
+  },
+  "intelligentFlow": {
+    "title": "🤖 Flujo Inteligente",
+    "subtitle": "Prueba la cadena unificada de Food Vision, Recipe AI y Smart Diet.",
+    "mealType": "Tipo de comida",
+    "base64Label": "Imagen en Base64",
+    "base64Placeholder": "Pega una imagen codificada en Base64",
+    "runSync": "Ejecutar síncrono",
+    "runAsync": "Ejecutar asíncrono",
+    "running": "Ejecutando...",
+    "jobStatus": "Estado del job",
+    "result": "Último resultado",
+    "error": "Error"
   },
   "track": {
     "title": "📊 Seguimiento de Progreso", 

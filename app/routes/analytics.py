@@ -2,9 +2,13 @@ import logging
 from typing import Optional
 from fastapi import APIRouter, HTTPException, status, Query
 from app.services.database import db_service
+from app.services.analytics_service import AnalyticsService
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
+
+# Task: Phase 2 Batch 6 - Analytics Service Extraction
+analytics_service = AnalyticsService(db_service)
 
 
 @router.get("/summary")
@@ -16,7 +20,7 @@ async def get_analytics_summary(
     Get analytics summary for product lookups and OCR scans
     """
     try:
-        summary = await db_service.get_analytics_summary(user_id=user_id, days=days)
+        summary = await analytics_service.get_analytics_summary(user_id=user_id, days=days)
         return summary
         
     except Exception as e:

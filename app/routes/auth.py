@@ -3,6 +3,8 @@ from fastapi.security import HTTPAuthorizationCredentials
 from app.models.user import UserCreate, UserLogin, UserResponse, Token, RefreshToken, ChangePassword, UserUpdate
 from app.services import auth as auth_module
 from app.services.database import db_service
+from app.services.session_service import SessionService
+from app.services.user_service import UserService
 import logging
 
 logger = logging.getLogger(__name__)
@@ -10,11 +12,18 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 auth_service = auth_module.auth_service
+session_service = SessionService(db_service)
+user_service = UserService(db_service)
 
 
 async def _get_current_user_dependency(
     credentials: HTTPAuthorizationCredentials = Depends(auth_module.security),
 ):
+    if credentials is None:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authenticated"
+        )
     return await auth_module.get_current_user(credentials)
 
 
@@ -153,7 +162,7 @@ async def update_user_profile(
                 created_at=current_user.created_at
             )
         
-        updated_user = await db_service.update_user(current_user.id, updates)
+        updated_user = await user_service.update_user(current_user.id, updates)
         if not updated_user:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -197,7 +206,7 @@ async def change_password(
     """
     try:
         # Get current password hash
-        current_hash = await db_service.get_password_hash(current_user.id)
+        current_hash = await user_service.get_password_hash(current_user.id)
         if not current_hash:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -215,10 +224,10 @@ async def change_password(
         new_hash = auth_service.hash_password(password_data.new_password)
         
         # Update password
-        await db_service.update_user(current_user.id, {'password_hash': new_hash})
-        
-        # Invalidate all user sessions (force re-login)
-        await db_service.delete_user_sessions(current_user.id)
+        await user_service.update_user(current_user.id, {'password_hash': new_hash})
+
+        # Invalidate all user sessions (force re-login) - Phase 2 Batch 7: Using SessionService
+        await session_service.delete_user_sessions(current_user.id)
         
         logger.info(f"Password changed for user: {current_user.email}")
     

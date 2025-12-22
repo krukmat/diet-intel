@@ -17,16 +17,21 @@ from datetime import datetime, timedelta
 from unittest.mock import AsyncMock, patch, MagicMock
 from fastapi import HTTPException, status
 
-from app.services.auth import AuthService
+from app.services.auth import AuthService, auth_service, session_service as auth_session_service, user_service
 from app.models.user import User, UserCreate, UserLogin, UserRole, Token, UserSession
 from app.services.database import db_service
+from app.services.session_service import SessionService
+
+# Phase 2 Batch 7: Use the global session_service instance from auth module
+session_service = auth_session_service
 
 
 class TestPasswordSecurity:
     """Test password hashing and verification functionality"""
-    
+
     def setup_method(self):
-        self.auth_service = AuthService()
+        # Use global auth_service with SessionService dependency
+        self.auth_service = auth_service
     
     def test_hash_password_creates_valid_hash(self):
         """Test password hashing creates valid bcrypt hash"""
@@ -82,7 +87,8 @@ class TestUserRegistration:
     """Test user registration workflow"""
     
     def setup_method(self):
-        self.auth_service = AuthService()
+        # Use global auth_service with SessionService dependency
+        self.auth_service = auth_service
         self.valid_user_data = UserCreate(
             email="test@example.com",
             password="password123",
@@ -93,9 +99,9 @@ class TestUserRegistration:
     async def test_register_user_success(self):
         """Test successful user registration"""
         # Mock database operations
-        with patch.object(db_service, 'get_user_by_email', new_callable=AsyncMock, return_value=None), \
-             patch.object(db_service, 'create_user', new_callable=AsyncMock) as mock_create_user, \
-             patch.object(db_service, 'create_session', new_callable=AsyncMock) as mock_create_session:
+        with patch.object(user_service, 'get_user_by_email', new_callable=AsyncMock, return_value=None), \
+             patch.object(user_service, 'create_user', new_callable=AsyncMock) as mock_create_user, \
+             patch.object(session_service, 'create_session', new_callable=AsyncMock) as mock_create_session:
             
             # Mock created user
             created_user = User(
@@ -138,7 +144,7 @@ class TestUserRegistration:
             created_at=datetime.utcnow()
         )
         
-        with patch.object(db_service, 'get_user_by_email', new_callable=AsyncMock, return_value=existing_user):
+        with patch.object(user_service, 'get_user_by_email', new_callable=AsyncMock, return_value=existing_user):
             with pytest.raises(HTTPException) as exc_info:
                 await self.auth_service.register_user(self.valid_user_data)
             
@@ -155,9 +161,9 @@ class TestUserRegistration:
             developer_code="DIETINTEL_DEV_2024"
         )
         
-        with patch.object(db_service, 'get_user_by_email', new_callable=AsyncMock, return_value=None), \
-             patch.object(db_service, 'create_user', new_callable=AsyncMock) as mock_create_user, \
-             patch.object(db_service, 'create_session', new_callable=AsyncMock):
+        with patch.object(user_service, 'get_user_by_email', new_callable=AsyncMock, return_value=None), \
+             patch.object(user_service, 'create_user', new_callable=AsyncMock) as mock_create_user, \
+             patch.object(session_service, 'create_session', new_callable=AsyncMock):
             
             created_user = User(
                 id="1",
@@ -183,9 +189,9 @@ class TestUserRegistration:
     @pytest.mark.asyncio
     async def test_register_user_password_hashing(self):
         """Test that password is properly hashed during registration"""
-        with patch.object(db_service, 'get_user_by_email', new_callable=AsyncMock, return_value=None), \
-             patch.object(db_service, 'create_user', new_callable=AsyncMock) as mock_create_user, \
-             patch.object(db_service, 'create_session', new_callable=AsyncMock):
+        with patch.object(user_service, 'get_user_by_email', new_callable=AsyncMock, return_value=None), \
+             patch.object(user_service, 'create_user', new_callable=AsyncMock) as mock_create_user, \
+             patch.object(session_service, 'create_session', new_callable=AsyncMock):
             
             created_user = User(
                 id="1", email=self.valid_user_data.email, full_name=self.valid_user_data.full_name,
@@ -213,7 +219,8 @@ class TestUserLogin:
     """Test user login workflow"""
     
     def setup_method(self):
-        self.auth_service = AuthService()
+        # Use global auth_service with SessionService dependency
+        self.auth_service = auth_service
         self.login_data = UserLogin(
             email="test@example.com",
             password="password123"
@@ -234,9 +241,9 @@ class TestUserLogin:
         """Test successful user login"""
         password_hash = self.auth_service.hash_password(self.login_data.password)
         
-        with patch.object(db_service, 'get_user_by_email', new_callable=AsyncMock, return_value=self.test_user), \
-             patch.object(db_service, 'get_password_hash', new_callable=AsyncMock, return_value=password_hash), \
-             patch.object(db_service, 'create_session', new_callable=AsyncMock):
+        with patch.object(user_service, 'get_user_by_email', new_callable=AsyncMock, return_value=self.test_user), \
+             patch.object(user_service, 'get_password_hash', new_callable=AsyncMock, return_value=password_hash), \
+             patch.object(session_service, 'create_session', new_callable=AsyncMock):
             
             result = await self.auth_service.login_user(self.login_data)
             
@@ -249,7 +256,7 @@ class TestUserLogin:
     @pytest.mark.asyncio
     async def test_login_user_not_found(self):
         """Test login fails when user doesn't exist"""
-        with patch.object(db_service, 'get_user_by_email', new_callable=AsyncMock, return_value=None):
+        with patch.object(user_service, 'get_user_by_email', new_callable=AsyncMock, return_value=None):
             with pytest.raises(HTTPException) as exc_info:
                 await self.auth_service.login_user(self.login_data)
             
@@ -265,7 +272,7 @@ class TestUserLogin:
             email_verified=True, created_at=datetime.utcnow()
         )
         
-        with patch.object(db_service, 'get_user_by_email', new_callable=AsyncMock, return_value=inactive_user):
+        with patch.object(user_service, 'get_user_by_email', new_callable=AsyncMock, return_value=inactive_user):
             with pytest.raises(HTTPException) as exc_info:
                 await self.auth_service.login_user(self.login_data)
             
@@ -277,8 +284,8 @@ class TestUserLogin:
         """Test login fails with wrong password"""
         wrong_password_hash = self.auth_service.hash_password("wrong_password")
         
-        with patch.object(db_service, 'get_user_by_email', new_callable=AsyncMock, return_value=self.test_user), \
-             patch.object(db_service, 'get_password_hash', new_callable=AsyncMock, return_value=wrong_password_hash):
+        with patch.object(user_service, 'get_user_by_email', new_callable=AsyncMock, return_value=self.test_user), \
+             patch.object(user_service, 'get_password_hash', new_callable=AsyncMock, return_value=wrong_password_hash):
             
             with pytest.raises(HTTPException) as exc_info:
                 await self.auth_service.login_user(self.login_data)
@@ -289,8 +296,8 @@ class TestUserLogin:
     @pytest.mark.asyncio
     async def test_login_no_password_hash(self):
         """Test login fails when password hash is missing"""
-        with patch.object(db_service, 'get_user_by_email', new_callable=AsyncMock, return_value=self.test_user), \
-             patch.object(db_service, 'get_password_hash', new_callable=AsyncMock, return_value=None):
+        with patch.object(user_service, 'get_user_by_email', new_callable=AsyncMock, return_value=self.test_user), \
+             patch.object(user_service, 'get_password_hash', new_callable=AsyncMock, return_value=None):
             
             with pytest.raises(HTTPException) as exc_info:
                 await self.auth_service.login_user(self.login_data)
@@ -303,7 +310,8 @@ class TestTokenRefresh:
     """Test token refresh workflow"""
     
     def setup_method(self):
-        self.auth_service = AuthService()
+        # Use global auth_service with SessionService dependency
+        self.auth_service = auth_service
         self.test_user = User(
             id="1", email="test@example.com", full_name="Test User",
             role=UserRole.STANDARD, is_developer=False, is_active=True,
@@ -324,9 +332,9 @@ class TestTokenRefresh:
             device_info=None
         )
         
-        with patch.object(db_service, 'get_session_by_refresh_token', new_callable=AsyncMock, return_value=session), \
-             patch.object(db_service, 'get_user_by_id', new_callable=AsyncMock, return_value=self.test_user), \
-             patch.object(db_service, 'update_session', new_callable=AsyncMock):
+        with patch.object(session_service, 'get_session_by_refresh_token', new_callable=AsyncMock, return_value=session), \
+             patch.object(user_service, 'get_user_by_id', new_callable=AsyncMock, return_value=self.test_user), \
+             patch.object(session_service, 'update_session', new_callable=AsyncMock):
             
             result = await self.auth_service.refresh_access_token(refresh_token)
             
@@ -351,7 +359,7 @@ class TestTokenRefresh:
         """Test token refresh fails when session doesn't exist"""
         refresh_token = self.auth_service.create_refresh_token(self.test_user)
         
-        with patch.object(db_service, 'get_session_by_refresh_token', new_callable=AsyncMock, return_value=None):
+        with patch.object(session_service, 'get_session_by_refresh_token', new_callable=AsyncMock, return_value=None):
             with pytest.raises(HTTPException) as exc_info:
                 await self.auth_service.refresh_access_token(refresh_token)
             
@@ -369,15 +377,15 @@ class TestTokenRefresh:
             device_info=None
         )
         
-        with patch.object(db_service, 'get_session_by_refresh_token', new_callable=AsyncMock, return_value=expired_session), \
-             patch.object(db_service, 'delete_session', new_callable=AsyncMock) as mock_delete:
+        with patch.object(session_service, 'get_session_by_refresh_token', new_callable=AsyncMock, return_value=expired_session), \
+             patch.object(session_service, 'delete_session', new_callable=AsyncMock) as mock_delete:
             
             with pytest.raises(HTTPException) as exc_info:
                 await self.auth_service.refresh_access_token(refresh_token)
             
             assert exc_info.value.status_code == status.HTTP_401_UNAUTHORIZED
             assert "Session expired" in str(exc_info.value.detail)
-            mock_delete.assert_called_once_with(expired_session.id)
+            mock_delete.assert_called_once_with(int(expired_session.id))
     
     @pytest.mark.asyncio
     async def test_refresh_token_inactive_user(self):
@@ -395,8 +403,8 @@ class TestTokenRefresh:
             expires_at=datetime.utcnow() + timedelta(days=30), device_info=None
         )
         
-        with patch.object(db_service, 'get_session_by_refresh_token', new_callable=AsyncMock, return_value=session), \
-             patch.object(db_service, 'get_user_by_id', new_callable=AsyncMock, return_value=inactive_user):
+        with patch.object(session_service, 'get_session_by_refresh_token', new_callable=AsyncMock, return_value=session), \
+             patch.object(user_service, 'get_user_by_id', new_callable=AsyncMock, return_value=inactive_user):
             
             with pytest.raises(HTTPException) as exc_info:
                 await self.auth_service.refresh_access_token(refresh_token)
@@ -409,7 +417,8 @@ class TestLogoutFlow:
     """Test user logout workflow"""
     
     def setup_method(self):
-        self.auth_service = AuthService()
+        # Use global auth_service with SessionService dependency
+        self.auth_service = auth_service
     
     @pytest.mark.asyncio
     async def test_logout_user_success(self):
@@ -420,20 +429,20 @@ class TestLogoutFlow:
             expires_at=datetime.utcnow() + timedelta(days=30), device_info=None
         )
         
-        with patch.object(db_service, 'get_session_by_refresh_token', new_callable=AsyncMock, return_value=session), \
-             patch.object(db_service, 'delete_session', new_callable=AsyncMock) as mock_delete:
+        with patch.object(session_service, 'get_session_by_refresh_token', new_callable=AsyncMock, return_value=session), \
+             patch.object(session_service, 'delete_session', new_callable=AsyncMock) as mock_delete:
             
             await self.auth_service.logout_user(refresh_token)
             
-            mock_delete.assert_called_once_with(session.id)
+            mock_delete.assert_called_once_with(int(session.id))
     
     @pytest.mark.asyncio
     async def test_logout_user_session_not_found(self):
         """Test logout handles missing session gracefully"""
         refresh_token = "nonexistent.refresh.token"
         
-        with patch.object(db_service, 'get_session_by_refresh_token', new_callable=AsyncMock, return_value=None), \
-             patch.object(db_service, 'delete_session', new_callable=AsyncMock) as mock_delete:
+        with patch.object(session_service, 'get_session_by_refresh_token', new_callable=AsyncMock, return_value=None), \
+             patch.object(session_service, 'delete_session', new_callable=AsyncMock) as mock_delete:
             
             # Should not raise exception
             await self.auth_service.logout_user(refresh_token)
@@ -446,7 +455,8 @@ class TestCurrentUserFromToken:
     """Test getting current user from token"""
     
     def setup_method(self):
-        self.auth_service = AuthService()
+        # Use global auth_service with SessionService dependency
+        self.auth_service = auth_service
         self.test_user = User(
             id="1", email="test@example.com", full_name="Test User",
             role=UserRole.STANDARD, is_developer=False, is_active=True,
@@ -457,8 +467,8 @@ class TestCurrentUserFromToken:
     async def test_get_current_user_from_token_success(self):
         """Test successful user retrieval from token"""
         access_token = self.auth_service.create_access_token(self.test_user)
-        
-        with patch.object(db_service, 'get_user_by_id', new_callable=AsyncMock, return_value=self.test_user):
+
+        with patch.object(user_service, 'get_user_by_id', new_callable=AsyncMock, return_value=self.test_user):
             user = await self.auth_service.get_current_user_from_token(access_token)
             
             assert user == self.test_user
@@ -480,8 +490,8 @@ class TestCurrentUserFromToken:
     async def test_get_current_user_not_found(self):
         """Test user retrieval fails when user doesn't exist"""
         access_token = self.auth_service.create_access_token(self.test_user)
-        
-        with patch.object(db_service, 'get_user_by_id', new_callable=AsyncMock, return_value=None):
+
+        with patch.object(user_service, 'get_user_by_id', new_callable=AsyncMock, return_value=None):
             with pytest.raises(HTTPException) as exc_info:
                 await self.auth_service.get_current_user_from_token(access_token)
             
@@ -492,14 +502,14 @@ class TestCurrentUserFromToken:
     async def test_get_current_user_inactive(self):
         """Test user retrieval fails for inactive user"""
         access_token = self.auth_service.create_access_token(self.test_user)
-        
+
         inactive_user = User(
             id="1", email="test@example.com", full_name="Test User",
             role=UserRole.STANDARD, is_developer=False, is_active=False,
             email_verified=True, created_at=datetime.utcnow()
         )
-        
-        with patch.object(db_service, 'get_user_by_id', new_callable=AsyncMock, return_value=inactive_user):
+
+        with patch.object(user_service, 'get_user_by_id', new_callable=AsyncMock, return_value=inactive_user):
             with pytest.raises(HTTPException) as exc_info:
                 await self.auth_service.get_current_user_from_token(access_token)
             

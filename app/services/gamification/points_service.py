@@ -6,6 +6,8 @@ import uuid
 from datetime import datetime, date
 import logging
 
+from app.config import config
+
 logger = logging.getLogger(__name__)
 
 
@@ -13,7 +15,7 @@ class PointsService:
     """Service for managing user points and gamification rules"""
 
     # Default points for social actions (aligned with spec)
-    EARNING_RULES = {
+    DEFAULT_EARNING_RULES = {
         'post_create': 5,           # Points for creating a post
         'first_post_of_day_bonus': 3,  # Bonus for first post of day
         'like_received': 1,            # Points when someone likes your post
@@ -23,6 +25,7 @@ class PointsService:
         'challenge_completed': 15,     # Points for completing a challenge
         'reaction_given': 1,           # Points for giving reactions
         'badge_earned': 3,             # Bonus for earning badges
+        'intelligent_flow_complete': 12,  # Points for IA flow completion (overridable)
     }
 
     # Daily caps for point earning (prevents gaming)
@@ -54,11 +57,13 @@ class PointsService:
         Returns:
             Points awarded (0 if capped/duplicate)
         """
-        if source not in PointsService.EARNING_RULES:
+        earning_rules = PointsService._get_earning_rules()
+
+        if source not in earning_rules:
             logger.warning(f"Unknown points source: {source}")
             return 0
 
-        base_points = PointsService.EARNING_RULES[source]
+        base_points = earning_rules[source]
 
         # Apply daily caps where applicable
         if source in PointsService.DAILY_CAPS:
@@ -251,6 +256,23 @@ class PointsService:
         except Exception as e:
             logger.error(f"Failed to get leaderboard: {e}")
             return []
+
+    @staticmethod
+    def _get_earning_rules() -> Dict[str, int]:
+        """
+        Retrieve the effective earning rules, merging defaults with overrides from config.
+        """
+        overrides = getattr(config, 'gamification_point_rules', {}) or {}
+        # Merge without mutating defaults; overrides can add new sources or replace existing ones.
+        merged = {**PointsService.DEFAULT_EARNING_RULES, **overrides}
+
+        cleaned: Dict[str, int] = {}
+        for source, value in merged.items():
+            try:
+                cleaned[source] = int(value)
+            except (TypeError, ValueError):
+                logger.warning("Invalid point value for source '%s': %s", source, value)
+        return cleaned
 
     @staticmethod
     def _check_daily_cap(user_id: str, source: str) -> bool:

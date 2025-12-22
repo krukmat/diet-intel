@@ -1,0 +1,111 @@
+<div class="container mx-auto px-4 py-8">
+  <div class="mb-6">
+    <h1 class="text-3xl font-bold text-slate-900 dark:text-white mb-2">🤖 Intelligent Flow</h1>
+    <p class="text-slate-600 dark:text-slate-300">
+      Trigger the unified Food Vision → Recipe AI → Smart Diet pipeline directly from the web dashboard.
+      Paste a Base64 image and choose between synchronous or asynchronous execution.
+    </p>
+  </div>
+
+  <% if (errorMessage) { %>
+    <div class="bg-red-100 text-red-800 px-4 py-3 rounded mb-6">
+      <strong>Error:</strong> <%= errorMessage %>
+    </div>
+  <% } %>
+
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <div class="bg-white dark:bg-slate-900 shadow rounded-lg p-6">
+      <h2 class="text-xl font-semibold mb-4">Run Flow</h2>
+      <form method="POST" action="/intelligent-flow/run">
+        <div class="mb-4">
+          <label class="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-1">
+            Meal Type
+          </label>
+          <input
+            type="text"
+            name="meal_type"
+            value="<%= form.meal_type %>"
+            class="w-full border rounded px-3 py-2 bg-white dark:bg-slate-800 dark:text-white"
+            placeholder="breakfast | lunch | dinner | snack"
+          />
+        </div>
+        <div class="mb-4">
+          <label class="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-1">
+            Image (Base64)
+          </label>
+          <textarea
+            name="image_base64"
+            rows="8"
+            class="w-full border rounded px-3 py-2 bg-white dark:bg-slate-800 dark:text-white"
+            placeholder="Paste a Base64 encoded image string"
+          ><%= form.image_base64 %></textarea>
+        </div>
+        <div class="flex gap-3">
+          <button
+            class="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-4 py-2 rounded"
+            type="submit"
+            name="mode"
+            value="sync"
+          >
+            Run Sync
+          </button>
+          <button
+            class="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold px-4 py-2 rounded"
+            type="submit"
+            name="mode"
+            value="async"
+          >
+            Run Async
+          </button>
+        </div>
+      </form>
+    </div>
+
+    <div class="bg-white dark:bg-slate-900 shadow rounded-lg p-6">
+      <h2 class="text-xl font-semibold mb-4">Check Job Status</h2>
+      <form method="POST" action="/intelligent-flow/job">
+        <div class="mb-4">
+          <label class="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-1">
+            Job ID
+          </label>
+          <input
+            type="text"
+            name="job_id"
+            class="w-full border rounded px-3 py-2 bg-white dark:bg-slate-800 dark:text-white"
+            placeholder="Paste the job ID returned by async flow"
+          />
+        </div>
+        <button class="bg-slate-800 hover:bg-slate-900 text-white font-semibold px-4 py-2 rounded" type="submit">
+          Fetch Status
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <div class="mt-8 grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <% if (result) { %>
+      <div class="bg-white dark:bg-slate-900 shadow rounded-lg p-6">
+        <h3 class="text-lg font-semibold mb-2">Synchronous Result</h3>
+        <pre class="bg-slate-900 text-green-300 text-xs p-4 rounded overflow-auto"><%= JSON.stringify(result, null, 2) %></pre>
+      </div>
+    <% } %>
+
+    <% if (job) { %>
+      <div class="bg-white dark:bg-slate-900 shadow rounded-lg p-6">
+        <h3 class="text-lg font-semibold mb-2">Async Job Accepted</h3>
+        <pre class="bg-slate-900 text-indigo-300 text-xs p-4 rounded overflow-auto"><%= JSON.stringify(job, null, 2) %></pre>
+      </div>
+    <% } %>
+
+    <% if (jobStatus) { %>
+      <div class="bg-white dark:bg-slate-900 shadow rounded-lg p-6">
+        <h3 class="text-lg font-semibold mb-2">Job Status</h3>
+        <pre class="bg-slate-900 text-yellow-300 text-xs p-4 rounded overflow-auto"><%= JSON.stringify(jobStatus, null, 2) %></pre>
+      </div>
+    <% } %>
+  </div>
+
+  <div class="mt-6">
+    <a href="/" class="text-blue-600 hover:underline">&larr; Back to Dashboard</a>
+  </div>
+</div>

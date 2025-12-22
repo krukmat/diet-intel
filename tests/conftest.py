@@ -69,6 +69,7 @@ import pytest
 from app.services.cache import CacheService
 from app.services.recommendation_engine import RecommendationEngine
 from app.services.database import db_service
+from app.services.user_service import UserService
 from app.models.user import UserSession
 from app.services import auth as auth_module
 
@@ -78,11 +79,14 @@ class InMemoryAsyncCacheService:
 
     def __init__(self):
         self._store: Dict[str, Any] = {}
+        self._last_error = None
 
     async def get(self, key: str) -> Optional[Any]:
         return self._store.get(key)
 
-    async def set(self, key: str, value: Any, ttl: int = 86400) -> bool:
+    async def set(self, key: str, value: Any, ttl: int = 86400, ttl_hours: Optional[int] = None) -> bool:
+        if ttl_hours is not None:
+            ttl = int(ttl_hours) * 3600
         self._store[key] = value
         return True
 
@@ -96,6 +100,9 @@ class InMemoryAsyncCacheService:
 
     async def ping(self) -> bool:
         return True
+
+    def consume_last_error(self):
+        return None
 
 
 class FakeOpenFoodFactsService:
@@ -323,8 +330,9 @@ def sample_nutritional_summary():
 
 def seed_test_user():
     """Sync seeding of test user/session using direct DB operations."""
-    from app.models.user import User, UserRole
+    from app.models.user import User, UserRole, UserCreate
     from datetime import datetime, timezone, timedelta
+    import asyncio
 
     user_id = "vision_test_user_123"
 
@@ -341,39 +349,24 @@ def seed_test_user():
     # Create user data
     password = "testpassword123"
     hashed_password = auth_module.auth_service.hash_password(password)
-    role = UserRole.DEVELOPER
-    now = datetime.utcnow().isoformat()
-
-    # Insert user directly
-    with db_service.get_connection() as conn:
-        cursor = conn.cursor()
-        cursor.execute("""
-            INSERT INTO users (id, email, password_hash, full_name, is_developer, role, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        """, (user_id, "vision_test@example.com", hashed_password, "Vision Test User",
-              1 if role == UserRole.DEVELOPER else 0, role.value, now, now))
-        conn.commit()
-
-    # Get user object from database
-    from app.models.user import User
-    user = User(
-        id=user_id,
+    user_data = UserCreate(
         email="vision_test@example.com",
+        password=password,
         full_name="Vision Test User",
-        is_developer=True,
-        role=UserRole.DEVELOPER,
-        is_active=True,
-        email_verified=True,
-        created_at=datetime.utcnow(),
-        updated_at=datetime.utcnow(),
-        avatar_url=None
+        developer_code="DIETINTEL_DEV_2024"
     )
+
+    # Create user using user_service (Phase 2 Batch 9)
+    user_service = UserService(db_service)
+    user = asyncio.run(user_service.create_user(user_data, hashed_password))
+    user_id = user.id
 
     # Create tokens using auth service
     access_token = auth_module.auth_service.create_access_token(user)
     refresh_token = auth_module.auth_service.create_refresh_token(user)
 
     # Create session directly
+    now = datetime.utcnow().isoformat()
     expires_at = datetime.now(timezone.utc) + timedelta(days=30)
 
     with db_service.get_connection() as conn:
@@ -408,3 +401,470 @@ def test_auth_data():
             conn.commit()
     except Exception:
         pass  # Ignore cleanup errors in tests
+
+
+# ===== PHASE 1: In-Memory Database Utilities for Critical Test Fixes =====
+# Date: 2025-12-13
+# Purpose: Support refactoring of 3 critical test files to use real DB instead of mocks
+
+import sqlite3
+from contextlib import contextmanager
+
+
+class _InMemoryCtx:
+    """Context manager for in-memory SQLite database connections.
+
+    Used with monkeypatch to replace db_service.get_connection() in tests.
+    Allows tests to use real SQLite operations without mocking.
+
+    Pattern (from test_feed_service.py):
+        monkeypatch.setattr(db_service, "get_connection", lambda: _InMemoryCtx(conn))
+    """
+
+    def __init__(self, conn):
+        self.conn = conn
+
+    def __enter__(self):
+        return self.conn
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        pass  # Don't close, fixture handles cleanup
+
+
+# ===== test_post_service.py Fixtures =====
+
+@pytest.fixture
+def post_service_db(monkeypatch):
+    """In-memory SQLite database for PostService tests.
+
+    Creates all required tables for post operations:
+    - users: User profiles
+    - posts: Post content
+    - post_media: Media attachments
+    - post_reactions: Likes/reactions
+    - comments: Post comments
+
+    Usage:
+        def test_create_post(post_service_db):
+            # Insert test data
+            post_service_db.cursor().execute(
+                "INSERT INTO users VALUES (?, ?, ?)",
+                ("user123", "testuser", "test@example.com")
+            )
+            # Test code uses real PostService with real db_service
+            result = PostService.create_post(...)
+            # Verify data persisted
+            cursor = post_service_db.cursor()
+            cursor.execute("SELECT * FROM posts")
+    """
+    conn = sqlite3.connect(":memory:")
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+
+    # Create users table
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS users (
+            id TEXT PRIMARY KEY,
+            username TEXT UNIQUE NOT NULL,
+            email TEXT UNIQUE NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+
+    # Create user_profiles table (PostService updates this)
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS user_profiles (
+            user_id TEXT PRIMARY KEY,
+            posts_count INTEGER DEFAULT 0,
+            FOREIGN KEY (user_id) REFERENCES users(id)
+        )
+    """)
+
+    # Create posts table (PHASE 2: Updated to match PostService schema - 2025-12-13)
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS posts (
+            id TEXT PRIMARY KEY,
+            author_id TEXT NOT NULL,
+            text TEXT NOT NULL,
+            visibility TEXT DEFAULT 'public' CHECK (visibility IN ('public', 'followers_only')),
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP,
+            FOREIGN KEY (author_id) REFERENCES users(id)
+        )
+    """)
+
+    # Create post_media table
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS post_media (
+            id TEXT PRIMARY KEY,
+            post_id TEXT NOT NULL,
+            type TEXT DEFAULT 'image',
+            url TEXT NOT NULL,
+            order_position INTEGER DEFAULT 0,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (post_id) REFERENCES posts(id)
+        )
+    """)
+
+    # Create post_reactions table
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS post_reactions (
+            id TEXT PRIMARY KEY,
+            post_id TEXT NOT NULL,
+            user_id TEXT NOT NULL,
+            reaction_type TEXT NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(post_id, user_id),
+            FOREIGN KEY (post_id) REFERENCES posts(id),
+            FOREIGN KEY (user_id) REFERENCES users(id)
+        )
+    """)
+
+    # Create post_comments table (PHASE 2: Renamed from 'comments' to match PostService - 2025-12-13)
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS post_comments (
+            id TEXT PRIMARY KEY,
+            post_id TEXT NOT NULL,
+            author_id TEXT NOT NULL,
+            text TEXT NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP,
+            FOREIGN KEY (post_id) REFERENCES posts(id),
+            FOREIGN KEY (author_id) REFERENCES users(id)
+        )
+    """)
+
+    # Create post_activity_log table for rate limiting
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS post_activity_log (
+            id TEXT PRIMARY KEY,
+            user_id TEXT NOT NULL,
+            activity_type TEXT NOT NULL,
+            activity_date TEXT NOT NULL,
+            count INTEGER DEFAULT 1,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(user_id, activity_type, activity_date),
+            FOREIGN KEY (user_id) REFERENCES users(id)
+        )
+    """)
+
+    conn.commit()
+
+    # Monkeypatch db_service to use this in-memory database (PHASE 2: Patch at import location - 2025-12-13)
+    mock_db_service = type('obj', (object,), {
+        'get_connection': lambda self: _InMemoryCtx(conn)
+    })()
+    # Patch where it's USED in post_service, not just where it's defined
+    monkeypatch.setattr('app.services.social.post_service.db_service', mock_db_service)
+    monkeypatch.setattr('app.services.database.db_service', mock_db_service)
+
+    yield conn
+
+    # Cleanup: Delete all data from tables to isolate tests (PHASE 2: Added for test isolation - 2025-12-13)
+    # Note: Cleanup happens AFTER test, next test gets fresh in-memory DB from new fixture
+    try:
+        cleanup_cursor = conn.cursor()
+        cleanup_cursor.execute("DELETE FROM post_activity_log")
+        cleanup_cursor.execute("DELETE FROM post_comments")
+        cleanup_cursor.execute("DELETE FROM post_reactions")
+        cleanup_cursor.execute("DELETE FROM post_media")
+        cleanup_cursor.execute("DELETE FROM posts")
+        cleanup_cursor.execute("DELETE FROM user_profiles")
+        cleanup_cursor.execute("DELETE FROM users")
+        conn.commit()
+    except Exception:
+        pass  # Cleanup failed, but connection will be closed anyway
+
+    conn.close()
+
+
+# ===== test_moderation_routes.py Fixtures =====
+
+@pytest.fixture
+def moderation_db(monkeypatch):
+    """In-memory SQLite database for ReportService/moderation tests.
+
+    Creates all required tables for report operations:
+    - users: User profiles (reporters)
+    - posts: Posts that can be reported
+    - comments: Comments that can be reported
+    - content_reports: Report records (PHASE 3: Updated schema to match ReportService - 2025-12-13)
+
+    Usage:
+        def test_create_report(client, moderation_db, db_helpers):
+            reporter_id = "user_reporter"
+            target_id = "post_123"
+            db_helpers.insert_test_user(moderation_db, reporter_id, "reporter", "r@test.com")
+            db_helpers.insert_test_post(moderation_db, target_id, reporter_id, "test content")
+
+            # Test endpoint
+            response = client.post("/reports", json={
+                "target_type": "post",
+                "target_id": target_id,
+                "reason": "spam"
+            })
+
+            # Verify report in database
+            cursor = moderation_db.cursor()
+            cursor.execute("SELECT * FROM content_reports WHERE target_id = ?", (target_id,))
+    """
+    conn = sqlite3.connect(":memory:", check_same_thread=False)
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+
+    # Create users table
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS users (
+            id TEXT PRIMARY KEY,
+            username TEXT UNIQUE NOT NULL,
+            email TEXT UNIQUE NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+
+    # Create posts table (PHASE 3: Added for ReportService._verify_target_exists - 2025-12-13)
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS posts (
+            id TEXT PRIMARY KEY,
+            author_id TEXT NOT NULL,
+            text TEXT NOT NULL,
+            visibility TEXT DEFAULT 'public' CHECK (visibility IN ('public', 'followers_only')),
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP,
+            FOREIGN KEY (author_id) REFERENCES users(id)
+        )
+    """)
+
+    # Create comments table (PHASE 3: Added for ReportService._verify_target_exists - 2025-12-13)
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS post_comments (
+            id TEXT PRIMARY KEY,
+            post_id TEXT NOT NULL,
+            author_id TEXT NOT NULL,
+            text TEXT NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP,
+            FOREIGN KEY (post_id) REFERENCES posts(id),
+            FOREIGN KEY (author_id) REFERENCES users(id)
+        )
+    """)
+
+    # Create content_reports table (PHASE 3: Renamed from 'reports', updated schema - 2025-12-13)
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS content_reports (
+            id TEXT PRIMARY KEY,
+            reporter_id TEXT NOT NULL,
+            target_type TEXT NOT NULL CHECK(target_type IN ('post', 'comment', 'user')),
+            target_id TEXT NOT NULL,
+            reason TEXT NOT NULL CHECK(reason IN ('spam', 'abuse', 'nsfw', 'misinformation', 'other')),
+            status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending', 'moderated_approved', 'moderated_dismissed', 'moderated_escalated')),
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            reviewed_at TIMESTAMP,
+            reviewed_by TEXT,
+            FOREIGN KEY (reporter_id) REFERENCES users(id)
+        )
+    """)
+
+    conn.commit()
+
+    # Monkeypatch db_service to use this in-memory database (PHASE 3: Patch at import location - 2025-12-13)
+    mock_db_service = type('obj', (object,), {
+        'get_connection': lambda self: _InMemoryCtx(conn)
+    })()
+    # Patch where it's USED in report_service, not just where it's defined
+    monkeypatch.setattr('app.services.social.report_service.db_service', mock_db_service)
+    monkeypatch.setattr('app.services.database.db_service', mock_db_service)
+
+    yield conn
+
+    # Cleanup: Delete all data from tables to isolate tests (PHASE 3: Added for test isolation - 2025-12-13)
+    try:
+        cleanup_cursor = conn.cursor()
+        cleanup_cursor.execute("DELETE FROM content_reports")
+        cleanup_cursor.execute("DELETE FROM post_comments")
+        cleanup_cursor.execute("DELETE FROM posts")
+        cleanup_cursor.execute("DELETE FROM users")
+        conn.commit()
+    except Exception:
+        pass  # Cleanup failed, but connection will be closed anyway
+
+    conn.close()
+
+
+# ===== test_recipe_ai_routes_extra.py Fixtures =====
+
+@pytest.fixture
+def recipe_ai_db(monkeypatch):
+    """In-memory SQLite database for RecipeAI service tests.
+
+    Creates all required tables for recipe operations:
+    - users: User profiles
+    - user_preferences: User dietary preferences
+    - recipes: Generated recipes
+    - recipe_generations: Tracks recipe generation requests
+
+    Usage:
+        @pytest.mark.asyncio
+        async def test_generate_recipe(client, recipe_ai_db, test_user):
+            user_id = test_user['id']
+            # Insert user preferences
+            cursor = recipe_ai_db.cursor()
+            cursor.execute(
+                "INSERT INTO user_preferences VALUES (?, ?)",
+                (user_id, '{"dietary_restrictions": [], "cuisine_preferences": ["Italian"]}')
+            )
+            # Test recipe generation
+            response = await client.post(
+                "/recipes/generate",
+                json={"meal_type": "dinner"}
+            )
+            # Verify recipe in database
+            cursor.execute("SELECT * FROM recipes WHERE user_id = ?", (user_id,))
+    """
+    conn = sqlite3.connect(":memory:")
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+
+    # Create users table
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS users (
+            id TEXT PRIMARY KEY,
+            username TEXT UNIQUE NOT NULL,
+            email TEXT UNIQUE NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+
+    # Create user_preferences table
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS user_preferences (
+            user_id TEXT PRIMARY KEY,
+            dietary_restrictions TEXT,
+            cuisine_preferences TEXT,
+            allergies TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users(id)
+        )
+    """)
+
+    # Create recipes table
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS recipes (
+            id TEXT PRIMARY KEY,
+            user_id TEXT NOT NULL,
+            title TEXT NOT NULL,
+            description TEXT,
+            ingredients TEXT,
+            instructions TEXT,
+            nutrition_info TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users(id)
+        )
+    """)
+
+    # Create recipe_generations table
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS recipe_generations (
+            id TEXT PRIMARY KEY,
+            user_id TEXT NOT NULL,
+            recipe_id TEXT NOT NULL,
+            timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users(id),
+            FOREIGN KEY (recipe_id) REFERENCES recipes(id)
+        )
+    """)
+
+    conn.commit()
+
+    # Monkeypatch db_service to use this in-memory database
+    monkeypatch.setattr(
+        'app.services.database.db_service',
+        type('obj', (object,), {
+            'get_connection': lambda: _InMemoryCtx(conn)
+        })()
+    )
+
+    yield conn
+    conn.close()
+
+
+# ===== Helper Functions for Test Data Insertion =====
+
+def insert_test_user(db_conn, user_id, username, email):
+    """Insert a test user into database.
+
+    Args:
+        db_conn: SQLite connection
+        user_id: Unique user ID
+        username: Username
+        email: Email address
+    """
+    cursor = db_conn.cursor()
+    cursor.execute(
+        "INSERT INTO users (id, username, email) VALUES (?, ?, ?)",
+        (user_id, username, email)
+    )
+    # Also create user profile (PostService updates this)
+    cursor.execute(
+        "INSERT INTO user_profiles (user_id, posts_count) VALUES (?, ?)",
+        (user_id, 0)
+    )
+    db_conn.commit()
+
+
+def insert_test_post(db_conn, post_id, user_id, text):
+    """Insert a test post into database.
+
+    Args:
+        db_conn: SQLite connection
+        post_id: Unique post ID
+        user_id: User who created post (author_id)
+        text: Post content
+    """
+    from datetime import datetime
+    cursor = db_conn.cursor()
+    now = datetime.utcnow().isoformat()
+    cursor.execute(
+        "INSERT INTO posts (id, author_id, text, created_at, updated_at) VALUES (?, ?, ?, ?, ?)",
+        (post_id, user_id, text, now, now)
+    )
+    db_conn.commit()
+
+
+def insert_test_reaction(db_conn, reaction_id, post_id, user_id, reaction_type):
+    """Insert a test reaction (like/emoji) into database.
+
+    Args:
+        db_conn: SQLite connection
+        reaction_id: Unique reaction ID
+        post_id: Post being reacted to
+        user_id: User making reaction
+        reaction_type: Type of reaction (like, love, etc.)
+    """
+    cursor = db_conn.cursor()
+    cursor.execute(
+        "INSERT INTO post_reactions (id, post_id, user_id, reaction_type) VALUES (?, ?, ?, ?)",
+        (reaction_id, post_id, user_id, reaction_type)
+    )
+    db_conn.commit()
+
+
+# Make helper functions available to tests via fixture
+class DbHelpers:
+    """Helper class for database operations in tests"""
+    def __init__(self):
+        self.insert_test_user = insert_test_user
+        self.insert_test_post = insert_test_post
+        self.insert_test_reaction = insert_test_reaction
+
+
+@pytest.fixture
+def db_helpers():
+    """Provide database helper functions to tests.
+
+    Usage:
+        def test_something(post_service_db, db_helpers):
+            db_helpers.insert_test_user(post_service_db, "user123", "testuser", "test@example.com")
+            db_helpers.insert_test_post(post_service_db, "post123", "user123", "Hello!")
+    """
+    return DbHelpers()

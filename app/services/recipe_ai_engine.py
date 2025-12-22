@@ -71,7 +71,7 @@ class GeneratedRecipe:
     servings: int
     ingredients: List[RecipeIngredient]
     instructions: List[RecipeInstruction]
-    nutrition: RecipeNutrition
+    nutrition: Optional[RecipeNutrition] = None
     created_by: str = "ai_generated"
     confidence_score: float = 0.0
     generation_time_ms: float = 0.0
@@ -99,6 +99,7 @@ class RecipeGenerationRequest:
     max_cook_time_minutes: Optional[int] = None
     servings: int = 4
     meal_type: Optional[str] = None  # breakfast, lunch, dinner, snack
+    target_language: str = "en"
     
     def __post_init__(self):
         if self.available_ingredients is None:

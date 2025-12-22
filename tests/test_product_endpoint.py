@@ -131,8 +131,8 @@ async def test_cached_product_response(client, expected_product_response):
 @pytest.mark.asyncio
 async def test_empty_barcode_validation(client):
     response = client.post("/product/by-barcode", json={"barcode": ""})
-    
-    assert response.status_code == 400
+
+    assert response.status_code == 422
     data = response.json()
     assert "empty" in data["detail"].lower()
 

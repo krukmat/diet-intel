@@ -30,12 +30,12 @@ class PostService:
             with db_service.get_connection() as conn:
                 cursor = conn.cursor()
 
-                # Insert post
+                # Insert post (PHASE 2: Fixed visibility to use 'public' instead of invalid 'inherit_profile' - 2025-12-13)
                 cursor.execute("""
                     INSERT INTO posts (id, author_id, text, visibility, created_at, updated_at)
                     VALUES (?, ?, ?, ?, ?, ?)
                 """, (
-                    post_id, author_id, post.text, 'inherit_profile',
+                    post_id, author_id, post.text, 'public',
                     datetime.utcnow().isoformat(), datetime.utcnow().isoformat()
                 ))
 
@@ -120,7 +120,7 @@ class PostService:
                 text=post.text,
                 media=[],
                 stats=PostStats(likes_count=0, comments_count=0),
-                visibility='inherit_profile',
+                visibility='public',
                 created_at=datetime.utcnow(),
                 updated_at=datetime.utcnow(),
                 is_liked_by_user=False

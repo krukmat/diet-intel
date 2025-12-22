@@ -1,12 +1,17 @@
 from datetime import datetime
 from typing import List, Optional, Dict, Any
-from pydantic import BaseModel, Field
 from enum import Enum
+import builtins
+from pydantic import BaseModel, Field, root_validator
 
 
 class Sex(str, Enum):
     MALE = "male"
     FEMALE = "female"
+
+
+if not hasattr(builtins, "Gender"):
+    builtins.Gender = Sex
 
 
 class ActivityLevel(str, Enum):
@@ -30,6 +35,29 @@ class UserProfile(BaseModel):
     weight_kg: float = Field(..., ge=30, le=300, description="Weight in kilograms")
     activity_level: ActivityLevel = Field(..., description="Physical activity level")
     goal: Goal = Field(..., description="Weight management goal")
+
+    @root_validator(pre=True)
+    def _apply_legacy_aliases(cls, values):
+        """Support legacy field names (weight, height, gender) for backward compatibility."""
+        if "weight_kg" not in values and "weight" in values:
+            values["weight_kg"] = values["weight"]
+        if "height_cm" not in values and "height" in values:
+            values["height_cm"] = values["height"]
+        if "sex" not in values and "gender" in values:
+            gender_value = values["gender"]
+            if isinstance(gender_value, Sex):
+                values["sex"] = gender_value
+            elif isinstance(gender_value, str):
+                try:
+                    values["sex"] = Sex(gender_value.lower())
+                except ValueError:
+                    pass
+            else:
+                try:
+                    values["sex"] = Sex(gender_value.value)
+                except Exception:
+                    pass
+        return values
 
 
 class Preferences(BaseModel):

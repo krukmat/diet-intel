@@ -42,7 +42,7 @@ class NutritionCalculator:
         logger.info(f"Calculated BMR: {bmr:.1f} kcal/day for {profile.sex.value}, "
                    f"age {profile.age}, {profile.weight_kg}kg, {profile.height_cm}cm")
         
-        return round(bmr, 1)
+        return float(bmr)
     
     def calculate_tdee(self, bmr: float, activity_level: ActivityLevel) -> float:
         """
@@ -60,7 +60,7 @@ class NutritionCalculator:
         
         logger.info(f"Calculated TDEE: {tdee:.1f} kcal/day (BMR {bmr} × {multiplier} for {activity_level.value})")
         
-        return round(tdee, 1)
+        return float(tdee)
     
     def calculate_daily_target(self, tdee: float, goal: Goal) -> float:
         """
@@ -78,7 +78,7 @@ class NutritionCalculator:
         
         logger.info(f"Daily calorie target: {target:.1f} kcal/day (TDEE {tdee} + {adjustment} for {goal.value})")
         
-        return round(target, 1)
+        return float(target)
     
     def get_meal_targets(self, daily_target: float) -> Tuple[float, float, float]:
         """
@@ -101,7 +101,7 @@ class NutritionCalculator:
         
         logger.info(f"Meal targets - Breakfast: {breakfast:.1f}, Lunch: {lunch:.1f}, Dinner: {dinner:.1f}")
         
-        return round(breakfast, 1), round(lunch, 1), round(dinner, 1)
+        return float(breakfast), float(lunch), float(dinner)
     
     def calculate_macros_from_calories(self, calories: float, protein_g: float, 
                                      fat_g: float, carbs_g: float) -> Tuple[float, float, float]:

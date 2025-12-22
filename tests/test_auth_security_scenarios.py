@@ -17,10 +17,12 @@ import jwt
 from datetime import datetime, timedelta
 from unittest.mock import AsyncMock, patch, MagicMock
 
-from app.services.auth import AuthService, security
+from app.services.auth import session_service as auth_session_service, AuthService, security, user_service
 from app.models.user import User, UserRole, TokenData
 from fastapi import HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials
+
+session_service = auth_session_service
 
 
 class TestTokenSecurityScenarios:
@@ -117,9 +119,11 @@ class TestTokenSecurityScenarios:
 
 class TestSessionSecurityScenarios:
     """Test session management security"""
-    
+
     def setup_method(self):
-        self.auth_service = AuthService()
+        # Phase 2 Batch 7: Use global auth_service with SessionService
+        from app.services.auth import auth_service, user_service
+        self.auth_service = auth_service
     
     @pytest.mark.asyncio
     async def test_concurrent_session_handling(self):
@@ -139,44 +143,45 @@ class TestSessionSecurityScenarios:
             expires_at=datetime.utcnow() + timedelta(days=30), device_info="Device 2"
         )
         
-        # Mock database calls for different sessions
-        with patch('app.services.database.db_service.get_session_by_refresh_token') as mock_get_session:
-            def get_session_side_effect(token):
+        # Mock session service calls for different sessions - Phase 2 Batch 7
+        with patch.object(session_service, 'get_session_by_refresh_token', new_callable=AsyncMock) as mock_get_session:
+            async def get_session_side_effect(token):
                 if token == refresh_token_1:
                     return session_1
                 elif token == refresh_token_2:
                     return session_2
                 return None
-            
+
             mock_get_session.side_effect = get_session_side_effect
-            
+
             # Both sessions should be handled independently
-            with patch('app.services.database.db_service.delete_session', new_callable=AsyncMock) as mock_delete:
+            with patch.object(session_service, 'delete_session', new_callable=AsyncMock) as mock_delete:
                 await self.auth_service.logout_user(refresh_token_1)
-                mock_delete.assert_called_with(1)
+                mock_delete.assert_called_with(int(session_1.id))
                 
                 await self.auth_service.logout_user(refresh_token_2)
-                mock_delete.assert_called_with(2)
+                mock_delete.assert_called_with(int(session_2.id))
     
     @pytest.mark.asyncio
     async def test_session_cleanup_on_expired_refresh(self):
         """Test automatic cleanup of expired sessions during refresh"""
         from app.models.user import UserSession
         from app.services.database import db_service
-        
+        from app.services.session_service import SessionService
+
         expired_session = UserSession(
             id="1", user_id="1", access_token="access", refresh_token="expired_token",
             expires_at=datetime.utcnow() - timedelta(days=1), device_info=None
         )
         
-        with patch.object(db_service, 'get_session_by_refresh_token', new_callable=AsyncMock, return_value=expired_session), \
-             patch.object(db_service, 'delete_session', new_callable=AsyncMock) as mock_delete:
+        with patch.object(session_service, 'get_session_by_refresh_token', new_callable=AsyncMock, return_value=expired_session), \
+             patch.object(session_service, 'delete_session', new_callable=AsyncMock) as mock_delete:
             
             with pytest.raises(HTTPException) as exc_info:
                 await self.auth_service.refresh_access_token("expired_token")
             
             # Should delete expired session
-            mock_delete.assert_called_once_with(expired_session.id)
+            mock_delete.assert_called_once_with(int(expired_session.id))
             assert exc_info.value.status_code == status.HTTP_401_UNAUTHORIZED
 
 
@@ -248,7 +253,7 @@ class TestRoleSecurityScenarios:
     @pytest.mark.asyncio
     async def test_role_escalation_prevention(self):
         """Test prevention of role escalation attacks"""
-        from app.services.auth import get_current_developer_user, get_current_admin_user
+        from app.services.auth import session_service as auth_session_service,  get_current_developer_user, get_current_admin_user, user_service
         
         # Standard user trying to access developer functionality
         standard_user = User(
@@ -310,7 +315,7 @@ class TestSecurityConfiguration:
     
     def test_secure_defaults(self):
         """Test that security defaults are appropriately configured"""
-        from app.services.auth import ACCESS_TOKEN_EXPIRE_MINUTES, REFRESH_TOKEN_EXPIRE_DAYS, ALGORITHM
+        from app.services.auth import session_service as auth_session_service,  ACCESS_TOKEN_EXPIRE_MINUTES, REFRESH_TOKEN_EXPIRE_DAYS, ALGORITHM, user_service
         
         # Access tokens should have short expiration
         assert ACCESS_TOKEN_EXPIRE_MINUTES <= 60  # Max 1 hour
@@ -323,7 +328,7 @@ class TestSecurityConfiguration:
     
     def test_httpsecurity_configuration(self):
         """Test HTTPBearer security configuration"""
-        from app.services.auth import security
+        from app.services.auth import session_service as auth_session_service,  security, user_service
         from fastapi.security import HTTPBearer
         
         assert isinstance(security, HTTPBearer)
@@ -357,7 +362,7 @@ class TestErrorHandlingSecurity:
         # Test login with non-existent user
         login_data = UserLogin(email="nonexistent@example.com", password="password")
         
-        with patch.object(db_service, 'get_user_by_email', new_callable=AsyncMock, return_value=None):
+        with patch.object(user_service, 'get_user_by_email', new_callable=AsyncMock, return_value=None):
             with pytest.raises(HTTPException) as exc_info:
                 await self.auth_service.login_user(login_data)
             
@@ -401,8 +406,8 @@ class TestErrorHandlingSecurity:
         # Real user, wrong password
         login_real = UserLogin(email="real@example.com", password="wrong_password")
         
-        with patch.object(db_service, 'get_user_by_email', new_callable=AsyncMock, return_value=real_user), \
-             patch.object(db_service, 'get_password_hash', new_callable=AsyncMock, return_value=real_hash):
+        with patch.object(user_service, 'get_user_by_email', new_callable=AsyncMock, return_value=real_user), \
+             patch.object(user_service, 'get_password_hash', new_callable=AsyncMock, return_value=real_hash):
             
             start_time = time.time()
             try:
@@ -414,7 +419,7 @@ class TestErrorHandlingSecurity:
         # Non-existent user
         login_fake = UserLogin(email="fake@example.com", password="any_password")
         
-        with patch.object(db_service, 'get_user_by_email', new_callable=AsyncMock, return_value=None):
+        with patch.object(user_service, 'get_user_by_email', new_callable=AsyncMock, return_value=None):
             start_time = time.time()
             try:
                 await self.auth_service.login_user(login_fake)

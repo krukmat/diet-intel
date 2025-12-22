@@ -20,3 +20,19 @@ Recent history uses Conventional Commit prefixes (`feat:`, `fix:`). Keep subject
 
 ## Configuration & Security Notes
 Secrets belong in `.env`; never commit concrete credentials. The Docker workflow expects PostgreSQL and Redis variables defined there, so coordinate defaults with the `docker-compose.override.yml`. When touching OCR or CV dependencies, document extra system packages in `install_ocr_deps.py` and mirror them in the `Dockerfile` for parity.
+
+## Cross-Project Practices
+- Keep modules grouped by feature across tiers and mirror filenames/routes between backend and frontend surfaces so related functionality is easy to trace end-to-end.
+- Capture plans inside the repo (Markdown or similar) whenever you scope a task; avoid leaving the plan only in chat so the backlog stays auditable.
+- Keep `manual-user-tests.md` updated with any manual verification steps executed for a fix so QA evidence resides with the code change.
+- Run backend pytest suites with coverage and linting before finishing any change, and apply the equivalent Jest/Playwright checks for UI work.
+- Document every new or updated feature in the relevant README/docs section and process any pending review documents or CLAUDE-style prompts before closing a task.
+- When preparing to commit, craft a Conventional Commit-style subject (<72 chars) and share it for approval before pushing; include verification steps and attach QA artifacts in PRs.
+- Produce deployment notes (`DEPLOY_STEPS.md`) when a change affects release workflows, and when a feature branch is finalized, write a “project memory” doc under `docs/` and retire superseded internal notes with user confirmation.
+## Imported Pipeline Practices
+- Record every focused plan phase as a Markdown file in `plan/` whose filename includes the date and the objective; once a phase closes, append the list of files modified and tests run so the history is self-documenting.
+- Store the artifacts that arise from each planning/testing phase (plans, coverage summaries, QA logs) inside the repo (`plan/`, `docs/`, or `artifacts/`) and never delete past snapshots—always extend them with new entries.
+- Lean on TDD/DRY/KISS: add tests that cover the expected failures first, reuse shared fixtures (e.g., authenticated user context), and batch related assertions so a single coverage sweep can validate multiple paths.
+- Run backend `python -m pytest --cov=app` (or equivalent) before wrapping up a change and keep the resulting `coverage.json`/`coverage.xml` near the build artifacts for auditing.
+- Prefer minimal mocking, but if a dependency (DB, HTTP, translation provider) must be stubbed, use `AsyncMock`/`patch` and keep the assertions focused on business logic rather than external plumbing.
+- When closing a planning phase, append the list of files modified plus the verification commands to the same `plan/` document so historical artifacts remain intact per the pipeline guidance.

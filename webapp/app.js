@@ -20,6 +20,7 @@ const apiRoutes = require('./routes/api');
 const authRoutes = require('./routes/auth');
 const dashboardRoutes = require('./routes/dashboard');
 const languageRoutes = require('./routes/language');
+const intelligentFlowRoutes = require('./routes/intelligentFlow');
 const profilesRouter = require('./routes/profiles');
 
 // Import auth middleware
@@ -92,6 +93,7 @@ app.use('/api', apiRoutes);
 app.use('/auth', authRoutes);
 app.use('/dashboard', dashboardRoutes);
 app.use('/language', languageRoutes);
+app.use('/intelligent-flow', intelligentFlowRoutes);
 app.use('/profiles', profilesRouter);
 
 // Redirect /profile to /dashboard/profile for convenience

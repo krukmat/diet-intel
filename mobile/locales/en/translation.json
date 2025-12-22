@@ -36,6 +36,7 @@
     "mealPlan": "🍽️ Meal Plan",
     "track": "📊 Track",
     "smartDiet": "🧠 Smart Diet",
+    "intelligentFlow": "🤖 Intelligent Flow",
     "recipes": "🍳 Recipes"
   },
   "plan": {
@@ -78,6 +79,19 @@
       "carbsG": "Carbs (g)",
       "addItem": "Add Item"
     }
+  },
+  "intelligentFlow": {
+    "title": "🤖 Intelligent Flow",
+    "subtitle": "Test the unified Food Vision, Recipe AI, and Smart Diet pipeline.",
+    "mealType": "Meal Type",
+    "base64Label": "Image Base64",
+    "base64Placeholder": "Paste a Base64 encoded image",
+    "runSync": "Run Sync",
+    "runAsync": "Run Async",
+    "running": "Running...",
+    "jobStatus": "Job Status",
+    "result": "Latest Result",
+    "error": "Error"
   },
   "track": {
     "title": "📊 Track Progress",

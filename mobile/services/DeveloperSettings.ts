@@ -15,6 +15,7 @@ export interface FeatureToggle {
   trackingFeature: boolean;
   barcodeScanner: boolean;
   reminderNotifications: boolean;
+  intelligentFlowFeature: boolean;
 }
 
 const DEVELOPER_CONFIG_KEY = '@dietintel_developer_config';
@@ -35,6 +36,7 @@ const DEFAULT_FEATURE_TOGGLES: FeatureToggle = {
   trackingFeature: true,
   barcodeScanner: true,
   reminderNotifications: true,
+  intelligentFlowFeature: false,
 };
 
 class DeveloperSettingsService {

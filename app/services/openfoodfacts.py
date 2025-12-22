@@ -13,9 +13,9 @@ class OpenFoodFactsService:
     TIMEOUT = 10.0
     
     def __init__(self):
-        env_flag = os.getenv("OPENFOODFACTS_ENABLE_NETWORK", "false").lower()
+        env_flag = os.getenv("OPENFOODFACTS_ENABLE_NETWORK", "true").lower()
         self.enable_network = env_flag in {"1", "true", "yes", "on"}
-        self.client = httpx.AsyncClient(timeout=self.TIMEOUT) if self.enable_network else None
+        self.client = httpx.AsyncClient(timeout=self.TIMEOUT)
         self._offline_products: Dict[str, ProductResponse] = self._build_offline_catalog()
     
     async def get_product(self, barcode: str) -> Optional[ProductResponse]:
@@ -45,19 +45,11 @@ class OpenFoodFactsService:
         except httpx.TimeoutException:
             latency = (datetime.now() - start_time).total_seconds()
             logger.error(f"Timeout calling OpenFoodFacts API after {latency:.3f}s for barcode: {barcode}")
-            fallback = self._offline_products.get(barcode)
-            if fallback:
-                logger.info("Using offline OpenFoodFacts fallback after timeout")
-                return fallback
             raise
         except httpx.RequestError as e:
             latency = (datetime.now() - start_time).total_seconds()
             logger.error(f"Network error calling OpenFoodFacts API after {latency:.3f}s: {e}")
-            fallback = self._offline_products.get(barcode)
-            if fallback:
-                logger.info("Using offline OpenFoodFacts fallback after network error")
-                return fallback
-            return None
+            raise
         except Exception as e:
             latency = (datetime.now() - start_time).total_seconds()
             logger.error(f"Unexpected error calling OpenFoodFacts API after {latency:.3f}s for barcode {barcode}: {e}")

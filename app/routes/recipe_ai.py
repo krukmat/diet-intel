@@ -26,11 +26,34 @@ from app.services.auth import get_current_user, get_optional_user
 from app.models.user import User
 
 logger = logging.getLogger(__name__)
-security = HTTPBearer()
+security = HTTPBearer(auto_error=False)
+optional_security = HTTPBearer(auto_error=False)
 router = APIRouter(tags=["Recipe AI"])
 
 # Initialize Recipe AI Engine
 recipe_engine = RecipeAIEngine()
+
+
+async def current_user_dependency(
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
+) -> User:
+    """
+    Wrapper that allows patching app.routes.recipe_ai.get_current_user in tests.
+    FastAPI stores the dependency callable at declaration time, so routing through
+    this helper ensures we always look up the latest symbol when the request runs.
+    """
+    if credentials is None:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    dependency = get_current_user
+    return await dependency(credentials)
+
+
+async def optional_user_dependency(
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(optional_security),
+) -> Optional[User]:
+    """Wrapper version of get_optional_user for the same reason as above."""
+    dependency = get_optional_user
+    return await dependency(credentials)
 
 
 # ===== UTILITY FUNCTIONS =====
@@ -89,7 +112,7 @@ async def log_recipe_request(
 async def generate_recipe(
     request: RecipeGenerationRequest,
     background_tasks: BackgroundTasks,
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(current_user_dependency)
 ):
     """
     Generate an AI-powered recipe based on user preferences and nutritional goals.
@@ -235,7 +258,7 @@ async def generate_recipe(
 @router.post("/optimize", response_model=GeneratedRecipeResponse)
 async def optimize_recipe(
     request: RecipeOptimizationRequest,
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(current_user_dependency)
 ):
     """
     Optimize an existing recipe for specific nutritional goals.
@@ -326,7 +349,7 @@ async def optimize_recipe(
 async def get_recipe_suggestions(
     context: str = Query("breakfast", description="Meal context for suggestions"),
     limit: int = Query(10, ge=1, le=50),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(current_user_dependency)
 ):
     """
     Get personalized recipe suggestions based on user preferences and context.
@@ -392,80 +415,6 @@ async def recipe_ai_health_check():
 
 # ===== RECIPE MANAGEMENT ENDPOINTS =====
 
-@router.get("/{recipe_id}", response_model=GeneratedRecipeResponse)
-async def get_recipe(
-    recipe_id: str,
-    current_user: Optional[User] = Depends(get_optional_user)
-):
-    """
-    Get detailed information about a specific recipe.
-    """
-    try:
-        recipe = await recipe_db_service.get_recipe(recipe_id)
-        
-        if not recipe:
-            raise HTTPException(status_code=404, detail="Recipe not found")
-        
-        # Convert to response model
-        response = GeneratedRecipeResponse(
-            id=recipe.id,
-            name=recipe.name,
-            description=recipe.description,
-            cuisine_type=recipe.cuisine_type,
-            difficulty_level=recipe.difficulty_level,
-            prep_time_minutes=recipe.prep_time_minutes,
-            cook_time_minutes=recipe.cook_time_minutes,
-            servings=recipe.servings,
-            ingredients=[
-                {
-                    "name": ing.name,
-                    "quantity": ing.quantity,
-                    "unit": ing.unit,
-                    "barcode": ing.barcode,
-                    "calories_per_unit": ing.calories_per_unit,
-                    "protein_g_per_unit": ing.protein_g_per_unit,
-                    "fat_g_per_unit": ing.fat_g_per_unit,
-                    "carbs_g_per_unit": ing.carbs_g_per_unit,
-                    "is_optional": ing.is_optional,
-                    "preparation_note": ing.preparation_note
-                }
-                for ing in recipe.ingredients
-            ],
-            instructions=[
-                {
-                    "step_number": inst.step_number,
-                    "instruction": inst.instruction,
-                    "cooking_method": inst.cooking_method,
-                    "duration_minutes": inst.duration_minutes,
-                    "temperature_celsius": inst.temperature_celsius
-                }
-                for inst in recipe.instructions
-            ],
-            nutrition={
-                "calories_per_serving": recipe.nutrition.calories_per_serving,
-                "protein_g_per_serving": recipe.nutrition.protein_g_per_serving,
-                "fat_g_per_serving": recipe.nutrition.fat_g_per_serving,
-                "carbs_g_per_serving": recipe.nutrition.carbs_g_per_serving,
-                "fiber_g_per_serving": recipe.nutrition.fiber_g_per_serving,
-                "sugar_g_per_serving": recipe.nutrition.sugar_g_per_serving,
-                "sodium_mg_per_serving": recipe.nutrition.sodium_mg_per_serving,
-                "recipe_score": recipe.nutrition.recipe_score
-            } if recipe.nutrition else None,
-            created_by=recipe.created_by,
-            confidence_score=recipe.confidence_score,
-            generation_time_ms=recipe.generation_time_ms,
-            tags=recipe.tags
-        )
-        
-        return response
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Failed to get recipe {recipe_id}: {e}")
-        raise HTTPException(status_code=500, detail="Failed to retrieve recipe")
-
-
 @router.get("/search", response_model=RecipeSearchResponse)
 async def search_recipes(
     query: Optional[str] = Query(None, description="Search query"),
@@ -476,7 +425,7 @@ async def search_recipes(
     tags: List[str] = Query(default=[], description="Recipe tags"),
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
-    current_user: Optional[User] = Depends(get_optional_user)
+    current_user: Optional[User] = Depends(optional_user_dependency)
 ):
     """
     Search recipes with advanced filtering options.
@@ -515,7 +464,7 @@ async def search_recipes(
 async def rate_recipe(
     recipe_id: str,
     rating_request: RecipeRatingRequest,
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(current_user_dependency)
 ):
     """
     Rate and review a recipe.
@@ -553,7 +502,7 @@ async def rate_recipe(
 @router.get("/{recipe_id}/ratings", response_model=RecipeRatingResponse)
 async def get_recipe_ratings(
     recipe_id: str,
-    current_user: Optional[User] = Depends(get_optional_user)
+    current_user: Optional[User] = Depends(optional_user_dependency)
 ):
     """
     Get rating statistics for a recipe.
@@ -579,7 +528,7 @@ async def get_recipe_ratings(
 @router.post("/shopping-list", response_model=ShoppingListResponse)
 async def generate_shopping_list(
     request: ShoppingListRequest,
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(current_user_dependency)
 ):
     """
     Generate a consolidated shopping list from multiple recipes.
@@ -614,7 +563,7 @@ async def generate_shopping_list(
 @router.post("/nutrition-analysis")
 async def analyze_recipe_nutrition(
     recipe_data: Dict[str, Any],
-    current_user: Optional[User] = Depends(get_optional_user)
+    current_user: Optional[User] = Depends(optional_user_dependency)
 ):
     """
     Analyze the nutritional content of a recipe.
@@ -640,7 +589,7 @@ async def analyze_recipe_nutrition(
 @router.get("/analytics", response_model=RecipeAnalyticsResponse)
 async def get_recipe_analytics(
     days: int = Query(30, ge=1, le=365, description="Number of days to analyze"),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(current_user_dependency)
 ):
     """
     Get recipe generation analytics and insights.
@@ -670,7 +619,7 @@ async def get_recipe_analytics(
 @router.post("/feedback")
 async def submit_recipe_feedback(
     feedback_data: Dict[str, Any],
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(current_user_dependency)
 ):
     """
     Submit feedback for recipe AI improvement.
@@ -698,7 +647,7 @@ async def submit_recipe_feedback(
 @router.post("/learn-preferences", response_model=UserTasteProfileResponse)
 async def learn_user_preferences(
     request: Optional[UserTasteProfileRequest] = None,
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(current_user_dependency)
 ):
     """
     Analyze user's ratings and learn taste preferences.
@@ -790,7 +739,7 @@ async def learn_user_preferences(
 @router.get("/preferences/{user_id}", response_model=UserTasteProfileResponse)
 async def get_user_taste_profile(
     user_id: str,
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(current_user_dependency)
 ):
     """
     Retrieve user's complete taste profile including preferences and learning progress.
@@ -840,7 +789,7 @@ async def get_user_taste_profile(
 @router.get("/preferences/{user_id}/progress", response_model=UserLearningProgressResponse)
 async def get_user_learning_progress(
     user_id: str,
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(current_user_dependency)
 ):
     """
     Get user's taste learning progress and achievements.
@@ -887,7 +836,7 @@ async def get_user_learning_progress(
 @router.post("/generate-personalized", response_model=GeneratedRecipeResponse)
 async def generate_personalized_recipe(
     request: PersonalizedRecipeRequest,
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(current_user_dependency)
 ):
     """
     Generate a recipe using user's taste profile for personalization.
@@ -1001,7 +950,7 @@ async def generate_personalized_recipe(
 @router.post("/shopping/optimize", response_model=ShoppingOptimizationResponse)
 async def optimize_shopping_list(
     request: ShoppingOptimizationRequest,
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(current_user_dependency)
 ):
     """
     Generate optimized shopping list from multiple recipes with ingredient consolidation.
@@ -1046,7 +995,7 @@ async def optimize_shopping_list(
 @router.get("/shopping/{optimization_id}", response_model=ShoppingOptimizationResponse)
 async def get_shopping_optimization(
     optimization_id: str,
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(current_user_dependency)
 ):
     """
     Retrieve existing shopping optimization by ID.
@@ -1091,7 +1040,7 @@ async def get_shopping_optimization(
 @router.post("/translate/{recipe_id}", response_model=GeneratedRecipeResponse)
 async def translate_recipe_to_spanish(
     recipe_id: str,
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(current_user_dependency)
 ):
     """
     Translate an existing recipe to Spanish.
@@ -1178,7 +1127,7 @@ async def translate_recipe_to_spanish(
 @router.post("/translate/batch", response_model=Dict[str, Any])
 async def batch_translate_recipes_to_spanish(
     request: BatchRecipeTranslationRequest,
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(current_user_dependency)
 ):
     """
     Translate multiple recipes to Spanish in a batch operation.
@@ -1253,3 +1202,74 @@ async def get_supported_languages():
             "Recipe tags and categories"
         ]
     }
+
+
+@router.get("/{recipe_id}", response_model=GeneratedRecipeResponse)
+async def get_recipe(
+    recipe_id: str,
+    current_user: Optional[User] = Depends(optional_user_dependency)
+):
+    """
+    Get detailed information about a specific recipe.
+    """
+    try:
+        recipe = await recipe_db_service.get_recipe(recipe_id)
+        
+        if not recipe:
+            raise HTTPException(status_code=404, detail="Recipe not found")
+        
+        return GeneratedRecipeResponse(
+            id=recipe.id,
+            name=recipe.name,
+            description=recipe.description,
+            cuisine_type=recipe.cuisine_type,
+            difficulty_level=recipe.difficulty_level,
+            prep_time_minutes=recipe.prep_time_minutes,
+            cook_time_minutes=recipe.cook_time_minutes,
+            servings=recipe.servings,
+            ingredients=[
+                {
+                    "name": ing.name,
+                    "quantity": ing.quantity,
+                    "unit": ing.unit,
+                    "barcode": ing.barcode,
+                    "calories_per_unit": ing.calories_per_unit,
+                    "protein_g_per_unit": ing.protein_g_per_unit,
+                    "fat_g_per_unit": ing.fat_g_per_unit,
+                    "carbs_g_per_unit": ing.carbs_g_per_unit,
+                    "is_optional": ing.is_optional,
+                    "preparation_note": ing.preparation_note
+                }
+                for ing in recipe.ingredients
+            ],
+            instructions=[
+                {
+                    "step_number": inst.step_number,
+                    "instruction": inst.instruction,
+                    "cooking_method": inst.cooking_method,
+                    "duration_minutes": inst.duration_minutes,
+                    "temperature_celsius": inst.temperature_celsius
+                }
+                for inst in recipe.instructions
+            ],
+            nutrition={
+                "calories_per_serving": recipe.nutrition.calories_per_serving,
+                "protein_g_per_serving": recipe.nutrition.protein_g_per_serving,
+                "fat_g_per_serving": recipe.nutrition.fat_g_per_serving,
+                "carbs_g_per_serving": recipe.nutrition.carbs_g_per_serving,
+                "fiber_g_per_serving": recipe.nutrition.fiber_g_per_serving,
+                "sugar_g_per_serving": recipe.nutrition.sugar_g_per_serving,
+                "sodium_mg_per_serving": recipe.nutrition.sodium_mg_per_serving,
+                "recipe_score": recipe.nutrition.recipe_score
+            } if recipe.nutrition else None,
+            created_by=recipe.created_by,
+            confidence_score=recipe.confidence_score,
+            generation_time_ms=recipe.generation_time_ms,
+            tags=recipe.tags
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to get recipe {recipe_id}: {e}")
+        raise HTTPException(status_code=500, detail="Failed to retrieve recipe")

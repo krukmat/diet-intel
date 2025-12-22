@@ -323,6 +323,17 @@ export default function DeveloperSettingsModal({
                     onValueChange={(value) => handleFeatureToggle('reminderNotifications', value)}
                   />
                 </View>
+
+                <View style={styles.settingItem}>
+                  <View style={styles.settingInfo}>
+                    <Text style={styles.settingLabel}>Intelligent Flow (Beta)</Text>
+                    <Text style={styles.settingDescription}>Unified Food Vision + Recipe AI + Smart Diet</Text>
+                  </View>
+                  <Switch
+                    value={featureToggles.intelligentFlowFeature}
+                    onValueChange={(value) => handleFeatureToggle('intelligentFlowFeature', value)}
+                  />
+                </View>
               </View>
 
               {/* Actions */}

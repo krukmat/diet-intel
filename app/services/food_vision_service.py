@@ -8,6 +8,7 @@ Orchestrates food analysis, exercise suggestions, and data persistence
 import logging
 import time
 import uuid
+import json
 from typing import Dict, Any, List, Optional
 from datetime import datetime
 
@@ -18,6 +19,7 @@ from app.models.food_vision import (
 from app.services.vision_analyzer import VisionAnalyzer
 from app.services.exercise_calculator import ExerciseCalculator
 from app.services.database import db_service
+from app.services.vision_service import VisionService
 from app.models.exercise_suggestion import ExerciseRecommendation
 
 logger = logging.getLogger(__name__)
@@ -28,6 +30,7 @@ class FoodVisionService:
     def __init__(self):
         self.vision_analyzer = VisionAnalyzer()
         self.exercise_calculator = ExerciseCalculator()
+        self.vision_service = VisionService(db_service)  # Task: Phase 2 Batch 5 - Database refactoring
 
     async def analyze_food_image(
         self,
@@ -288,6 +291,52 @@ class FoodVisionService:
 
         return list(benefits)
 
+    @staticmethod
+    def _coerce_float(value: Any, default: float = 0.0) -> float:
+        """Safely convert arbitrary values to float."""
+        try:
+            return float(value)
+        except (TypeError, ValueError):
+            return default
+
+    def _normalize_ingredient(self, ingredient: Dict[str, Any]) -> Dict[str, Any]:
+        """Ensure ingredient data has all mandatory fields."""
+        base = ingredient if isinstance(ingredient, dict) else {}
+        visual_markers = base.get("visual_markers")
+        if not isinstance(visual_markers, list):
+            visual_markers = []
+        nutrition_per_100g = base.get("nutrition_per_100g")
+        if not isinstance(nutrition_per_100g, dict):
+            nutrition_per_100g = {}
+
+        return {
+            "name": base.get("name", "unknown"),
+            "category": base.get("category", "unknown"),
+            "estimated_grams": self._coerce_float(base.get("estimated_grams"), 0.0),
+            "confidence_score": self._coerce_float(base.get("confidence_score"), 0.0),
+            "visual_markers": visual_markers,
+            "nutrition_per_100g": nutrition_per_100g,
+        }
+
+    def _normalize_nutritional_analysis(self, data: Dict[str, Any]) -> Dict[str, Any]:
+        """Fill missing nutritional analysis fields with defaults."""
+        source = data if isinstance(data, dict) else {}
+        macros = source.get("macro_distribution")
+        if not isinstance(macros, dict):
+            macros = {"protein": 0.0, "carbs": 0.0, "fat": 0.0}
+
+        health_benefits = source.get("health_benefits")
+        if not isinstance(health_benefits, list):
+            health_benefits = []
+
+        return {
+            "total_calories": self._coerce_float(source.get("total_calories"), 0.0),
+            "macro_distribution": macros,
+            "micronutrients": source.get("micronutrients"),
+            "food_quality_score": self._coerce_float(source.get("food_quality_score"), 0.0),
+            "health_benefits": health_benefits,
+        }
+
 
     async def save_analysis(self, user_id: str, response: VisionLogResponse) -> VisionLogResponse:
         """Persist analysis result to database"""
@@ -307,7 +356,7 @@ class FoodVisionService:
                 "created_at": response.created_at,
             }
 
-            persisted = await db_service.create_vision_log(vision_log_dict)
+            persisted = await self.vision_service.create_vision_log(vision_log_dict)  # Task: Phase 2 Batch 5
 
             logger.info(f"Analysis {response.id} persisted for user {user_id}")
             return VisionLogResponse(**persisted)
@@ -329,7 +378,7 @@ class FoodVisionService:
         """
         try:
             # Get records from database
-            rows, total_count = await db_service.list_vision_logs(
+            rows, total_count = await self.vision_service.list_vision_logs(  # Task: Phase 2 Batch 5
                 user_id=user_id,
                 limit=limit,
                 offset=offset,
@@ -344,7 +393,6 @@ class FoodVisionService:
                 identified_ingredients = []
                 if row.get("identified_ingredients"):
                     if isinstance(row["identified_ingredients"], str):
-                        import json
                         identified_ingredients = json.loads(row["identified_ingredients"])
                     else:
                         identified_ingredients = row["identified_ingredients"]
@@ -353,19 +401,31 @@ class FoodVisionService:
                 exercise_suggestions = []
                 if row.get("exercise_suggestions"):
                     if isinstance(row["exercise_suggestions"], str):
-                        import json
                         exercise_suggestions = json.loads(row["exercise_suggestions"])
                     else:
                         exercise_suggestions = row["exercise_suggestions"]
+
+                estimated_portions = row.get("estimated_portions", {})
+                if isinstance(estimated_portions, str):
+                    estimated_portions = json.loads(estimated_portions)
+
+                nutritional_analysis = row.get("nutritional_analysis", {})
+                if isinstance(nutritional_analysis, str):
+                    nutritional_analysis = json.loads(nutritional_analysis)
+
+                sanitized_ingredients = [
+                    self._normalize_ingredient(ingredient)
+                    for ingredient in identified_ingredients or []
+                ]
 
                 log = VisionLogResponse(
                     id=row["id"],
                     user_id=row["user_id"],
                     image_url=row["image_url"],
                     meal_type=row["meal_type"],
-                    identified_ingredients=identified_ingredients,
-                    estimated_portions=row.get("estimated_portions", {}),
-                    nutritional_analysis=row.get("nutritional_analysis", {}),
+                    identified_ingredients=sanitized_ingredients,
+                    estimated_portions=estimated_portions or {},
+                    nutritional_analysis=self._normalize_nutritional_analysis(nutritional_analysis),
                     exercise_suggestions=exercise_suggestions,
                     created_at=row["created_at"].isoformat() if isinstance(row["created_at"], datetime) else row["created_at"],
                     processing_time_ms=row.get("processing_time_ms", 0)
@@ -395,7 +455,7 @@ class FoodVisionService:
         """
         try:
             # Verify log belongs to user
-            log = await db_service.get_vision_log(log_id)
+            log = await self.vision_service.get_vision_log(log_id)  # Task: Phase 2 Batch 5
             if not log:
                 raise Exception(f"Analysis log {log_id} not found")
             if log["user_id"] != user_id:
@@ -415,7 +475,7 @@ class FoodVisionService:
                 "created_at": datetime.utcnow(),
             }
 
-            correction_result = await db_service.create_vision_correction(correction_dict)
+            correction_result = await self.vision_service.create_vision_correction(correction_dict)  # Task: Phase 2 Batch 5
 
             # Log the correction
             logger.info(f"Correction submitted for log {log_id} by user {user_id}, improvement: {improvement_score}")
