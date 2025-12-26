@@ -22,16 +22,23 @@ def temp_database(tmp_path):
 
 
 @pytest.mark.asyncio
-async def test_create_and_update_user(temp_database):
+async def test_create_and_update_user(temp_database, monkeypatch):
+    import uuid
     db_service = temp_database
+    # Use temp_database's path for UserRepository via ConnectionManager
+    from app.repositories.connection import ConnectionManager
+    from app.repositories import connection
+    temp_conn_manager = ConnectionManager(db_service.db_path)
+    monkeypatch.setattr(connection, 'connection_manager', temp_conn_manager)
+
     user_repo = UserRepository()
     user_service = UserService(user_repo)
     user_payload = UserCreate(
-        email="developer@example.com", password="securepass", full_name="Dev User", developer_code="DIETINTEL_DEV_2024"
+        email=f"developer-{uuid.uuid4()}@example.com", password="securepass", full_name="Dev User", developer_code="DIETINTEL_DEV_2024"
     )
     user = await user_service.create_user(user_payload, password_hash="hashed")
 
-    assert user.email == "developer@example.com"
+    assert user.email == user_payload.email
     assert user.is_developer is True
 
     fetched = await user_service.get_user_by_email(user.email)
@@ -45,16 +52,21 @@ async def test_create_and_update_user(temp_database):
 
 
 @pytest.mark.asyncio
-async def test_session_lifecycle_and_cleanup(temp_database):
+async def test_session_lifecycle_and_cleanup(temp_database, monkeypatch):
     # Phase 2 Batch 7: Session tests now use SessionService
+    import uuid
     from app.services.session_service import SessionService
+    from app.repositories.connection import ConnectionManager
+    from app.repositories import connection
 
     db_service = temp_database
+    temp_conn_manager = ConnectionManager(db_service.db_path)
+    monkeypatch.setattr(connection, 'connection_manager', temp_conn_manager)
     user_repo = UserRepository()
     user_service = UserService(user_repo)
     session_service = SessionService(db_service)
 
-    user_payload = UserCreate(email="player@example.com", password="seasonpass", full_name="Player One")
+    user_payload = UserCreate(email=f"player-{uuid.uuid4()}@example.com", password="seasonpass", full_name="Player One")
     user = await user_service.create_user(user_payload, password_hash="pw")
 
     session = UserSession(
@@ -76,16 +88,21 @@ async def test_session_lifecycle_and_cleanup(temp_database):
 
 
 @pytest.mark.asyncio
-async def test_cleanup_expired_sessions(temp_database):
+async def test_cleanup_expired_sessions(temp_database, monkeypatch):
     # Phase 2 Batch 7: Session tests now use SessionService
+    import uuid
     from app.services.session_service import SessionService
+    from app.repositories.connection import ConnectionManager
+    from app.repositories import connection
 
     db_service = temp_database
+    temp_conn_manager = ConnectionManager(db_service.db_path)
+    monkeypatch.setattr(connection, 'connection_manager', temp_conn_manager)
     user_repo = UserRepository()
     user_service = UserService(user_repo)
     session_service = SessionService(db_service)
 
-    user_payload = UserCreate(email="stale@example.com", password="stale1234", full_name="Stale User")
+    user_payload = UserCreate(email=f"stale-{uuid.uuid4()}@example.com", password="stale1234", full_name="Stale User")
     user = await user_service.create_user(user_payload, password_hash="temp")
 
     session = UserSession(
