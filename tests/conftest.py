@@ -356,8 +356,10 @@ def seed_test_user():
         developer_code="DIETINTEL_DEV_2024"
     )
 
-    # Create user using user_service (Phase 2 Batch 9)
-    user_service = UserService(db_service)
+    # Create user using user_service (Phase 2 Batch 9 + Phase 3 Repository Pattern)
+    from app.repositories.user_repository import UserRepository
+    user_repo = UserRepository()
+    user_service = UserService(user_repo)
     user = asyncio.run(user_service.create_user(user_data, hashed_password))
     user_id = user.id
 

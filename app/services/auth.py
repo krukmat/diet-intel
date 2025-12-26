@@ -179,7 +179,12 @@ class AuthService:
     async def register_user(self, user_data: UserCreate) -> Token:
         """Register a new user"""
         # Phase 2 Batch 9: Use UserService for user management
-        user_service = self.user_service or UserService(db_service)
+        # Phase 3: Use UserRepository for data access
+        if self.user_service:
+            user_service = self.user_service
+        else:
+            user_repo = UserRepository()
+            user_service = UserService(user_repo)
 
         # Check if user already exists
         existing_user = await user_service.get_user_by_email(user_data.email)
@@ -225,7 +230,12 @@ class AuthService:
     async def login_user(self, login_data: UserLogin) -> Token:
         """Authenticate user and return tokens"""
         # Phase 2 Batch 9: Use UserService for user management
-        user_service = self.user_service or UserService(db_service)
+        # Phase 3: Use UserRepository for data access
+        if self.user_service:
+            user_service = self.user_service
+        else:
+            user_repo = UserRepository()
+            user_service = UserService(user_repo)
 
         # Get user by email
         user = await user_service.get_user_by_email(login_data.email)
@@ -404,8 +414,11 @@ class AuthService:
         return session_id
 
 # Global service instances - Phase 2 Batch 7: SessionService added, Phase 2 Batch 9: UserService added
+# Phase 3: Use UserRepository instead of db_service for UserService
+from app.repositories.user_repository import UserRepository
 session_service = SessionService(db_service)
-user_service = UserService(db_service)
+user_repo = UserRepository()
+user_service = UserService(user_repo)
 auth_service = AuthService(session_service, user_service)
 
 

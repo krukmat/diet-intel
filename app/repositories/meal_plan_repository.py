@@ -14,6 +14,10 @@ logger = logging.getLogger(__name__)
 class MealPlanRepository(Repository[MealPlan]):
     """Repository for MealPlan entity"""
 
+    def __init__(self):
+        """Initialize MealPlanRepository (uses connection_manager, not db_path)"""
+        self.logger = logging.getLogger(self.__class__.__name__)
+
     def get_table_name(self) -> str:
         """Return table name"""
         return "meal_plans"

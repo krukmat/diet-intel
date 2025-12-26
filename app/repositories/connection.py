@@ -6,7 +6,6 @@ import sqlite3
 import logging
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator
-from app.config import config
 
 logger = logging.getLogger(__name__)
 
@@ -62,5 +61,5 @@ class ConnectionManager:
                 self.logger.debug(f"Database connection closed")
 
 
-# Global instance
-connection_manager = ConnectionManager(config.DATABASE_PATH)
+# Global instance (uses default "dietintel.db" database file)
+connection_manager = ConnectionManager("dietintel.db")
