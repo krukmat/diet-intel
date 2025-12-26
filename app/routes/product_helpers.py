@@ -19,6 +19,45 @@ from app.services import nutrition_ocr
 from app.services import cache as cache_module
 from app.services import openfoodfacts as openfoodfacts_module
 
+# Try to import aiofiles for backward compatibility with tests
+try:
+    import aiofiles
+except ImportError:
+    aiofiles = None
+
+__all__ = [
+    "_normalize_legacy_ocr_result",
+    "_run_local_ocr",
+    "extract_nutrients_from_image",
+    "call_external_ocr",
+    "_get_cache_backend",
+    "_get_openfoodfacts_backend",
+    "_coerce_exception_class",
+    "_get_httpx_attr",
+    "_get_httpx_exceptions",
+    "_raise_http_exception",
+    "_is_http_exception",
+    "_route_post",
+    "_ensure_request_context",
+    "_write_bytes_to_tempfile",
+    "_import_legacy_ocr",
+    "_get_legacy_service",
+    "_get_legacy_parser_callable",
+    "_get_legacy_text_extractor",
+    "_normalize_parsed_payload",
+    "_parse_text_with_legacy_parser",
+    "_run_legacy_text_pipeline",
+    "get_product_by_barcode",
+    "scan_nutrition_label",
+    "scan_label_with_external_ocr",
+    "aiofiles",
+    # Auth context re-exports for backward compatibility with tests
+    "RequestContext",
+    "get_optional_request_context",
+    # Database service re-export for backward compatibility with tests
+    "db_service",
+]
+
 
 def _normalize_legacy_ocr_result(payload: dict, *, default_engine: str) -> Optional[dict]:
     if not isinstance(payload, dict):

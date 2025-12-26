@@ -12,6 +12,7 @@ from fastapi import HTTPException
 
 from app.services.database import db_service
 from app.services.user_service import UserService
+from app.repositories.user_repository import UserRepository
 from app.models.social import (
     ProfileVisibility,
     ProfileStats,
@@ -295,9 +296,12 @@ class ProfileService:
 
 
 # Singleton instance (Phase 2 Batch 9: Added user_service parameter)
+# Phase 3: Use Repository Pattern with UserRepository instead of DatabaseService
+user_repo = UserRepository()
+user_service = UserService(user_repo)
 profile_service = ProfileService(
     database_service=db_service,
-    user_service=None,  # Will use default UserService(db_service)
+    user_service=user_service,
     post_read_svc=post_read_service,
     gamification_gw=gamification_gateway,
     follow_gw=follow_gateway,

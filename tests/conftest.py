@@ -157,13 +157,22 @@ def fake_openfoodfacts_service():
 
 @pytest.fixture
 def product_service_overrides(fake_cache_service, fake_openfoodfacts_service, monkeypatch):
-    """Patch product route dependencies to use in-memory fakes."""
+    """Patch product route dependencies to use in-memory fakes.
+
+    Patches both legacy locations and new modular route locations.
+    """
+    # Legacy paths
     monkeypatch.setattr('app.services.cache.cache_service', fake_cache_service, raising=False)
     monkeypatch.setattr('app.routes.product.cache_service', fake_cache_service, raising=False)
     monkeypatch.setattr('app.services.openfoodfacts.openfoodfacts_service', fake_openfoodfacts_service, raising=False)
     monkeypatch.setattr('app.routes.product.openfoodfacts_service', fake_openfoodfacts_service, raising=False)
     monkeypatch.setattr('app.services.openfoodfacts.OpenFoodFactsService.get_product', fake_openfoodfacts_service.get_product, raising=False)
     monkeypatch.setattr('app.routes.product.openfoodfacts_service.get_product', fake_openfoodfacts_service.get_product, raising=False)
+
+    # New modular route locations (routes split into product_routes, scan_routes, ocr_routes)
+    monkeypatch.setattr('app.routes.product.product_routes.cache_service', fake_cache_service, raising=False)
+    monkeypatch.setattr('app.routes.product.product_routes.openfoodfacts_service', fake_openfoodfacts_service, raising=False)
+
     return fake_cache_service, fake_openfoodfacts_service
 
 @pytest.fixture

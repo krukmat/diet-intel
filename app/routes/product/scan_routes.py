@@ -5,13 +5,14 @@ Target: ~250 LOC, CC < 12
 import logging
 import os
 import tempfile
+from datetime import datetime
 from typing import Union
 from fastapi import APIRouter, File, HTTPException, UploadFile, status
 from app.models.product import ScanResponse, LowConfidenceScanResponse, ErrorResponse, Nutriments
 from app.services.ocr.ocr_factory import OCRFactory
 
 logger = logging.getLogger(__name__)
-router = APIRouter(prefix="/product", tags=["scanning"])
+router = APIRouter(tags=["scanning"])
 
 
 async def _save_upload_to_temp(file: UploadFile) -> str:
@@ -99,7 +100,8 @@ async def scan_nutrition_label(file: UploadFile = File(...)):
                 raw_text=result.raw_text,
                 serving_size=result.serving_info.get("detected", "100g"),
                 nutriments=nutriments,
-                nutrients=nutriments
+                nutrients=nutriments,
+                scanned_at=datetime.now()
             )
         else:
             # Low confidence (< 0.7)
@@ -109,7 +111,8 @@ async def scan_nutrition_label(file: UploadFile = File(...)):
                 confidence=result.confidence,
                 raw_text=result.raw_text,
                 partial_parsed=result.parsed_nutriments,
-                suggest_external_ocr=True
+                suggest_external_ocr=True,
+                scanned_at=datetime.now()
             )
 
     except HTTPException:

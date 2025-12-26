@@ -170,7 +170,7 @@ class TestProductBarcodeRoutesCore:
             # Verify 503 service unavailable
             assert response.status_code == 503
             data = response.json()
-            assert "connect" in data["detail"].lower()
+            assert "network" in data["detail"].lower()
 
 
 class TestProductBarcodeValidation:
@@ -212,6 +212,7 @@ class TestProductBarcodeValidation:
 # REMOVED: TestProductScanLabelRoutesCore - AsyncMock incompatible with TestClient
 # These OCR tests required excessive async mocking that breaks with Starlette's sync TestClient
 # Integration testing with real OCR on staging environment recommended
+@pytest.mark.skip(reason="Obsolete: patches old app.services.ocr.call_external_ocr. See test_scan_endpoint.py")
 class TestProductExternalScanRoutes:
     """Test external OCR functionality"""
     

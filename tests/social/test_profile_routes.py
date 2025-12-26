@@ -109,6 +109,51 @@ class InMemoryDatabase:
         return None
 
 
+class InMemoryUserRepository:
+    """Repository pattern implementation for in-memory database"""
+
+    def __init__(self, conn):
+        self.conn = conn
+
+    async def get_by_id(self, user_id: str):
+        """Get user by ID - returns User model"""
+        from app.models.user import User, UserRole
+        from datetime import datetime
+
+        cursor = self.conn.cursor()
+        cursor.execute("SELECT * FROM users WHERE id = ?", (user_id,))
+        row = cursor.fetchone()
+        if row:
+            return User(
+                id=row[0], email=row[1], full_name=row[2],
+                is_developer=bool(row[3]), role=UserRole(row[4]) if row[4] else UserRole.STANDARD,
+                avatar_url=row[5], is_active=bool(row[6]),
+                email_verified=bool(row[7]), created_at=datetime.utcnow()
+            )
+        return None
+
+    async def get_by_email(self, email: str):
+        """Get user by email - returns User model"""
+        from app.models.user import User, UserRole
+        from datetime import datetime
+
+        cursor = self.conn.cursor()
+        cursor.execute("SELECT * FROM users WHERE email = ?", (email,))
+        row = cursor.fetchone()
+        if row:
+            return User(
+                id=row[0], email=row[1], full_name=row[2],
+                is_developer=bool(row[3]), role=UserRole(row[4]) if row[4] else UserRole.STANDARD,
+                avatar_url=row[5], is_active=bool(row[6]),
+                email_verified=bool(row[7]), created_at=datetime.utcnow()
+            )
+        return None
+
+    async def get_password_hash(self, user_id: str):
+        """Get password hash for user"""
+        return None
+
+
 @pytest.fixture
 def client():
     """Test client for social routes"""
@@ -120,7 +165,8 @@ def profile_service_in_memory(in_memory_db):
     """Profile service with in-memory database"""
     from app.services.user_service import UserService
     db_service = InMemoryDatabase(in_memory_db)
-    user_service = UserService(db_service)
+    user_repo = InMemoryUserRepository(in_memory_db)
+    user_service = UserService(user_repo)
     return ProfileService(
         database_service=db_service,
         user_service=user_service,
