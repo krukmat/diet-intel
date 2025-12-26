@@ -6,6 +6,7 @@ import pytest
 from app.models.user import UserCreate, UserSession
 from app.services.database import ConnectionPool, DatabaseService
 from app.services.user_service import UserService
+from app.repositories.user_repository import UserRepository
 from app.services.analytics_service import AnalyticsService
 
 
@@ -23,7 +24,8 @@ def temp_database(tmp_path):
 @pytest.mark.asyncio
 async def test_create_and_update_user(temp_database):
     db_service = temp_database
-    user_service = UserService(db_service)
+    user_repo = UserRepository()
+    user_service = UserService(user_repo)
     user_payload = UserCreate(
         email="developer@example.com", password="securepass", full_name="Dev User", developer_code="DIETINTEL_DEV_2024"
     )
@@ -48,7 +50,8 @@ async def test_session_lifecycle_and_cleanup(temp_database):
     from app.services.session_service import SessionService
 
     db_service = temp_database
-    user_service = UserService(db_service)
+    user_repo = UserRepository()
+    user_service = UserService(user_repo)
     session_service = SessionService(db_service)
 
     user_payload = UserCreate(email="player@example.com", password="seasonpass", full_name="Player One")
@@ -78,7 +81,8 @@ async def test_cleanup_expired_sessions(temp_database):
     from app.services.session_service import SessionService
 
     db_service = temp_database
-    user_service = UserService(db_service)
+    user_repo = UserRepository()
+    user_service = UserService(user_repo)
     session_service = SessionService(db_service)
 
     user_payload = UserCreate(email="stale@example.com", password="stale1234", full_name="Stale User")

@@ -6,6 +6,7 @@ from app.models.social import ProfileUpdateRequest, ProfileVisibility
 from app.models.user import UserCreate
 from app.services.database import DatabaseService
 from app.services.user_service import UserService
+from app.repositories.user_repository import UserRepository
 from app.services.social.profile_service import ProfileService
 
 
@@ -49,9 +50,13 @@ def temp_database(tmp_path):
 
 
 @pytest.mark.asyncio
-async def test_ensure_profile_initialized_creates_records(temp_database):
+async def test_ensure_profile_initialized_creates_records(temp_database, monkeypatch):
     db_service = temp_database
-    user_service = UserService(db_service)
+    user_repo = UserRepository()
+    # Mock connection_manager to use temp_database
+    from app.repositories import connection
+    monkeypatch.setattr(connection, 'connection_manager', db_service)
+    user_service = UserService(user_repo)
     user_payload = UserCreate(email="User.Name+Test@example.com", password="passw0rd", full_name="User Test")
     user = await user_service.create_user(user_payload, password_hash="hash")
 
@@ -82,9 +87,13 @@ async def test_ensure_profile_initialized_missing_user_raises(temp_database):
 
 
 @pytest.mark.asyncio
-async def test_get_profile_filters_posts_for_followers_only(temp_database):
+async def test_get_profile_filters_posts_for_followers_only(temp_database, monkeypatch):
     db_service = temp_database
-    user_service = UserService(db_service)
+    user_repo = UserRepository()
+    # Mock connection_manager to use temp_database
+    from app.repositories import connection
+    monkeypatch.setattr(connection, 'connection_manager', db_service)
+    user_service = UserService(user_repo)
     user_payload = UserCreate(email="sociable@example.com", password="passw0rd", full_name="Sociable User")
     user = await user_service.create_user(user_payload, password_hash="hash")
 
@@ -119,9 +128,13 @@ def test_validate_handle_format():
 
 
 @pytest.mark.asyncio
-async def test_update_profile_applies_changes(temp_database):
+async def test_update_profile_applies_changes(temp_database, monkeypatch):
     db_service = temp_database
-    user_service = UserService(db_service)
+    user_repo = UserRepository()
+    # Mock connection_manager to use temp_database
+    from app.repositories import connection
+    monkeypatch.setattr(connection, 'connection_manager', db_service)
+    user_service = UserService(user_repo)
     user_payload = UserCreate(email="author@example.com", password="authpass", full_name="Author User")
     user = await user_service.create_user(user_payload, password_hash="hash")
 
@@ -150,9 +163,13 @@ async def test_update_profile_applies_changes(temp_database):
 
 
 @pytest.mark.asyncio
-async def test_update_profile_rejects_duplicate_handle(temp_database):
+async def test_update_profile_rejects_duplicate_handle(temp_database, monkeypatch):
     db_service = temp_database
-    user_service = UserService(db_service)
+    user_repo = UserRepository()
+    # Mock connection_manager to use temp_database
+    from app.repositories import connection
+    monkeypatch.setattr(connection, 'connection_manager', db_service)
+    user_service = UserService(user_repo)
     user_primary = await user_service.create_user(UserCreate(email="primary@example.com", password="passw0rd", full_name="Primary"), password_hash="hash")
     user_secondary = await user_service.create_user(UserCreate(email="secondary@example.com", password="passw0rd", full_name="Secondary"), password_hash="hash")
 
@@ -170,9 +187,13 @@ async def test_update_profile_rejects_duplicate_handle(temp_database):
 
 
 @pytest.mark.asyncio
-async def test_can_view_profile_respects_visibility_and_followers(temp_database):
+async def test_can_view_profile_respects_visibility_and_followers(temp_database, monkeypatch):
     db_service = temp_database
-    user_service = UserService(db_service)
+    user_repo = UserRepository()
+    # Mock connection_manager to use temp_database
+    from app.repositories import connection
+    monkeypatch.setattr(connection, 'connection_manager', db_service)
+    user_service = UserService(user_repo)
     user = await user_service.create_user(UserCreate(email="visible@example.com", password="passw0rd", full_name="Visible User"), password_hash="hash")
 
     service = db_service
