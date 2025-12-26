@@ -4,9 +4,15 @@ import inspect
 import uuid
 from typing import Any, Dict, Optional
 from unittest.mock import AsyncMock, MagicMock
-from fastapi.testclient import TestClient
 from httpx import AsyncClient
 import httpx
+
+# Lazy import of FastAPI to avoid Pydantic v2 compatibility issues
+try:
+    from fastapi.testclient import TestClient
+except (TypeError, ImportError):
+    # Fallback if FastAPI import fails due to Pydantic incompatibility
+    TestClient = None
 
 
 # Compatibility patch: Starlette's TestClient still passes `app=` to httpx.Client,
