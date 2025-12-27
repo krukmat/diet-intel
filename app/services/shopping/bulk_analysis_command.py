@@ -41,18 +41,27 @@ class BulkAnalysisCommand(OptimizationCommand):
                 logger.warning("No consolidated ingredients for bulk analysis")
                 return
 
-            # Prepare ingredients for detector
-            detector_input = [
-                {
-                    'ingredient_name': ing.name,
-                    'quantity': ing.quantity,
-                    'unit': ing.unit,
-                }
-                for ing in context.consolidated_ingredients
-            ]
+            # Convert optimization_context.ConsolidatedIngredient to shopping_optimization.ConsolidatedIngredient
+            # The BulkBuyingDetector expects shopping_optimization.ConsolidatedIngredient objects
+            from app.services.shopping_optimization import ConsolidatedIngredient as ShoppingConsolidatedIngredient
+            from app.services.unit_conversion import UnitCategory
+
+            converted_ingredients = []
+            for ing in context.consolidated_ingredients:
+                shopping_ing = ShoppingConsolidatedIngredient(
+                    id=f"opt_{ing.name.lower().replace(' ', '_')}",
+                    name=ing.name,
+                    total_quantity=ing.quantity,
+                    unit=ing.unit,
+                    source_recipes=[{'recipe_id': rid} for rid in ing.sources],
+                    category=UnitCategory.UNKNOWN,
+                    estimated_cost=0.0,
+                    bulk_discount_available=False
+                )
+                converted_ingredients.append(shopping_ing)
 
             # Detect bulk opportunities using existing detector
-            opportunities = self.detector.detect_bulk_opportunities(detector_input)
+            opportunities = self.detector.detect_bulk_opportunities(converted_ingredients)
 
             # Convert results to BulkOpportunity objects
             for opp in opportunities:
@@ -72,7 +81,7 @@ class BulkAnalysisCommand(OptimizationCommand):
 
             # Update metrics
             context.metrics['bulk_analysis'] = {
-                'analyzed_ingredients': len(detector_input),
+                'analyzed_ingredients': len(converted_ingredients),
                 'bulk_opportunities': len(context.bulk_opportunities),
                 'avg_savings_ratio': (
                     sum(opp.savings_ratio for opp in context.bulk_opportunities) /
@@ -86,7 +95,7 @@ class BulkAnalysisCommand(OptimizationCommand):
 
             logger.info(
                 f"Found {len(context.bulk_opportunities)} bulk opportunities "
-                f"from {len(detector_input)} ingredients"
+                f"from {len(converted_ingredients)} ingredients"
             )
 
         except Exception as e:

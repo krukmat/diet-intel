@@ -16,6 +16,7 @@ from .optimization_context import (
 )
 from .consolidation_command import ConsolidationCommand
 from .bulk_analysis_command import BulkAnalysisCommand
+from .cost_calculation_command import CostCalculationCommand
 
 __all__ = [
     "OptimizationCommand",
@@ -25,4 +26,5 @@ __all__ = [
     "BulkOpportunity",
     "ConsolidationCommand",
     "BulkAnalysisCommand",
+    "CostCalculationCommand",
 ]

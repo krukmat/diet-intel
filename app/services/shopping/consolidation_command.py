@@ -47,17 +47,37 @@ class ConsolidationCommand(OptimizationCommand):
                 return
 
             # Consolidate ingredients using existing consolidator
+            # Note: IngredientConsolidator expects shopping_optimization.RecipeIngredient objects
             consolidation_input = self._prepare_consolidation_input(context.all_ingredients)
-            consolidated = self.consolidator.consolidate_ingredients(consolidation_input)
+            # Convert back to shopping_optimization.RecipeIngredient for consolidator
+            from app.services.shopping_optimization import RecipeIngredient as ShoppingRecipeIngredient
+            converted_ingredients = [
+                ShoppingRecipeIngredient(
+                    recipe_id=ing['recipe_id'],
+                    recipe_name=ing.get('recipe_name', 'Unknown'),
+                    ingredient_name=ing['ingredient_name'],
+                    quantity=ing['quantity'],
+                    unit=ing['unit'],
+                )
+                for ing in consolidation_input
+            ]
+            consolidated = await self.consolidator.consolidate_ingredients(converted_ingredients)
 
-            # Convert results to ConsolidatedIngredient objects
+            # Convert results to ConsolidatedIngredient objects for optimization context
             for ing in consolidated:
+                # ing is shopping_optimization.ConsolidatedIngredient, convert to optimization_context.ConsolidatedIngredient
+                # Extract source recipe IDs from source_recipes
+                sources = [
+                    recipe.get('recipe_id') if isinstance(recipe, dict) else getattr(recipe, 'recipe_id', 'unknown')
+                    for recipe in (ing.source_recipes if hasattr(ing, 'source_recipes') else [])
+                ]
+
                 consolidated_ing = ConsolidatedIngredient(
-                    name=ing.get('ingredient_name', ''),
-                    quantity=ing.get('quantity', 0),
-                    unit=ing.get('unit', ''),
-                    sources=ing.get('sources', []),
-                    confidence=ing.get('confidence', 1.0)
+                    name=ing.name if hasattr(ing, 'name') else ing.get('name', ''),
+                    quantity=ing.total_quantity if hasattr(ing, 'total_quantity') else ing.get('total_quantity', 0),
+                    unit=ing.unit if hasattr(ing, 'unit') else ing.get('unit', ''),
+                    sources=sources,
+                    confidence=0.95  # Default high confidence for consolidated ingredients
                 )
                 context.consolidated_ingredients.append(consolidated_ing)
 
@@ -120,6 +140,7 @@ class ConsolidationCommand(OptimizationCommand):
                 'quantity': ing.quantity,
                 'unit': ing.unit,
                 'recipe_id': ing.recipe_id,
+                'recipe_name': 'Unknown',  # Will be updated from recipe data if available
             }
             for ing in ingredients
         ]

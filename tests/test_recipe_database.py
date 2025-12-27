@@ -17,12 +17,27 @@ class TestRecipeDatabaseService:
     @pytest.fixture(autouse=True)
     def setup_method(self, test_database):
         """Set up test fixtures"""
-        # Use test database with proper schema, minimal setup
+        # Use __new__ to avoid full database initialization, then manually initialize services
+        # Task: Phase 2 Tarea 5 - Recipe Database Refactoring - specialized service injection
         from app.services.database import ConnectionPool
+        from app.services.recipes import (
+            RecipeQueryService,
+            RecipeRatingService,
+            RecipeSchemaService,
+            ShoppingTableService,
+        )
+
         self.db_service = RecipeDatabaseService.__new__(RecipeDatabaseService)
         self.db_service.db_path = test_database
         self.db_service.max_connections = 10
         self.db_service.connection_pool = ConnectionPool(test_database, 10)
+        self.db_service._recipe_tables_ready = False
+
+        # Manually initialize the specialized services (refactoring Task 5)
+        self.db_service.query_service = RecipeQueryService(self.db_service)
+        self.db_service.rating_service = RecipeRatingService(self.db_service)
+        self.db_service.schema_service = RecipeSchemaService(self.db_service)
+        self.db_service.shopping_service = ShoppingTableService(self.db_service)
         
         # Create sample recipe for testing
         self.sample_recipe = GeneratedRecipe(
