@@ -15,18 +15,18 @@ def create_test_tables(conn):
     """Create all required tables in the database"""
     cursor = conn.cursor()
 
-    # Users table
+    # Users table - Task 2.1.5: Fixed schema to match actual database (TEXT PRIMARY KEY for UUID)
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS users (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id TEXT PRIMARY KEY,
             email TEXT UNIQUE NOT NULL,
-            full_name TEXT NOT NULL,
             password_hash TEXT NOT NULL,
+            full_name TEXT NOT NULL,
             avatar_url TEXT,
-            is_developer INTEGER DEFAULT 0,
+            is_developer BOOLEAN DEFAULT FALSE,
             role TEXT DEFAULT 'standard',
-            is_active INTEGER DEFAULT 1,
-            email_verified INTEGER DEFAULT 0,
+            is_active BOOLEAN DEFAULT TRUE,
+            email_verified BOOLEAN DEFAULT FALSE,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
@@ -102,21 +102,44 @@ def create_test_tables(conn):
         )
     """)
 
+    # Products table (Task 2.1.5)
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS products (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            barcode TEXT UNIQUE NOT NULL,
+            name TEXT NOT NULL,
+            brand TEXT,
+            serving_size TEXT DEFAULT '100g',
+            nutriments TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+
     conn.commit()
 
 
 @pytest.fixture
 def test_db_path():
     """Create temporary test database"""
-    # Create a temporary file
-    fd, db_path = tempfile.mkstemp(suffix=".db")
+    # Create a temporary file with unique name per test - Task 2.1.5
+    fd, db_path = tempfile.mkstemp(suffix=".db", prefix="test_db_")
     os.close(fd)
+
+    # Remove the file so SQLite creates a fresh one
+    if os.path.exists(db_path):
+        os.unlink(db_path)
 
     yield db_path
 
-    # Cleanup
-    if os.path.exists(db_path):
-        os.unlink(db_path)
+    # Cleanup: remove database and WAL files
+    for ext in ['', '-wal', '-shm']:
+        file_path = db_path + ext
+        if os.path.exists(file_path):
+            try:
+                os.unlink(file_path)
+            except OSError:
+                pass  # File might already be deleted
 
 
 @pytest.fixture
@@ -139,19 +162,50 @@ def test_db(test_db_path):
     conn.close()
 
 
+def cleanup_test_tables(conn):
+    """Clean all data from test tables - Task 2.1.5"""
+    cursor = conn.cursor()
+    tables = [
+        'meal_items', 'meals', 'weight_entries', 'reminders',
+        'meal_plans', 'products', 'users'
+    ]
+    for table in tables:
+        cursor.execute(f"DELETE FROM {table}")
+    conn.commit()
+    # Task 2.1.5: Force WAL checkpoint to ensure changes are visible to all connections
+    conn.execute("PRAGMA wal_checkpoint(FULL)")
+    conn.commit()
+
+
 @pytest.fixture
-def mock_connection_manager(test_db_path):
+def mock_connection_manager(test_db_path, monkeypatch):
     """Create ConnectionManager with test database (fresh for each test)"""
     # Create a fresh database for this test
     conn = sqlite3.connect(test_db_path, check_same_thread=False)
     conn.row_factory = sqlite3.Row
 
     create_test_tables(conn)
+    # Task 2.1.5: Ensure database is completely empty before each test
+    cleanup_test_tables(conn)
     conn.close()
 
     # Create and return the connection manager
     manager = ConnectionManager(test_db_path)
 
+    # CRITICAL FIX (Task 2.1.5): Patch connection_manager in ALL repository modules
+    # Repositories import connection_manager at module level, so we need to patch where it's used
+    from app.repositories import connection
+    monkeypatch.setattr(connection, 'connection_manager', manager)
+
+    # Patch in each repository module that imports connection_manager
+    from app.repositories import product_repository, user_repository
+    monkeypatch.setattr(product_repository, 'connection_manager', manager)
+    monkeypatch.setattr(user_repository, 'connection_manager', manager)
+
     yield manager
 
+    # Cleanup after test: truncate all tables to prevent data leakage
+    conn = sqlite3.connect(test_db_path, check_same_thread=False)
+    cleanup_test_tables(conn)
+    conn.close()
     # Cleanup: database file is cleaned up by test_db_path fixture

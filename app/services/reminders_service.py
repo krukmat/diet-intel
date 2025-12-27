@@ -1,14 +1,18 @@
 """Reminders Service - Handles reminder operations.
 
 Task: Phase 2 Batch 5 - Database refactoring (extracted from database.py)
-Coverage Goal: 80%+ (currently 20% in database.py)
+Task 2.1.3: Refactored to use Repository Pattern
+Coverage Goal: 85%+ (target: 80%+)
 """
 
 from typing import Dict, Any, List, Optional
 from datetime import datetime
 import json
 import uuid
-from app.services.database import DatabaseService
+import logging
+from app.repositories.reminder_repository import ReminderRepository, ReminderEntity
+
+logger = logging.getLogger(__name__)
 
 
 class RemindersService:
@@ -19,15 +23,19 @@ class RemindersService:
     - Frequency/scheduling management
     - Time parsing and datetime handling
     - JSON serialization for days array
+
+    Task 2.1.3: Refactored to use Repository Pattern
     """
 
-    def __init__(self, db_service: DatabaseService):
-        """Initialize RemindersService with database dependency.
+    def __init__(self, repository: Optional[ReminderRepository] = None):
+        """Initialize RemindersService with repository dependency.
 
         Args:
-            db_service: DatabaseService instance for database operations
+            repository: ReminderRepository instance for data access
+
+        Task 2.1.3: Uses ReminderRepository instead of DatabaseService
         """
-        self.db = db_service
+        self.repository = repository or ReminderRepository()
 
     async def create_reminder(self, user_id: str, reminder_data: 'ReminderRequest') -> str:
         """Create a new reminder.
@@ -40,37 +48,45 @@ class RemindersService:
             Created reminder ID
 
         Coverage Goal: Test successful creation, UUID generation, time parsing
+
+        Task 2.1.3: Uses ReminderRepository
         """
         from app.models.reminder import ReminderRequest
-        import logging
 
-        logger = logging.getLogger(__name__)
-        reminder_id = str(uuid.uuid4())
-        now = datetime.now().isoformat()
+        try:
+            reminder_id = str(uuid.uuid4())
 
-        # Convert reminder time and days to storage format
-        reminder_time = f"{reminder_data.time}:00"  # Add seconds for time format
-        frequency = json.dumps(reminder_data.days)  # Store days array as JSON
+            # Convert reminder time and days to storage format
+            frequency = json.dumps(reminder_data.days)  # Store days array as JSON
 
-        # Create a proper timestamp for reminder_time (next occurrence)
-        next_reminder_time = datetime.now().replace(
-            hour=int(reminder_data.time.split(':')[0]),
-            minute=int(reminder_data.time.split(':')[1]),
-            second=0,
-            microsecond=0
-        )
+            # Create a proper timestamp for reminder_time (next occurrence)
+            next_reminder_time = datetime.now().replace(
+                hour=int(reminder_data.time.split(':')[0]),
+                minute=int(reminder_data.time.split(':')[1]),
+                second=0,
+                microsecond=0
+            )
 
-        with self.db.get_connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute("""
-                INSERT INTO reminders (id, user_id, title, description, reminder_time, frequency, is_active, created_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            """, (reminder_id, user_id, reminder_data.label, reminder_data.type.value,
-                  next_reminder_time.isoformat(), frequency, reminder_data.enabled, now))
-            conn.commit()
+            # Create reminder entity - Task 2.1.3
+            reminder = ReminderEntity(
+                reminder_id=reminder_id,
+                user_id=user_id,
+                title=reminder_data.label,
+                description=reminder_data.type.value,
+                reminder_time=next_reminder_time,
+                frequency=frequency,
+                is_active=reminder_data.enabled
+            )
 
-        logger.info(f"Created reminder {reminder_id} for user {user_id}: {reminder_data.label}")
-        return reminder_id
+            # Create via repository - Task 2.1.3
+            created = await self.repository.create(reminder)
+
+            logger.info(f"Created reminder {created.id} for user {user_id}: {reminder_data.label}")
+            return created.id
+
+        except Exception as e:
+            logger.error(f"Error creating reminder for user {user_id}: {e}")
+            raise RuntimeError(f"Failed to create reminder: {str(e)}")
 
     async def get_reminder_by_id(self, reminder_id: str) -> Optional[Dict]:
         """Get a reminder by ID.
@@ -82,35 +98,38 @@ class RemindersService:
             Dictionary with reminder data if found, None otherwise
 
         Coverage Goal: Test retrieval, datetime parsing, JSON deserialization
+
+        Task 2.1.3: Uses ReminderRepository
         """
-        with self.db.get_connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute("SELECT * FROM reminders WHERE id = ?", (reminder_id,))
-            row = cursor.fetchone()
+        try:
+            reminder = await self.repository.get_by_id(reminder_id)
 
-            if row:
-                # Extract time from reminder_time timestamp
-                try:
-                    reminder_dt = datetime.fromisoformat(row['reminder_time'])
-                    time_str = f"{reminder_dt.hour:02d}:{reminder_dt.minute:02d}"
-                except (ValueError, TypeError):
-                    time_str = "00:00"
+            if not reminder:
+                return None
 
-                try:
-                    days = json.loads(row['frequency']) if row['frequency'] else []
-                except (json.JSONDecodeError, TypeError):
-                    days = []
+            # Extract time from reminder_time timestamp
+            try:
+                time_str = f"{reminder.reminder_time.hour:02d}:{reminder.reminder_time.minute:02d}"
+            except (ValueError, TypeError, AttributeError):
+                time_str = "00:00"
 
-                return {
-                    "id": row['id'],
-                    "type": row['description'],  # We stored type in description
-                    "label": row['title'],
-                    "time": time_str,
-                    "days": days,
-                    "enabled": bool(row['is_active']),
-                    "created_at": datetime.fromisoformat(row['created_at']),
-                    "updated_at": datetime.fromisoformat(row['created_at'])
-                }
+            try:
+                days = json.loads(reminder.frequency) if reminder.frequency else []
+            except (json.JSONDecodeError, TypeError):
+                days = []
+
+            return {
+                "id": reminder.id,
+                "type": reminder.description,
+                "label": reminder.title,
+                "time": time_str,
+                "days": days,
+                "enabled": bool(reminder.is_active),
+                "created_at": reminder.created_at if isinstance(reminder.created_at, datetime) else datetime.fromisoformat(reminder.created_at),
+                "updated_at": reminder.created_at if isinstance(reminder.created_at, datetime) else datetime.fromisoformat(reminder.created_at)
+            }
+        except Exception as e:
+            logger.error(f"Error retrieving reminder {reminder_id}: {e}")
             return None
 
     async def get_user_reminders(self, user_id: str) -> List[Dict]:
@@ -123,44 +142,42 @@ class RemindersService:
             List of reminder dictionaries
 
         Coverage Goal: Test iteration, datetime parsing, JSON handling
+
+        Task 2.1.3: Uses ReminderRepository
         """
-        with self.db.get_connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute("""
-                SELECT * FROM reminders
-                WHERE user_id = ?
-                ORDER BY reminder_time ASC
-            """, (user_id,))
-            rows = cursor.fetchall()
+        try:
+            reminders_data = await self.repository.get_by_user_id(user_id)
 
             reminders = []
-            for row in rows:
+            for reminder in reminders_data:
                 # Extract time from reminder_time timestamp
                 try:
-                    reminder_dt = datetime.fromisoformat(row['reminder_time'])
-                    time_str = f"{reminder_dt.hour:02d}:{reminder_dt.minute:02d}"
-                except (ValueError, TypeError):
+                    time_str = f"{reminder.reminder_time.hour:02d}:{reminder.reminder_time.minute:02d}"
+                except (ValueError, TypeError, AttributeError):
                     time_str = "00:00"
 
                 try:
-                    days = json.loads(row['frequency']) if row['frequency'] else []
+                    days = json.loads(reminder.frequency) if reminder.frequency else []
                 except (json.JSONDecodeError, TypeError):
                     days = []
 
                 reminders.append({
-                    "id": row['id'],
-                    "type": row['description'],  # We stored type in description
-                    "label": row['title'],
+                    "id": reminder.id,
+                    "type": reminder.description,
+                    "label": reminder.title,
                     "time": time_str,
                     "days": days,
-                    "enabled": bool(row['is_active']),
-                    "created_at": datetime.fromisoformat(row['created_at']),
-                    "updated_at": datetime.fromisoformat(row['created_at'])
+                    "enabled": bool(reminder.is_active),
+                    "created_at": reminder.created_at if isinstance(reminder.created_at, datetime) else datetime.fromisoformat(reminder.created_at),
+                    "updated_at": reminder.created_at if isinstance(reminder.created_at, datetime) else datetime.fromisoformat(reminder.created_at)
                 })
 
             return reminders
+        except Exception as e:
+            logger.error(f"Error retrieving reminders for user {user_id}: {e}")
+            return []
 
-    async def update_reminder(self, reminder_id: str, updates: Dict[str, Any]) -> bool:
+    async def update_reminder(self, reminder_id: str, updates: Dict[str, Any]) -> Optional[Dict]:
         """Update a reminder with partial or full updates.
 
         Args:
@@ -168,68 +185,81 @@ class RemindersService:
             updates: Dictionary with fields to update (label, type, time, days, enabled)
 
         Returns:
-            True if updated, False if reminder not found
+            Updated reminder dict if successful, None if reminder not found
 
         Coverage Goal: Test partial updates, time parsing, dynamic query building
+
+        Task 2.1.3: Uses ReminderRepository
         """
-        import logging
-
-        logger = logging.getLogger(__name__)
-
         if not updates:
-            return True
+            return None
 
-        # Build dynamic update query
-        set_clauses = []
-        values = []
+        try:
+            # Transform updates to repository format
+            repo_updates = {}
 
-        if 'label' in updates:
-            set_clauses.append("title = ?")
-            values.append(updates['label'])
+            if 'label' in updates:
+                repo_updates['title'] = updates['label']
 
-        if 'type' in updates:
-            set_clauses.append("description = ?")
-            values.append(updates['type'])
+            if 'type' in updates:
+                repo_updates['description'] = updates['type']
 
-        if 'time' in updates:
-            # Convert time to full timestamp
-            try:
-                time_parts = updates['time'].split(':')
-                next_reminder_time = datetime.now().replace(
-                    hour=int(time_parts[0]),
-                    minute=int(time_parts[1]),
-                    second=0,
-                    microsecond=0
-                )
-                set_clauses.append("reminder_time = ?")
-                values.append(next_reminder_time.isoformat())
-            except (ValueError, IndexError):
-                pass  # Skip invalid time format
+            if 'time' in updates:
+                # Convert time to full timestamp
+                try:
+                    time_parts = updates['time'].split(':')
+                    next_reminder_time = datetime.now().replace(
+                        hour=int(time_parts[0]),
+                        minute=int(time_parts[1]),
+                        second=0,
+                        microsecond=0
+                    )
+                    repo_updates['reminder_time'] = next_reminder_time
+                except (ValueError, IndexError):
+                    pass  # Skip invalid time format
 
-        if 'days' in updates:
-            set_clauses.append("frequency = ?")
-            values.append(json.dumps(updates['days']))
+            if 'days' in updates:
+                repo_updates['frequency'] = json.dumps(updates['days'])
 
-        if 'enabled' in updates:
-            set_clauses.append("is_active = ?")
-            values.append(updates['enabled'])
+            if 'enabled' in updates:
+                repo_updates['is_active'] = updates['enabled']
 
-        if not set_clauses:
-            return True
+            # Update via repository - Task 2.1.3
+            updated_reminder = await self.repository.update(reminder_id, repo_updates)
 
-        values.append(reminder_id)
+            if updated_reminder:
+                logger.info(f"Updated reminder {reminder_id}")
+                # Convert back to response format
+                return self._reminder_to_dict(updated_reminder)
+            else:
+                return None
 
-        with self.db.get_connection() as conn:
-            cursor = conn.cursor()
-            query = f"UPDATE reminders SET {', '.join(set_clauses)} WHERE id = ?"
-            cursor.execute(query, values)
-            updated = cursor.rowcount > 0
-            conn.commit()
+        except Exception as e:
+            logger.error(f"Error updating reminder {reminder_id}: {e}")
+            return None
 
-        if updated:
-            logger.info(f"Updated reminder {reminder_id}")
+    def _reminder_to_dict(self, reminder: ReminderEntity) -> Dict[str, Any]:
+        """Convert ReminderEntity to dictionary response format - Task 2.1.3"""
+        try:
+            time_str = f"{reminder.reminder_time.hour:02d}:{reminder.reminder_time.minute:02d}"
+        except (ValueError, TypeError, AttributeError):
+            time_str = "00:00"
 
-        return updated
+        try:
+            days = json.loads(reminder.frequency) if reminder.frequency else []
+        except (json.JSONDecodeError, TypeError):
+            days = []
+
+        return {
+            "id": reminder.id,
+            "type": reminder.description,
+            "label": reminder.title,
+            "time": time_str,
+            "days": days,
+            "enabled": bool(reminder.is_active),
+            "created_at": reminder.created_at if isinstance(reminder.created_at, datetime) else datetime.fromisoformat(reminder.created_at),
+            "updated_at": reminder.created_at if isinstance(reminder.created_at, datetime) else datetime.fromisoformat(reminder.created_at)
+        }
 
     async def delete_reminder(self, reminder_id: str) -> bool:
         """Delete a reminder.
@@ -241,18 +271,21 @@ class RemindersService:
             True if deleted, False if reminder not found
 
         Coverage Goal: Test deletion, rowcount checking
+
+        Task 2.1.3: Uses ReminderRepository
         """
-        import logging
+        try:
+            deleted = await self.repository.delete(reminder_id)
 
-        logger = logging.getLogger(__name__)
+            if deleted:
+                logger.info(f"Deleted reminder {reminder_id}")
 
-        with self.db.get_connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute("DELETE FROM reminders WHERE id = ?", (reminder_id,))
-            deleted = cursor.rowcount > 0
-            conn.commit()
+            return deleted
+        except Exception as e:
+            logger.error(f"Error deleting reminder {reminder_id}: {e}")
+            return False
 
-        if deleted:
-            logger.info(f"Deleted reminder {reminder_id}")
 
-        return deleted
+# Global service instance - Task 2.1.3: RemindersService
+# Task 2.1.3: Now uses ReminderRepository instead of DatabaseService
+reminders_service = RemindersService()

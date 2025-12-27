@@ -1,8 +1,10 @@
 """
 Product Repository for CRUD operations
 Replaces product-related functions from database.py
+Task 2.1.5: Added JSON serialization for nutriments
 """
 import logging
+import json
 from typing import Optional, List, Dict, Any
 from app.repositories.base import Repository
 from app.repositories.connection import connection_manager
@@ -24,13 +26,21 @@ class ProductRepository(Repository[Product]):
 
     def row_to_entity(self, row: Dict[str, Any]) -> Product:
         """Convert database row to Product model"""
+        # Parse nutriments JSON if it's a string
+        nutriments = row.get("nutriments", {})
+        if isinstance(nutriments, str):
+            try:
+                nutriments = json.loads(nutriments)
+            except (json.JSONDecodeError, TypeError):
+                nutriments = {}
+
         return Product(
             id=row.get("id"),
             barcode=row["barcode"],
             name=row["name"],
             brand=row.get("brand"),
             serving_size=row.get("serving_size"),
-            nutriments=row.get("nutriments", {})
+            nutriments=nutriments
         )
 
     def entity_to_dict(self, entity: Product) -> Dict[str, Any]:
@@ -64,8 +74,11 @@ class ProductRepository(Repository[Product]):
             return self.row_to_entity(dict(row)) if row else None
 
     async def create(self, product: Product) -> Product:
-        """Create new product"""
+        """Create new product - Task 2.1.5"""
         async with connection_manager.get_connection() as conn:
+            # Serialize nutriments to JSON
+            nutriments_json = json.dumps(product.nutriments or {})
+
             cursor = conn.execute(
                 """
                 INSERT INTO products (barcode, name, brand, serving_size, nutriments)
@@ -76,21 +89,27 @@ class ProductRepository(Repository[Product]):
                     product.name,
                     product.brand or "",
                     product.serving_size or "100g",
-                    product.nutriments or {}
+                    nutriments_json
                 )
             )
             product_id = cursor.lastrowid
-            created = await self.get_by_id(product_id)
             self.logger.info(f"Product created: {product_id}")
-            return created
+
+        # Task 2.1.5: Call get_by_id AFTER commit (outside context manager)
+        return await self.get_by_id(product_id)
 
     async def update(self, product_id: int, updates: Dict[str, Any]) -> Optional[Product]:
         """Update product fields"""
         if not updates:
             return await self.get_by_id(product_id)
 
-        set_clause = ", ".join([f"{k} = ?" for k in updates.keys()])
-        values = list(updates.values()) + [product_id]
+        # Serialize nutriments if present in updates
+        processed_updates = updates.copy()
+        if "nutriments" in processed_updates:
+            processed_updates["nutriments"] = json.dumps(processed_updates["nutriments"] or {})
+
+        set_clause = ", ".join([f"{k} = ?" for k in processed_updates.keys()])
+        values = list(processed_updates.values()) + [product_id]
 
         async with connection_manager.get_connection() as conn:
             conn.execute(

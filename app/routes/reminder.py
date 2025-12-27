@@ -11,14 +11,15 @@ from app.models.reminder import (
 )
 from app.services.cache import cache_service
 from app.services import cache as cache_module
-from app.services.database import db_service
+from app.repositories.reminder_repository import ReminderRepository
 from app.services.reminders_service import RemindersService  # Task: Phase 2 Batch 5
 from app.utils.auth_context import get_session_user_id
 import logging
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
-reminders_service = RemindersService(db_service)  # Task: Phase 2 Batch 5
+# Task 2.1.4: Injecting ReminderRepository instead of db_service
+reminders_service = RemindersService(ReminderRepository())  # Task: Phase 2 Batch 5
 
 _REMINDER_STORE: Dict[str, List[dict]] = {}
 

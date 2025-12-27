@@ -53,8 +53,8 @@ class UserRepository(Repository[User]):
             "updated_at": entity.updated_at.isoformat() if isinstance(entity.updated_at, datetime) else entity.updated_at
         }
 
-    async def get_by_id(self, user_id: int) -> Optional[User]:
-        """Get user by ID"""
+    async def get_by_id(self, user_id: str) -> Optional[User]:
+        """Get user by ID - Task 2.1.5: Fixed to accept str (UUID) instead of int"""
         async with connection_manager.get_connection() as conn:
             cursor = conn.execute(
                 "SELECT * FROM users WHERE id = ?",
@@ -104,10 +104,10 @@ class UserRepository(Repository[User]):
                     now
                 )
             )
-            conn.commit()
-            user = await self.get_by_id(user_id)
             self.logger.info(f"User created: {user_id}")
-            return user
+
+        # Task 2.1.5: Call get_by_id AFTER commit (outside context manager)
+        return await self.get_by_id(user_id)
 
     async def get_password_hash(self, user_id: str) -> Optional[str]:
         """Get password hash for authentication"""
@@ -119,8 +119,8 @@ class UserRepository(Repository[User]):
             row = cursor.fetchone()
             return row["password_hash"] if row else None
 
-    async def update(self, user_id: int, updates: Dict[str, Any]) -> Optional[User]:
-        """Update user fields"""
+    async def update(self, user_id: str, updates: Dict[str, Any]) -> Optional[User]:
+        """Update user fields - Task 2.1.5: Fixed to accept str (UUID) instead of int"""
         if not updates:
             return await self.get_by_id(user_id)
 
@@ -137,8 +137,8 @@ class UserRepository(Repository[User]):
 
         return await self.get_by_id(user_id)
 
-    async def delete(self, user_id: int) -> bool:
-        """Soft delete user (set is_active = 0)"""
+    async def delete(self, user_id: str) -> bool:
+        """Soft delete user (set is_active = 0) - Task 2.1.5: Fixed to accept str (UUID) instead of int"""
         result = await self.update(user_id, {"is_active": 0})
         self.logger.info(f"User deleted (soft): {user_id}")
         return result is not None
@@ -158,3 +158,39 @@ class UserRepository(Repository[User]):
         async with connection_manager.get_connection() as conn:
             cursor = conn.execute("SELECT COUNT(*) FROM users WHERE is_active = 1")
             return cursor.fetchone()[0]
+
+    async def get_active_users(self, limit: int = 100, offset: int = 0) -> List[User]:
+        """Get only active users - Task 2.1.5: Query method for active user retrieval"""
+        async with connection_manager.get_connection() as conn:
+            cursor = conn.execute(
+                "SELECT * FROM users WHERE is_active = 1 LIMIT ? OFFSET ?",
+                (limit, offset)
+            )
+            rows = cursor.fetchall()
+            return [self.row_to_entity(dict(row)) for row in rows]
+
+    async def count_active_users(self) -> int:
+        """Count only active users - Task 2.1.5: Explicit method for active user count"""
+        async with connection_manager.get_connection() as conn:
+            cursor = conn.execute("SELECT COUNT(*) FROM users WHERE is_active = 1")
+            return cursor.fetchone()[0]
+
+    async def search_users_by_email(self, email_pattern: str, limit: int = 50) -> List[User]:
+        """Search users by email pattern - Task 2.1.5: Email search with LIKE"""
+        async with connection_manager.get_connection() as conn:
+            cursor = conn.execute(
+                "SELECT * FROM users WHERE email LIKE ? LIMIT ?",
+                (f"%{email_pattern}%", limit)
+            )
+            rows = cursor.fetchall()
+            return [self.row_to_entity(dict(row)) for row in rows]
+
+    async def search_users_by_name(self, name_pattern: str, limit: int = 50) -> List[User]:
+        """Search users by full name pattern - Task 2.1.5: Name search with LIKE"""
+        async with connection_manager.get_connection() as conn:
+            cursor = conn.execute(
+                "SELECT * FROM users WHERE full_name LIKE ? LIMIT ?",
+                (f"%{name_pattern}%", limit)
+            )
+            rows = cursor.fetchall()
+            return [self.row_to_entity(dict(row)) for row in rows]

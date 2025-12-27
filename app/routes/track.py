@@ -20,14 +20,15 @@ from app.models.tracking import (
     MealItem,
 )
 from app.services.cache import cache_service
-from app.services.database import db_service
+from app.repositories.tracking_repository import TrackingRepository
 from app.services.tracking_service import TrackingService
 from app.services.storage import save_photo
 from app.utils.auth_context import get_session_user_id
 import logging
 
 # Phase 2 Batch 8: Using TrackingService for meal and weight tracking
-tracking_service = TrackingService(db_service)
+# Task 2.1.4: Injecting TrackingRepository instead of db_service
+tracking_service = TrackingService(TrackingRepository())
 
 logger = logging.getLogger(__name__)
 router = APIRouter()

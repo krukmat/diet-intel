@@ -12,6 +12,14 @@ from app.repositories.connection import connection_manager
 logger = logging.getLogger(__name__)
 
 
+class DateTimeEncoder(json.JSONEncoder):
+    """Custom JSON encoder for datetime objects - Task: Fix JSON serialization"""
+    def default(self, obj):
+        if isinstance(obj, datetime):
+            return obj.isoformat()
+        return super().default(obj)
+
+
 # Data class representing MealPlan entity (not a Pydantic model)
 class MealPlan:
     """Data class for meal plan"""
@@ -65,10 +73,10 @@ class MealPlanRepository(Repository[MealPlan]):
         )
 
     def entity_to_dict(self, entity: MealPlan) -> Dict[str, Any]:
-        """Convert MealPlan to dict for database"""
+        """Convert MealPlan to dict for database - Task: Use DateTimeEncoder"""
         return {
             "user_id": entity.user_id,
-            "plan_data": json.dumps(entity.plan_data) if isinstance(entity.plan_data, dict) else entity.plan_data,
+            "plan_data": json.dumps(entity.plan_data, cls=DateTimeEncoder) if isinstance(entity.plan_data, dict) else entity.plan_data,
             "bmr": entity.bmr,
             "tdee": entity.tdee,
             "daily_calorie_target": entity.daily_calorie_target,
@@ -98,11 +106,11 @@ class MealPlanRepository(Repository[MealPlan]):
             return [self.row_to_entity(dict(row)) for row in rows]
 
     async def create(self, plan: MealPlan) -> MealPlan:
-        """Create new meal plan"""
+        """Create new meal plan - Task: Use DateTimeEncoder for datetime serialization"""
         from uuid import uuid4
 
         plan_id = plan.id or str(uuid4())
-        plan_data_json = json.dumps(plan.plan_data)
+        plan_data_json = json.dumps(plan.plan_data, cls=DateTimeEncoder)
 
         async with connection_manager.get_connection() as conn:
             cursor = conn.execute(
@@ -133,9 +141,9 @@ class MealPlanRepository(Repository[MealPlan]):
         if not updates:
             return await self.get_by_id(plan_id)
 
-        # Convert plan_data to JSON if present
+        # Convert plan_data to JSON if present - Task: Use DateTimeEncoder
         if "plan_data" in updates and isinstance(updates["plan_data"], dict):
-            updates["plan_data"] = json.dumps(updates["plan_data"])
+            updates["plan_data"] = json.dumps(updates["plan_data"], cls=DateTimeEncoder)
 
         # Convert datetime fields to ISO format
         if "expires_at" in updates and isinstance(updates["expires_at"], datetime):
