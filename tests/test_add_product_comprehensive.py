@@ -23,6 +23,7 @@ from app.models.meal_plan import (
     CustomizedPlanResponse, ChangeLogEntry
 )
 from app.models.product import ProductResponse, Nutriments
+from app.repositories.meal_plan_repository import MealPlanRepository, MealPlan
 
 
 @pytest.fixture
@@ -198,13 +199,21 @@ class TestAddProductSuccess:
             "meal_type": "breakfast"
         }
         
-        with patch('app.services.database.db_service.get_user_meal_plans', new_callable=AsyncMock) as mock_get_plans, \
+        with patch('app.repositories.meal_plan_repository.MealPlanRepository.get_by_user_id', new_callable=AsyncMock) as mock_get_plans, \
              patch('app.services.openfoodfacts.openfoodfacts_service.get_product', new_callable=AsyncMock) as mock_get_product, \
              patch('app.services.plan_customizer.plan_customizer.customize_plan', new_callable=AsyncMock) as mock_customize, \
              patch('app.services.plan_storage.plan_storage.get_plan', new_callable=AsyncMock) as mock_get_plan, \
              patch('app.services.plan_storage.plan_storage.update_plan', new_callable=AsyncMock) as mock_update:
             
-            mock_get_plans.return_value = [{"id": "test-plan-123", "plan_data": sample_meal_plan.model_dump()}]
+            meal_plan_entity = MealPlan(
+                id="test-plan-123",
+                user_id="test-user",
+                plan_data=sample_meal_plan.model_dump(),
+                bmr=sample_meal_plan.bmr,
+                tdee=sample_meal_plan.tdee,
+                daily_calorie_target=sample_meal_plan.daily_calorie_target
+            )
+            mock_get_plans.return_value = [meal_plan_entity]
             mock_get_plan.return_value = sample_meal_plan
             mock_get_product.return_value = sample_product_data
             
@@ -234,13 +243,21 @@ class TestAddProductSuccess:
             "meal_type": "dinner"
         }
         
-        with patch('app.services.database.db_service.get_user_meal_plans', new_callable=AsyncMock) as mock_get_plans, \
+        with patch('app.repositories.meal_plan_repository.MealPlanRepository.get_by_user_id', new_callable=AsyncMock) as mock_get_plans, \
              patch('app.services.openfoodfacts.openfoodfacts_service.get_product', new_callable=AsyncMock) as mock_get_product, \
              patch('app.services.plan_customizer.plan_customizer.customize_plan', new_callable=AsyncMock) as mock_customize, \
              patch('app.services.plan_storage.plan_storage.get_plan', new_callable=AsyncMock) as mock_get_plan, \
              patch('app.services.plan_storage.plan_storage.update_plan', new_callable=AsyncMock) as mock_update:
             
-            mock_get_plans.return_value = [{"id": "test-plan-123", "plan_data": sample_meal_plan.model_dump()}]
+            meal_plan_entity = MealPlan(
+                id="test-plan-123",
+                user_id="test-user",
+                plan_data=sample_meal_plan.model_dump(),
+                bmr=sample_meal_plan.bmr,
+                tdee=sample_meal_plan.tdee,
+                daily_calorie_target=sample_meal_plan.daily_calorie_target
+            )
+            mock_get_plans.return_value = [meal_plan_entity]
             mock_get_plan.return_value = sample_meal_plan
             mock_get_product.return_value = sample_product_data
             
@@ -271,13 +288,21 @@ class TestAddProductSuccess:
             "serving_size": "200g"
         }
         
-        with patch('app.services.database.db_service.get_user_meal_plans', new_callable=AsyncMock) as mock_get_plans, \
+        with patch('app.repositories.meal_plan_repository.MealPlanRepository.get_by_user_id', new_callable=AsyncMock) as mock_get_plans, \
              patch('app.services.openfoodfacts.openfoodfacts_service.get_product', new_callable=AsyncMock) as mock_get_product, \
              patch('app.services.plan_customizer.plan_customizer.customize_plan', new_callable=AsyncMock) as mock_customize, \
              patch('app.services.plan_storage.plan_storage.get_plan', new_callable=AsyncMock) as mock_get_plan, \
              patch('app.services.plan_storage.plan_storage.update_plan', new_callable=AsyncMock) as mock_update:
             
-            mock_get_plans.return_value = [{"id": "test-plan-123", "plan_data": sample_meal_plan.model_dump()}]
+            meal_plan_entity = MealPlan(
+                id="test-plan-123",
+                user_id="test-user",
+                plan_data=sample_meal_plan.model_dump(),
+                bmr=sample_meal_plan.bmr,
+                tdee=sample_meal_plan.tdee,
+                daily_calorie_target=sample_meal_plan.daily_calorie_target
+            )
+            mock_get_plans.return_value = [meal_plan_entity]
             mock_get_plan.return_value = sample_meal_plan
             mock_get_product.return_value = sample_product_data
             
@@ -301,13 +326,21 @@ class TestAddProductSuccess:
             # No meal_type specified, should default to lunch
         }
         
-        with patch('app.services.database.db_service.get_user_meal_plans', new_callable=AsyncMock) as mock_get_plans, \
+        with patch('app.repositories.meal_plan_repository.MealPlanRepository.get_by_user_id', new_callable=AsyncMock) as mock_get_plans, \
              patch('app.services.openfoodfacts.openfoodfacts_service.get_product', new_callable=AsyncMock) as mock_get_product, \
              patch('app.services.plan_customizer.plan_customizer.customize_plan', new_callable=AsyncMock) as mock_customize, \
              patch('app.services.plan_storage.plan_storage.get_plan', new_callable=AsyncMock) as mock_get_plan, \
              patch('app.services.plan_storage.plan_storage.update_plan', new_callable=AsyncMock) as mock_update:
             
-            mock_get_plans.return_value = [{"id": "test-plan-123", "plan_data": sample_meal_plan.model_dump()}]
+            meal_plan_entity = MealPlan(
+                id="test-plan-123",
+                user_id="test-user",
+                plan_data=sample_meal_plan.model_dump(),
+                bmr=sample_meal_plan.bmr,
+                tdee=sample_meal_plan.tdee,
+                daily_calorie_target=sample_meal_plan.daily_calorie_target
+            )
+            mock_get_plans.return_value = [meal_plan_entity]
             mock_get_plan.return_value = sample_meal_plan
             mock_get_product.return_value = sample_product_data
             
@@ -334,7 +367,7 @@ class TestAddProductErrors:
             "meal_type": "lunch"
         }
         
-        with patch('app.services.database.db_service.get_user_meal_plans', new_callable=AsyncMock) as mock_get_plans:
+        with patch('app.repositories.meal_plan_repository.MealPlanRepository.get_by_user_id', new_callable=AsyncMock) as mock_get_plans:
             mock_get_plans.return_value = []  # No meal plans
             
             response = client.post("/plan/add-product", json=request_data)
@@ -354,10 +387,18 @@ class TestAddProductErrors:
             "meal_type": "lunch"
         }
         
-        with patch('app.services.database.db_service.get_user_meal_plans', new_callable=AsyncMock) as mock_get_plans, \
+        with patch('app.repositories.meal_plan_repository.MealPlanRepository.get_by_user_id', new_callable=AsyncMock) as mock_get_plans, \
              patch('app.services.openfoodfacts.openfoodfacts_service.get_product', new_callable=AsyncMock) as mock_get_product:
             
-            mock_get_plans.return_value = [{"id": "test-plan-123", "plan_data": sample_meal_plan.model_dump()}]
+            meal_plan_entity = MealPlan(
+                id="test-plan-123",
+                user_id="test-user",
+                plan_data=sample_meal_plan.model_dump(),
+                bmr=sample_meal_plan.bmr,
+                tdee=sample_meal_plan.tdee,
+                daily_calorie_target=sample_meal_plan.daily_calorie_target
+            )
+            mock_get_plans.return_value = [meal_plan_entity]
             mock_get_product.return_value = None  # Product not found
             
             response = client.post("/plan/add-product", json=request_data)
@@ -377,10 +418,18 @@ class TestAddProductErrors:
             "meal_type": "lunch"
         }
         
-        with patch('app.services.database.db_service.get_user_meal_plans', new_callable=AsyncMock) as mock_get_plans, \
+        with patch('app.repositories.meal_plan_repository.MealPlanRepository.get_by_user_id', new_callable=AsyncMock) as mock_get_plans, \
              patch('app.services.openfoodfacts.openfoodfacts_service.get_product', new_callable=AsyncMock) as mock_get_product:
             
-            mock_get_plans.return_value = [{"id": "test-plan-123", "plan_data": sample_meal_plan.model_dump()}]
+            meal_plan_entity = MealPlan(
+                id="test-plan-123",
+                user_id="test-user",
+                plan_data=sample_meal_plan.model_dump(),
+                bmr=sample_meal_plan.bmr,
+                tdee=sample_meal_plan.tdee,
+                daily_calorie_target=sample_meal_plan.daily_calorie_target
+            )
+            mock_get_plans.return_value = [meal_plan_entity]
             mock_get_product.side_effect = Exception("API timeout")
             
             response = client.post("/plan/add-product", json=request_data)
@@ -397,12 +446,20 @@ class TestAddProductErrors:
             "meal_type": "lunch"
         }
         
-        with patch('app.services.database.db_service.get_user_meal_plans', new_callable=AsyncMock) as mock_get_plans, \
+        with patch('app.repositories.meal_plan_repository.MealPlanRepository.get_by_user_id', new_callable=AsyncMock) as mock_get_plans, \
              patch('app.services.openfoodfacts.openfoodfacts_service.get_product', new_callable=AsyncMock) as mock_get_product, \
              patch('app.services.plan_storage.plan_storage.get_plan', new_callable=AsyncMock) as mock_get_plan, \
              patch('app.services.plan_customizer.plan_customizer.customize_plan', new_callable=AsyncMock) as mock_customize:
 
-            mock_get_plans.return_value = [{"id": "test-plan-123", "plan_data": sample_meal_plan.model_dump()}]
+            meal_plan_entity = MealPlan(
+                id="test-plan-123",
+                user_id="test-user",
+                plan_data=sample_meal_plan.model_dump(),
+                bmr=sample_meal_plan.bmr,
+                tdee=sample_meal_plan.tdee,
+                daily_calorie_target=sample_meal_plan.daily_calorie_target
+            )
+            mock_get_plans.return_value = [meal_plan_entity]
             mock_get_product.return_value = sample_product_data
             mock_get_plan.return_value = sample_meal_plan
             mock_customize.side_effect = Exception("Customization error")
@@ -419,13 +476,21 @@ class TestAddProductErrors:
             "meal_type": "lunch"
         }
         
-        with patch('app.services.database.db_service.get_user_meal_plans', new_callable=AsyncMock) as mock_get_plans, \
+        with patch('app.repositories.meal_plan_repository.MealPlanRepository.get_by_user_id', new_callable=AsyncMock) as mock_get_plans, \
              patch('app.services.openfoodfacts.openfoodfacts_service.get_product', new_callable=AsyncMock) as mock_get_product, \
              patch('app.services.plan_storage.plan_storage.get_plan', new_callable=AsyncMock) as mock_get_plan, \
              patch('app.services.plan_customizer.plan_customizer.customize_plan', new_callable=AsyncMock) as mock_customize, \
              patch('app.services.plan_storage.plan_storage.update_plan', new_callable=AsyncMock) as mock_update:
 
-            mock_get_plans.return_value = [{"id": "test-plan-123", "plan_data": sample_meal_plan.model_dump()}]
+            meal_plan_entity = MealPlan(
+                id="test-plan-123",
+                user_id="test-user",
+                plan_data=sample_meal_plan.model_dump(),
+                bmr=sample_meal_plan.bmr,
+                tdee=sample_meal_plan.tdee,
+                daily_calorie_target=sample_meal_plan.daily_calorie_target
+            )
+            mock_get_plans.return_value = [meal_plan_entity]
             mock_get_product.return_value = sample_product_data
             mock_get_plan.return_value = sample_meal_plan
 
@@ -448,12 +513,20 @@ class TestAddProductErrors:
             "meal_type": "snack"  # Invalid meal type
         }
         
-        with patch('app.services.database.db_service.get_user_meal_plans', new_callable=AsyncMock) as mock_get_plans, \
+        with patch('app.repositories.meal_plan_repository.MealPlanRepository.get_by_user_id', new_callable=AsyncMock) as mock_get_plans, \
              patch('app.services.openfoodfacts.openfoodfacts_service.get_product', new_callable=AsyncMock) as mock_get_product, \
              patch('app.services.plan_customizer.plan_customizer.customize_plan', new_callable=AsyncMock) as mock_customize, \
              patch('app.services.plan_storage.plan_storage.update_plan', new_callable=AsyncMock) as mock_update:
             
-            mock_get_plans.return_value = [{"id": "test-plan-123", "plan_data": sample_meal_plan.model_dump()}]
+            meal_plan_entity = MealPlan(
+                id="test-plan-123",
+                user_id="test-user",
+                plan_data=sample_meal_plan.model_dump(),
+                bmr=sample_meal_plan.bmr,
+                tdee=sample_meal_plan.tdee,
+                daily_calorie_target=sample_meal_plan.daily_calorie_target
+            )
+            mock_get_plans.return_value = [meal_plan_entity]
             mock_get_product.return_value = sample_product_data
             
             response = client.post("/plan/add-product", json=request_data)
@@ -502,13 +575,21 @@ class TestAddProductIntegration:
             "serving_size": "100g"
         }
         
-        with patch('app.services.database.db_service.get_user_meal_plans', new_callable=AsyncMock) as mock_get_plans, \
+        with patch('app.repositories.meal_plan_repository.MealPlanRepository.get_by_user_id', new_callable=AsyncMock) as mock_get_plans, \
              patch('app.services.openfoodfacts.openfoodfacts_service.get_product', new_callable=AsyncMock) as mock_get_product, \
              patch('app.services.plan_customizer.plan_customizer.customize_plan', new_callable=AsyncMock) as mock_customize, \
              patch('app.services.plan_storage.plan_storage.get_plan', new_callable=AsyncMock) as mock_get_plan, \
              patch('app.services.plan_storage.plan_storage.update_plan', new_callable=AsyncMock) as mock_update:
             
-            mock_get_plans.return_value = [{"id": "test-plan-123", "plan_data": sample_meal_plan.model_dump()}]
+            meal_plan_entity = MealPlan(
+                id="test-plan-123",
+                user_id="test-user",
+                plan_data=sample_meal_plan.model_dump(),
+                bmr=sample_meal_plan.bmr,
+                tdee=sample_meal_plan.tdee,
+                daily_calorie_target=sample_meal_plan.daily_calorie_target
+            )
+            mock_get_plans.return_value = [meal_plan_entity]
             mock_get_plan.return_value = sample_meal_plan
             mock_get_product.return_value = sample_product_data
             
@@ -569,13 +650,21 @@ class TestAddProductIntegration:
             "serving_size": "50g"  # Half serving
         }
         
-        with patch('app.services.database.db_service.get_user_meal_plans', new_callable=AsyncMock) as mock_get_plans, \
+        with patch('app.repositories.meal_plan_repository.MealPlanRepository.get_by_user_id', new_callable=AsyncMock) as mock_get_plans, \
              patch('app.services.openfoodfacts.openfoodfacts_service.get_product', new_callable=AsyncMock) as mock_get_product, \
              patch('app.services.plan_customizer.plan_customizer.customize_plan', new_callable=AsyncMock) as mock_customize, \
              patch('app.services.plan_storage.plan_storage.get_plan', new_callable=AsyncMock) as mock_get_plan, \
              patch('app.services.plan_storage.plan_storage.update_plan', new_callable=AsyncMock) as mock_update:
             
-            mock_get_plans.return_value = [{"id": "test-plan-123", "plan_data": sample_meal_plan.model_dump()}]
+            meal_plan_entity = MealPlan(
+                id="test-plan-123",
+                user_id="test-user",
+                plan_data=sample_meal_plan.model_dump(),
+                bmr=sample_meal_plan.bmr,
+                tdee=sample_meal_plan.tdee,
+                daily_calorie_target=sample_meal_plan.daily_calorie_target
+            )
+            mock_get_plans.return_value = [meal_plan_entity]
             mock_get_plan.return_value = sample_meal_plan
             mock_get_product.return_value = product_data
             
@@ -641,13 +730,21 @@ class TestAddProductIntegration:
             }
         ]
         
-        with patch('app.services.database.db_service.get_user_meal_plans', new_callable=AsyncMock) as mock_get_plans, \
+        with patch('app.repositories.meal_plan_repository.MealPlanRepository.get_by_user_id', new_callable=AsyncMock) as mock_get_plans, \
              patch('app.services.openfoodfacts.openfoodfacts_service.get_product', new_callable=AsyncMock) as mock_get_product, \
              patch('app.services.plan_customizer.plan_customizer.customize_plan', new_callable=AsyncMock) as mock_customize, \
              patch('app.services.plan_storage.plan_storage.get_plan', new_callable=AsyncMock) as mock_get_plan, \
              patch('app.services.plan_storage.plan_storage.update_plan', new_callable=AsyncMock) as mock_update:
             
-            mock_get_plans.return_value = [{"id": "test-plan-123", "plan_data": sample_meal_plan.model_dump()}]
+            meal_plan_entity = MealPlan(
+                id="test-plan-123",
+                user_id="test-user",
+                plan_data=sample_meal_plan.model_dump(),
+                bmr=sample_meal_plan.bmr,
+                tdee=sample_meal_plan.tdee,
+                daily_calorie_target=sample_meal_plan.daily_calorie_target
+            )
+            mock_get_plans.return_value = [meal_plan_entity]
             mock_get_plan.return_value = sample_meal_plan
             mock_update.return_value = True
             

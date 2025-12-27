@@ -1,7 +1,7 @@
 import logging
 from fastapi import APIRouter, HTTPException, status, Request
 from app.models.meal_plan import (
-    MealPlanRequest, MealPlanResponse, PlanCustomizationRequest, 
+    MealPlanRequest, MealPlanResponse, PlanCustomizationRequest,
     CustomizedPlanResponse, ChangeLogEntry, AddProductRequest, AddProductResponse, ManualAddition
 )
 from app.models.product import ErrorResponse
@@ -10,6 +10,7 @@ from app.services.plan_storage import plan_storage
 from app.services.plan_customizer import plan_customizer
 from app.services.openfoodfacts import openfoodfacts_service
 from app.services.database import db_service
+from app.repositories.meal_plan_repository import MealPlanRepository
 from app.utils.auth_context import get_session_user_id
 
 logger = logging.getLogger(__name__)
@@ -380,7 +381,8 @@ async def add_product_to_plan(request: AddProductRequest, req: Request):
             )
         
         # Get user's most recent meal plan
-        user_plans = await db_service.get_user_meal_plans(user_id, limit=1)
+        meal_plan_repo = MealPlanRepository()
+        user_plans = await meal_plan_repo.get_by_user_id(user_id, limit=1)
         if not user_plans:
             return AddProductResponse(
                 success=False,
@@ -389,8 +391,8 @@ async def add_product_to_plan(request: AddProductRequest, req: Request):
                 product_name=None,
                 calories_added=None
             )
-        
-        plan_id = user_plans[0].get('id')
+
+        plan_id = user_plans[0].id
         if not plan_id:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
