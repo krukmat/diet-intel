@@ -65,17 +65,42 @@ class BulkAnalysisCommand(OptimizationCommand):
 
             # Convert results to BulkOpportunity objects
             for opp in opportunities:
+                # opp could be a shopping_optimization.BulkOpportunity or a dict
+                if isinstance(opp, dict):
+                    ingredient_name = opp.get('ingredient_name', '')
+                    standard_quantity = opp.get('standard_quantity', 0)
+                    standard_unit = opp.get('standard_unit', '')
+                    bulk_quantity = opp.get('bulk_quantity', 0)
+                    bulk_unit = opp.get('bulk_unit', '')
+                    standard_unit_cost = opp.get('standard_unit_cost', 0)
+                    bulk_unit_cost = opp.get('bulk_unit_cost', 0)
+                    savings_ratio = opp.get('savings_ratio', 0)
+                    confidence_score = opp.get('confidence_score', 0)
+                    storage_requirements = opp.get('storage_requirements', {})
+                else:
+                    # It's a shopping_optimization.BulkOpportunity object
+                    ingredient_name = opp.ingredient_name
+                    standard_quantity = opp.current_quantity
+                    standard_unit = opp.current_unit
+                    bulk_quantity = opp.recommended_bulk_quantity
+                    bulk_unit = opp.bulk_unit
+                    standard_unit_cost = opp.regular_cost_estimate / max(opp.current_quantity, 1)
+                    bulk_unit_cost = opp.bulk_cost_estimate / max(opp.recommended_bulk_quantity, 1)
+                    savings_ratio = opp.savings_percentage / 100.0 if opp.savings_percentage > 0 else 0
+                    confidence_score = opp.recommendation_confidence
+                    storage_requirements = {'type': opp.storage_type.value, 'shelf_life_days': opp.perishability_days}
+
                 bulk_opp = BulkOpportunity(
-                    ingredient_name=opp.get('ingredient_name', ''),
-                    standard_quantity=opp.get('standard_quantity', 0),
-                    standard_unit=opp.get('standard_unit', ''),
-                    bulk_quantity=opp.get('bulk_quantity', 0),
-                    bulk_unit=opp.get('bulk_unit', ''),
-                    standard_unit_cost=opp.get('standard_unit_cost', 0),
-                    bulk_unit_cost=opp.get('bulk_unit_cost', 0),
-                    savings_ratio=opp.get('savings_ratio', 0),
-                    confidence_score=opp.get('confidence_score', 0),
-                    storage_requirements=opp.get('storage_requirements', {})
+                    ingredient_name=ingredient_name,
+                    standard_quantity=standard_quantity,
+                    standard_unit=standard_unit,
+                    bulk_quantity=bulk_quantity,
+                    bulk_unit=bulk_unit,
+                    standard_unit_cost=standard_unit_cost,
+                    bulk_unit_cost=bulk_unit_cost,
+                    savings_ratio=savings_ratio,
+                    confidence_score=confidence_score,
+                    storage_requirements=storage_requirements
                 )
                 context.bulk_opportunities.append(bulk_opp)
 
