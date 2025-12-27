@@ -1,18 +1,23 @@
 """
 Repository module
 Provides data access layer abstraction for all entities
+Phase 2: Database Repository Pattern Migration
 """
 from app.repositories.base import Repository
 from app.repositories.connection import connection_manager
 from app.repositories.user_repository import UserRepository
-# Phase 3: ProductRepository and MealPlanRepository will be integrated after UserRepository validation
+from app.repositories.meal_plan_repository import MealPlanRepository
+from app.repositories.tracking_repository import TrackingRepository
+from app.repositories.reminder_repository import ReminderRepository
+# Phase 2.1.3: ProductRepository integration pending (requires Product model definition)
 # from app.repositories.product_repository import ProductRepository
-# from app.repositories.meal_plan_repository import MealPlanRepository
 
 __all__ = [
     "Repository",
     "connection_manager",
     "UserRepository",
+    "MealPlanRepository",
+    "TrackingRepository",
+    "ReminderRepository",
     # "ProductRepository",
-    # "MealPlanRepository",
 ]
