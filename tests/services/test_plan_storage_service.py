@@ -1,5 +1,9 @@
+"""
+Test suite for PlanStorageService with Repository Pattern
+Task 2.1.2: Refactored to use MealPlanRepository mocks
+"""
 import pytest
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, MagicMock
 from datetime import datetime
 from app.models.meal_plan import (
     MealPlanResponse,
@@ -10,6 +14,7 @@ from app.models.meal_plan import (
 )
 from app.services.plan_storage import PlanStorageService
 from app.services import plan_storage as plan_storage_module
+from app.repositories.meal_plan_repository import MealPlan, MealPlanRepository
 
 
 class _FakeRedis:
@@ -74,79 +79,105 @@ def _build_sample_plan(plan_id: str = "plan-123") -> MealPlanResponse:
     )
 
 
+def _build_meal_plan_entity(plan_id: str = "plan-123", user_id: str = "user-1") -> MealPlan:
+    """Create MealPlan entity for repository mock returns - Task 2.1.2"""
+    sample_plan = _build_sample_plan(plan_id)
+    return MealPlan(
+        id=plan_id,
+        user_id=user_id,
+        plan_data=sample_plan.model_dump(),
+        bmr=sample_plan.bmr,
+        tdee=sample_plan.tdee,
+        daily_calorie_target=sample_plan.daily_calorie_target,
+        flexibility_used=sample_plan.flexibility_used,
+        optional_products_used=sample_plan.optional_products_used,
+        created_at=datetime.now()
+    )
+
+
 def _plan_payload(sample_plan: MealPlanResponse) -> dict:
     data = sample_plan.model_dump()
     data["plan_id"] = sample_plan.plan_id
     return data
 
 
-@pytest.mark.asyncio
-async def test_store_plan_returns_custom_id_and_caches(monkeypatch):
-    sample_plan = _build_sample_plan()
-    store_mock = AsyncMock(return_value="db-plan")
-    cache_set = AsyncMock()
+@pytest.fixture
+def mock_repository():
+    """Create mock MealPlanRepository - Task 2.1.2"""
+    return AsyncMock(spec=MealPlanRepository)
 
-    monkeypatch.setattr(plan_storage_module.db_service, "store_meal_plan", store_mock)
+
+@pytest.mark.asyncio
+async def test_store_plan_returns_custom_id_and_caches(mock_repository, monkeypatch):
+    """Test store_plan with custom ID - Task 2.1.2: Uses Repository mock"""
+    sample_plan = _build_sample_plan()
+    plan_entity = _build_meal_plan_entity("custom", "user-1")
+
+    mock_repository.create = AsyncMock(return_value=plan_entity)
+    cache_set = AsyncMock()
     monkeypatch.setattr(plan_storage_module.cache_service, "set", cache_set)
 
-    service = PlanStorageService(default_ttl_hours=1)
+    service = PlanStorageService(repository=mock_repository, default_ttl_hours=1)
     result = await service.store_plan(sample_plan, plan_id="custom", user_id="user-1")
 
     assert result == "custom"
-    store_mock.assert_awaited_once_with("user-1", sample_plan)
+    mock_repository.create.assert_awaited_once()
     cache_set.assert_awaited_once()
     assert cache_set.call_args[0][0] == "meal_plan:custom"
 
 
 @pytest.mark.asyncio
-async def test_store_plan_handles_cache_failure(monkeypatch):
+async def test_store_plan_handles_cache_failure(mock_repository, monkeypatch):
+    """Test store_plan handles cache failure gracefully - Task 2.1.2"""
     sample_plan = _build_sample_plan()
-    store_mock = AsyncMock(return_value="db-plan")
-    cache_set = AsyncMock(side_effect=RuntimeError("cache down"))
+    plan_entity = _build_meal_plan_entity("generated-id", "user-1")
 
-    monkeypatch.setattr(plan_storage_module.db_service, "store_meal_plan", store_mock)
+    mock_repository.create = AsyncMock(return_value=plan_entity)
+    cache_set = AsyncMock(side_effect=RuntimeError("cache down"))
     monkeypatch.setattr(plan_storage_module.cache_service, "set", cache_set)
 
-    service = PlanStorageService(default_ttl_hours=1)
-    result = await service.store_plan(sample_plan, user_id="user-1")
+    service = PlanStorageService(repository=mock_repository, default_ttl_hours=1)
+    result = await service.store_plan(sample_plan, plan_id="generated-id", user_id="user-1")
 
-    assert result == "db-plan"
+    # Should return the plan_id despite cache failure
+    assert result == "generated-id"
     cache_set.assert_awaited_once()
 
 
 @pytest.mark.asyncio
 async def test_get_plan_reads_from_cache(monkeypatch):
+    """Test get_plan reads from cache first"""
     sample_plan = _build_sample_plan()
     payload = _plan_payload(sample_plan)
     payload["_storage_metadata"] = {"plan_id": sample_plan.plan_id}
     cache_get = AsyncMock(return_value=payload)
-    db_get = AsyncMock()
 
     monkeypatch.setattr(plan_storage_module.cache_service, "get", cache_get)
-    monkeypatch.setattr(plan_storage_module.db_service, "get_meal_plan", db_get)
 
-    service = PlanStorageService()
+    mock_repo = AsyncMock(spec=MealPlanRepository)
+    service = PlanStorageService(repository=mock_repo)
     plan = await service.get_plan(sample_plan.plan_id)
 
     assert plan is not None
     assert plan.meals[0].name == sample_plan.meals[0].name
     assert plan.metrics.total_calories == sample_plan.metrics.total_calories
-    db_get.assert_not_awaited()
+    mock_repo.get_by_id.assert_not_awaited()
 
 
 @pytest.mark.asyncio
-async def test_get_plan_falls_back_to_db_and_refreshes_cache(monkeypatch):
+async def test_get_plan_falls_back_to_db_and_refreshes_cache(mock_repository, monkeypatch):
+    """Test get_plan falls back to repository when cache miss - Task 2.1.2"""
     sample_plan = _build_sample_plan()
-    payload = _plan_payload(sample_plan)
+    plan_entity = _build_meal_plan_entity(sample_plan.plan_id)
+
     cache_get = AsyncMock(return_value=None)
-    db_get = AsyncMock(return_value=payload)
     cache_set = AsyncMock()
+    mock_repository.get_by_id = AsyncMock(return_value=plan_entity)
 
     monkeypatch.setattr(plan_storage_module.cache_service, "get", cache_get)
-    monkeypatch.setattr(plan_storage_module.db_service, "get_meal_plan", db_get)
     monkeypatch.setattr(plan_storage_module.cache_service, "set", cache_set)
 
-    service = PlanStorageService(default_ttl_hours=2)
+    service = PlanStorageService(repository=mock_repository, default_ttl_hours=2)
     plan = await service.get_plan(sample_plan.plan_id)
 
     assert plan is not None
@@ -155,61 +186,63 @@ async def test_get_plan_falls_back_to_db_and_refreshes_cache(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_get_plan_returns_none_on_missing(monkeypatch):
+async def test_get_plan_returns_none_on_missing(mock_repository, monkeypatch):
+    """Test get_plan returns None when plan not found - Task 2.1.2"""
     cache_get = AsyncMock(return_value=None)
-    db_get = AsyncMock(return_value=None)
+    mock_repository.get_by_id = AsyncMock(return_value=None)
 
     monkeypatch.setattr(plan_storage_module.cache_service, "get", cache_get)
-    monkeypatch.setattr(plan_storage_module.db_service, "get_meal_plan", db_get)
 
-    service = PlanStorageService()
+    service = PlanStorageService(repository=mock_repository)
     plan = await service.get_plan("unknown")
 
     assert plan is None
 
 
 @pytest.mark.asyncio
-async def test_update_plan_refreshes_cache_on_success(monkeypatch):
+async def test_update_plan_refreshes_cache_on_success(mock_repository, monkeypatch):
+    """Test update_plan refreshes cache on success - Task 2.1.2"""
     sample_plan = _build_sample_plan()
-    update_mock = AsyncMock(return_value=True)
-    cache_set = AsyncMock()
+    plan_entity = _build_meal_plan_entity(sample_plan.plan_id)
 
-    monkeypatch.setattr(plan_storage_module.db_service, "update_meal_plan", update_mock)
+    mock_repository.update = AsyncMock(return_value=plan_entity)
+    cache_set = AsyncMock()
     monkeypatch.setattr(plan_storage_module.cache_service, "set", cache_set)
 
-    service = PlanStorageService(default_ttl_hours=1)
+    service = PlanStorageService(repository=mock_repository, default_ttl_hours=1)
     result = await service.update_plan(sample_plan.plan_id, sample_plan)
 
-    assert result is True
+    # update_plan returns the updated plan or None
+    assert result is not None
     cache_set.assert_awaited_once()
 
 
 @pytest.mark.asyncio
-async def test_update_plan_returns_false_when_missing(monkeypatch):
+async def test_update_plan_returns_none_when_missing(mock_repository, monkeypatch):
+    """Test update_plan returns None when plan not found - Task 2.1.2"""
     sample_plan = _build_sample_plan()
-    update_mock = AsyncMock(return_value=False)
-    cache_set = AsyncMock()
 
-    monkeypatch.setattr(plan_storage_module.db_service, "update_meal_plan", update_mock)
+    mock_repository.update = AsyncMock(return_value=None)
+    cache_set = AsyncMock()
     monkeypatch.setattr(plan_storage_module.cache_service, "set", cache_set)
 
-    service = PlanStorageService()
+    service = PlanStorageService(repository=mock_repository)
     result = await service.update_plan(sample_plan.plan_id, sample_plan)
 
-    assert result is False
+    assert result is None
     cache_set.assert_not_awaited()
 
 
 @pytest.mark.asyncio
-async def test_delete_plan_removes_cache(monkeypatch):
-    delete_mock = AsyncMock(return_value=True)
+async def test_delete_plan_removes_cache(mock_repository, monkeypatch):
+    """Test delete_plan removes from cache - Task 2.1.2"""
+    mock_repository.delete = AsyncMock(return_value=True)
     fake_redis = _FakeRedis()
     redis_get = AsyncMock(return_value=fake_redis)
 
-    monkeypatch.setattr(plan_storage_module.db_service, "delete_meal_plan", delete_mock)
     monkeypatch.setattr(plan_storage_module.cache_service, "get_redis", redis_get)
 
-    service = PlanStorageService()
+    service = PlanStorageService(repository=mock_repository)
     result = await service.delete_plan("plan-123")
 
     assert result is True
@@ -217,15 +250,15 @@ async def test_delete_plan_removes_cache(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_delete_plan_returns_false_when_db_fails(monkeypatch):
-    delete_mock = AsyncMock(return_value=False)
+async def test_delete_plan_returns_false_when_db_fails(mock_repository, monkeypatch):
+    """Test delete_plan returns False on failure - Task 2.1.2"""
+    mock_repository.delete = AsyncMock(return_value=False)
     fake_redis = _FakeRedis()
     redis_get = AsyncMock(return_value=fake_redis)
 
-    monkeypatch.setattr(plan_storage_module.db_service, "delete_meal_plan", delete_mock)
     monkeypatch.setattr(plan_storage_module.cache_service, "get_redis", redis_get)
 
-    service = PlanStorageService()
+    service = PlanStorageService(repository=mock_repository)
     result = await service.delete_plan("plan-999")
 
     assert result is False
@@ -233,16 +266,18 @@ async def test_delete_plan_returns_false_when_db_fails(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_extend_ttl_extends_when_cache_exists(monkeypatch):
+async def test_extend_ttl_extends_when_cache_exists(mock_repository, monkeypatch):
+    """Test extend_ttl extends TTL when cache exists - Task 2.1.2"""
     sample_plan = _build_sample_plan()
-    db_get = AsyncMock(return_value=_plan_payload(sample_plan))
+    plan_entity = _build_meal_plan_entity(sample_plan.plan_id)
+
+    mock_repository.get_by_id = AsyncMock(return_value=plan_entity)
     fake_redis = _FakeRedis(exists_value=1)
     redis_get = AsyncMock(return_value=fake_redis)
 
-    monkeypatch.setattr(plan_storage_module.db_service, "get_meal_plan", db_get)
     monkeypatch.setattr(plan_storage_module.cache_service, "get_redis", redis_get)
 
-    service = PlanStorageService()
+    service = PlanStorageService(repository=mock_repository)
     result = await service.extend_ttl(sample_plan.plan_id, additional_hours=2)
 
     assert result is True
@@ -251,16 +286,18 @@ async def test_extend_ttl_extends_when_cache_exists(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_extend_ttl_handles_missing_cache(monkeypatch):
+async def test_extend_ttl_handles_missing_cache(mock_repository, monkeypatch):
+    """Test extend_ttl handles missing cache - Task 2.1.2"""
     sample_plan = _build_sample_plan()
-    db_get = AsyncMock(return_value=_plan_payload(sample_plan))
+    plan_entity = _build_meal_plan_entity(sample_plan.plan_id)
+
+    mock_repository.get_by_id = AsyncMock(return_value=plan_entity)
     fake_redis = _FakeRedis(exists_value=0)
     redis_get = AsyncMock(return_value=fake_redis)
 
-    monkeypatch.setattr(plan_storage_module.db_service, "get_meal_plan", db_get)
     monkeypatch.setattr(plan_storage_module.cache_service, "get_redis", redis_get)
 
-    service = PlanStorageService()
+    service = PlanStorageService(repository=mock_repository)
     result = await service.extend_ttl(sample_plan.plan_id)
 
     assert result is True
@@ -268,14 +305,14 @@ async def test_extend_ttl_handles_missing_cache(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_extend_ttl_returns_false_on_db_error(monkeypatch):
-    db_get = AsyncMock(side_effect=RuntimeError("db down"))
+async def test_extend_ttl_returns_false_on_db_error(mock_repository, monkeypatch):
+    """Test extend_ttl returns False on error - Task 2.1.2"""
+    mock_repository.get_by_id = AsyncMock(side_effect=RuntimeError("db down"))
     redis_get = AsyncMock()
 
-    monkeypatch.setattr(plan_storage_module.db_service, "get_meal_plan", db_get)
     monkeypatch.setattr(plan_storage_module.cache_service, "get_redis", redis_get)
 
-    service = PlanStorageService()
+    service = PlanStorageService(repository=mock_repository)
     result = await service.extend_ttl("plan-bad")
 
     assert result is False

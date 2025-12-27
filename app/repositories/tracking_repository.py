@@ -87,10 +87,39 @@ class TrackingRepository:
                     )
                 )
 
-                # Insert meal items
+                # Insert meal items - Task: Handle both dict and Pydantic MealItem objects
                 for item in meal.items:
-                    macros_dict = item.get('macros', {})
-                    macros_json = json.dumps(macros_dict) if isinstance(macros_dict, dict) else macros_dict
+                    # Handle both dict and Pydantic model
+                    if hasattr(item, 'model_dump'):
+                        # Pydantic model - convert to dict
+                        item_dict = item.model_dump()
+                    elif hasattr(item, 'dict'):
+                        # Pydantic v1 model
+                        item_dict = item.dict()
+                    elif isinstance(item, dict):
+                        item_dict = item
+                    else:
+                        # Try to access as object attributes
+                        item_dict = {
+                            'id': getattr(item, 'id', None),
+                            'barcode': getattr(item, 'barcode', None),
+                            'name': getattr(item, 'name', None),
+                            'serving': getattr(item, 'serving', None),
+                            'calories': getattr(item, 'calories', None),
+                            'macros': getattr(item, 'macros', {})
+                        }
+
+                    macros_data = item_dict.get('macros', {})
+                    if hasattr(macros_data, 'model_dump'):
+                        macros_dict = macros_data.model_dump()
+                    elif hasattr(macros_data, 'dict'):
+                        macros_dict = macros_data.dict()
+                    elif isinstance(macros_data, dict):
+                        macros_dict = macros_data
+                    else:
+                        macros_dict = {}
+
+                    macros_json = json.dumps(macros_dict)
 
                     cursor.execute(
                         """
@@ -98,12 +127,12 @@ class TrackingRepository:
                         VALUES (?, ?, ?, ?, ?, ?, ?)
                         """,
                         (
-                            item.get('id'),
+                            item_dict.get('id'),
                             meal.id,
-                            item.get('barcode'),
-                            item.get('name'),
-                            item.get('serving'),
-                            item.get('calories'),
+                            item_dict.get('barcode'),
+                            item_dict.get('name'),
+                            item_dict.get('serving'),
+                            item_dict.get('calories'),
                             macros_json
                         )
                     )
@@ -131,13 +160,21 @@ class TrackingRepository:
             if not row:
                 return None
 
-            # Get items
+            # Get items and parse macros from JSON string to dict
             cursor.execute(
                 "SELECT id, barcode, name, serving, calories, macros FROM meal_items WHERE meal_id = ?",
                 (meal_id,)
             )
             items_rows = cursor.fetchall()
-            items = [dict(item_row) for item_row in items_rows]
+            items = []
+            for item_row in items_rows:
+                item_dict = dict(item_row)
+                if isinstance(item_dict.get('macros'), str):
+                    try:
+                        item_dict['macros'] = json.loads(item_dict['macros'])
+                    except (json.JSONDecodeError, TypeError):
+                        item_dict['macros'] = {}
+                items.append(item_dict)
 
             return MealTrackingEntity(
                 meal_id=row['id'],
@@ -175,7 +212,17 @@ class TrackingRepository:
                     (row['id'],)
                 )
                 items_rows = cursor.fetchall()
-                items = [dict(item_row) for item_row in items_rows]
+
+                # Parse macros from JSON string to dict - Task: Fix JSON deserialization
+                items = []
+                for item_row in items_rows:
+                    item_dict = dict(item_row)
+                    if isinstance(item_dict.get('macros'), str):
+                        try:
+                            item_dict['macros'] = json.loads(item_dict['macros'])
+                        except (json.JSONDecodeError, TypeError):
+                            item_dict['macros'] = {}
+                    items.append(item_dict)
 
                 meal = MealTrackingEntity(
                     meal_id=row['id'],
@@ -291,6 +338,10 @@ class TrackingRepository:
                 )
                 for row in rows
             ]
+
+    async def get_user_weight_history(self, user_id: str, limit: int = 100) -> List[WeightTrackingEntity]:
+        """Alias for get_user_weight_entries for backward compatibility - Task: Add missing method"""
+        return await self.get_user_weight_entries(user_id, limit)
 
     async def delete_weight_entry(self, entry_id: str) -> bool:
         """Delete weight entry"""
