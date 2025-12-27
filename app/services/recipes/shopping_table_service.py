@@ -158,7 +158,18 @@ class ShoppingTableService:
                     )
 
                 row = cursor.fetchone()
-                return dict(row) if row else None
+                if not row:
+                    return None
+
+                row_dict = dict(row)
+                # Parse optimization_data JSON if present
+                if row_dict.get('optimization_data'):
+                    try:
+                        optimization_data = json.loads(row_dict['optimization_data'])
+                        row_dict.update(optimization_data)
+                    except (json.JSONDecodeError, TypeError):
+                        pass
+                return row_dict
 
         except Exception as e:
             logger.error(f"Error getting shopping optimization: {e}")
@@ -186,7 +197,18 @@ class ShoppingTableService:
                         (user_id, limit)
                     )
 
-                return [dict(row) for row in cursor.fetchall()]
+                results = []
+                for row in cursor.fetchall():
+                    row_dict = dict(row)
+                    # Parse optimization_data JSON if present
+                    if row_dict.get('optimization_data'):
+                        try:
+                            optimization_data = json.loads(row_dict['optimization_data'])
+                            row_dict.update(optimization_data)
+                        except (json.JSONDecodeError, TypeError):
+                            pass
+                    results.append(row_dict)
+                return results
 
         except Exception as e:
             logger.error(f"Error getting user optimizations: {e}")
@@ -257,7 +279,18 @@ class ShoppingTableService:
                     (optimization_id,)
                 )
 
-                return [dict(row) for row in cursor.fetchall()]
+                results = []
+                for row in cursor.fetchall():
+                    row_dict = dict(row)
+                    # Parse consolidation_data JSON if present
+                    if row_dict.get('consolidation_data'):
+                        try:
+                            consolidation_data = json.loads(row_dict['consolidation_data'])
+                            row_dict.update(consolidation_data)
+                        except (json.JSONDecodeError, TypeError):
+                            pass
+                    results.append(row_dict)
+                return results
 
         except Exception as e:
             logger.error(f"Error getting consolidations: {e}")
@@ -305,3 +338,120 @@ class ShoppingTableService:
         except Exception as e:
             logger.error(f"Error updating shopping preferences: {e}")
             return False
+
+    async def create_bulk_buying_suggestion(
+        self,
+        optimization_id: str,
+        consolidation_id: str,
+        suggestion_data: Dict[str, Any]
+    ) -> str:
+        """Create a bulk buying suggestion."""
+        try:
+            suggestion_id = str(uuid.uuid4())
+
+            with self.db_service.get_connection() as conn:
+                cursor = conn.cursor()
+
+                cursor.execute("""
+                    INSERT INTO bulk_buying_suggestions (
+                        id, optimization_id, consolidation_id, suggestion_data
+                    ) VALUES (?, ?, ?, ?)
+                """, (suggestion_id, optimization_id, consolidation_id, json.dumps(suggestion_data)))
+
+                conn.commit()
+                return suggestion_id
+
+        except Exception as e:
+            logger.error(f"Error creating bulk buying suggestion: {e}")
+            raise RuntimeError(f"Failed to create suggestion: {str(e)}")
+
+    async def get_bulk_buying_suggestions(self, optimization_id: str) -> List[Dict[str, Any]]:
+        """Get bulk buying suggestions for optimization."""
+        try:
+            with self.db_service.get_connection() as conn:
+                cursor = conn.cursor()
+
+                cursor.execute(
+                    "SELECT * FROM bulk_buying_suggestions WHERE optimization_id = ?",
+                    (optimization_id,)
+                )
+
+                results = []
+                for row in cursor.fetchall():
+                    row_dict = dict(row)
+                    # Parse suggestion_data JSON if present
+                    if row_dict.get('suggestion_data'):
+                        try:
+                            suggestion_data = json.loads(row_dict['suggestion_data'])
+                            row_dict.update(suggestion_data)
+                        except (json.JSONDecodeError, TypeError):
+                            pass
+                    results.append(row_dict)
+                return results
+
+        except Exception as e:
+            logger.error(f"Error getting bulk buying suggestions: {e}")
+            return []
+
+    async def create_shopping_path_segment(
+        self,
+        optimization_id: str,
+        segment_data: Dict[str, Any]
+    ) -> str:
+        """Create a shopping path segment."""
+        try:
+            segment_id = str(uuid.uuid4())
+
+            with self.db_service.get_connection() as conn:
+                cursor = conn.cursor()
+
+                cursor.execute("""
+                    INSERT INTO shopping_path_segments (
+                        id, optimization_id, segment_data
+                    ) VALUES (?, ?, ?)
+                """, (segment_id, optimization_id, json.dumps(segment_data)))
+
+                conn.commit()
+                return segment_id
+
+        except Exception as e:
+            logger.error(f"Error creating shopping path segment: {e}")
+            raise RuntimeError(f"Failed to create segment: {str(e)}")
+
+    async def get_shopping_path_segments(self, optimization_id: str) -> List[Dict[str, Any]]:
+        """Get shopping path segments for optimization."""
+        try:
+            with self.db_service.get_connection() as conn:
+                cursor = conn.cursor()
+
+                cursor.execute(
+                    "SELECT * FROM shopping_path_segments WHERE optimization_id = ?",
+                    (optimization_id,)
+                )
+
+                results = []
+                for row in cursor.fetchall():
+                    row_dict = dict(row)
+                    # Parse segment_data JSON if present
+                    if row_dict.get('segment_data'):
+                        try:
+                            segment_data = json.loads(row_dict['segment_data'])
+                            row_dict.update(segment_data)
+                        except (json.JSONDecodeError, TypeError):
+                            pass
+                    results.append(row_dict)
+                return results
+
+        except Exception as e:
+            logger.error(f"Error getting shopping path segments: {e}")
+            return []
+
+    async def get_stores(self, location: Optional[str] = None) -> List[Dict[str, Any]]:
+        """Get stores (stub implementation)."""
+        logger.warning("get_stores is not fully implemented")
+        return []
+
+    async def get_product_categories(self) -> List[Dict[str, Any]]:
+        """Get product categories (stub implementation)."""
+        logger.warning("get_product_categories is not fully implemented")
+        return []

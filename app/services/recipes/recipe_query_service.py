@@ -159,44 +159,46 @@ class RecipeQueryService:
                 nutrition_row = cursor.fetchone()
 
                 # Build recipe object
-                ingredients = [
-                    RecipeIngredient(
-                        name=row['ingredient_name'],
-                        quantity=row['quantity'],
-                        unit=row['unit'],
-                        barcode=row.get('barcode'),
-                        calories_per_unit=row.get('calories_per_unit'),
-                        protein_g_per_unit=row.get('protein_g_per_unit'),
-                        fat_g_per_unit=row.get('fat_g_per_unit'),
-                        carbs_g_per_unit=row.get('carbs_g_per_unit'),
-                        is_optional=bool(row.get('is_optional')),
-                        preparation_note=row.get('preparation_note')
-                    )
-                    for row in ingredient_rows
-                ]
+                # Convert sqlite3.Row to dict for .get() support
+                ingredients = []
+                for row in ingredient_rows:
+                    row_dict = dict(row)
+                    ingredients.append(RecipeIngredient(
+                        name=row_dict['ingredient_name'],
+                        quantity=row_dict['quantity'],
+                        unit=row_dict['unit'],
+                        barcode=row_dict.get('barcode'),
+                        calories_per_unit=row_dict.get('calories_per_unit'),
+                        protein_g_per_unit=row_dict.get('protein_g_per_unit'),
+                        fat_g_per_unit=row_dict.get('fat_g_per_unit'),
+                        carbs_g_per_unit=row_dict.get('carbs_g_per_unit'),
+                        is_optional=bool(row_dict.get('is_optional')),
+                        preparation_note=row_dict.get('preparation_note')
+                    ))
 
-                instructions = [
-                    RecipeInstruction(
-                        step_number=row['step_number'],
-                        instruction=row['instruction'],
-                        cooking_method=row.get('cooking_method'),
-                        duration_minutes=row.get('duration_minutes'),
-                        temperature_celsius=row.get('temperature_celsius')
-                    )
-                    for row in instruction_rows
-                ]
+                instructions = []
+                for row in instruction_rows:
+                    row_dict = dict(row)
+                    instructions.append(RecipeInstruction(
+                        step_number=row_dict['step_number'],
+                        instruction=row_dict['instruction'],
+                        cooking_method=row_dict.get('cooking_method'),
+                        duration_minutes=row_dict.get('duration_minutes'),
+                        temperature_celsius=row_dict.get('temperature_celsius')
+                    ))
 
                 nutrition = None
                 if nutrition_row:
+                    nutrition_dict = dict(nutrition_row)
                     nutrition = RecipeNutrition(
-                        calories_per_serving=nutrition_row['calories_per_serving'],
-                        protein_g_per_serving=nutrition_row['protein_g_per_serving'],
-                        fat_g_per_serving=nutrition_row['fat_g_per_serving'],
-                        carbs_g_per_serving=nutrition_row['carbs_g_per_serving'],
-                        fiber_g_per_serving=nutrition_row.get('fiber_g_per_serving'),
-                        sugar_g_per_serving=nutrition_row.get('sugar_g_per_serving'),
-                        sodium_mg_per_serving=nutrition_row.get('sodium_mg_per_serving'),
-                        recipe_score=nutrition_row.get('recipe_score')
+                        calories_per_serving=nutrition_dict['calories_per_serving'],
+                        protein_g_per_serving=nutrition_dict['protein_g_per_serving'],
+                        fat_g_per_serving=nutrition_dict['fat_g_per_serving'],
+                        carbs_g_per_serving=nutrition_dict['carbs_g_per_serving'],
+                        fiber_g_per_serving=nutrition_dict.get('fiber_g_per_serving'),
+                        sugar_g_per_serving=nutrition_dict.get('sugar_g_per_serving'),
+                        sodium_mg_per_serving=nutrition_dict.get('sodium_mg_per_serving'),
+                        recipe_score=nutrition_dict.get('recipe_score')
                     )
 
                 # Parse tags
@@ -343,7 +345,8 @@ class RecipeQueryService:
                     WHERE created_at >= ?
                 """, (cutoff_date,))
 
-                gen_stats = cursor.fetchone() or {}
+                gen_stats_row = cursor.fetchone()
+                gen_stats = dict(gen_stats_row) if gen_stats_row else {}
 
                 # Get top cuisines
                 cursor.execute("""
@@ -355,7 +358,7 @@ class RecipeQueryService:
                     LIMIT 5
                 """, (cutoff_date,))
 
-                top_cuisines = [{row['cuisine_type']: row['count']} for row in cursor.fetchall()]
+                top_cuisines = [dict(row) for row in cursor.fetchall()]
 
                 return {
                     'period_days': days,

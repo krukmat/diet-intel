@@ -25,15 +25,7 @@ class _BrokenConnection:
 @pytest.fixture
 def recipe_db(tmp_path):
     service = RecipeDatabaseService(str(tmp_path / "recipe-branches.db"))
-    base = Path(__file__).resolve().parents[2]
-    for rel_path in (
-        "database/migrations/03_user_taste_profiles.sql",
-        "database/migrations/04_shopping_optimization.sql",
-    ):
-        script_path = base / rel_path
-        if script_path.exists():
-            with service.get_connection() as conn:
-                conn.executescript(script_path.read_text())
+    # Tables are automatically initialized via schema_service and shopping_service in __init__
     return service
 
 

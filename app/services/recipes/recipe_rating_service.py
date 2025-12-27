@@ -265,7 +265,7 @@ class RecipeRatingService:
                 cursor = conn.cursor()
 
                 cursor.execute("""
-                    SELECT urr.*, r.cuisine_type, r.ingredients
+                    SELECT urr.*, r.cuisine_type
                     FROM user_recipe_ratings urr
                     JOIN recipes r ON urr.recipe_id = r.id
                     WHERE urr.user_id = ?

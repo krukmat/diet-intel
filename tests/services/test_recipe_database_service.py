@@ -65,17 +65,7 @@ def _sample_recipe():
 def recipe_service(tmp_path):
     db_path = tmp_path / "recipes.db"
     service = RecipeDatabaseService(str(db_path))
-
-    script_path = Path(__file__).resolve().parents[2] / "database" / "migrations" / "03_user_taste_profiles.sql"
-    if script_path.exists():
-        with service.get_connection() as conn:
-            conn.executescript(script_path.read_text())
-
-    shopping_script = Path(__file__).resolve().parents[2] / "database" / "migrations" / "04_shopping_optimization.sql"
-    if shopping_script.exists():
-        with service.get_connection() as conn:
-            conn.executescript(shopping_script.read_text())
-
+    # Tables are automatically initialized via schema_service and shopping_service in __init__
     return service
 
 
