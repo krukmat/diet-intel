@@ -151,6 +151,8 @@ def _get_cache_backend():
 def _get_openfoodfacts_backend():
     return getattr(openfoodfacts_module, 'openfoodfacts_service', openfoodfacts_service)
 from app.services.database import db_service
+from app.repositories.product_repository import ProductRepository
+from app.models.product import Product
 from app.services.analytics_service import AnalyticsService
 from app.services.auth import RequestContext, get_optional_request_context
 
@@ -458,18 +460,21 @@ async def get_product_by_barcode(
         # Store in database and cache
         product_dict = product.model_dump()
         await cache.set(cache_key, product_dict, ttl_hours=24)
-        
-        # Store in database for future lookups  
-        await db_service.store_product(
-            barcode=product.barcode,
-            name=product.name,
-            brand=product.brand,
-            categories=None,  # ProductResponse doesn't include categories
-            nutriments=product_dict.get('nutriments', {}),
-            serving_size=product.serving_size,
-            image_url=product.image_url,
-            source="OpenFoodFacts"
-        )
+
+        # Store in database for future lookups using Repository Pattern
+        try:
+            product_repo = ProductRepository()
+            product_entity = Product(
+                barcode=product.barcode,
+                name=product.name,
+                brand=product.brand,
+                serving_size=product.serving_size,
+                nutriments=product_dict.get('nutriments', {})
+            )
+            await product_repo.create(product_entity)
+        except Exception as e:
+            # Log but don't fail if database storage fails - cache is sufficient
+            logger.warning(f"Failed to store product {product.barcode} in database: {e}")
         
         response_time = int((datetime.now() - start_time).total_seconds() * 1000)
         await analytics_service.log_product_lookup(
