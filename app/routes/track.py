@@ -62,28 +62,52 @@ def _normalize_meal_items(raw_items) -> List[MealItem]:
     return normalized
 
 
-async def _parse_weight_request(request: Request) -> WeightTrackingRequest:
-    """Support both JSON and multipart submissions for weight tracking."""
-    content_type = request.headers.get("content-type", "")
-    if content_type and "multipart/form-data" in content_type.lower():
-        form = await request.form()
-        data = {}
-        for key, value in form.multi_items():
-            if key == "photo" and isinstance(value, UploadFile):
-                content_type = value.content_type or ""
-                if not content_type.lower().startswith("image/"):
-                    raise HTTPException(
-                        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                        detail="photo must be an image file"
-                    )
-            data[key] = value
-        try:
-            return WeightTrackingRequest(**data)
-        except (ValidationError, CoreValidationError) as exc:
-            raise RequestValidationError(exc.errors(), body=data) from exc
+def _validate_image_file(file: UploadFile) -> None:
+    """Validate that uploaded file is an image. Raises HTTPException if not.
 
+    Task 8: Extracted helper to reduce nesting depth from 6 to 2
+    """
+    content_type = file.content_type or ""
+    if not content_type.lower().startswith("image/"):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="photo must be an image file"
+        )
+
+
+async def _parse_multipart_data(request: Request) -> dict:
+    """Parse multipart/form-data request with image validation.
+
+    Task 8: Extracted helper to reduce nesting depth
+    """
+    form = await request.form()
+    data = {}
+
+    for key, value in form.multi_items():
+        # Guard clause: only validate photo files
+        if key != "photo":
+            data[key] = value
+            continue
+
+        # Guard clause: skip non-UploadFile photo fields
+        if not isinstance(value, UploadFile):
+            data[key] = value
+            continue
+
+        # Validate image and add to data
+        _validate_image_file(value)
+        data[key] = value
+
+    return data
+
+
+async def _parse_json_data(request: Request) -> dict:
+    """Parse JSON request body with error handling.
+
+    Task 8: Extracted helper to reduce nesting depth
+    """
     try:
-        payload = await request.json()
+        return await request.json()
     except Exception as exc:
         raise RequestValidationError(
             [
@@ -94,10 +118,35 @@ async def _parse_weight_request(request: Request) -> WeightTrackingRequest:
                 }
             ]
         ) from exc
+
+
+def _create_weight_request(data: dict) -> WeightTrackingRequest:
+    """Create WeightTrackingRequest with validation error handling.
+
+    Task 8: Extracted helper to reduce nesting depth
+    """
     try:
-        return WeightTrackingRequest(**payload)
+        return WeightTrackingRequest(**data)
     except (ValidationError, CoreValidationError) as exc:
-        raise RequestValidationError(exc.errors(), body=payload) from exc
+        raise RequestValidationError(exc.errors(), body=data) from exc
+
+
+async def _parse_weight_request(request: Request) -> WeightTrackingRequest:
+    """Support both JSON and multipart submissions for weight tracking.
+
+    Task 8: Refactored to reduce nesting from depth 6 to 2 using guard clauses
+    and extracted helpers for image validation, multipart parsing, and JSON parsing.
+    """
+    content_type = request.headers.get("content-type", "")
+
+    # Guard clause: handle multipart requests
+    if content_type and "multipart/form-data" in content_type.lower():
+        data = await _parse_multipart_data(request)
+        return _create_weight_request(data)
+
+    # Default: handle JSON requests
+    payload = await _parse_json_data(request)
+    return _create_weight_request(payload)
 
 
 @router.post("/meal", response_model=MealTrackingResponse)
@@ -254,39 +303,52 @@ async def track_weight(
             detail=f"Failed to track weight: {str(e)}"
         )
 
+def _build_meal_item(item_data: dict) -> MealItem:
+    """Build a MealItem from raw record data.
+
+    Task 8: Extracted helper to reduce nesting depth in get_meal_history
+    """
+    return MealItem(
+        barcode=item_data.get('barcode', ''),
+        name=item_data.get('name', ''),
+        serving=item_data.get('serving', ''),
+        calories=item_data.get('calories', 0.0),
+        macros=item_data.get('macros', {}),
+    )
+
+
+def _build_meal_response(record: dict) -> MealTrackingResponse:
+    """Build a MealTrackingResponse from raw meal record.
+
+    Task 8: Extracted helper to reduce nesting depth in get_meal_history
+    """
+    items = [_build_meal_item(item) for item in record.get('items', [])]
+
+    return MealTrackingResponse(
+        id=record['id'],
+        meal_name=record['meal_name'],
+        items=items,
+        total_calories=record.get('total_calories', 0.0),
+        photo_url=record.get('photo_url'),
+        timestamp=record['timestamp'],
+        created_at=record['created_at'],
+    )
+
+
 @router.get("/meals", response_model=MealHistoryResponse)
 async def get_meal_history(req: Request, limit: Optional[int] = 50):
-    """Return tracked meals for the current session/user."""
+    """Return tracked meals for the current session/user.
+
+    Task 8: Refactored to reduce nesting depth using extracted helpers
+    """
     try:
         user_id = await get_session_user_id(req)
 
         # Pull meals from persistent storage
         meals_raw = await tracking_service.get_user_meals(user_id, limit or 50)
 
-        meals: List[MealTrackingResponse] = []
-        for record in meals_raw:
-            items = [
-                MealItem(
-                    barcode=item.get('barcode', ''),
-                    name=item.get('name', ''),
-                    serving=item.get('serving', ''),
-                    calories=item.get('calories', 0.0),
-                    macros=item.get('macros', {}),
-                )
-                for item in record.get('items', [])
-            ]
-
-            meals.append(
-                MealTrackingResponse(
-                    id=record['id'],
-                    meal_name=record['meal_name'],
-                    items=items,
-                    total_calories=record.get('total_calories', 0.0),
-                    photo_url=record.get('photo_url'),
-                    timestamp=record['timestamp'],
-                    created_at=record['created_at'],
-                )
-            )
+        # Build meal responses from raw records
+        meals = [_build_meal_response(record) for record in meals_raw]
 
         return MealHistoryResponse(meals=meals, count=len(meals))
 
@@ -300,56 +362,80 @@ async def get_meal_history(req: Request, limit: Optional[int] = 50):
         )
 
 
+def _build_weight_response(record: dict) -> Optional[WeightTrackingResponse]:
+    """Build a WeightTrackingResponse from raw weight record.
+
+    Task 8: Extracted helper to reduce nesting depth in get_weight_history
+    Guard clause: returns None if weight value is missing
+    """
+    weight_value = record.get('weight', record.get('weight_kg'))
+
+    if weight_value is None:
+        return None
+
+    date_dt = _coerce_datetime(record.get('date'))
+    created_at_dt = _coerce_datetime(record.get('created_at'), default=date_dt)
+
+    return WeightTrackingResponse(
+        id=record['id'],
+        weight=weight_value,
+        date=date_dt,
+        photo_url=record.get('photo_url'),
+        created_at=created_at_dt
+    )
+
+
+def _calculate_date_range(entries: List[WeightTrackingResponse]) -> dict:
+    """Calculate earliest and latest dates from weight entries.
+
+    Task 8: Extracted helper to reduce nesting depth in get_weight_history
+    Guard clause: returns empty dict if no entries
+    """
+    if not entries:
+        return {}
+
+    dates = [
+        entry.date.replace(tzinfo=None) if entry.date.tzinfo else entry.date
+        for entry in entries
+    ]
+
+    return {
+        "earliest": min(dates),
+        "latest": max(dates)
+    }
+
+
 @router.get("/weight/history", response_model=WeightHistoryResponse)
 async def get_weight_history(req: Request, limit: Optional[int] = 30):
     """
     Get weight tracking history
+
+    Task 8: Refactored to reduce nesting depth using extracted helpers
     """
     try:
         # Get user context (authenticated or session-based anonymous)
         user_id = await get_session_user_id(req)
-        
+
         # Get weight history from database
         weight_history = await tracking_service.get_weight_history(user_id, limit or 30)
-        
-        # Convert to response models (accept legacy keys)
-        entries: List[WeightTrackingResponse] = []
-        for record in weight_history:
-            weight_value = record.get('weight', record.get('weight_kg'))
-            if weight_value is None:
-                continue
-            date_dt = _coerce_datetime(record.get('date'))
-            created_at_dt = _coerce_datetime(record.get('created_at'), default=date_dt)
 
-            entries.append(
-                WeightTrackingResponse(
-                    id=record['id'],
-                    weight=weight_value,
-                    date=date_dt,
-                    photo_url=record.get('photo_url'),
-                    created_at=created_at_dt
-                )
-            )
-        
+        # Convert to response models (accept legacy keys), filtering out invalid entries
+        entries = [
+            response for response in
+            (_build_weight_response(record) for record in weight_history)
+            if response is not None
+        ]
+
         # Calculate date range
-        date_range = {}
-        if entries:
-            dates = [
-                entry.date.replace(tzinfo=None) if entry.date.tzinfo else entry.date
-                for entry in entries
-            ]
-            date_range = {
-                "earliest": min(dates),
-                "latest": max(dates)
-            }
-        
+        date_range = _calculate_date_range(entries)
+
         return WeightHistoryResponse(
             entries=entries,
             count=len(entries),
             date_range=date_range,
             history=entries
         )
-    
+
     except HTTPException:
         # Re-raise HTTPException to preserve intended status codes
         raise
@@ -360,45 +446,66 @@ async def get_weight_history(req: Request, limit: Optional[int] = 30):
             detail=f"Failed to get weight history: {str(e)}"
         )
 
+def _parse_photo_timestamp(timestamp_value) -> datetime:
+    """Parse timestamp from photo log entry, handling multiple formats.
+
+    Task 8: Extracted helper to reduce nesting depth in get_photo_logs
+    """
+    if isinstance(timestamp_value, datetime):
+        return timestamp_value
+
+    if isinstance(timestamp_value, str):
+        try:
+            return datetime.fromisoformat(timestamp_value.replace('Z', '+00:00'))
+        except ValueError:
+            return datetime.now()
+
+    return datetime.now()
+
+
+def _build_photo_log_entry(entry: dict) -> PhotoLogEntry:
+    """Build a PhotoLogEntry from raw database record.
+
+    Task 8: Extracted helper to reduce nesting depth in get_photo_logs
+    """
+    timestamp_value = entry.get('timestamp', entry.get('date'))
+    timestamp = _parse_photo_timestamp(timestamp_value)
+
+    return PhotoLogEntry(
+        id=entry['id'],
+        timestamp=timestamp,
+        photo_url=entry['photo_url'],
+        type=entry.get('type', 'meal'),
+        description=entry.get('description')
+    )
+
+
 @router.get("/photos", response_model=PhotoLogsResponse)
 async def get_photo_logs(req: Request, limit: Optional[int] = 50):
     """
     Get timeline of all food and weight photos
+
+    Task 8: Refactored to reduce nesting depth using extracted helpers
     """
     try:
         # Get user context (authenticated or session-based anonymous)
         user_id = await get_session_user_id(req)
-        photo_logs = []
-        
+
+        # Get photo logs from database
         db_logs = await tracking_service.get_photo_logs(user_id, limit or 50)
 
+        # Guard clause: apply limit if specified
         if limit:
             db_logs = db_logs[:limit]
 
-        photo_logs: List[PhotoLogEntry] = []
-        for entry in db_logs:
-            timestamp = entry.get('timestamp', entry.get('date'))
-            if isinstance(timestamp, str):
-                try:
-                    timestamp = datetime.fromisoformat(timestamp.replace('Z', '+00:00'))
-                except ValueError:
-                    timestamp = datetime.now()
-
-            photo_logs.append(
-                PhotoLogEntry(
-                    id=entry['id'],
-                    timestamp=timestamp,
-                    photo_url=entry['photo_url'],
-                    type=entry.get('type', 'meal'),
-                    description=entry.get('description')
-                )
-            )
+        # Build photo log entries from raw records
+        photo_logs = [_build_photo_log_entry(entry) for entry in db_logs]
 
         return PhotoLogsResponse(
             logs=photo_logs,
             count=len(photo_logs)
         )
-    
+
     except HTTPException:
         # Re-raise HTTPException to preserve intended status codes
         raise

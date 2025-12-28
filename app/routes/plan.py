@@ -17,6 +17,46 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
+def _validate_user_profile(profile) -> None:
+    """Validate user profile age, height, and weight values.
+
+    Task 8: Extracted helper to reduce nesting depth in generate_meal_plan
+    """
+    if profile.age < 10 or profile.age > 120:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Age must be between 10 and 120 years"
+        )
+
+    if profile.height_cm < 100 or profile.height_cm > 250:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Height must be between 100 and 250 cm"
+        )
+
+    if profile.weight_kg < 30 or profile.weight_kg > 300:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Weight must be between 30 and 300 kg"
+        )
+
+
+def _validate_plan_quality(plan) -> None:
+    """Validate generated meal plan meets quality criteria.
+
+    Task 8: Extracted helper to reduce nesting depth in generate_meal_plan
+    """
+    calorie_diff = abs(plan.metrics.total_calories - plan.daily_calorie_target)
+    calorie_tolerance = plan.daily_calorie_target * 0.20  # 20% tolerance for validation
+
+    # Guard clause: only warn if significant difference exists
+    if calorie_diff <= calorie_tolerance or plan.metrics.total_calories == 0:
+        return
+
+    logger.warning(f"Plan calories {plan.metrics.total_calories} differ significantly "
+                  f"from target {plan.daily_calorie_target}")
+
+
 @router.post(
     "/generate",
     response_model=MealPlanResponse,
@@ -28,7 +68,7 @@ router = APIRouter()
 async def generate_meal_plan(request: MealPlanRequest, req: Request):
     """
     Generate a daily meal plan based on user profile and preferences.
-    
+
     This endpoint:
     1. Calculates BMR using Mifflin-St Jeor equation
     2. Computes TDEE based on activity level
@@ -40,75 +80,53 @@ async def generate_meal_plan(request: MealPlanRequest, req: Request):
        - Max 3 items per meal (5 with flexibility=true)
        - Stays within calorie tolerance (±5% strict, ±15% flexible)
     6. Returns complete plan with BMR/TDEE, meals, and macro totals
-    
+
     Args:
         request: MealPlanRequest with user profile, preferences, and options
-        
+
     Returns:
         MealPlanResponse with complete daily meal plan and nutritional metrics
-        
+
     Raises:
         HTTPException: 400 for invalid data, 500 for processing errors
     """
     try:
-        # Validate user profile data
+        # Get and validate user profile data
         profile = request.user_profile
-        
-        # Basic validation - these should be caught by Pydantic but adding extra safety
-        if profile.age < 10 or profile.age > 120:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Age must be between 10 and 120 years"
-            )
-        
-        if profile.height_cm < 100 or profile.height_cm > 250:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Height must be between 100 and 250 cm"
-            )
-        
-        if profile.weight_kg < 30 or profile.weight_kg > 300:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Weight must be between 30 and 300 kg"
-            )
-        
+        _validate_user_profile(profile)
+
         # Log request info
         logger.info(f"Generating meal plan for {profile.sex.value}, age {profile.age}, "
                    f"goal: {profile.goal.value}, activity: {profile.activity_level.value}")
-        
+
+        # Guard clause: log optional products if provided
         if request.optional_products:
             logger.info(f"Including {len(request.optional_products)} optional products")
-        
+
         # Get user context
         user_id = await get_session_user_id(req)
-        
+
         # Generate the meal plan
         plan = await meal_planner.generate_plan(request)
-        
+
         # Store the plan for future customization
         plan_id = await plan_storage.store_plan(plan, user_id=user_id)
         logger.info(f"Plan Storage Debug - Generated plan_id: {plan_id}")
-        
+
         # Include the plan ID in the response
         plan.plan_id = plan_id
         logger.info(f"Plan Storage Debug - Set plan.plan_id to: {plan.plan_id}")
-        
+
         # Log results
         logger.info(f"Generated meal plan {plan_id}: {plan.daily_calorie_target} kcal target, "
                    f"{plan.metrics.total_calories} kcal actual, "
                    f"{len([item for meal in plan.meals for item in meal.items])} total items")
-        
+
         # Validate plan quality
-        calorie_diff = abs(plan.metrics.total_calories - plan.daily_calorie_target)
-        calorie_tolerance = plan.daily_calorie_target * 0.20  # 20% tolerance for validation
-        
-        if calorie_diff > calorie_tolerance and plan.metrics.total_calories > 0:
-            logger.warning(f"Plan calories {plan.metrics.total_calories} differ significantly "
-                          f"from target {plan.daily_calorie_target}")
-        
+        _validate_plan_quality(plan)
+
         return plan
-        
+
     except HTTPException:
         raise
     except ValueError as e:
@@ -337,6 +355,120 @@ async def delete_meal_plan(plan_id: str, req: Request):
     return {"message": f"Meal plan {plan_id} deleted successfully"}
 
 
+def _validate_meal_type(meal_type_str: str) -> str:
+    """Validate and normalize meal type.
+
+    Task 8: Extracted helper to reduce nesting depth in add_product_to_plan
+    """
+    valid_meals = ["breakfast", "lunch", "dinner"]
+    meal_type = meal_type_str.lower() if meal_type_str else "lunch"
+
+    if meal_type not in valid_meals:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid meal_type. Must be one of: {valid_meals}"
+        )
+
+    return meal_type
+
+
+async def _get_user_meal_plan(user_id: str):
+    """Retrieve user's most recent meal plan.
+
+    Task 8: Extracted helper to reduce nesting depth in add_product_to_plan
+    Returns: (plan_id, AddProductResponse or None)
+    """
+    meal_plan_repo = MealPlanRepository()
+    user_plans = await meal_plan_repo.get_by_user_id(user_id, limit=1)
+
+    # Guard clause: no plans found
+    if not user_plans:
+        return None, AddProductResponse(
+            success=False,
+            message="No meal plan found. Please generate a meal plan first from the Plan tab.",
+            meal_type=None,
+            product_name=None,
+            calories_added=None
+        )
+
+    plan_id = user_plans[0].id
+
+    # Guard clause: invalid plan data
+    if not plan_id:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Invalid plan data structure"
+        )
+
+    return plan_id, None
+
+
+async def _lookup_and_extract_product(barcode: str, meal_type: str):
+    """Look up product by barcode and extract nutrition data.
+
+    Task 8: Extracted helper to reduce nesting depth in add_product_to_plan
+    Returns: (product, calories_per_100g, nutrition_dict, AddProductResponse or None)
+    """
+    try:
+        product = await openfoodfacts_service.get_product(barcode)
+    except Exception as e:
+        logger.error(f"Error looking up product {barcode}: {e}")
+        return None, None, None, AddProductResponse(
+            success=False,
+            message="Error looking up product. Please try again.",
+            meal_type=meal_type,
+            product_name=None,
+            calories_added=None
+        )
+
+    # Guard clause: product not found
+    if not product:
+        return None, None, None, AddProductResponse(
+            success=False,
+            message=f"Product with barcode {barcode} not found in database.",
+            meal_type=meal_type,
+            product_name=None,
+            calories_added=None
+        )
+
+    # Extract nutritional data - handle potential missing data
+    nutriments = product.nutriments if hasattr(product, 'nutriments') else None
+    if nutriments:
+        calories_per_100g = float(nutriments.energy_kcal_per_100g or 0)
+        nutrition_dict = {
+            'protein_g': float(nutriments.protein_g_per_100g or 0),
+            'fat_g': float(nutriments.fat_g_per_100g or 0),
+            'carbs_g': float(nutriments.carbs_g_per_100g or 0),
+            'sugars_g': float(nutriments.sugars_g_per_100g or 0),
+            'salt_g': float(nutriments.salt_g_per_100g or 0),
+        }
+    else:
+        calories_per_100g = 0.0
+        nutrition_dict = {
+            'protein_g': 0.0,
+            'fat_g': 0.0,
+            'carbs_g': 0.0,
+            'sugars_g': 0.0,
+            'salt_g': 0.0,
+        }
+
+    return product, calories_per_100g, nutrition_dict, None
+
+
+def _extract_error_message_from_log(change_log, product_name: str) -> str:
+    """Extract error message from change log for add_manual operation.
+
+    Task 8: Extracted helper to reduce nesting depth in add_product_to_plan
+    """
+    for log in change_log:
+        # Guard clause: only look for add_manual failures
+        if log.change_type != "add_manual" or log.success:
+            continue
+        return log.description
+
+    return "Unknown error occurred"
+
+
 @router.post(
     "/add-product",
     response_model=AddProductResponse,
@@ -349,104 +481,58 @@ async def delete_meal_plan(plan_id: str, req: Request):
 async def add_product_to_plan(request: AddProductRequest, req: Request):
     """
     Add a product to the user's current meal plan.
-    
+
     This endpoint:
     1. Finds the user's most recent meal plan
     2. Looks up product details by barcode using OpenFoodFacts
     3. Converts product to ManualAddition format
     4. Uses existing plan customization to add the product
     5. Returns success/failure response with details
-    
+
     Args:
         request: AddProductRequest with barcode, meal_type, and optional serving_size
         req: FastAPI Request for user context
-        
+
     Returns:
         AddProductResponse with success status, message, and product details
-        
+
     Raises:
         HTTPException: 400 for invalid data/no plan, 404 for missing product/plan, 500 for processing errors
     """
     try:
         # Get user context
         user_id = await get_session_user_id(req)
-        
-        # Validate meal type
-        valid_meals = ["breakfast", "lunch", "dinner"]
-        meal_type = request.meal_type.lower() if request.meal_type else "lunch"
-        if meal_type not in valid_meals:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Invalid meal_type. Must be one of: {valid_meals}"
-            )
-        
-        # Get user's most recent meal plan
-        meal_plan_repo = MealPlanRepository()
-        user_plans = await meal_plan_repo.get_by_user_id(user_id, limit=1)
-        if not user_plans:
-            return AddProductResponse(
-                success=False,
-                message="No meal plan found. Please generate a meal plan first from the Plan tab.",
-                meal_type=None,
-                product_name=None,
-                calories_added=None
-            )
 
-        plan_id = user_plans[0].id
-        if not plan_id:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Invalid plan data structure"
-            )
-        
-        # Look up product by barcode
-        try:
-            product = await openfoodfacts_service.get_product(request.barcode)
-            if not product:
-                return AddProductResponse(
-                    success=False,
-                    message=f"Product with barcode {request.barcode} not found in database.",
-                    meal_type=meal_type,
-                    product_name=None,
-                    calories_added=None
-                )
-        except Exception as e:
-            logger.error(f"Error looking up product {request.barcode}: {e}")
-            return AddProductResponse(
-                success=False,
-                message="Error looking up product. Please try again.",
-                meal_type=meal_type,
-                product_name=None,
-                calories_added=None
-            )
-        
+        # Validate and normalize meal type
+        meal_type = _validate_meal_type(request.meal_type)
+
+        # Get user's most recent meal plan
+        plan_id, error_response = await _get_user_meal_plan(user_id)
+        if error_response:
+            return error_response
+
+        # Look up product and extract nutrition data
+        product, calories_per_100g, nutrition_dict, error_response = await _lookup_and_extract_product(
+            request.barcode, meal_type
+        )
+        if error_response:
+            return error_response
+
         # Determine serving size - use custom size or default to 100g
         serving_size = request.serving_size if request.serving_size else "100g"
-        
-        # Extract nutritional data - handle potential missing data
-        nutriments = product.nutriments if hasattr(product, 'nutriments') else None
-        if nutriments:
-            calories_per_100g = float(nutriments.energy_kcal_per_100g or 0)
-            protein_g = float(nutriments.protein_g_per_100g or 0)
-            fat_g = float(nutriments.fat_g_per_100g or 0)
-            carbs_g = float(nutriments.carbs_g_per_100g or 0)
-            sugars_g = float(nutriments.sugars_g_per_100g or 0)
-            salt_g = float(nutriments.salt_g_per_100g or 0)
-        else:
-            calories_per_100g = protein_g = fat_g = carbs_g = sugars_g = salt_g = 0.0
-        
+
         # Convert to ManualAddition format
         manual_item = ManualAddition(
             name=getattr(product, 'name', None) or getattr(product, 'product_name', 'Unknown Product'),
-            calories=calories_per_100g,  # Corrected field name
-            protein_g=protein_g,
-            fat_g=fat_g,
-            carbs_g=carbs_g,
-            sugars_g=sugars_g,
-            salt_g=salt_g,
+            calories=calories_per_100g,
+            protein_g=nutrition_dict['protein_g'],
+            fat_g=nutrition_dict['fat_g'],
+            carbs_g=nutrition_dict['carbs_g'],
+            sugars_g=nutrition_dict['sugars_g'],
+            salt_g=nutrition_dict['salt_g'],
             serving=serving_size
         )
-        
+
         # Get the current plan
         plan = await plan_storage.get_plan(plan_id)
         if not plan:
@@ -457,13 +543,13 @@ async def add_product_to_plan(request: AddProductRequest, req: Request):
                 product_name=product.name,
                 calories_added=None
             )
-        
+
         # Create customization request with manual addition
         customization = PlanCustomizationRequest(add_manual=manual_item)
-        
+
         # Apply customization
         updated_plan, change_log = await plan_customizer.customize_plan(plan, customization)
-        
+
         # Update stored plan
         success = await plan_storage.update_plan(plan_id, updated_plan)
         if not success:
@@ -475,13 +561,14 @@ async def add_product_to_plan(request: AddProductRequest, req: Request):
                 product_name=product.name,
                 calories_added=None
             )
-        
+
         # Check if addition was successful by examining change log
         addition_successful = any(
             log.change_type == "add_manual"
             for log in change_log
         )
-        
+
+        # Guard clause: success path
         if addition_successful:
             logger.info(f"Successfully added {product.name} to {meal_type} for user {user_id}")
             return AddProductResponse(
@@ -491,22 +578,18 @@ async def add_product_to_plan(request: AddProductRequest, req: Request):
                 product_name=product.name,
                 calories_added=calories_per_100g
             )
-        else:
-            # Find the specific error from change log
-            error_msg = "Unknown error occurred"
-            for log in change_log:
-                if log.change_type == "add_manual" and not log.success:
-                    error_msg = log.description
-                    break
-            
-            return AddProductResponse(
-                success=False,
-                message=f"Could not add {product.name}: {error_msg}",
-                meal_type=meal_type,
-                product_name=product.name,
-                calories_added=None
-            )
-        
+
+        # Failure path: find specific error from change log
+        error_msg = _extract_error_message_from_log(change_log, product.name)
+
+        return AddProductResponse(
+            success=False,
+            message=f"Could not add {product.name}: {error_msg}",
+            meal_type=meal_type,
+            product_name=product.name,
+            calories_added=None
+        )
+
     except HTTPException:
         raise
     except Exception as e:
