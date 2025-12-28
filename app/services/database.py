@@ -499,9 +499,11 @@ class DatabaseService:
             """)
             
             # Product database for caching and offline support
+            # Task: 2025-12-28 - Add id column as PRIMARY KEY for ProductRepository compatibility
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS products (
-                    barcode TEXT PRIMARY KEY,
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    barcode TEXT UNIQUE NOT NULL,
                     name TEXT NOT NULL,
                     brand TEXT,
                     categories TEXT,
@@ -562,6 +564,7 @@ class DatabaseService:
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_ocr_scan_analytics_session ON ocr_scan_analytics(session_id)")
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_ocr_scan_analytics_timestamp ON ocr_scan_analytics(timestamp)")
             
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_products_barcode ON products(barcode)")
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_products_name ON products(name)")
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_products_brand ON products(brand)")
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_products_access_count ON products(access_count)")
