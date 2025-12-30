@@ -1,0 +1,367 @@
+diff --git a/.clineignore b/.clineignore
+new file mode 100644
+index 0000000..40e4540
+--- /dev/null
++++ b/.clineignore
+@@ -0,0 +1,24 @@
++# deps/build
++node_modules/
++dist/
++build/
++coverage/
++.venv/
++__pycache__/
++*.log
++
++# caches
++.DS_Store
++
++# secrets
++.env
++.env.*
++*.key
++*.pem
++
++# large artifacts
++*.zip
++*.png
++*.jpg
++*.mp4
++*.pdf
+\ No newline at end of file
+diff --git a/.clinerules/local-first-then-codex.md b/.clinerules/local-first-then-codex.md
+new file mode 100644
+index 0000000..334b78b
+--- /dev/null
++++ b/.clinerules/local-first-then-codex.md
+@@ -0,0 +1,140 @@
++# Policy: Local-first (Ollama) then Codex (CLI)
++
++## Purpose
++Centralize the development workflow in Cline using a local model by default (Ollama). Escalate to Codex CLI only when the task exceeds safe/local limits. This policy enforces predictable cost, tight scope control, and repeatable handoffs.
++
++---
++
++## Default mode: Local-first
++You MUST use the configured local model (Ollama via OpenAI-compatible endpoint) by default.
++
++In local-first mode:
++- Prefer small, incremental changes.
++- Prefer minimal diffs; avoid refactors unless explicitly requested.
++- If the change impacts more than 2 files, you MUST propose a plan before editing.
++- When uncertain, ask for missing context or search the repo; do not guess.
++
++---
++
++## Scope discipline
++You MUST:
++- Implement only what is requested and/or agreed in the plan.
++- Avoid “extra improvements” unless explicitly requested.
++- Preserve existing behavior unless acceptance criteria require changes.
++- Maintain consistent style, naming, and patterns in the codebase.
++
++---
++
++## Verification discipline (local-first)
++Before claiming completion you MUST:
++- Run the explicit commands listed in the task/request (tests/build/linters).
++- If no commands are provided, propose a minimal verification set and ask approval before running.
++- Report results (pass/fail) and include relevant excerpts of output.
++
++---
++
++## Stop & escalate to Codex (do NOT continue in Cline) if ANY applies
++If ANY of the following is true, you MUST stop local implementation and create a Codex Handoff Packet instead:
++
++1) Change is large:
++   - More than 5 files will be touched, OR
++   - Cross-module refactor, OR
++   - Broad rename/migration across the repo.
++
++2) High iteration expected:
++   - Requires repeated test/build debugging, OR
++   - Complex dependency issues, OR
++   - Non-trivial environment/tooling troubleshooting.
++
++3) Sensitive/high-risk areas:
++   - Auth/security, permissions, data migrations, payments,
++   - CI/CD pipelines, infra/terraform, secrets management.
++
++4) Uncertainty / hallucination risk:
++   - Local model is missing critical context, OR
++   - The solution would require guessing external behavior, OR
++   - The task requires extensive reasoning beyond the local model’s reliability.
++
++---
++
++## Codex Handoff Packet (required output when escalating)
++When escalating, you MUST create or update:
++
++- `docs/handoff/codex_task.md`
++
++It MUST follow this structure:
++
++# CODEX HANDOFF
++
++PRIORITY: LOW|MEDIUM|HIGH
++# Optional override:
++# CODEX_MODEL: <model-id>
++
++## Goal
++(One paragraph.)
++
++## Non-goals
++- ...
++
++## Proposed steps
++1) ...
++2) ...
++
++## Files to change
++- path/to/file1
++- path/to/file2
++
++## Commands to run
++- Exact commands, no guessing.
++
++## Acceptance criteria
++- ...
++
++## Rollback plan
++- ...
++
++### Priority rules
++You MUST set:
++- `PRIORITY: HIGH` when ANY escalation condition (1–4) is strongly present, especially:
++  - >5 files, cross-module changes,
++  - sensitive areas (security/data/CI),
++  - repeated debugging expected.
++
++If uncertain between MEDIUM and HIGH, choose HIGH.
++
++### Model selection rules (informational)
++The runner will select:
++- Default: codex-mini
++- If `PRIORITY: HIGH`: codex-max
++- If `CODEX_MODEL:` is present: that override wins
++
++---
++
++## Coordination: waiting for Codex output
++After writing `docs/handoff/codex_task.md`:
++
++- If `PRIORITY: HIGH`, you MUST stop and instruct the user to run the Codex runner.
++  - You MUST wait until `docs/handoff/codex_result.md` exists/has been updated.
++  - Then you MUST read `docs/handoff/codex_result.md` and continue with:
++    - review, cleanup, documentation, and next steps.
++
++- If `PRIORITY: LOW` or `MEDIUM`, you SHOULD still prefer the same handoff workflow if the user requests it.
++
++---
++
++## Post-Codex responsibilities (back in Cline)
++Once `docs/handoff/codex_result.md` is available, you MUST:
++- Summarize what changed (files + intent).
++- Validate the changes align with Goal/Non-goals and Acceptance Criteria.
++- Identify any scope creep.
++- Ensure tests/build are green per the recorded outputs.
++- Propose follow-up tasks if needed (but do not implement unless requested).
++
++---
++
++## Output format expectations
++When working locally (non-escalated), your output MUST include:
++- Plan (if >2 files)
++- List of files changed
++- Commands executed + results
++- Any remaining risks / open questions
+diff --git a/tools/codex-handoff.sh b/tools/codex-handoff.sh
+new file mode 100755
+index 0000000..b0f1997
+--- /dev/null
++++ b/tools/codex-handoff.sh
+@@ -0,0 +1,128 @@
++#!/usr/bin/env bash
++set -euo pipefail
++
++TASK_FILE="docs/handoff/codex_task.md"
++OUT_FILE="docs/handoff/codex_result.md"
++STATE_DIR=".codex"
++LOCK_FILE="$STATE_DIR/running.lock"
++HASH_FILE="$STATE_DIR/last_task.sha"
++
++DEFAULT_MINI="${CODEX_MODEL_MINI:-gpt-5.1-codex-mini}"
++DEFAULT_MAX="${CODEX_MODEL_MAX:-gpt-5.1-codex-max}"
++
++mkdir -p "$(dirname "$OUT_FILE")" "$STATE_DIR"
++
++if [[ ! -f "$TASK_FILE" ]]; then
++  echo "No task file found: $TASK_FILE"
++  exit 0
++fi
++
++# Debounce: run only if task content changed
++NEW_HASH="$(shasum -a 256 "$TASK_FILE" | awk '{print $1}')"
++OLD_HASH=""
++if [[ -f "$HASH_FILE" ]]; then OLD_HASH="$(cat "$HASH_FILE")"; fi
++if [[ "$NEW_HASH" == "$OLD_HASH" ]]; then
++  echo "Codex handoff unchanged; skipping."
++  exit 0
++fi
++
++# Lock to avoid concurrent runs
++if [[ -f "$LOCK_FILE" ]]; then
++  echo "Codex runner already running; skipping."
++  exit 0
++fi
++trap 'rm -f "$LOCK_FILE"' EXIT
++touch "$LOCK_FILE"
++
++echo "$NEW_HASH" > "$HASH_FILE"
++
++# -------- Model selection (simple parsing) --------
++# Read first matching CODEX_MODEL: line (if present)
++MODEL_OVERRIDE="$(
++  awk 'BEGIN{IGNORECASE=1}
++       /^[[:space:]]*CODEX_MODEL[[:space:]]*:/{
++         sub(/^[^:]*:[[:space:]]*/, "", $0);
++         print $0; exit
++       }' "$TASK_FILE" | tr -d '\r' | xargs || true
++)"
++
++# Read first matching PRIORITY: line (if present)
++PRIORITY="$(
++  awk 'BEGIN{IGNORECASE=1}
++       /^[[:space:]]*PRIORITY[[:space:]]*:/{
++         sub(/^[^:]*:[[:space:]]*/, "", $0);
++         print toupper($0); exit
++       }' "$TASK_FILE" | tr -d '\r' | xargs || true
++)"
++
++MODEL="$DEFAULT_MINI"
++if [[ -n "${MODEL_OVERRIDE:-}" ]]; then
++  MODEL="$MODEL_OVERRIDE"
++else
++  if [[ "${PRIORITY:-}" == "HIGH" ]]; then
++    MODEL="$DEFAULT_MAX"
++  fi
++fi
++# -------------------------------------------------
++
++{
++  echo "# Codex Result"
++  echo
++  echo "## Timestamp"
++  date
++  echo
++  echo "## Selected model"
++  echo "\`$MODEL\`"
++  echo
++  echo "## Priority"
++  echo "\`${PRIORITY:-UNSPECIFIED}\`"
++  echo
++  echo "## Task file"
++  echo "\`$TASK_FILE\`"
++  echo
++  echo "## Pre-run git status"
++  echo '```'
++  git status --porcelain || true
++  echo '```'
++  echo
++  echo "## Codex output"
++  echo '```'
++} > "$OUT_FILE"
++
++set +e
++codex exec -m "$MODEL" "Follow the instructions in $TASK_FILE. Make minimal changes. Run the listed commands. Summarize changes and include test output." \
++  >> "$OUT_FILE" 2>&1
++CODEX_EXIT=$?
++set -e
++
++{
++  echo '```'
++  echo
++  echo "## Post-run git diff (stat)"
++  echo '```'
++  git diff --stat || true
++  echo '```'
++  echo
++  echo "## Post-run git status"
++  echo '```'
++  git status --porcelain || true
++  echo '```'
++  echo
++  echo "## Codex exit code"
++  echo "$CODEX_EXIT"
++} >> "$OUT_FILE"
++
++# Optional: repo verification hook (recommended)
++if [[ -x "tools/verify.sh" ]]; then
++  {
++    echo
++    echo "## Verification (tools/verify.sh)"
++    echo '```'
++  } >> "$OUT_FILE"
++  set +e
++  tools/verify.sh >> "$OUT_FILE" 2>&1
++  set -e
++  echo '```' >> "$OUT_FILE"
++fi
++
++exit "$CODEX_EXIT"
+diff --git a/tools/codex_task.md b/tools/codex_task.md
+new file mode 100644
+index 0000000..985d12b
+--- /dev/null
++++ b/tools/codex_task.md
+@@ -0,0 +1,32 @@
++# CODEX HANDOFF
++
++PRIORITY: LOW
++# PRIORITY: MEDIUM
++# PRIORITY: HIGH
++
++# Optional override (wins over PRIORITY):
++# CODEX_MODEL: gpt-5.1-codex-max
++
++## Goal
++(One paragraph.)
++
++## Non-goals
++- ...
++
++## Proposed steps
++1) ...
++2) ...
++
++## Files to change
++- path/to/file1
++- path/to/file2
++
++## Commands to run
++- (exact commands, no guessing)
++- e.g. `pnpm test`, `pytest -q`, etc.
++
++## Acceptance criteria
++- ...
++
++## Rollback plan
++- ...
+diff --git a/workflow-0.1.patch b/workflow-0.1.patch
+new file mode 100644
+index 0000000..21949a2
+--- /dev/null
++++ b/workflow-0.1.patch
+@@ -0,0 +1,12 @@
++On branch feat/backend-refactoring
++Your branch is ahead of 'origin/feat/backend-refactoring' by 1 commit.
++  (use "git push" to publish your local commits)
++
++Changes to be committed:
++  (use "git restore --staged <file>..." to unstage)
++	new file:   .clineignore
++	new file:   .clinerules/local-first-then-codex.md
++	new file:   tools/codex-handoff.sh
++	new file:   tools/codex_task.md
++	new file:   workflow-0.1.patch
++
