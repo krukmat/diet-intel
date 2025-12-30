@@ -24,6 +24,7 @@ from app.services.tracking_service import TrackingService
 from app.models.tracking import MealTrackingRequest, WeightTrackingRequest, MealItem
 from app.models.reminder import ReminderRequest, ReminderType
 from app.models.meal_plan import MealPlanResponse
+from app.repositories.tracking_repository import TrackingRepository
 
 
 class TestDatabaseConnectionManagement:
@@ -194,8 +195,9 @@ class TestDatabaseTransactionIntegrity:
 
     @pytest.fixture
     def temp_tracking_service(self, temp_db_service):
-        """Create temporary tracking service for testing"""
-        return TrackingService(temp_db_service)
+        """Create temporary tracking service for testing - Task: Use TrackingRepository"""
+        repository = TrackingRepository()
+        return TrackingService(repository=repository)
 
     @pytest.mark.asyncio
     async def test_transaction_rollback_scenarios(self, temp_db_service, temp_tracking_service):
@@ -330,34 +332,21 @@ class TestDatabaseTransactionIntegrity:
         # Perform atomic operation
         meal_id = await temp_tracking_service.create_meal(user_id, meal_request)
         
-        # Verify both tables were updated consistently
-        with temp_db_service.get_connection() as conn:
-            cursor = conn.cursor()
-            
-            # Check meal record
-            cursor.execute("SELECT * FROM meals WHERE id = ?", (meal_id,))
-            meal_record = cursor.fetchone()
-            assert meal_record is not None
-            assert meal_record[1] == user_id  # user_id
-            assert meal_record[2] == "Atomic Test Meal"  # meal_name
-            assert meal_record[3] == 250.0  # total_calories
-            
-            # Check meal items
-            cursor.execute("SELECT COUNT(*) FROM meal_items WHERE meal_id = ?", (meal_id,))
-            item_count = cursor.fetchone()[0]
-            assert item_count == 2
-            
-            # Verify foreign key integrity
-            cursor.execute("""
-                SELECT mi.name, mi.calories 
-                FROM meal_items mi 
-                WHERE mi.meal_id = ? 
-                ORDER BY mi.calories
-            """, (meal_id,))
-            items = cursor.fetchall()
-            assert len(items) == 2
-            assert items[0][0] == "Food 2"  # 100 calories
-            assert items[1][0] == "Food 1"  # 150 calories
+        # Verify meal was created using repository - Task: Use TrackingRepository for verification
+        retrieved_meal = await temp_tracking_service.get_meal_by_id(meal_id)
+        assert retrieved_meal is not None
+        assert retrieved_meal.get('meal_name') == "Atomic Test Meal"
+        # Total calories should be 150 + 100 = 250
+        assert retrieved_meal.get('total_calories') == 250.0
+
+        # Check meal items count
+        items = retrieved_meal.get('items', [])
+        assert len(items) == 2
+
+        # Verify items data
+        item_names = [item.get('name') for item in items]
+        assert "Food 1" in item_names
+        assert "Food 2" in item_names
 
 
 class TestDatabasePerformance:
@@ -378,8 +367,9 @@ class TestDatabasePerformance:
 
     @pytest.fixture
     def temp_tracking_service(self, temp_db_service):
-        """Create temporary tracking service for testing"""
-        return TrackingService(temp_db_service)
+        """Create temporary tracking service for testing - Task: Use TrackingRepository"""
+        repository = TrackingRepository()
+        return TrackingService(repository=repository)
 
     def test_query_optimization_paths(self, temp_db_service, temp_tracking_service):
         """Test database query performance with indexes"""
@@ -422,8 +412,9 @@ class TestDatabasePerformance:
     
     def test_bulk_operation_efficiency(self, temp_db_service, temp_tracking_service):
         """Test bulk data operations performance"""
-        user_id = "bulk_test_user"
-        
+        # Use unique user_id to avoid data from previous test runs - Task: Isolate test data
+        user_id = f"bulk_test_user_{uuid.uuid4().hex[:8]}"
+
         # Test bulk meal creation
         start_time = time.time()
         

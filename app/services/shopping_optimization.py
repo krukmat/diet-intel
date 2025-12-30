@@ -998,20 +998,34 @@ class ShoppingOptimizationService:
     """
     Main service for shopping list optimization and consolidation
 
-    Provides comprehensive shopping optimization including ingredient consolidation,
-    cost analysis, and integration with database storage
+    Uses Command Pattern to orchestrate ingredient consolidation,
+    bulk analysis, and cost calculation. Maintains backward compatibility
+    while delegating to specialized command handlers.
+
+    Task: Phase 2 Tarea 6 - Shopping Optimization Refactoring
     """
 
     def __init__(self, db_service: RecipeDatabaseService):
         """
-        Initialize shopping optimization service
+        Initialize shopping optimization service with command pattern
 
         Args:
             db_service: Database service for storing optimization results
         """
+        from app.services.shopping import (
+            ConsolidationCommand,
+            BulkAnalysisCommand,
+            CostCalculationCommand
+        )
+
         self.db_service = db_service
-        self.consolidator = IngredientConsolidator()
-        self.unit_converter = UnitConversionEngine()
+        self.consolidator = IngredientConsolidator()  # For legacy compatibility
+        self.unit_converter = UnitConversionEngine()  # For legacy compatibility
+
+        # Command pattern handlers (Task 6 refactoring)
+        self.consolidation_cmd = ConsolidationCommand()
+        self.bulk_analysis_cmd = BulkAnalysisCommand()
+        self.cost_calc_cmd = CostCalculationCommand()
 
     async def optimize_shopping_list(
         self,
@@ -1023,6 +1037,9 @@ class ShoppingOptimizationService:
         """
         Generate optimized shopping list from multiple recipes
 
+        Orchestrates ingredient consolidation, bulk analysis, and cost calculation
+        using Command Pattern with shared OptimizationContext.
+
         Args:
             recipe_ids: List of recipe IDs to include
             user_id: User requesting optimization
@@ -1031,8 +1048,9 @@ class ShoppingOptimizationService:
 
         Returns:
             Complete shopping optimization response
+
+        Task: Phase 2 Tarea 6 - Shopping Optimization Refactoring
         """
-        # Task 11 related comment: Main shopping list optimization workflow
         logger.info(f"Starting shopping optimization for user {user_id} with {len(recipe_ids)} recipes")
 
         try:
@@ -1041,160 +1059,47 @@ class ShoppingOptimizationService:
             if not recipes_data:
                 raise ValueError("No valid recipes found")
 
-            # Step 2: Extract ingredients from all recipes
-            all_ingredients = self._extract_all_ingredients(recipes_data)
-            logger.info(f"Extracted {len(all_ingredients)} total ingredients")
+            # Step 2: Initialize shared context for command chain
+            from app.services.shopping import OptimizationContext
+            context = OptimizationContext(recipes_data, user_id)
 
-            # Step 3: Consolidate ingredients
-            consolidated_ingredients = await self.consolidator.consolidate_ingredients(all_ingredients)
-            logger.info(f"Consolidated to {len(consolidated_ingredients)} unique ingredients")
+            # Step 3: Execute command pipeline (Task 6 refactoring)
+            await self.consolidation_cmd.execute(context)
+            if context.has_errors():
+                logger.warning(f"Consolidation errors: {context.errors}")
 
-            # Step 4: Detect bulk buying opportunities (Task 12)
-            bulk_detector = BulkBuyingDetector()
-            bulk_opportunities = bulk_detector.detect_bulk_opportunities(consolidated_ingredients)
+            await self.bulk_analysis_cmd.execute(context)
+            if context.has_errors():
+                logger.warning(f"Bulk analysis errors: {context.errors}")
 
-            logger.info(f"Detected {len(bulk_opportunities)} bulk buying opportunities")
+            await self.cost_calc_cmd.execute(context)
+            if context.has_errors():
+                logger.warning(f"Cost calculation errors: {context.errors}")
 
-            # Step 5: Calculate optimization metrics
-            optimization_metrics = self._calculate_optimization_metrics(
-                all_ingredients, consolidated_ingredients
+            logger.info(
+                f"Optimization pipeline complete: "
+                f"{len(context.consolidated_ingredients)} consolidated, "
+                f"{len(context.bulk_opportunities)} bulk opportunities"
             )
 
-            # Step 6: Store optimization in database
+            # Step 4: Store optimization in database
             optimization_data = {
                 'optimization_name': optimization_name or f"Shopping List {datetime.now().strftime('%Y-%m-%d %H:%M')}",
                 'recipe_ids': recipe_ids,
-                'total_unique_ingredients': len(consolidated_ingredients),
-                'consolidation_opportunities': optimization_metrics['consolidation_opportunities'],
-                'estimated_total_cost': optimization_metrics['estimated_cost'],
+                'total_unique_ingredients': len(context.consolidated_ingredients),
+                'consolidation_opportunities': context.metrics.get('consolidation', {}).get('input_ingredients', 0) - len(context.consolidated_ingredients),
+                'estimated_total_cost': context.total_cost,
                 'preferred_store_id': preferred_store_id,
                 'optimization_status': 'optimized',
-                'optimization_score': optimization_metrics['optimization_score']
+                'optimization_score': context.optimization_score
             }
 
             optimization_id = await self.db_service.create_shopping_optimization(optimization_data, user_id)
             logger.info(f"Created shopping optimization: {optimization_id}")
 
-            # Step 7: Store consolidated ingredients
-            ingredient_consolidation_ids = []
-            for ingredient in consolidated_ingredients:
-                consolidation_data = {
-                    'consolidated_ingredient_name': ingredient.name,
-                    'source_recipes': ingredient.source_recipes,
-                    'total_consolidated_quantity': ingredient.total_quantity,
-                    'final_unit': ingredient.unit,
-                    'unit_cost': 0.0,  # TODO: Implement cost estimation
-                    'total_cost': ingredient.estimated_cost,
-                    'bulk_discount_available': ingredient.bulk_discount_available
-                }
-
-                consolidation_id = await self.db_service.create_ingredient_consolidation(
-                    optimization_id, consolidation_data
-                )
-                ingredient_consolidation_ids.append(consolidation_id)
-
-            # Step 8: Store bulk buying opportunities (Task 12)
-            bulk_suggestion_ids = []
-            # Create mapping of ingredient names to consolidation IDs
-            ingredient_to_consolidation_id = {
-                ingredient.name: consolidation_id
-                for ingredient, consolidation_id in zip(consolidated_ingredients, ingredient_consolidation_ids)
-            }
-
-            for opportunity in bulk_opportunities:
-                # Find the correct consolidation ID for this opportunity
-                consolidation_id = ingredient_to_consolidation_id.get(opportunity.ingredient_name)
-
-                # Map opportunity to database structure
-                bulk_data = {
-                    'ingredient_consolidation_id': consolidation_id,
-                    'suggestion_type': 'bulk_discount',
-                    'current_needed_quantity': opportunity.current_quantity,
-                    'suggested_bulk_quantity': opportunity.recommended_bulk_quantity,
-                    'bulk_unit': opportunity.bulk_unit,
-                    'regular_unit_price': opportunity.regular_cost_estimate / opportunity.current_quantity if opportunity.current_quantity > 0 else 0,
-                    'bulk_unit_price': opportunity.bulk_cost_estimate / opportunity.recommended_bulk_quantity if opportunity.recommended_bulk_quantity > 0 else 0,
-                    'immediate_savings': opportunity.savings_amount,
-                    'cost_per_unit_savings': opportunity.savings_amount / opportunity.recommended_bulk_quantity if opportunity.recommended_bulk_quantity > 0 else 0,
-                    'storage_requirements': opportunity.storage_type.value,
-                    'estimated_usage_timeframe_days': opportunity.perishability_days,
-                    'perishability_risk': 'low' if opportunity.perishability_days > 30 else 'medium' if opportunity.perishability_days > 14 else 'high',
-                    'recommendation_score': opportunity.recommendation_confidence,
-                    'user_preference_match': 0.7  # Default good match
-                }
-
-                bulk_id = await self.db_service.create_bulk_buying_suggestion(optimization_id, bulk_data)
-                bulk_suggestion_ids.append(bulk_id)
-
-            logger.info(f"Stored {len(bulk_opportunities)} bulk buying suggestions")
-
-            # Step 9: Retrieve bulk suggestions for response (Task 12)
-            bulk_suggestions_data = await self.db_service.get_bulk_buying_suggestions(optimization_id)
-            bulk_suggestions = []
-            for suggestion in bulk_suggestions_data:
-                from app.models.shopping import BulkBuyingSuggestion, SuggestionType, StorageRequirement, PerishabilityRisk
-                bulk_suggestions.append(BulkBuyingSuggestion(
-                    id=suggestion['id'],
-                    shopping_optimization_id=suggestion['shopping_optimization_id'],
-                    ingredient_consolidation_id=suggestion['ingredient_consolidation_id'],
-                    suggestion_type=SuggestionType(suggestion['suggestion_type']),
-                    current_needed_quantity=suggestion['current_needed_quantity'],
-                    suggested_bulk_quantity=suggestion['suggested_bulk_quantity'],
-                    bulk_unit=suggestion['bulk_unit'],
-                    regular_unit_price=suggestion['regular_unit_price'],
-                    bulk_unit_price=suggestion['bulk_unit_price'],
-                    immediate_savings=suggestion['immediate_savings'],
-                    cost_per_unit_savings=suggestion['cost_per_unit_savings'],
-                    storage_requirements=StorageRequirement(suggestion['storage_requirements']),
-                    estimated_usage_timeframe_days=suggestion['estimated_usage_timeframe_days'],
-                    perishability_risk=PerishabilityRisk(suggestion['perishability_risk']),
-                    recommendation_score=suggestion['recommendation_score'],
-                    user_preference_match=suggestion['user_preference_match'],
-                    created_at=suggestion['created_at']
-                ))
-
-            # Step 10: Build response
-            consolidated_models = []
-            for ingredient in consolidated_ingredients:
-                formatted_sources = []
-                for recipe in ingredient.source_recipes:
-                    if not recipe.get('recipe_id'):
-                        continue
-
-                    formatted_sources.append({
-                        'recipe_id': recipe.get('recipe_id'),
-                        'recipe_name': recipe.get('recipe_name'),
-                        'original_quantity': recipe.get('original_quantity', 0.0),
-                        'unit': recipe.get('unit') or recipe.get('original_unit') or ingredient.unit
-                    })
-
-                if not formatted_sources:
-                    continue
-
-                consolidated_models.append(
-                    IngredientConsolidation(
-                        id=ingredient.id,
-                        shopping_optimization_id=optimization_id,
-                        consolidated_ingredient_name=ingredient.name,
-                        source_recipes=formatted_sources,
-                        total_consolidated_quantity=ingredient.total_quantity,
-                        final_unit=ingredient.unit,
-                        total_cost=ingredient.estimated_cost,
-                        bulk_discount_available=ingredient.bulk_discount_available
-                    )
-                )
-
-            response = ShoppingOptimizationResponse(
-                optimization_id=optimization_id,
-                optimization_name=optimization_data['optimization_name'],
-                recipe_ids=recipe_ids,
-                consolidated_ingredients=consolidated_models,
-                optimization_metrics=optimization_metrics,
-                bulk_suggestions=bulk_suggestions,
-                shopping_path=[],
-                estimated_total_cost=optimization_metrics.get('estimated_cost', 0.0),
-                estimated_savings=sum(sugg.immediate_savings for sugg in bulk_suggestions),
-                created_at=datetime.now()
+            # Step 5: Store consolidated ingredients and bulk opportunities
+            response = await self._store_optimization_results(
+                optimization_id, context, recipe_ids, optimization_name or optimization_data['optimization_name']
             )
 
             logger.info(f"Shopping optimization completed successfully: {optimization_id}")
@@ -1203,6 +1108,137 @@ class ShoppingOptimizationService:
         except Exception as e:
             logger.error(f"Shopping optimization failed: {str(e)}")
             raise
+
+    async def _store_optimization_results(
+        self,
+        optimization_id: str,
+        context: "OptimizationContext",
+        recipe_ids: List[str],
+        optimization_name: str
+    ) -> ShoppingOptimizationResponse:
+        """
+        Store optimization results in database and build response
+
+        Args:
+            optimization_id: ID of created optimization
+            context: Populated OptimizationContext from commands
+            recipe_ids: Original recipe IDs
+            optimization_name: Name of optimization
+
+        Returns:
+            ShoppingOptimizationResponse with all results
+        """
+        from app.models.shopping import BulkBuyingSuggestion, SuggestionType, StorageRequirement, PerishabilityRisk
+
+        # Store consolidated ingredients
+        ingredient_consolidation_ids = []
+        for ingredient in context.consolidated_ingredients:
+            consolidation_data = {
+                'consolidated_ingredient_name': ingredient.name,
+                'source_recipes': ingredient.sources,
+                'total_consolidated_quantity': ingredient.quantity,
+                'final_unit': ingredient.unit,
+                'unit_cost': 0.0,  # Task 6 refactoring uses context-based cost
+                'total_cost': 0.0,
+                'bulk_discount_available': False
+            }
+
+            consolidation_id = await self.db_service.create_ingredient_consolidation(
+                optimization_id, consolidation_data
+            )
+            ingredient_consolidation_ids.append(consolidation_id)
+
+        # Store bulk buying opportunities
+        ingredient_to_consolidation_id = {
+            ingredient.name: consolidation_id
+            for ingredient, consolidation_id in zip(context.consolidated_ingredients, ingredient_consolidation_ids)
+        }
+
+        for opportunity in context.bulk_opportunities:
+            consolidation_id = ingredient_to_consolidation_id.get(opportunity.ingredient_name)
+
+            bulk_data = {
+                'ingredient_consolidation_id': consolidation_id,
+                'suggestion_type': 'bulk_discount',
+                'current_needed_quantity': opportunity.standard_quantity,
+                'suggested_bulk_quantity': opportunity.bulk_quantity,
+                'bulk_unit': opportunity.bulk_unit,
+                'regular_unit_price': opportunity.standard_unit_cost,
+                'bulk_unit_price': opportunity.bulk_unit_cost,
+                'immediate_savings': opportunity.standard_quantity * opportunity.standard_unit_cost - opportunity.bulk_quantity * opportunity.bulk_unit_cost,
+                'cost_per_unit_savings': (opportunity.standard_unit_cost - opportunity.bulk_unit_cost),
+                'storage_requirements': opportunity.storage_requirements.get('type', 'pantry'),
+                'estimated_usage_timeframe_days': opportunity.storage_requirements.get('shelf_life_days', 30),
+                'perishability_risk': 'low' if opportunity.storage_requirements.get('shelf_life_days', 30) > 30 else 'high',
+                'recommendation_score': opportunity.confidence_score,
+                'user_preference_match': 0.7
+            }
+
+            await self.db_service.create_bulk_buying_suggestion(optimization_id, bulk_data)
+
+        # Retrieve bulk suggestions for response
+        bulk_suggestions_data = await self.db_service.get_bulk_buying_suggestions(optimization_id)
+        bulk_suggestions = []
+        for suggestion in bulk_suggestions_data:
+            bulk_suggestions.append(BulkBuyingSuggestion(
+                id=suggestion['id'],
+                shopping_optimization_id=suggestion['shopping_optimization_id'],
+                ingredient_consolidation_id=suggestion['ingredient_consolidation_id'],
+                suggestion_type=SuggestionType(suggestion['suggestion_type']),
+                current_needed_quantity=suggestion['current_needed_quantity'],
+                suggested_bulk_quantity=suggestion['suggested_bulk_quantity'],
+                bulk_unit=suggestion['bulk_unit'],
+                regular_unit_price=suggestion['regular_unit_price'],
+                bulk_unit_price=suggestion['bulk_unit_price'],
+                immediate_savings=suggestion['immediate_savings'],
+                cost_per_unit_savings=suggestion['cost_per_unit_savings'],
+                storage_requirements=StorageRequirement(suggestion['storage_requirements']),
+                estimated_usage_timeframe_days=suggestion['estimated_usage_timeframe_days'],
+                perishability_risk=PerishabilityRisk(suggestion['perishability_risk']),
+                recommendation_score=suggestion['recommendation_score'],
+                user_preference_match=suggestion['user_preference_match'],
+                created_at=suggestion['created_at']
+            ))
+
+        # Build consolidated ingredient models
+        consolidated_models = []
+        for ingredient in context.consolidated_ingredients:
+            consolidated_models.append(
+                IngredientConsolidation(
+                    id='',  # Will be populated from database
+                    shopping_optimization_id=optimization_id,
+                    consolidated_ingredient_name=ingredient.name,
+                    source_recipes=[{'recipe_id': rid, 'recipe_name': rid, 'original_quantity': 0.0, 'unit': ingredient.unit} for rid in ingredient.sources],
+                    total_consolidated_quantity=ingredient.quantity,
+                    final_unit=ingredient.unit,
+                    total_cost=0.0,
+                    bulk_discount_available=any(opp.ingredient_name == ingredient.name for opp in context.bulk_opportunities)
+                )
+            )
+
+        # Build response with command metrics
+        optimization_metrics = context.metrics.get('cost_analysis', {})
+        optimization_metrics.update({
+            'total_original_ingredients': context.metrics.get('consolidation', {}).get('input_ingredients', 0),
+            'total_consolidated_ingredients': len(context.consolidated_ingredients),
+            'consolidation_opportunities': context.metrics.get('consolidation', {}).get('input_ingredients', 0) - len(context.consolidated_ingredients),
+            'optimization_score': context.optimization_score
+        })
+
+        response = ShoppingOptimizationResponse(
+            optimization_id=optimization_id,
+            optimization_name=optimization_name,
+            recipe_ids=recipe_ids,
+            consolidated_ingredients=consolidated_models,
+            optimization_metrics=optimization_metrics,
+            bulk_suggestions=bulk_suggestions,
+            shopping_path=[],
+            estimated_total_cost=context.total_cost,
+            estimated_savings=context.estimated_savings,
+            created_at=datetime.now()
+        )
+
+        return response
 
     async def _get_recipes_data(self, recipe_ids: List[str]) -> List[Dict[str, Any]]:
         """

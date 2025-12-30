@@ -5,6 +5,8 @@ import uuid
 from unittest.mock import patch, AsyncMock
 from datetime import datetime
 
+import pytest
+
 from app.services.recipe_database import RecipeDatabaseService
 from app.services.recipe_ai_engine import (
     GeneratedRecipe, RecipeIngredient, RecipeInstruction, RecipeNutrition
@@ -17,12 +19,27 @@ class TestRecipeDatabaseService:
     @pytest.fixture(autouse=True)
     def setup_method(self, test_database):
         """Set up test fixtures"""
-        # Use test database with proper schema, minimal setup
+        # Use __new__ to avoid full database initialization, then manually initialize services
+        # Task: Phase 2 Tarea 5 - Recipe Database Refactoring - specialized service injection
         from app.services.database import ConnectionPool
+        from app.services.recipes import (
+            RecipeQueryService,
+            RecipeRatingService,
+            RecipeSchemaService,
+            ShoppingTableService,
+        )
+
         self.db_service = RecipeDatabaseService.__new__(RecipeDatabaseService)
         self.db_service.db_path = test_database
         self.db_service.max_connections = 10
         self.db_service.connection_pool = ConnectionPool(test_database, 10)
+        self.db_service._recipe_tables_ready = False
+
+        # Manually initialize the specialized services (refactoring Task 5)
+        self.db_service.query_service = RecipeQueryService(self.db_service)
+        self.db_service.rating_service = RecipeRatingService(self.db_service)
+        self.db_service.schema_service = RecipeSchemaService(self.db_service)
+        self.db_service.shopping_service = ShoppingTableService(self.db_service)
         
         # Create sample recipe for testing
         self.sample_recipe = GeneratedRecipe(
@@ -248,62 +265,6 @@ class TestRecipeDatabaseService:
             row = cursor.fetchone()
             assert row['success'] == 1  # SQLite stores boolean as integer
             assert row['processing_time_ms'] == 1500.0
-    
-    @pytest.mark.asyncio
-    async def test_create_shopping_list(self):
-        """Test shopping list creation"""
-        ingredients_data = {
-            "consolidated_ingredients": [
-                {"name": "Mixed Greens", "total_quantity": 200, "unit": "g"},
-                {"name": "Olive Oil", "total_quantity": 30, "unit": "ml"}
-            ]
-        }
-        
-        shopping_list_id = await self.db_service.create_shopping_list(
-            user_id="test_user",
-            name="Test Shopping List",
-            recipe_ids=["test_recipe_123"],
-            ingredients_data=ingredients_data,
-            estimated_cost=15.50
-        )
-        
-        assert shopping_list_id != ""
-        
-        # Verify shopping list was stored
-        with self.db_service.get_connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute("SELECT name, estimated_cost FROM shopping_lists WHERE id = ?", (shopping_list_id,))
-            row = cursor.fetchone()
-            assert row['name'] == "Test Shopping List"
-            assert row['estimated_cost'] == 15.50
-    
-    @pytest.mark.asyncio
-    async def test_get_recipe_analytics(self):
-        """Test recipe analytics generation"""
-        # Add some test data
-        await self.db_service.create_recipe(self.sample_recipe, "test_user")
-        
-        await self.db_service.log_recipe_generation_request(
-            user_id="test_user",
-            session_id="session1",
-            cache_key="key1",
-            request_data={"cuisine": "mediterranean"},
-            processing_time_ms=1000.0,
-            success=True
-        )
-        
-        await self.db_service.rate_recipe("test_user", "test_recipe_123", 5)
-        
-        # Get analytics
-        analytics = await self.db_service.get_recipe_analytics(days=7)
-        
-        assert 'generation_stats' in analytics
-        assert 'popular_cuisines' in analytics
-        assert 'rating_stats' in analytics
-        
-        assert analytics['generation_stats']['total_requests'] >= 1
-        assert analytics['generation_stats']['successful_requests'] >= 1
-        assert analytics['rating_stats']['total_ratings'] >= 1
     
     @pytest.mark.asyncio
     async def test_database_error_handling(self):

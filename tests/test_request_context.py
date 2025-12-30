@@ -8,6 +8,7 @@ from app.services.auth import session_service, auth_service, get_optional_reques
 from app.services.database import db_service
 from app.services.user_service import UserService
 from app.services.session_service import SessionService
+from app.repositories.user_repository import UserRepository
 
 
 @pytest.mark.asyncio
@@ -22,7 +23,8 @@ async def test_optional_request_context_returns_user_and_session():
     )
 
     password_hash = auth_service.hash_password(password)
-    user_service = UserService(db_service)
+    user_repo = UserRepository()
+    user_service = UserService(user_repo)
     user = await user_service.create_user(user_data, password_hash)
 
     access_token = auth_service.create_access_token(user)

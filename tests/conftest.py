@@ -4,9 +4,15 @@ import inspect
 import uuid
 from typing import Any, Dict, Optional
 from unittest.mock import AsyncMock, MagicMock
-from fastapi.testclient import TestClient
 from httpx import AsyncClient
 import httpx
+
+# Lazy import of FastAPI to avoid Pydantic v2 compatibility issues
+try:
+    from fastapi.testclient import TestClient
+except (TypeError, ImportError):
+    # Fallback if FastAPI import fails due to Pydantic incompatibility
+    TestClient = None
 
 
 # Compatibility patch: Starlette's TestClient still passes `app=` to httpx.Client,
@@ -151,13 +157,22 @@ def fake_openfoodfacts_service():
 
 @pytest.fixture
 def product_service_overrides(fake_cache_service, fake_openfoodfacts_service, monkeypatch):
-    """Patch product route dependencies to use in-memory fakes."""
+    """Patch product route dependencies to use in-memory fakes.
+
+    Patches both legacy locations and new modular route locations.
+    """
+    # Legacy paths
     monkeypatch.setattr('app.services.cache.cache_service', fake_cache_service, raising=False)
     monkeypatch.setattr('app.routes.product.cache_service', fake_cache_service, raising=False)
     monkeypatch.setattr('app.services.openfoodfacts.openfoodfacts_service', fake_openfoodfacts_service, raising=False)
     monkeypatch.setattr('app.routes.product.openfoodfacts_service', fake_openfoodfacts_service, raising=False)
     monkeypatch.setattr('app.services.openfoodfacts.OpenFoodFactsService.get_product', fake_openfoodfacts_service.get_product, raising=False)
     monkeypatch.setattr('app.routes.product.openfoodfacts_service.get_product', fake_openfoodfacts_service.get_product, raising=False)
+
+    # New modular route locations (routes split into product_routes, scan_routes, ocr_routes)
+    monkeypatch.setattr('app.routes.product.product_routes.cache_service', fake_cache_service, raising=False)
+    monkeypatch.setattr('app.routes.product.product_routes.openfoodfacts_service', fake_openfoodfacts_service, raising=False)
+
     return fake_cache_service, fake_openfoodfacts_service
 
 @pytest.fixture
@@ -356,8 +371,10 @@ def seed_test_user():
         developer_code="DIETINTEL_DEV_2024"
     )
 
-    # Create user using user_service (Phase 2 Batch 9)
-    user_service = UserService(db_service)
+    # Create user using user_service (Phase 2 Batch 9 + Phase 3 Repository Pattern)
+    from app.repositories.user_repository import UserRepository
+    user_repo = UserRepository()
+    user_service = UserService(user_repo)
     user = asyncio.run(user_service.create_user(user_data, hashed_password))
     user_id = user.id
 

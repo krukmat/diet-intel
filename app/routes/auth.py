@@ -5,6 +5,7 @@ from app.services import auth as auth_module
 from app.services.database import db_service
 from app.services.session_service import SessionService
 from app.services.user_service import UserService
+from app.repositories.user_repository import UserRepository
 import logging
 
 logger = logging.getLogger(__name__)
@@ -13,7 +14,9 @@ router = APIRouter()
 
 auth_service = auth_module.auth_service
 session_service = SessionService(db_service)
-user_service = UserService(db_service)
+# Phase 3: Use UserRepository instead of db_service
+user_repo = UserRepository()
+user_service = UserService(user_repo)
 
 
 async def _get_current_user_dependency(

@@ -41,7 +41,7 @@ class TestExternalServiceFailures:
         assert response.status_code == 408
         error_data = response.json()
         assert "timeout" in error_data["detail"].lower()
-        assert error_data["detail"] == "Request timeout while fetching product data"
+        assert error_data["detail"] == "Request timeout while fetching product"
 
     def test_openfoodfacts_network_error_handling(self, client, product_service_overrides):
         """Test product lookup with network errors"""
@@ -53,8 +53,8 @@ class TestExternalServiceFailures:
         # Should return proper 503 service unavailable error
         assert response.status_code == 503
         error_data = response.json()
-        assert "connect" in error_data["detail"].lower()
-        assert error_data["detail"] == "Unable to connect to product database"
+        assert "network" in error_data["detail"].lower()
+        assert error_data["detail"] == "Network error while fetching product"
 
     def test_openfoodfacts_product_not_found(self, client, product_service_overrides):
         """Test product lookup with valid API but product not found"""
@@ -104,19 +104,21 @@ class TestExternalServiceFailures:
 
 class TestDatabaseFailureResilience:
     """Test database failure scenarios and recovery"""
-    
+
     def test_database_connection_failure_handling(self, client):
-        """Test proper error handling when database is unavailable"""
-        # Mock database connection failure
-        with patch.object(db_service, 'get_connection', side_effect=Exception("Database connection failed")):
+        """Test proper error handling when database is unavailable - Task: Updated for Repository Pattern"""
+        from app.repositories.connection import connection_manager
+
+        # Mock connection manager failure (Repository Pattern uses this now)
+        with patch.object(connection_manager, 'get_connection', side_effect=Exception("Database connection failed")):
             # Try to create a weight entry (requires database)
             weight_request = {
                 "weight": 70.0,
                 "date": datetime.now().date().isoformat()
             }
-            
+
             response = client.post("/track/weight", json=weight_request)
-            
+
             # Should return proper 500 error with generic message
             assert response.status_code == 500
             error_data = response.json()

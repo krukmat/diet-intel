@@ -1,6 +1,7 @@
 """Tracking Service - Handles meal and weight tracking.
 
 Task: Phase 2 Batch 8 - Database refactoring (extracted from database.py)
+Task 2.1.3 - Refactored to use Repository Pattern
 Coverage Goal: 85%+ (target: 80%+)
 """
 
@@ -9,7 +10,7 @@ from datetime import datetime
 import uuid
 import json
 import logging
-from app.services.database import DatabaseService, db_service
+from app.repositories.tracking_repository import TrackingRepository, MealTrackingEntity, WeightTrackingEntity
 
 
 logger = logging.getLogger(__name__)
@@ -24,17 +25,19 @@ class TrackingService:
     - Weight entry creation and tracking
     - Weight history and trends
     - Combined photo logs from meals and weights
+
+    Task 2.1.3: Refactored to use Repository Pattern
     """
 
-    def __init__(self, db_service: DatabaseService):
-        """Initialize TrackingService with database dependency.
+    def __init__(self, repository: Optional[TrackingRepository] = None):
+        """Initialize TrackingService with repository dependency.
 
         Args:
-            db_service: DatabaseService instance for database operations
+            repository: TrackingRepository instance for data access
 
-        Task: Phase 2 Batch 8 - Tracking Service Extraction
+        Task 2.1.3: Uses TrackingRepository instead of DatabaseService
         """
-        self.db = db_service
+        self.repository = repository or TrackingRepository()
 
     # ===== MEAL TRACKING METHODS =====
 
@@ -53,11 +56,9 @@ class TrackingService:
 
         Coverage Goal: Test successful creation, item insertion, JSON serialization
 
-        Task: Phase 2 Batch 8 - Tracking Service Extraction
+        Task 2.1.3: Uses TrackingRepository
         """
         from app.models.tracking import MealTrackingRequest
-
-        meal_id = str(uuid.uuid4())
 
         try:
             # Calculate total calories
@@ -69,65 +70,24 @@ class TrackingService:
             except ValueError:
                 timestamp = datetime.now()
 
-            with self.db.get_connection() as conn:
-                cursor = conn.cursor()
+            # Create meal entity - Task 2.1.3: Generate meal_id for repository
+            meal = MealTrackingEntity(
+                meal_id=str(uuid.uuid4()),
+                user_id=user_id,
+                meal_name=meal_data.meal_name,
+                total_calories=total_calories,
+                photo_url=photo_url,
+                timestamp=timestamp.isoformat(),
+                items=meal_data.items
+            )
 
-                try:
-                    # Insert meal record
-                    cursor.execute(
-                        """
-                        INSERT INTO meals (id, user_id, meal_name, total_calories, photo_url, timestamp, created_at)
-                        VALUES (?, ?, ?, ?, ?, ?, ?)
-                    """,
-                        (
-                            meal_id,
-                            user_id,
-                            meal_data.meal_name,
-                            total_calories,
-                            photo_url,
-                            timestamp.isoformat(),
-                            datetime.now().isoformat(),
-                        ),
-                    )
+            # Create meal via repository - Task 2.1.3
+            created_meal = await self.repository.create_meal(meal)
 
-                    # Insert meal items (all or nothing)
-                    for item in meal_data.items:
-                        item_id = str(uuid.uuid4())
-                        try:
-                            macros_json = json.dumps(item.macros)
-                        except (TypeError, ValueError) as json_error:
-                            logger.error(f"Failed to serialize macros for item {item.name}: {json_error}")
-                            raise RuntimeError(f"Invalid macros data for item {item.name}")
-
-                        cursor.execute(
-                            """
-                            INSERT INTO meal_items (id, meal_id, barcode, name, serving, calories, macros)
-                            VALUES (?, ?, ?, ?, ?, ?, ?)
-                        """,
-                            (
-                                item_id,
-                                meal_id,
-                                item.barcode,
-                                item.name,
-                                item.serving,
-                                item.calories,
-                                macros_json,
-                            ),
-                        )
-
-                    # Commit the entire transaction
-                    conn.commit()
-
-                    logger.info(
-                        f"Created meal {meal_id} for user {user_id}: {total_calories} calories with {len(meal_data.items)} items"
-                    )
-                    return meal_id
-
-                except Exception as db_error:
-                    # Rollback entire meal creation on any failure
-                    conn.rollback()
-                    logger.error(f"Database error creating meal for user {user_id}: {db_error}")
-                    raise RuntimeError(f"Failed to create meal: {str(db_error)}")
+            logger.info(
+                f"Created meal {created_meal.id} for user {user_id}: {total_calories} calories with {len(meal_data.items)} items"
+            )
+            return created_meal.id
 
         except Exception as e:
             logger.error(f"Error in create_meal for user {user_id}: {e}")
@@ -144,44 +104,28 @@ class TrackingService:
 
         Coverage Goal: Test retrieval, JSON parsing, item assembly
 
-        Task: Phase 2 Batch 8 - Tracking Service Extraction
+        Task 2.1.3: Uses TrackingRepository
         """
-        with self.db.get_connection() as conn:
-            cursor = conn.cursor()
+        try:
+            meal = await self.repository.get_meal_by_id(meal_id)
 
-            # Get meal record
-            cursor.execute("SELECT * FROM meals WHERE id = ?", (meal_id,))
-            meal_row = cursor.fetchone()
-
-            if not meal_row:
+            if not meal:
                 return None
 
-            # Get meal items
-            cursor.execute("SELECT * FROM meal_items WHERE meal_id = ? ORDER BY id", (meal_id,))
-            item_rows = cursor.fetchall()
-
-            # Build response
-            items = []
-            for item_row in item_rows:
-                items.append(
-                    {
-                        "barcode": item_row["barcode"],
-                        "name": item_row["name"],
-                        "serving": item_row["serving"],
-                        "calories": item_row["calories"],
-                        "macros": json.loads(item_row["macros"]),
-                    }
-                )
-
+            # Build response dict
             return {
-                "id": meal_row["id"],
-                "meal_name": meal_row["meal_name"],
-                "items": items,
-                "total_calories": meal_row["total_calories"],
-                "photo_url": meal_row["photo_url"],
-                "timestamp": datetime.fromisoformat(meal_row["timestamp"]),
-                "created_at": datetime.fromisoformat(meal_row["created_at"]),
+                "id": meal.id,
+                "meal_name": meal.meal_name,
+                "items": [item.model_dump() if hasattr(item, 'model_dump') else item for item in (meal.items or [])],
+                "total_calories": meal.total_calories,
+                "photo_url": meal.photo_url,
+                "timestamp": datetime.fromisoformat(meal.timestamp) if isinstance(meal.timestamp, str) else meal.timestamp,
+                "created_at": datetime.fromisoformat(meal.created_at) if isinstance(meal.created_at, str) else meal.created_at,
             }
+
+        except Exception as e:
+            logger.error(f"Error retrieving meal {meal_id}: {e}")
+            return None
 
     async def get_user_meals(self, user_id: str, limit: int = 50) -> List[Dict]:
         """Get user's meal history.
@@ -195,54 +139,30 @@ class TrackingService:
 
         Coverage Goal: Test pagination, history retrieval, item assembly
 
-        Task: Phase 2 Batch 8 - Tracking Service Extraction
+        Task 2.1.3: Uses TrackingRepository
         """
-        with self.db.get_connection() as conn:
-            cursor = conn.cursor()
-
-            # Get meals for user
-            cursor.execute(
-                """
-                SELECT * FROM meals
-                WHERE user_id = ?
-                ORDER BY timestamp DESC
-                LIMIT ?
-            """,
-                (user_id, limit),
-            )
-            meal_rows = cursor.fetchall()
+        try:
+            meals_data = await self.repository.get_user_meals(user_id, limit)
 
             meals = []
-            for meal_row in meal_rows:
-                # Get items for each meal
-                cursor.execute("SELECT * FROM meal_items WHERE meal_id = ?", (meal_row["id"],))
-                item_rows = cursor.fetchall()
-
-                items = []
-                for item_row in item_rows:
-                    items.append(
-                        {
-                            "barcode": item_row["barcode"],
-                            "name": item_row["name"],
-                            "serving": item_row["serving"],
-                            "calories": item_row["calories"],
-                            "macros": json.loads(item_row["macros"]),
-                        }
-                    )
-
+            for meal in meals_data:
                 meals.append(
                     {
-                        "id": meal_row["id"],
-                        "meal_name": meal_row["meal_name"],
-                        "items": items,
-                        "total_calories": meal_row["total_calories"],
-                        "photo_url": meal_row["photo_url"],
-                        "timestamp": datetime.fromisoformat(meal_row["timestamp"]),
-                        "created_at": datetime.fromisoformat(meal_row["created_at"]),
+                        "id": meal.id,
+                        "meal_name": meal.meal_name,
+                        "items": [item.model_dump() if hasattr(item, 'model_dump') else item for item in (meal.items or [])],
+                        "total_calories": meal.total_calories,
+                        "photo_url": meal.photo_url,
+                        "timestamp": datetime.fromisoformat(meal.timestamp) if isinstance(meal.timestamp, str) else meal.timestamp,
+                        "created_at": datetime.fromisoformat(meal.created_at) if isinstance(meal.created_at, str) else meal.created_at,
                     }
                 )
 
             return meals
+
+        except Exception as e:
+            logger.error(f"Error retrieving meals for user {user_id}: {e}")
+            return []
 
     async def track_meal(
         self,
@@ -262,7 +182,7 @@ class TrackingService:
 
         Coverage Goal: Test full flow, dict/model handling
 
-        Task: Phase 2 Batch 8 - Tracking Service Extraction
+        Task 2.1.3: Uses TrackingRepository
         """
         from app.models.tracking import MealTrackingRequest
 
@@ -296,31 +216,35 @@ class TrackingService:
 
         Coverage Goal: Test successful creation, date parsing
 
-        Task: Phase 2 Batch 8 - Tracking Service Extraction
+        Task 2.1.3: Uses TrackingRepository
         """
         from app.models.tracking import WeightTrackingRequest
 
-        weight_id = str(uuid.uuid4())
-
-        # Parse date
         try:
-            measurement_date = datetime.fromisoformat(weight_data.date.replace("Z", "+00:00"))
-        except ValueError:
-            measurement_date = datetime.now()
+            # Parse date
+            try:
+                measurement_date = datetime.fromisoformat(weight_data.date.replace("Z", "+00:00"))
+            except ValueError:
+                measurement_date = datetime.now()
 
-        with self.db.get_connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute(
-                """
-                INSERT INTO weight_entries (id, user_id, weight, date, photo_url, created_at)
-                VALUES (?, ?, ?, ?, ?, ?)
-            """,
-                (weight_id, user_id, weight_data.weight, measurement_date.isoformat(), photo_url, datetime.now().isoformat()),
+            # Create weight entity - Task 2.1.3: Generate entry_id for repository
+            weight = WeightTrackingEntity(
+                entry_id=str(uuid.uuid4()),
+                user_id=user_id,
+                weight=weight_data.weight,
+                date=measurement_date,
+                photo_url=photo_url
             )
-            conn.commit()
 
-        logger.info(f"Created weight entry {weight_id} for user {user_id}: {weight_data.weight} kg")
-        return weight_id
+            # Create via repository - Task 2.1.3
+            created = await self.repository.create_weight_entry(weight)
+
+            logger.info(f"Created weight entry {created.id} for user {user_id}: {weight_data.weight} kg")
+            return created.id
+
+        except Exception as e:
+            logger.error(f"Error creating weight entry for user {user_id}: {e}")
+            raise RuntimeError(f"Failed to create weight entry: {str(e)}")
 
     async def get_weight_entry_by_id(self, weight_id: str) -> Optional[Dict]:
         """Get a weight entry by ID.
@@ -333,21 +257,23 @@ class TrackingService:
 
         Coverage Goal: Test retrieval, datetime parsing
 
-        Task: Phase 2 Batch 8 - Tracking Service Extraction
+        Task 2.1.3: Uses TrackingRepository
         """
-        with self.db.get_connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute("SELECT * FROM weight_entries WHERE id = ?", (weight_id,))
-            row = cursor.fetchone()
+        try:
+            entry = await self.repository.get_weight_entry_by_id(weight_id)
 
-            if row:
-                return {
-                    "id": row["id"],
-                    "weight": row["weight"],
-                    "date": datetime.fromisoformat(row["date"]),
-                    "photo_url": row["photo_url"],
-                    "created_at": datetime.fromisoformat(row["created_at"]),
-                }
+            if not entry:
+                return None
+
+            return {
+                "id": entry.id,
+                "weight": entry.weight,
+                "date": datetime.fromisoformat(entry.date) if isinstance(entry.date, str) else entry.date,
+                "photo_url": entry.photo_url,
+                "created_at": datetime.fromisoformat(entry.created_at) if isinstance(entry.created_at, str) else entry.created_at,
+            }
+        except Exception as e:
+            logger.error(f"Error retrieving weight entry {weight_id}: {e}")
             return None
 
     async def get_user_weight_history(self, user_id: str, limit: int = 30) -> List[Dict]:
@@ -362,34 +288,27 @@ class TrackingService:
 
         Coverage Goal: Test pagination, history retrieval, date ordering
 
-        Task: Phase 2 Batch 8 - Tracking Service Extraction
+        Task 2.1.3: Uses TrackingRepository
         """
-        with self.db.get_connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute(
-                """
-                SELECT * FROM weight_entries
-                WHERE user_id = ?
-                ORDER BY date DESC
-                LIMIT ?
-            """,
-                (user_id, limit),
-            )
-            rows = cursor.fetchall()
+        try:
+            entries_data = await self.repository.get_user_weight_history(user_id, limit)
 
             entries = []
-            for row in rows:
+            for entry in entries_data:
                 entries.append(
                     {
-                        "id": row["id"],
-                        "weight": row["weight"],
-                        "date": datetime.fromisoformat(row["date"]),
-                        "photo_url": row["photo_url"],
-                        "created_at": datetime.fromisoformat(row["created_at"]),
+                        "id": entry.id,
+                        "weight": entry.weight,
+                        "date": datetime.fromisoformat(entry.date) if isinstance(entry.date, str) else entry.date,
+                        "photo_url": entry.photo_url,
+                        "created_at": datetime.fromisoformat(entry.created_at) if isinstance(entry.created_at, str) else entry.created_at,
                     }
                 )
 
             return entries
+        except Exception as e:
+            logger.error(f"Error retrieving weight history for user {user_id}: {e}")
+            return []
 
     async def track_weight(
         self,
@@ -490,5 +409,6 @@ class TrackingService:
         return logs[:limit]
 
 
-# Global service instance - Phase 2 Batch 8: TrackingService
-tracking_service = TrackingService(db_service)
+# Global service instance - Phase 2 Batch 8 & Task 2.1.3: TrackingService
+# Task 2.1.3: Now uses TrackingRepository instead of DatabaseService
+tracking_service = TrackingService()

@@ -499,9 +499,11 @@ class DatabaseService:
             """)
             
             # Product database for caching and offline support
+            # Task: 2025-12-28 - Add id column as PRIMARY KEY for ProductRepository compatibility
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS products (
-                    barcode TEXT PRIMARY KEY,
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    barcode TEXT UNIQUE NOT NULL,
                     name TEXT NOT NULL,
                     brand TEXT,
                     categories TEXT,
@@ -562,6 +564,7 @@ class DatabaseService:
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_ocr_scan_analytics_session ON ocr_scan_analytics(session_id)")
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_ocr_scan_analytics_timestamp ON ocr_scan_analytics(timestamp)")
             
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_products_barcode ON products(barcode)")
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_products_name ON products(name)")
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_products_brand ON products(brand)")
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_products_access_count ON products(access_count)")
@@ -597,292 +600,11 @@ class DatabaseService:
     
     # ===== REMINDER METHODS =====
     
-    # ===== MEAL PLAN METHODS =====
-    
-    async def store_meal_plan(self, user_id: str, plan: 'MealPlanResponse', ttl_hours: int = 24) -> str:
-        """Store a meal plan in database"""
-        from app.models.meal_plan import MealPlanResponse
-        import json
-        
-        plan_id = str(uuid.uuid4())
-        
-        # Calculate expiration time
-        expires_at = datetime.now() + timedelta(hours=ttl_hours)
-        
-        # Serialize plan data as JSON (excluding created_at to avoid conflicts)
-        plan_dict = plan.model_dump()
-        plan_dict.pop('created_at', None)  # Remove created_at to use database default
-        plan_data_json = json.dumps(plan_dict)
-        
-        with self.get_connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute("""
-                INSERT INTO meal_plans (id, user_id, plan_data, bmr, tdee, daily_calorie_target, 
-                                      flexibility_used, optional_products_used, expires_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (plan_id, user_id, plan_data_json, plan.bmr, plan.tdee, 
-                  plan.daily_calorie_target, plan.flexibility_used, 
-                  plan.optional_products_used, expires_at.isoformat()))
-            conn.commit()
-        
-        logger.info(f"Stored meal plan {plan_id} for user {user_id}, expires: {expires_at}")
-        return plan_id
-    
-    async def get_meal_plan(self, plan_id: str) -> Optional[Dict]:
-        """Get a meal plan by ID"""
-        import json
-        
-        with self.get_connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute("SELECT * FROM meal_plans WHERE id = ?", (plan_id,))
-            row = cursor.fetchone()
-            
-            if not row:
-                return None
-            
-            # Check if plan has expired
-            if row['expires_at']:
-                expires_at = datetime.fromisoformat(row['expires_at'])
-                if datetime.now() > expires_at:
-                    # Clean up expired plan
-                    cursor.execute("DELETE FROM meal_plans WHERE id = ?", (plan_id,))
-                    conn.commit()
-                    logger.info(f"Removed expired meal plan {plan_id}")
-                    return None
-            
-            # Deserialize plan data
-            plan_data = json.loads(row['plan_data'])
-            
-            # Add database metadata
-            plan_data['created_at'] = datetime.fromisoformat(row['created_at'])
-            
-            return plan_data
-    
-    async def update_meal_plan(self, plan_id: str, plan: 'MealPlanResponse') -> bool:
-        """Update an existing meal plan"""
-        from app.models.meal_plan import MealPlanResponse
-        import json
-        
-        try:
-            # Check if plan exists and not expired
-            existing_plan = await self.get_meal_plan(plan_id)
-            if not existing_plan:
-                logger.warning(f"Attempted to update non-existent meal plan: {plan_id}")
-                return False
-            
-            # Serialize updated plan data
-            plan_dict = plan.model_dump()
-            plan_dict.pop('created_at', None)  # Preserve original created_at
-            plan_data_json = json.dumps(plan_dict)
-            
-            with self.get_connection() as conn:
-                cursor = conn.cursor()
-                try:
-                    cursor.execute("""
-                        UPDATE meal_plans 
-                        SET plan_data = ?, bmr = ?, tdee = ?, daily_calorie_target = ?,
-                            flexibility_used = ?, optional_products_used = ?
-                        WHERE id = ?
-                    """, (plan_data_json, plan.bmr, plan.tdee, plan.daily_calorie_target,
-                          plan.flexibility_used, plan.optional_products_used, plan_id))
-                    updated = cursor.rowcount > 0
-                    conn.commit()
-                    
-                    if updated:
-                        logger.info(f"Updated meal plan {plan_id}")
-                    else:
-                        logger.warning(f"No meal plan updated for ID: {plan_id}")
-                    
-                    return updated
-                    
-                except Exception as db_error:
-                    conn.rollback()
-                    logger.error(f"Database error updating meal plan {plan_id}: {db_error}")
-                    raise RuntimeError(f"Failed to update meal plan: {str(db_error)}")
-                    
-        except Exception as e:
-            logger.error(f"Error in update_meal_plan for {plan_id}: {e}")
-            return False
-    
-    async def delete_meal_plan(self, plan_id: str) -> bool:
-        """Delete a meal plan"""
-        with self.get_connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute("DELETE FROM meal_plans WHERE id = ?", (plan_id,))
-            deleted = cursor.rowcount > 0
-            conn.commit()
-        
-        if deleted:
-            logger.info(f"Deleted meal plan {plan_id}")
-        
-        return deleted
-    
-    async def get_user_meal_plans(self, user_id: str, limit: int = 10) -> List[Dict]:
-        """Get meal plans for a user (excluding expired ones)"""
-        import json
-        
-        try:
-            with self.get_connection() as conn:
-                cursor = conn.cursor()
-                
-                try:
-                    # Clean up expired plans first
-                    now = datetime.now().isoformat()
-                    cursor.execute("DELETE FROM meal_plans WHERE expires_at < ?", (now,))
-                    deleted_count = cursor.rowcount
-                    
-                    # Get user's active plans
-                    cursor.execute("""
-                        SELECT * FROM meal_plans 
-                        WHERE user_id = ? AND (expires_at IS NULL OR expires_at > ?)
-                        ORDER BY created_at DESC 
-                        LIMIT ?
-                    """, (user_id, now, limit))
-                    rows = cursor.fetchall()
-                    
-                    conn.commit()  # Commit the cleanup and query
-                    
-                    if deleted_count > 0:
-                        logger.info(f"Cleaned up {deleted_count} expired meal plans during user query")
-                    
-                    plans = []
-                    for row in rows:
-                        try:
-                            plan_data = json.loads(row['plan_data'])
-                            plan_data['created_at'] = datetime.fromisoformat(row['created_at'])
-                            plan_data['id'] = row['id']  # Add plan ID for reference
-                            plans.append(plan_data)
-                        except (json.JSONDecodeError, ValueError) as parse_error:
-                            logger.error(f"Failed to parse meal plan {row['id']}: {parse_error}")
-                            # Skip corrupted plan data but continue with others
-                            continue
-                    
-                    return plans
-                    
-                except Exception as db_error:
-                    conn.rollback()
-                    logger.error(f"Database error getting meal plans for user {user_id}: {db_error}")
-                    raise RuntimeError(f"Failed to retrieve meal plans: {str(db_error)}")
-                    
-        except Exception as e:
-            logger.error(f"Error in get_user_meal_plans for user {user_id}: {e}")
-            return []  # Return empty list on error to maintain API contract
-    
-    async def cleanup_expired_meal_plans(self) -> int:
-        """Clean up expired meal plans and return count of deleted plans"""
-        with self.get_connection() as conn:
-            cursor = conn.cursor()
-            now = datetime.now().isoformat()
-            cursor.execute("DELETE FROM meal_plans WHERE expires_at < ?", (now,))
-            deleted = cursor.rowcount
-            conn.commit()
-        
-        if deleted > 0:
-            logger.info(f"Cleaned up {deleted} expired meal plans")
-        
-        return deleted
-
-    async def store_product(self, barcode: str, name: str, brand: Optional[str],
-                           categories: Optional[str], nutriments: dict,
-                           serving_size: Optional[str], image_url: Optional[str],
-                           source: str = "OpenFoodFacts") -> bool:
-        """Store or update a product in the database"""
-        try:
-            nutriments_json = json.dumps(nutriments)
-            
-            with self.get_connection() as conn:
-                cursor = conn.cursor()
-                try:
-                    # Use INSERT OR REPLACE to update existing products
-                    cursor.execute("""
-                        INSERT OR REPLACE INTO products 
-                        (barcode, name, brand, categories, nutriments, serving_size, image_url, source, access_count)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 
-                            COALESCE((SELECT access_count FROM products WHERE barcode = ?), 0))
-                    """, (barcode, name, brand, categories, nutriments_json, serving_size, 
-                          image_url, source, barcode))
-                    conn.commit()
-                    
-                    logger.info(f"Successfully stored product {barcode}: {name}")
-                    return True
-                    
-                except Exception as db_error:
-                    conn.rollback()
-                    logger.error(f"Database error storing product {barcode}: {db_error}")
-                    raise RuntimeError(f"Failed to store product: {str(db_error)}")
-                    
-        except json.JSONEncodeError as json_error:
-            logger.error(f"Failed to serialize nutriments for product {barcode}: {json_error}")
-            return False
-        except Exception as e:
-            logger.error(f"Error in store_product for {barcode}: {e}")
-            return False
-    
-    async def get_product(self, barcode: str) -> Optional[dict]:
-        """Get a product from the database and increment access count"""
-        try:
-            with self.get_connection() as conn:
-                cursor = conn.cursor()
-                cursor.execute("SELECT * FROM products WHERE barcode = ?", (barcode,))
-                row = cursor.fetchone()
-                
-                if row:
-                    try:
-                        # Increment access count
-                        cursor.execute("UPDATE products SET access_count = access_count + 1 WHERE barcode = ?", (barcode,))
-                        conn.commit()
-                        
-                        # Parse nutriments JSON safely
-                        try:
-                            nutriments = json.loads(row['nutriments'])
-                        except json.JSONDecodeError as json_error:
-                            logger.error(f"Failed to parse nutriments for product {barcode}: {json_error}")
-                            nutriments = {}
-                        
-                        return {
-                            'barcode': row['barcode'],
-                            'name': row['name'],
-                            'brand': row['brand'],
-                            'categories': row['categories'],
-                            'nutriments': nutriments,
-                            'serving_size': row['serving_size'],
-                            'image_url': row['image_url'],
-                            'source': row['source'],
-                            'last_updated': row['last_updated'],
-                            'access_count': row['access_count'] + 1  # Reflect the incremented count
-                        }
-                        
-                    except Exception as update_error:
-                        # If access count update fails, rollback and still return product data
-                        conn.rollback()
-                        logger.warning(f"Failed to increment access count for product {barcode}: {update_error}")
-                        
-                        # Parse nutriments JSON safely
-                        try:
-                            nutriments = json.loads(row['nutriments'])
-                        except json.JSONDecodeError as json_error:
-                            logger.error(f"Failed to parse nutriments for product {barcode}: {json_error}")
-                            nutriments = {}
-                        
-                        return {
-                            'barcode': row['barcode'],
-                            'name': row['name'],
-                            'brand': row['brand'],
-                            'categories': row['categories'],
-                            'nutriments': nutriments,
-                            'serving_size': row['serving_size'],
-                            'image_url': row['image_url'],
-                            'source': row['source'],
-                            'last_updated': row['last_updated'],
-                            'access_count': row['access_count']  # Original count
-                        }
-            
-            return None
-            
-        except Exception as e:
-            logger.error(f"Error retrieving product {barcode}: {e}")
-            return None
-
+    # ===== DEPRECATED: Meal plan and product methods moved to repositories =====
+    # MealPlanRepository: store_meal_plan, get_meal_plan, update_meal_plan, delete_meal_plan, get_user_meal_plans, cleanup_expired_meal_plans
+    # ProductRepository: store_product, get_product
+    #
+    # Task 2.1.6 (Phase 1 Refactoring): Removed duplicate implementations
 
 # Global database service instance
 db_service = DatabaseService()

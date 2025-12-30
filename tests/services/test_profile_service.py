@@ -1,3 +1,4 @@
+import re
 import pytest
 
 from fastapi import HTTPException
@@ -6,6 +7,7 @@ from app.models.social import ProfileUpdateRequest, ProfileVisibility
 from app.models.user import UserCreate
 from app.services.database import DatabaseService
 from app.services.user_service import UserService
+from app.repositories.user_repository import UserRepository
 from app.services.social.profile_service import ProfileService
 
 
@@ -49,15 +51,22 @@ def temp_database(tmp_path):
 
 
 @pytest.mark.asyncio
-async def test_ensure_profile_initialized_creates_records(temp_database):
+async def test_ensure_profile_initialized_creates_records(temp_database, monkeypatch):
+    import uuid
     db_service = temp_database
-    user_service = UserService(db_service)
-    user_payload = UserCreate(email="User.Name+Test@example.com", password="passw0rd", full_name="User Test")
+    from app.repositories.connection import ConnectionManager
+    from app.repositories import connection
+    temp_conn_manager = ConnectionManager(db_service.db_path)
+    monkeypatch.setattr(connection, 'connection_manager', temp_conn_manager)
+    user_repo = UserRepository()
+    user_service = UserService(user_repo)
+    test_email = f"testuser-{uuid.uuid4()}@example.com"
+    user_payload = UserCreate(email=test_email, password="passw0rd", full_name="User Test")
     user = await user_service.create_user(user_payload, password_hash="hash")
 
     service = db_service
 
-    profile_service = ProfileService(database_service=service)
+    profile_service = ProfileService(database_service=service, user_service=user_service)
     await profile_service.ensure_profile_initialized(user.id)
 
     with service.get_connection() as conn:
@@ -66,14 +75,24 @@ async def test_ensure_profile_initialized_creates_records(temp_database):
         row = cursor.fetchone()
 
     assert row is not None
-    assert row["handle"] == "user_name_test"
+    # Handle is generated from email prefix with special chars replaced by underscores
+    expected_handle = re.sub(r'[^a-z0-9]', '_', test_email.split('@')[0].lower())
+    assert row["handle"] == expected_handle
     assert row["visibility"] == ProfileVisibility.PUBLIC.value
 
 
 @pytest.mark.asyncio
-async def test_ensure_profile_initialized_missing_user_raises(temp_database):
-    service = temp_database
-    profile_service = ProfileService(database_service=service)
+async def test_ensure_profile_initialized_missing_user_raises(temp_database, monkeypatch):
+    db_service = temp_database
+    from app.repositories.connection import ConnectionManager
+    from app.repositories import connection
+    temp_conn_manager = ConnectionManager(db_service.db_path)
+    monkeypatch.setattr(connection, 'connection_manager', temp_conn_manager)
+    user_repo = UserRepository()
+    user_service = UserService(user_repo)
+
+    service = db_service
+    profile_service = ProfileService(database_service=service, user_service=user_service)
 
     with pytest.raises(HTTPException) as excinfo:
         await profile_service.ensure_profile_initialized("missing-user")
@@ -82,10 +101,16 @@ async def test_ensure_profile_initialized_missing_user_raises(temp_database):
 
 
 @pytest.mark.asyncio
-async def test_get_profile_filters_posts_for_followers_only(temp_database):
+async def test_get_profile_filters_posts_for_followers_only(temp_database, monkeypatch):
+    import uuid
     db_service = temp_database
-    user_service = UserService(db_service)
-    user_payload = UserCreate(email="sociable@example.com", password="passw0rd", full_name="Sociable User")
+    from app.repositories.connection import ConnectionManager
+    from app.repositories import connection
+    temp_conn_manager = ConnectionManager(db_service.db_path)
+    monkeypatch.setattr(connection, 'connection_manager', temp_conn_manager)
+    user_repo = UserRepository()
+    user_service = UserService(user_repo)
+    user_payload = UserCreate(email=f"sociable-{uuid.uuid4()}@example.com", password="passw0rd", full_name="Sociable User")
     user = await user_service.create_user(user_payload, password_hash="hash")
 
     service = db_service
@@ -93,6 +118,7 @@ async def test_get_profile_filters_posts_for_followers_only(temp_database):
     # Initialize profile manually (ensure_profile already inserts records)
     profile_service = ProfileService(
         database_service=service,
+        user_service=user_service,
         post_read_svc=StubPostReadService(),
         gamification_gw=StubGamificationGateway(),
         follow_gw=StubFollowGateway(following=False),
@@ -119,15 +145,21 @@ def test_validate_handle_format():
 
 
 @pytest.mark.asyncio
-async def test_update_profile_applies_changes(temp_database):
+async def test_update_profile_applies_changes(temp_database, monkeypatch):
+    import uuid
     db_service = temp_database
-    user_service = UserService(db_service)
-    user_payload = UserCreate(email="author@example.com", password="authpass", full_name="Author User")
+    from app.repositories.connection import ConnectionManager
+    from app.repositories import connection
+    temp_conn_manager = ConnectionManager(db_service.db_path)
+    monkeypatch.setattr(connection, 'connection_manager', temp_conn_manager)
+    user_repo = UserRepository()
+    user_service = UserService(user_repo)
+    user_payload = UserCreate(email=f"author-{uuid.uuid4()}@example.com", password="authpass", full_name="Author User")
     user = await user_service.create_user(user_payload, password_hash="hash")
 
     service = db_service
 
-    profile_service = ProfileService(database_service=service)
+    profile_service = ProfileService(database_service=service, user_service=user_service)
     await profile_service.ensure_profile_initialized(user.id)
 
     payload = ProfileUpdateRequest(
@@ -150,19 +182,32 @@ async def test_update_profile_applies_changes(temp_database):
 
 
 @pytest.mark.asyncio
-async def test_update_profile_rejects_duplicate_handle(temp_database):
+async def test_update_profile_rejects_duplicate_handle(temp_database, monkeypatch):
+    import uuid
     db_service = temp_database
-    user_service = UserService(db_service)
-    user_primary = await user_service.create_user(UserCreate(email="primary@example.com", password="passw0rd", full_name="Primary"), password_hash="hash")
-    user_secondary = await user_service.create_user(UserCreate(email="secondary@example.com", password="passw0rd", full_name="Secondary"), password_hash="hash")
+    from app.repositories.connection import ConnectionManager
+    from app.repositories import connection
+    temp_conn_manager = ConnectionManager(db_service.db_path)
+    monkeypatch.setattr(connection, 'connection_manager', temp_conn_manager)
+    user_repo = UserRepository()
+    user_service = UserService(user_repo)
+    user_primary = await user_service.create_user(UserCreate(email=f"primary-{uuid.uuid4()}@example.com", password="passw0rd", full_name="Primary"), password_hash="hash")
+    user_secondary = await user_service.create_user(UserCreate(email=f"secondary-{uuid.uuid4()}@example.com", password="passw0rd", full_name="Secondary"), password_hash="hash")
 
     service = db_service
 
-    profile_service = ProfileService(database_service=service)
+    profile_service = ProfileService(database_service=service, user_service=user_service)
     await profile_service.ensure_profile_initialized(user_primary.id)
     await profile_service.ensure_profile_initialized(user_secondary.id)
 
-    payload = ProfileUpdateRequest(handle="primary")
+    # Get primary user's handle and try to assign it to secondary user
+    with service.get_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT handle FROM user_profiles WHERE user_id = ?", (user_primary.id,))
+        row = cursor.fetchone()
+        primary_handle = row["handle"]
+
+    payload = ProfileUpdateRequest(handle=primary_handle)
     with pytest.raises(HTTPException) as excinfo:
         await profile_service.update_profile(user_secondary.id, payload)
 
@@ -170,15 +215,22 @@ async def test_update_profile_rejects_duplicate_handle(temp_database):
 
 
 @pytest.mark.asyncio
-async def test_can_view_profile_respects_visibility_and_followers(temp_database):
+async def test_can_view_profile_respects_visibility_and_followers(temp_database, monkeypatch):
+    import uuid
     db_service = temp_database
-    user_service = UserService(db_service)
-    user = await user_service.create_user(UserCreate(email="visible@example.com", password="passw0rd", full_name="Visible User"), password_hash="hash")
+    from app.repositories.connection import ConnectionManager
+    from app.repositories import connection
+    temp_conn_manager = ConnectionManager(db_service.db_path)
+    monkeypatch.setattr(connection, 'connection_manager', temp_conn_manager)
+    user_repo = UserRepository()
+    user_service = UserService(user_repo)
+    user = await user_service.create_user(UserCreate(email=f"visible-{uuid.uuid4()}@example.com", password="passw0rd", full_name="Visible User"), password_hash="hash")
 
     service = db_service
 
     profile_service = ProfileService(
         database_service=service,
+        user_service=user_service,
         follow_gw=StubFollowGateway(following=True)
     )
 

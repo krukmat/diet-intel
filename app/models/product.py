@@ -16,6 +16,20 @@ class BarcodeRequest(BaseModel):
         return value
 
 
+class Product(BaseModel):
+    """Product model for repository operations - Task 2.1.5"""
+    id: Optional[int] = Field(None, description="Product ID (auto-generated)")
+    barcode: str = Field(..., description="Product barcode (unique)")
+    name: str = Field(..., description="Product name")
+    brand: Optional[str] = Field(None, description="Product brand")
+    serving_size: Optional[str] = Field("100g", description="Default serving size")
+    nutriments: Optional[dict] = Field(None, description="Nutritional information as dict")
+
+    class Config:
+        """Allow arbitrary types"""
+        arbitrary_types_allowed = True
+
+
 class Nutriments(BaseModel):
     energy_kcal_per_100g: Optional[float] = Field(None, description="Energy in kcal per 100g")
     protein_g_per_100g: Optional[float] = Field(None, description="Protein in grams per 100g")

@@ -1,0 +1,24 @@
+# deps/build
+node_modules/
+dist/
+build/
+coverage/
+.venv/
+__pycache__/
+*.log
+
+# caches
+.DS_Store
+
+# secrets
+.env
+.env.*
+*.key
+*.pem
+
+# large artifacts
+*.zip
+*.png
+*.jpg
+*.mp4
+*.pdf
