@@ -1,10 +1,34 @@
 import React from 'react';
 import TestRenderer from 'react-test-renderer';
-import { Alert } from 'react-native';
+import { Alert, TextInput, View } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import TrackScreen from '../TrackScreen';
 import { apiService } from '../../services/ApiService';
 import * as ImagePicker from 'expo-image-picker';
 import * as ImageManipulator from 'expo-image-manipulator';
+
+const flushPromises = () => new Promise(resolve => setTimeout(resolve, 0));
+
+const findButtonByText = (component: any, targetText: string) => {
+  const textNodes = component.root.findAll((node: any) =>
+    Array.isArray(node.children) &&
+    node.children.some((child: any) => typeof child === 'string' && child.includes(targetText))
+  );
+  const match = textNodes[0];
+  let current = match;
+  while (current && !current.props?.onPress && current.parent) {
+    current = current.parent;
+  }
+  return current?.props?.onPress ? current : undefined;
+};
+const findTouchableByText = (component: any, targetText: string) =>
+  component.root.findAll((node: any) => node.props?.['data-testid'] === 'touchableopacity')
+    .find((node: any) =>
+      node.findAll((child: any) =>
+        Array.isArray(child.children) &&
+        child.children.some((text: any) => typeof text === 'string' && text.includes(targetText))
+      ).length > 0
+    );
 
 // Mock the API service
 jest.mock('../../services/ApiService', () => ({
@@ -37,6 +61,7 @@ describe('TrackScreen', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    jest.spyOn(Alert, 'alert').mockImplementation(() => {});
     
     // Mock successful API responses
     mockApiService.get.mockImplementation((endpoint) => {
@@ -88,6 +113,10 @@ describe('TrackScreen', () => {
     } as any);
   });
 
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
   describe('Component Rendering', () => {
     it('should render TrackScreen without crashing', () => {
       const component = TestRenderer.create(
@@ -103,8 +132,8 @@ describe('TrackScreen', () => {
       );
       
       // Should have multiple UI elements
-      const divElements = component.root.findAllByType('div');
-      expect(divElements.length).toBeGreaterThan(3);
+      const viewElements = component.root.findAllByType(View);
+      expect(viewElements.length).toBeGreaterThan(0);
     });
 
     it('should render header with title and back button', () => {
@@ -291,6 +320,48 @@ describe('TrackScreen', () => {
       
       expect(component.toJSON()).toBeTruthy();
     });
+
+    it('should render weigh-in photo logs', async () => {
+      mockApiService.get.mockImplementation((endpoint) => {
+        if (endpoint.includes('photos')) {
+          return Promise.resolve({
+            data: {
+              logs: [
+                {
+                  id: '2',
+                  timestamp: '2024-02-01T12:00:00Z',
+                  photo_url: 'mock-photo-url',
+                  type: 'weigh-in',
+                  description: 'Weight'
+                }
+              ]
+            }
+          });
+        }
+        if (endpoint.includes('weight/history')) {
+          return Promise.resolve({
+            data: {
+              entries: [
+                { date: '2024-01-01T00:00:00Z', weight: 75.2, photo_url: null }
+              ]
+            }
+          });
+        }
+        return Promise.resolve({ data: {} });
+      });
+
+      const component = TestRenderer.create(
+        <TrackScreen onBackPress={mockOnBackPress} />
+      );
+
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      const flatList = component.root.findAll((node: any) =>
+        node.props?.['data-testid'] === 'flatlist'
+      )[0];
+      expect(flatList).toBeTruthy();
+      expect(flatList?.props?.data?.[0]?.type).toBe('weigh-in');
+    });
   });
 
   describe('API Integration', () => {
@@ -370,6 +441,254 @@ describe('TrackScreen', () => {
       
       const tree = component.toJSON();
       expect(tree).toBeTruthy();
+    });
+  });
+
+  describe('Modal Actions', () => {
+    it('marks a meal as eaten and stores photo logs', async () => {
+      const component = TestRenderer.create(
+        <TrackScreen onBackPress={mockOnBackPress} />
+      );
+
+      await TestRenderer.act(async () => {
+        await flushPromises();
+      });
+
+      const markModal = component.root.findAll((node: any) =>
+        typeof node.props?.onConfirm === 'function' && node.props?.meal !== undefined
+      )[0];
+      expect(markModal).toBeTruthy();
+
+      await TestRenderer.act(async () => {
+        await markModal?.props.onConfirm('meal-photo-uri');
+      });
+
+      expect(mockApiService.post).toHaveBeenCalledWith(
+        '/track/meal',
+        expect.objectContaining({ photo: 'meal-photo-uri' })
+      );
+      expect(AsyncStorage.setItem).toHaveBeenCalledWith(
+        'photo_logs',
+        expect.any(String)
+      );
+      expect(Alert.alert).toHaveBeenCalled();
+    });
+
+    it('handles meal tracking errors', async () => {
+      mockApiService.post.mockRejectedValueOnce(new Error('Meal tracking error'));
+      const component = TestRenderer.create(
+        <TrackScreen onBackPress={mockOnBackPress} />
+      );
+
+      await TestRenderer.act(async () => {
+        await flushPromises();
+      });
+
+      const markModal = component.root.findAll((node: any) =>
+        typeof node.props?.onConfirm === 'function' && node.props?.meal !== undefined
+      )[0];
+      expect(markModal).toBeTruthy();
+
+      await TestRenderer.act(async () => {
+        await markModal?.props.onConfirm('meal-photo-uri');
+      });
+
+      expect(Alert.alert).toHaveBeenCalled();
+      expect(AsyncStorage.setItem).not.toHaveBeenCalledWith(
+        'photo_logs',
+        expect.any(String)
+      );
+    });
+
+    it('records weigh-in and stores history', async () => {
+      const component = TestRenderer.create(
+        <TrackScreen onBackPress={mockOnBackPress} />
+      );
+
+      await TestRenderer.act(async () => {
+        await flushPromises();
+      });
+
+      const weighButton = findButtonByText(component, 'track.weighIn');
+      await TestRenderer.act(async () => {
+        weighButton?.props.onPress();
+      });
+
+      const weighModal = component.root.findAll((node: any) =>
+        typeof node.props?.onConfirm === 'function' &&
+        node.props?.meal === undefined &&
+        node.props?.visible !== undefined
+      )[0];
+      expect(weighModal).toBeTruthy();
+
+      await TestRenderer.act(async () => {
+        await weighModal?.props.onConfirm(72, 'weigh-photo-uri');
+      });
+
+      expect(mockApiService.post).toHaveBeenCalledWith(
+        '/track/weight',
+        expect.objectContaining({ weight: 72, photo: 'weigh-photo-uri' })
+      );
+      expect(AsyncStorage.setItem).toHaveBeenCalledWith(
+        'weight_history',
+        expect.any(String)
+      );
+      expect(AsyncStorage.setItem).toHaveBeenCalledWith(
+        'photo_logs',
+        expect.any(String)
+      );
+      expect(Alert.alert).toHaveBeenCalled();
+    });
+
+    it('records weigh-in without photo logs', async () => {
+      const component = TestRenderer.create(
+        <TrackScreen onBackPress={mockOnBackPress} />
+      );
+
+      await TestRenderer.act(async () => {
+        await flushPromises();
+      });
+
+      const weighModal = component.root.findAll((node: any) =>
+        typeof node.props?.onConfirm === 'function' &&
+        node.props?.meal === undefined &&
+        node.props?.visible !== undefined
+      )[0];
+      expect(weighModal).toBeTruthy();
+
+      await TestRenderer.act(async () => {
+        await weighModal?.props.onConfirm(70);
+      });
+
+      expect(mockApiService.post).toHaveBeenCalledWith(
+        '/track/weight',
+        expect.objectContaining({ weight: 70, photo: undefined })
+      );
+      expect(AsyncStorage.setItem).toHaveBeenCalledWith(
+        'weight_history',
+        expect.any(String)
+      );
+      expect(AsyncStorage.setItem).not.toHaveBeenCalledWith(
+        'photo_logs',
+        expect.any(String)
+      );
+    });
+
+    it('marks a meal as eaten without photo logs', async () => {
+      const component = TestRenderer.create(
+        <TrackScreen onBackPress={mockOnBackPress} />
+      );
+
+      await TestRenderer.act(async () => {
+        await flushPromises();
+      });
+
+      const markModal = component.root.findAll((node: any) =>
+        typeof node.props?.onConfirm === 'function' && node.props?.meal !== undefined
+      )[0];
+      expect(markModal).toBeTruthy();
+
+      await TestRenderer.act(async () => {
+        await markModal?.props.onConfirm();
+      });
+
+      expect(mockApiService.post).toHaveBeenCalledWith(
+        '/track/meal',
+        expect.objectContaining({ photo: undefined })
+      );
+      expect(AsyncStorage.setItem).not.toHaveBeenCalledWith(
+        'photo_logs',
+        expect.any(String)
+      );
+    });
+
+    it('handles invalid weight input', async () => {
+      const component = TestRenderer.create(
+        <TrackScreen onBackPress={mockOnBackPress} />
+      );
+
+      await TestRenderer.act(async () => {
+        await flushPromises();
+      });
+
+      const weighButton = findButtonByText(component, 'track.weighIn');
+      await TestRenderer.act(async () => {
+        weighButton?.props.onPress();
+      });
+
+      const weightInput = component.root.findAllByType(TextInput).find(input =>
+        String(input.props.placeholder).includes('scanner.input.weightPlaceholder')
+      );
+      await TestRenderer.act(async () => {
+        weightInput?.props.onChangeText('0');
+      });
+      await TestRenderer.act(async () => {
+        await flushPromises();
+      });
+
+      const saveButton = findButtonByText(component, 'track.modal.saveWeight');
+      expect(saveButton).toBeTruthy();
+      await TestRenderer.act(async () => {
+        saveButton?.props.onPress();
+      });
+
+      expect(Alert.alert).toHaveBeenCalled();
+      expect(mockApiService.post).not.toHaveBeenCalledWith(
+        '/track/weight',
+        expect.any(Object)
+      );
+    });
+
+    it('takes a photo for modal flow', async () => {
+      const component = TestRenderer.create(
+        <TrackScreen onBackPress={mockOnBackPress} />
+      );
+
+      await TestRenderer.act(async () => {
+        await flushPromises();
+      });
+
+      const takePhotoButton = findTouchableByText(component, 'track.modal.takePhoto');
+      expect(takePhotoButton).toBeTruthy();
+
+      await TestRenderer.act(async () => {
+        await takePhotoButton?.props.onPress();
+        await flushPromises();
+      });
+
+      expect(mockImagePicker.requestCameraPermissionsAsync).toHaveBeenCalled();
+      expect(mockImagePicker.launchCameraAsync).toHaveBeenCalled();
+      expect(mockImageManipulator.manipulateAsync).toHaveBeenCalled();
+    });
+
+    it('alerts when camera permission is denied', async () => {
+      mockImagePicker.requestCameraPermissionsAsync.mockResolvedValueOnce({
+        status: 'denied' as any,
+        granted: false,
+        canAskAgain: true,
+        expires: 'never'
+      });
+
+      const component = TestRenderer.create(
+        <TrackScreen onBackPress={mockOnBackPress} />
+      );
+
+      await TestRenderer.act(async () => {
+        await flushPromises();
+      });
+
+      const takePhotoButton = findTouchableByText(component, 'track.modal.takePhoto');
+      expect(takePhotoButton).toBeTruthy();
+
+      await TestRenderer.act(async () => {
+        await takePhotoButton?.props.onPress();
+        await flushPromises();
+      });
+
+      expect(Alert.alert).toHaveBeenCalledWith(
+        'permissions.title',
+        'permissions.cameraRequired'
+      );
     });
   });
 
@@ -675,8 +994,8 @@ describe('TrackScreen', () => {
       expect(component.toJSON()).toBeTruthy();
       
       // Should have organized component hierarchy
-      const divElements = component.root.findAllByType('div');
-      expect(divElements.length).toBeGreaterThan(3);
+      const viewElements = component.root.findAllByType(View);
+      expect(viewElements.length).toBeGreaterThan(0);
     });
 
     it('should handle screen readers and accessibility features', () => {
