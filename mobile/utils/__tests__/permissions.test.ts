@@ -1,6 +1,11 @@
 // Logic-focused tests for permissions utility
 // Tests the core business logic without complex Expo module mocking
 
+import * as ImagePicker from 'expo-image-picker';
+import * as Notifications from 'expo-notifications';
+import { Alert } from 'react-native';
+import { requestCameraPermission, requestNotificationPermission } from '../permissions';
+
 describe('Permissions Utility Logic Tests', () => {
   // Test permission status evaluation logic
   describe('Permission Status Logic', () => {
@@ -537,6 +542,39 @@ describe('Permissions Utility Logic Tests', () => {
       expect(result.platformHandled).toBe(true);
       // Should handle the first platform property encountered (ios)
       expect(result.additionalInfo?.platform).toBe('ios');
+    });
+  });
+
+  describe('Permissions Utility Integration', () => {
+    beforeEach(() => {
+      jest.clearAllMocks();
+      jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+    });
+
+    afterEach(() => {
+      jest.restoreAllMocks();
+    });
+
+    it('returns true when camera permission granted', async () => {
+      (ImagePicker.requestCameraPermissionsAsync as jest.Mock).mockResolvedValueOnce({ status: 'granted' });
+      await expect(requestCameraPermission()).resolves.toBe(true);
+    });
+
+    it('alerts when camera permission denied', async () => {
+      (ImagePicker.requestCameraPermissionsAsync as jest.Mock).mockResolvedValueOnce({ status: 'denied' });
+      await expect(requestCameraPermission()).resolves.toBe(false);
+      expect(Alert.alert).toHaveBeenCalled();
+    });
+
+    it('returns true when notification permission granted', async () => {
+      (Notifications.requestPermissionsAsync as jest.Mock).mockResolvedValueOnce({ status: 'granted' });
+      await expect(requestNotificationPermission()).resolves.toBe(true);
+    });
+
+    it('alerts when notification permission denied', async () => {
+      (Notifications.requestPermissionsAsync as jest.Mock).mockResolvedValueOnce({ status: 'denied' });
+      await expect(requestNotificationPermission()).resolves.toBe(false);
+      expect(Alert.alert).toHaveBeenCalled();
     });
   });
 });
