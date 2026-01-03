@@ -29,3 +29,8 @@ node_modules
 plan/*.md
 artifacts/plan-archive/
 dietintel.db
+mobile/TEST_COVERAGE_IMPROVEMENT_PLAN.md
+docs/handoff/CODEX_MOBILE_TEST_FIXES.md
+manual-user-tests.md
+mobile/plan/*
+manual-user-tests.md

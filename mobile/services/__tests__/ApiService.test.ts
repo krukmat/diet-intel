@@ -1,6 +1,7 @@
 import axios from 'axios';
 import ApiService, { apiService } from '../ApiService';
 import { environments } from '../../config/environments';
+import { authService } from '../AuthService';
 
 // Mock axios completely
 jest.mock('axios', () => ({
@@ -18,10 +19,21 @@ jest.mock('axios', () => ({
   }))
 }));
 
+jest.mock('../AuthService', () => ({
+  authService: {
+    getStoredTokens: jest.fn(),
+    isTokenExpired: jest.fn()
+  }
+}));
+
 const mockedAxios = axios as jest.Mocked<typeof axios>;
 
 describe('ApiService', () => {
   let mockAxiosInstance: any;
+  let requestSuccess: any;
+  let requestError: any;
+  let responseSuccess: any;
+  let responseError: any;
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -34,8 +46,18 @@ describe('ApiService', () => {
       delete: jest.fn(),
       patch: jest.fn(),
       interceptors: {
-        request: { use: jest.fn() },
-        response: { use: jest.fn() }
+        request: { 
+          use: jest.fn((onSuccess, onError) => {
+            requestSuccess = onSuccess;
+            requestError = onError;
+          })
+        },
+        response: { 
+          use: jest.fn((onSuccess, onError) => {
+            responseSuccess = onSuccess;
+            responseError = onError;
+          })
+        }
       },
       defaults: { baseURL: 'http://localhost:8000' }
     };
@@ -141,6 +163,27 @@ describe('ApiService', () => {
     it('should have patch method available', () => {
       expect(typeof service.patch).toBe('function');
     });
+
+    it('should call axios get with provided args', async () => {
+      const response = { data: { ok: true } };
+      mockAxiosInstance.get.mockResolvedValue(response);
+
+      const result = await service.get('/test', { timeout: 1000 });
+
+      expect(mockAxiosInstance.get).toHaveBeenCalledWith('/test', { timeout: 1000 });
+      expect(result).toBe(response);
+    });
+
+    it('should call axios post with payload', async () => {
+      const response = { data: { created: true } };
+      mockAxiosInstance.post.mockResolvedValue(response);
+
+      const payload = { name: 'test' };
+      const result = await service.post('/test', payload, { headers: { 'X-Test': '1' } });
+
+      expect(mockAxiosInstance.post).toHaveBeenCalledWith('/test', payload, { headers: { 'X-Test': '1' } });
+      expect(result).toBe(response);
+    });
   });
 
   describe('DietIntel Specific Methods', () => {
@@ -176,6 +219,128 @@ describe('ApiService', () => {
 
     it('should have healthCheck method', () => {
       expect(typeof service.healthCheck).toBe('function');
+    });
+
+    it('should build discover feed query params', async () => {
+      const response = { data: { items: [] } };
+      mockAxiosInstance.get.mockResolvedValue(response);
+
+      await service.getDiscoverFeed({ limit: 10, cursor: 'abc', surface: 'mobile' });
+
+      expect(mockAxiosInstance.get).toHaveBeenCalledWith('/feed/discover?limit=10&cursor=abc&surface=mobile', undefined);
+    });
+
+    it('should call scanNutritionLabel with form-data headers and timeout', async () => {
+      const response = { data: { ok: true } };
+      mockAxiosInstance.post.mockResolvedValue(response);
+
+      (global as any).FormData = class {
+        append = jest.fn();
+      };
+
+      const formData = new FormData();
+      await service.scanNutritionLabel(formData);
+
+      expect(mockAxiosInstance.post).toHaveBeenCalledWith(
+        '/product/scan-label',
+        formData,
+        {
+          headers: { 'Content-Type': 'multipart/form-data' },
+          timeout: 30000
+        }
+      );
+    });
+
+    it('should call product and plan endpoints with expected paths', async () => {
+      mockAxiosInstance.get.mockResolvedValue({ data: {} });
+      mockAxiosInstance.post.mockResolvedValue({ data: {} });
+      mockAxiosInstance.put.mockResolvedValue({ data: {} });
+
+      await service.getProductByBarcode('123');
+      await service.searchProduct('chicken & rice');
+      await service.generateMealPlan({ calories: 2000 });
+      await service.customizeMealPlan({ meal_type: 'lunch' });
+      await service.getMealPlanConfig();
+      await service.addProductToPlan({ barcode: '123', meal_type: 'breakfast' });
+
+      expect(mockAxiosInstance.get).toHaveBeenCalledWith('/product/by-barcode/123', undefined);
+      expect(mockAxiosInstance.get).toHaveBeenCalledWith('/product/search?q=chicken%20%26%20rice', undefined);
+      expect(mockAxiosInstance.post).toHaveBeenCalledWith('/plan/generate', { calories: 2000 }, undefined);
+      expect(mockAxiosInstance.put).toHaveBeenCalledWith('/plan/customize', { meal_type: 'lunch' }, undefined);
+      expect(mockAxiosInstance.get).toHaveBeenCalledWith('/plan/config', undefined);
+      expect(mockAxiosInstance.post).toHaveBeenCalledWith('/plan/add-product', { barcode: '123', meal_type: 'breakfast' }, undefined);
+    });
+
+    it('should call recommendations endpoints with query params', async () => {
+      mockAxiosInstance.get.mockResolvedValue({ data: {} });
+      mockAxiosInstance.post.mockResolvedValue({ data: {} });
+
+      await service.generateSmartRecommendations({ goal: 'protein' });
+      await service.recordRecommendationFeedback({ id: 'rec1' });
+      await service.getRecommendationMetrics(7, 'user-1');
+      await service.getUserRecommendationPreferences('user-1');
+
+      expect(mockAxiosInstance.post).toHaveBeenCalledWith('/recommendations/generate', { goal: 'protein' }, undefined);
+      expect(mockAxiosInstance.post).toHaveBeenCalledWith('/recommendations/feedback', { id: 'rec1' }, undefined);
+      expect(mockAxiosInstance.get).toHaveBeenCalledWith('/recommendations/metrics?days=7&user_id=user-1', undefined);
+      expect(mockAxiosInstance.get).toHaveBeenCalledWith('/recommendations/user-preferences/user-1', undefined);
+    });
+
+    it('should call smart diet endpoints with query params', async () => {
+      mockAxiosInstance.get.mockResolvedValue({ data: {} });
+      mockAxiosInstance.post.mockResolvedValue({ data: {} });
+
+      const params = new URLSearchParams({ context: 'today' });
+      await service.getSmartDietSuggestions(params);
+      await service.recordSmartDietFeedback({ id: 'sd1' });
+      await service.getSmartDietInsights('user-1', 14);
+      await service.applySmartDietOptimization({ id: 'opt1' });
+      await service.getSmartDietMetrics('user-1', 7);
+
+      expect(mockAxiosInstance.get).toHaveBeenCalledWith('/smart-diet/suggestions?context=today', undefined);
+      expect(mockAxiosInstance.post).toHaveBeenCalledWith('/smart-diet/feedback', { id: 'sd1' }, undefined);
+      expect(mockAxiosInstance.get).toHaveBeenCalledWith('/smart-diet/insights?user_id=user-1&days=14', undefined);
+      expect(mockAxiosInstance.post).toHaveBeenCalledWith('/smart-diet/apply-optimization', { id: 'opt1' }, undefined);
+      expect(mockAxiosInstance.get).toHaveBeenCalledWith('/smart-diet/metrics?user_id=user-1&days=7', undefined);
+    });
+
+    it('should call social profile endpoints and handle follow flows', async () => {
+      mockAxiosInstance.get.mockResolvedValue({ data: {} });
+      mockAxiosInstance.post.mockResolvedValue({ data: {} });
+      mockAxiosInstance.patch.mockResolvedValue({ data: {} });
+
+      await service.getProfile('user-1');
+      await service.updateProfile({ handle: 'new' });
+      await service.getCurrentUser();
+      await service.followUser('user-2');
+      await service.unfollowUser('user-2');
+      await service.getFollowers('user-1', { limit: 10, cursor: 'c1' });
+      await service.getFollowing('user-1', { limit: 5, cursor: 'c2' });
+
+      expect(mockAxiosInstance.get).toHaveBeenCalledWith('/profiles/user-1', undefined);
+      expect(mockAxiosInstance.patch).toHaveBeenCalledWith('/profiles/me', { handle: 'new' }, undefined);
+      expect(mockAxiosInstance.get).toHaveBeenCalledWith('/auth/me', undefined);
+      expect(mockAxiosInstance.post).toHaveBeenCalledWith('/follows/user-2', { action: 'follow' }, undefined);
+      expect(mockAxiosInstance.post).toHaveBeenCalledWith('/follows/user-2', { action: 'unfollow' }, undefined);
+      expect(mockAxiosInstance.get).toHaveBeenCalledWith('/profiles/user-1/followers?limit=10&cursor=c1', undefined);
+      expect(mockAxiosInstance.get).toHaveBeenCalledWith('/profiles/user-1/following?limit=5&cursor=c2', undefined);
+    });
+
+    it('should call blocking and feed endpoints', async () => {
+      mockAxiosInstance.get.mockResolvedValue({ data: {} });
+      mockAxiosInstance.post.mockResolvedValue({ data: {} });
+
+      await service.blockUser('user-2');
+      await service.unblockUser('user-2');
+      await service.getBlockedUsers('user-1', { limit: 2, cursor: 'c3' });
+      await service.getBlockers('user-1', { limit: 2, cursor: 'c4' });
+      await service.getFeed({ limit: 20, cursor: 'feed1' });
+
+      expect(mockAxiosInstance.post).toHaveBeenCalledWith('/blocks/user-2', { action: 'block' }, undefined);
+      expect(mockAxiosInstance.post).toHaveBeenCalledWith('/blocks/user-2', { action: 'unblock' }, undefined);
+      expect(mockAxiosInstance.get).toHaveBeenCalledWith('/profiles/user-1/blocked?limit=2&cursor=c3', undefined);
+      expect(mockAxiosInstance.get).toHaveBeenCalledWith('/profiles/user-1/blockers?limit=2&cursor=c4', undefined);
+      expect(mockAxiosInstance.get).toHaveBeenCalledWith('/feed?limit=20&cursor=feed1', undefined);
     });
   });
 
@@ -227,6 +392,89 @@ describe('ApiService', () => {
           }
         })
       );
+    });
+  });
+
+  describe('Request/Response Interceptors', () => {
+    it('should attach auth token when available and valid', async () => {
+      (authService.getStoredTokens as jest.Mock).mockResolvedValue({
+        access_token: 'token-123',
+        expires_at: Date.now() + 1000
+      });
+      (authService.isTokenExpired as jest.Mock).mockReturnValue(false);
+
+      const service = new ApiService();
+      const config = { headers: {} as Record<string, string>, method: 'get', url: '/test' };
+
+      const result = await requestSuccess(config);
+
+      expect(result.headers.Authorization).toBe('Bearer token-123');
+    });
+
+    it('should skip token attachment when token expired', async () => {
+      (authService.getStoredTokens as jest.Mock).mockResolvedValue({
+        access_token: 'token-123',
+        expires_at: Date.now() - 1000
+      });
+      (authService.isTokenExpired as jest.Mock).mockReturnValue(true);
+
+      const service = new ApiService();
+      const config = { headers: {} as Record<string, string>, method: 'get', url: '/test' };
+
+      const result = await requestSuccess(config);
+
+      expect(result.headers.Authorization).toBeUndefined();
+    });
+
+    it('should handle token retrieval errors gracefully', async () => {
+      const warnSpy = jest.spyOn(console, 'warn').mockImplementation();
+      (authService.getStoredTokens as jest.Mock).mockRejectedValue(new Error('storage error'));
+
+      const service = new ApiService();
+      const config = { method: 'get', url: '/test' };
+
+      const result = await requestSuccess(config);
+
+      expect(warnSpy).toHaveBeenCalled();
+      expect(result).toBe(config);
+      warnSpy.mockRestore();
+    });
+
+    it('should propagate request interceptor errors', async () => {
+      const error = new Error('request failed');
+      await expect(requestError(error)).rejects.toBe(error);
+    });
+
+    it('should return response from response interceptor', () => {
+      const response = { status: 200, config: { url: '/ok' } };
+      expect(responseSuccess(response)).toBe(response);
+    });
+
+    it('should propagate response interceptor errors', async () => {
+      const error = new Error('response failed');
+      await expect(responseError(error)).rejects.toBe(error);
+    });
+  });
+
+  describe('Health Check', () => {
+    it('should return healthy response on success', async () => {
+      mockAxiosInstance.get.mockResolvedValue({ data: { status: 'ok' } });
+      const service = new ApiService();
+
+      const result = await service.healthCheck();
+
+      expect(result).toEqual({ healthy: true, status: 'ok' });
+      expect(mockAxiosInstance.get).toHaveBeenCalledWith('/health', { timeout: 5000 });
+    });
+
+    it('should return unhealthy response on error', async () => {
+      mockAxiosInstance.get.mockRejectedValue(new Error('down'));
+      const service = new ApiService();
+
+      const result = await service.healthCheck();
+
+      expect(result.healthy).toBe(false);
+      expect(result.error).toBe('down');
     });
   });
 });

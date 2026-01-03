@@ -2,6 +2,8 @@ import React, { type ComponentProps } from 'react';
 import { render, RenderOptions } from '@testing-library/react-native';
 import {
   SmartDietContext,
+  SuggestionCategory,
+  SuggestionType,
   type SmartDietResponse,
 } from './services/SmartDietService';
 
@@ -510,9 +512,13 @@ export const buildSmartDietResponse = (
       {
         id: `${suggestionContext}_suggestion_1`,
         suggestion_type:
-          suggestionContext === SmartDietContext.OPTIMIZE ? 'optimization' : 'recommendation',
+          suggestionContext === SmartDietContext.OPTIMIZE
+            ? SuggestionType.OPTIMIZATION
+            : SuggestionType.RECOMMENDATION,
         category:
-          suggestionContext === SmartDietContext.DISCOVER ? 'discovery' : 'meal_addition',
+          suggestionContext === SmartDietContext.DISCOVER
+            ? SuggestionCategory.DISCOVERY
+            : SuggestionCategory.MEAL_ADDITION,
         title: titles[suggestionContext],
         description: `Description for ${suggestionContext}`,
         reasoning: 'Based on your preferences',
@@ -550,8 +556,8 @@ export const buildSmartDietResponse = (
         ? [
             {
               id: 'opt_1',
-              suggestion_type: 'optimization',
-              category: 'food_swap',
+              suggestion_type: SuggestionType.OPTIMIZATION,
+              category: SuggestionCategory.FOOD_SWAP,
               title: 'Swap refined grains',
               description: 'Replace white rice with quinoa',
               reasoning: 'Improves nutrient density',
@@ -573,8 +579,8 @@ export const buildSmartDietResponse = (
         ? [
             {
               id: 'discover_1',
-              suggestion_type: 'recommendation',
-              category: 'discovery',
+              suggestion_type: SuggestionType.RECOMMENDATION,
+              category: SuggestionCategory.DISCOVERY,
               title: 'Discover a new snack',
               description: 'Try roasted chickpeas',
               reasoning: 'High protein snack',
@@ -596,8 +602,8 @@ export const buildSmartDietResponse = (
         ? [
             {
               id: 'insight_1',
-              suggestion_type: 'insight',
-              category: 'nutritional_gap',
+              suggestion_type: SuggestionType.INSIGHT,
+              category: SuggestionCategory.NUTRITIONAL_GAP,
               title: 'Increase fiber intake',
               description: 'Add more leafy greens to your meals',
               reasoning: 'Fiber intake below target',
