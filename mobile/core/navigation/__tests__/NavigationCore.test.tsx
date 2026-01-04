@@ -7,6 +7,7 @@ import React from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react-native';
 import { NavigationProvider, useNavigation, useSafeNavigation, ScreenRenderer } from '../NavigationCore';
+import * as ScreenRegistry from '../ScreenRegistry';
 import { ScreenType } from '../NavigationTypes';
 
 // Mock screen components for testing
@@ -22,6 +23,14 @@ const MockErrorScreen: React.FC = () => (
     <Text>Error Screen</Text>
   </View>
 );
+
+jest.mock('../ScreenRegistry', () => {
+  const actual = jest.requireActual('../ScreenRegistry');
+  return {
+    ...actual,
+    loadScreenComponent: jest.fn(actual.loadScreenComponent),
+  };
+});
 
 // Test wrapper component
 const TestWrapper: React.FC<{ children: React.ReactNode; initialScreen?: ScreenType }> = ({ 
@@ -221,6 +230,31 @@ describe('NavigationCore', () => {
       expect(screen.getByTestId('can-navigate-to-plan')).toBeTruthy();
       expect(screen.getByTestId('metrics')).toBeTruthy();
     });
+
+    it('returns null when component load fails', async () => {
+      const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+      (ScreenRegistry.loadScreenComponent as jest.Mock).mockRejectedValueOnce(new Error('nope'));
+
+      const TestLoadComponent: React.FC = () => {
+        const navigation = useSafeNavigation();
+        React.useEffect(() => {
+          navigation.getCurrentComponent();
+        }, []);
+        return <View testID="load-component" />;
+      };
+
+      render(
+        <TestWrapper>
+          <TestLoadComponent />
+        </TestWrapper>
+      );
+
+      await waitFor(() => {
+        expect(errorSpy).toHaveBeenCalled();
+      });
+
+      errorSpy.mockRestore();
+    });
   });
 
   describe('ScreenRenderer', () => {
@@ -253,6 +287,27 @@ describe('NavigationCore', () => {
       // When component is loading, should show fallback
       expect(screen.getByTestId('loading-fallback')).toBeTruthy();
     });
+
+    it('shows error UI when screen fails to load', async () => {
+      const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+      (ScreenRegistry.loadScreenComponent as jest.Mock).mockRejectedValueOnce(new Error('boom'));
+
+      render(
+        <TestWrapper initialScreen="track">
+          <ScreenRenderer fallback={() => (
+            <View testID="loading-fallback">
+              <Text>Loading...</Text>
+            </View>
+          )} />
+        </TestWrapper>
+      );
+
+      await waitFor(() => {
+        expect(screen.getByText('Navigation Error')).toBeTruthy();
+      });
+
+      errorSpy.mockRestore();
+    });
   });
 
   describe('Navigation Context Management', () => {
@@ -283,6 +338,33 @@ describe('NavigationCore', () => {
       fireEvent.press(screen.getByTestId('update-context'));
       await waitFor(() => {
         expect(screen.getByTestId('context-display').props.children).toContain('updated-value');
+      });
+    });
+  });
+
+  describe('Navigation Reset', () => {
+    it('resets navigation to target screen', async () => {
+      const TestResetComponent: React.FC = () => {
+        const navigation = useNavigation();
+        return (
+          <View>
+            <Text testID="current-screen">{navigation.currentScreen}</Text>
+            <TouchableOpacity testID="reset-to-login" onPress={() => navigation.reset('login')}>
+              <Text>Reset</Text>
+            </TouchableOpacity>
+          </View>
+        );
+      };
+
+      render(
+        <TestWrapper>
+          <TestResetComponent />
+        </TestWrapper>
+      );
+
+      fireEvent.press(screen.getByTestId('reset-to-login'));
+      await waitFor(() => {
+        expect(screen.getByText('login')).toBeTruthy();
       });
     });
   });
@@ -384,6 +466,19 @@ describe('NavigationCore', () => {
 
       // At root screen, back should be disabled
       expect(screen.getByTestId('go-back').props.disabled).toBe(true);
+    });
+
+    it('does not change screen when back at root', async () => {
+      render(
+        <TestWrapper>
+          <TestNavigationComponent />
+        </TestWrapper>
+      );
+
+      fireEvent.press(screen.getByTestId('go-back'));
+      await waitFor(() => {
+        expect(screen.getByText('splash')).toBeTruthy();
+      });
     });
   });
 });

@@ -106,4 +106,104 @@ describe('useFormValidation', () => {
     expect(error?.message).toBe('This recipe name already exists');
     jest.useRealTimers();
   });
+
+  it('validates on blur when configured', async () => {
+    const { result } = renderHook(() =>
+      useFormValidation(
+        { name: '' },
+        { name: { required: true, validateOnBlur: true } }
+      )
+    );
+
+    await act(async () => {
+      await result.current.setFieldTouched('name');
+    });
+
+    expect(result.current.errors.name?.message).toBe('This field is required');
+  });
+
+  it('skips validation when optional field is empty', async () => {
+    const { result } = renderHook(() =>
+      useFormValidation(
+        { url: '' },
+        { url: { rules: [validationRules.url()] } }
+      )
+    );
+
+    let error;
+    await act(async () => {
+      error = await result.current.validateField('url', '');
+    });
+
+    expect(error).toBeNull();
+  });
+
+  it('captures validation errors when rule throws', async () => {
+    const rule = {
+      validator: () => {
+        throw new Error('boom');
+      },
+      message: 'bad',
+    };
+
+    const { result } = renderHook(() =>
+      useFormValidation(
+        { name: 'value' },
+        { name: { rules: [rule] } }
+      )
+    );
+
+    let error;
+    await act(async () => {
+      error = await result.current.validateField('name', 'value');
+    });
+
+    expect(error?.message).toBe('Validation failed');
+  });
+
+  it('updates values and resets state', async () => {
+    const { result } = renderHook(() =>
+      useFormValidation(
+        { name: 'start' },
+        { name: { required: true } }
+      )
+    );
+
+    await act(async () => {
+      result.current.setValues({ name: 'updated' });
+    });
+
+    expect(result.current.values.name).toBe('updated');
+    expect(result.current.isDirty).toBe(true);
+
+    await act(async () => {
+      result.current.reset({ name: 'reset' });
+    });
+
+    expect(result.current.values.name).toBe('reset');
+    expect(result.current.isDirty).toBe(false);
+    expect(result.current.errors.name).toBeUndefined();
+  });
+
+  it('summarizes validation warnings', async () => {
+    const warningRule = {
+      validator: () => false,
+      message: 'warn',
+      type: 'warning' as const,
+    };
+
+    const { result } = renderHook(() =>
+      useFormValidation(
+        { name: 'x' },
+        { name: { rules: [warningRule], validateOnChange: true } }
+      )
+    );
+
+    await act(async () => {
+      await result.current.setFieldValue('name', 'x');
+    });
+
+    expect(result.current.validationSummary.totalWarnings).toBe(1);
+    expect(result.current.validationSummary.hasWarnings).toBe(true);
+  });
 });

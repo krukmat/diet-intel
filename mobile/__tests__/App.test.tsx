@@ -3,6 +3,9 @@ import { render, fireEvent } from '@testing-library/react-native';
 import App from '../App';
 
 const mockUseAuth = jest.fn();
+const mockUseBarcodeFlow = jest.fn();
+const mockRenderScreen = jest.fn();
+const mockResolveScreenTarget = jest.fn();
 
 jest.mock('../contexts/AuthContext', () => ({
   AuthProvider: ({ children }: { children: React.ReactNode }) => children,
@@ -44,22 +47,7 @@ jest.mock('../hooks/useHomeActions', () => ({
 }));
 
 jest.mock('../hooks/useBarcodeFlow', () => ({
-  useBarcodeFlow: () => ({
-    manualBarcode: '',
-    setManualBarcode: jest.fn(),
-    loading: false,
-    hasPermission: true,
-    scanned: false,
-    showCamera: false,
-    currentProduct: null,
-    showProductDetail: false,
-    handleBarCodeScanned: jest.fn(),
-    handleSubmit: jest.fn(),
-    resetInput: jest.fn(),
-    startCamera: jest.fn(),
-    stopCamera: jest.fn(),
-    closeProductDetail: jest.fn(),
-  }),
+  useBarcodeFlow: () => mockUseBarcodeFlow(),
 }));
 
 jest.mock('../hooks/useNotifications', () => ({
@@ -67,11 +55,11 @@ jest.mock('../hooks/useNotifications', () => ({
 }));
 
 jest.mock('../core/navigation/ScreenRegistry', () => ({
-  resolveScreenTarget: jest.fn((target: string) => target),
+  resolveScreenTarget: (target: string) => mockResolveScreenTarget(target),
 }));
 
 jest.mock('../core/navigation/legacyRouter', () => ({
-  renderScreen: jest.fn(() => null),
+  renderScreen: () => mockRenderScreen(),
 }));
 
 jest.mock('../components/HomeDashboard', () => {
@@ -122,6 +110,24 @@ describe('App', () => {
   });
 
   it('renders login and navigates to register', () => {
+    mockUseBarcodeFlow.mockReturnValue({
+      manualBarcode: '',
+      setManualBarcode: jest.fn(),
+      loading: false,
+      hasPermission: true,
+      scanned: false,
+      showCamera: false,
+      currentProduct: null,
+      showProductDetail: false,
+      handleBarCodeScanned: jest.fn(),
+      handleSubmit: jest.fn(),
+      resetInput: jest.fn(),
+      startCamera: jest.fn(),
+      stopCamera: jest.fn(),
+      closeProductDetail: jest.fn(),
+    });
+    mockRenderScreen.mockReturnValue(null);
+    mockResolveScreenTarget.mockImplementation((target: string) => target);
     mockUseAuth.mockReturnValue({
       user: null,
       isLoading: false,
@@ -137,6 +143,24 @@ describe('App', () => {
   });
 
   it('renders main app when authenticated', () => {
+    mockUseBarcodeFlow.mockReturnValue({
+      manualBarcode: '',
+      setManualBarcode: jest.fn(),
+      loading: false,
+      hasPermission: true,
+      scanned: false,
+      showCamera: false,
+      currentProduct: null,
+      showProductDetail: false,
+      handleBarCodeScanned: jest.fn(),
+      handleSubmit: jest.fn(),
+      resetInput: jest.fn(),
+      startCamera: jest.fn(),
+      stopCamera: jest.fn(),
+      closeProductDetail: jest.fn(),
+    });
+    mockRenderScreen.mockReturnValue(null);
+    mockResolveScreenTarget.mockImplementation((target: string) => target);
     mockUseAuth.mockReturnValue({
       user: { full_name: 'Test' },
       isLoading: false,
@@ -148,5 +172,103 @@ describe('App', () => {
 
     const { getByText } = render(<App />);
     expect(getByText('HomeDashboard')).toBeTruthy();
+  });
+
+  it('falls back to login after splash completes', () => {
+    mockUseBarcodeFlow.mockReturnValue({
+      manualBarcode: '',
+      setManualBarcode: jest.fn(),
+      loading: false,
+      hasPermission: true,
+      scanned: false,
+      showCamera: false,
+      currentProduct: null,
+      showProductDetail: false,
+      handleBarCodeScanned: jest.fn(),
+      handleSubmit: jest.fn(),
+      resetInput: jest.fn(),
+      startCamera: jest.fn(),
+      stopCamera: jest.fn(),
+      closeProductDetail: jest.fn(),
+    });
+    mockRenderScreen.mockReturnValue(null);
+    mockResolveScreenTarget.mockImplementation((target: string) => target);
+    mockUseAuth.mockReturnValue({
+      user: null,
+      isLoading: true,
+      isAuthenticated: false,
+      login: jest.fn(),
+      register: jest.fn(),
+      logout: jest.fn(),
+    });
+
+    const { getByText, queryByText } = render(<App />);
+    fireEvent.press(getByText('SplashScreen'));
+    expect(queryByText('SplashScreen')).toBeNull();
+    expect(getByText('LoginScreen')).toBeTruthy();
+  });
+
+  it('renders product detail when barcode flow has product', () => {
+    mockUseBarcodeFlow.mockReturnValue({
+      manualBarcode: '',
+      setManualBarcode: jest.fn(),
+      loading: false,
+      hasPermission: true,
+      scanned: false,
+      showCamera: false,
+      currentProduct: { id: '1' },
+      showProductDetail: true,
+      handleBarCodeScanned: jest.fn(),
+      handleSubmit: jest.fn(),
+      resetInput: jest.fn(),
+      startCamera: jest.fn(),
+      stopCamera: jest.fn(),
+      closeProductDetail: jest.fn(),
+    });
+    mockRenderScreen.mockReturnValue(null);
+    mockResolveScreenTarget.mockImplementation((target: string) => target);
+    mockUseAuth.mockReturnValue({
+      user: { full_name: 'Test' },
+      isLoading: false,
+      isAuthenticated: true,
+      login: jest.fn(),
+      register: jest.fn(),
+      logout: jest.fn(),
+    });
+
+    const { getByText } = render(<App />);
+    expect(getByText('ProductDetail')).toBeTruthy();
+  });
+
+  it('renders routed screens when provided', () => {
+    mockUseBarcodeFlow.mockReturnValue({
+      manualBarcode: '',
+      setManualBarcode: jest.fn(),
+      loading: false,
+      hasPermission: true,
+      scanned: false,
+      showCamera: false,
+      currentProduct: null,
+      showProductDetail: false,
+      handleBarCodeScanned: jest.fn(),
+      handleSubmit: jest.fn(),
+      resetInput: jest.fn(),
+      startCamera: jest.fn(),
+      stopCamera: jest.fn(),
+      closeProductDetail: jest.fn(),
+    });
+    mockResolveScreenTarget.mockImplementation((target: string) => target);
+    mockRenderScreen.mockReturnValue(<></>);
+    mockUseAuth.mockReturnValue({
+      user: { full_name: 'Test' },
+      isLoading: false,
+      isAuthenticated: true,
+      login: jest.fn(),
+      register: jest.fn(),
+      logout: jest.fn(),
+    });
+
+    const { queryByText } = render(<App />);
+    expect(queryByText('HomeDashboard')).toBeNull();
   });
 });
