@@ -1,4 +1,4 @@
-import * as feedTypes from '../feed';
+import { createEmptyDiscoverFeedResponse, createFeedMetadata } from '../feed';
 
 describe('feed types', () => {
   it('supports creating feed-shaped data', () => {
@@ -9,10 +9,7 @@ describe('feed types', () => {
       rank_score: 0.9,
       reason: 'fresh',
       created_at: '2024-01-01T00:00:00Z',
-      metadata: {
-        likes_count: 2,
-        comments_count: 1,
-      },
+      metadata: createFeedMetadata(2, 1),
     };
 
     const response = {
@@ -24,6 +21,6 @@ describe('feed types', () => {
 
     expect(response.items[0].id).toBe('feed-1');
     expect(response.items[0].metadata.likes_count).toBe(2);
-    expect(feedTypes).toBeDefined();
+    expect(createEmptyDiscoverFeedResponse()).toEqual({ items: [], next_cursor: null });
   });
 });

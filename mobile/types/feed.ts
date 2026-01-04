@@ -19,3 +19,13 @@ export interface DiscoverFeedResponse {
   variant?: string;
   request_id?: string | null;
 }
+
+export const createFeedMetadata = (likesCount = 0, commentsCount = 0) => ({
+  likes_count: likesCount,
+  comments_count: commentsCount,
+});
+
+export const createEmptyDiscoverFeedResponse = (): DiscoverFeedResponse => ({
+  items: [],
+  next_cursor: null,
+});

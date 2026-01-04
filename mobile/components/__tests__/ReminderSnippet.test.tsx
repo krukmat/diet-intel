@@ -1,5 +1,7 @@
 import React from 'react';
 import TestRenderer from 'react-test-renderer';
+import { render, fireEvent, waitFor } from '@testing-library/react-native';
+import { Switch } from 'react-native';
 import axios from 'axios';
 import * as Notifications from 'expo-notifications';
 import { Alert } from 'react-native';
@@ -90,5 +92,73 @@ describe('ReminderSnippet', () => {
     // Check for reminder content instead of specific text that might not exist
     const treeString = JSON.stringify(tree);
     expect(treeString).toContain('reminders'); // Basic check that component structure is correct
+  });
+
+  it('shows permission warning when notifications are not granted', async () => {
+    mockedNotifications.getPermissionsAsync?.mockResolvedValueOnce({ status: 'denied' } as any);
+    mockedNotifications.requestPermissionsAsync?.mockResolvedValueOnce({ status: 'granted' } as any);
+
+    const { findByText } = render(
+      <ReminderSnippet visible={true} onClose={onClose} />
+    );
+
+    const enableButton = await findByText('Enable Notifications');
+    fireEvent.press(enableButton);
+
+    expect(mockedNotifications.requestPermissionsAsync).toHaveBeenCalled();
+  });
+
+  it('renders empty state when there are no reminders', async () => {
+    mockedAxios.get.mockResolvedValueOnce({ data: { reminders: [] } });
+
+    const { findByText } = render(
+      <ReminderSnippet visible={true} onClose={onClose} />
+    );
+
+    expect(await findByText('No reminders set')).toBeTruthy();
+    expect(await findByText('Create reminders for meals and weigh-ins to stay on track')).toBeTruthy();
+  });
+
+  it('renders reminders and toggles enabled state', async () => {
+    mockedAxios.get.mockResolvedValueOnce(sampleReminders);
+    mockedAxios.put.mockResolvedValueOnce({ data: { success: true } });
+
+    const { findByText, UNSAFE_getAllByType } = render(
+      <ReminderSnippet visible={true} onClose={onClose} />
+    );
+
+    expect(await findByText('🍽️ Breakfast Reminder')).toBeTruthy();
+
+    const switches = UNSAFE_getAllByType(Switch);
+    fireEvent(switches[0], 'valueChange', false);
+
+    await waitFor(() => {
+      expect(mockedAxios.put).toHaveBeenCalled();
+    });
+  });
+
+  it('deletes reminder after confirmation', async () => {
+    mockedAxios.get.mockResolvedValueOnce(sampleReminders);
+    mockedAxios.delete.mockResolvedValueOnce({ data: { success: true } });
+
+    const alertConfirmSpy = jest.spyOn(Alert, 'alert').mockImplementation((_title, _message, buttons) => {
+      const confirm = buttons?.[1];
+      if (confirm && typeof confirm.onPress === 'function') {
+        confirm.onPress();
+      }
+    });
+
+    const { findAllByText } = render(
+      <ReminderSnippet visible={true} onClose={onClose} />
+    );
+
+    const deleteButtons = await findAllByText('🗑️ Delete');
+    fireEvent.press(deleteButtons[0]);
+
+    await waitFor(() => {
+      expect(mockedAxios.delete).toHaveBeenCalled();
+    });
+
+    alertConfirmSpy.mockRestore();
   });
 });

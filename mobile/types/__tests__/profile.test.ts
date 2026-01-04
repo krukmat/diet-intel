@@ -1,4 +1,4 @@
-import * as profileTypes from '../profile';
+import { createEmptyProfile, createEmptyProfileStats } from '../profile';
 
 describe('profile types', () => {
   it('supports creating profile-shaped data', () => {
@@ -21,6 +21,14 @@ describe('profile types', () => {
 
     expect(profile.handle).toBe('test_user');
     expect(profile.stats.level).toBe(2);
-    expect(profileTypes).toBeDefined();
+    expect(createEmptyProfileStats()).toEqual({
+      followers_count: 0,
+      following_count: 0,
+      posts_count: 0,
+      points_total: 0,
+      level: 0,
+      badges_count: 0,
+    });
+    expect(createEmptyProfile('user-2').user_id).toBe('user-2');
   });
 });

@@ -142,3 +142,16 @@ export interface ImageProcessingResult {
   height: number;
   size: number;
 }
+
+export const createEmptyMacroDistribution = (): NutritionalAnalysis['macro_distribution'] => ({
+  protein_percent: 0,
+  fat_percent: 0,
+  carbs_percent: 0,
+});
+
+export const createEmptyVisionHistoryState = (): VisionHistoryState => ({
+  logs: [],
+  isLoading: false,
+  hasMore: false,
+  error: null,
+});

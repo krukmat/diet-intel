@@ -40,12 +40,32 @@ import {
   EmptyState,
   EmptyList,
   EmptyFavorites,
-  EmptyOffline
+  EmptyOffline,
+  EmptySearchResults,
+  EmptyRecentlyViewed,
+  EmptyNotifications,
+  EmptyBlockedUsers,
+  EmptySocialList,
+  EmptyShoppingList,
+  EmptyMealPlans,
+  InlineEmptyState,
+  IllustratedEmptyState
 } from '../components/EmptyStates';
 import {
   ErrorState,
   NetworkErrorState,
-  ValidationErrorState
+  ValidationErrorState,
+  ServerErrorState,
+  AuthErrorState,
+  PermissionErrorState,
+  NotFoundErrorState,
+  ApiErrorState,
+  PaymentErrorState,
+  UploadErrorState,
+  CameraErrorState,
+  StorageErrorState,
+  InlineErrorState,
+  ErrorBanner
 } from '../components/ErrorStates';
 import { useScreenLayout } from '../hooks/useScreenLayout';
 import { useThemedStyles } from '../hooks/useThemedStyles';
@@ -667,6 +687,75 @@ describe('Empty States Components', () => {
       expect(screen.getByText('Retry')).toBeTruthy();
     });
   });
+
+  describe('Additional Empty States', () => {
+    it('should render empty search results with term', () => {
+      const onClear = jest.fn();
+      render(
+        <TestWrapper>
+          <EmptySearchResults searchTerm="kale" onClearSearch={onClear} />
+        </TestWrapper>
+      );
+
+      fireEvent.press(screen.getByText('Clear search'));
+      expect(onClear).toHaveBeenCalled();
+    });
+
+    it('should render empty search results without term', () => {
+      const onTryAgain = jest.fn();
+      render(
+        <TestWrapper>
+          <EmptySearchResults onTryAgain={onTryAgain} />
+        </TestWrapper>
+      );
+
+      fireEvent.press(screen.getByText('Try again'));
+      expect(onTryAgain).toHaveBeenCalled();
+    });
+
+    it('should render empty social lists', () => {
+      render(
+        <TestWrapper>
+          <EmptySocialList type="followers" onFindPeople={() => {}} />
+          <EmptySocialList type="following" onFindPeople={() => {}} />
+        </TestWrapper>
+      );
+
+      expect(screen.getByText('No followers yet')).toBeTruthy();
+      expect(screen.getByText('Not following anyone')).toBeTruthy();
+    });
+
+    it('should render inline and illustrated empty states', () => {
+      const onAction = jest.fn();
+      render(
+        <TestWrapper>
+          <InlineEmptyState message="Nothing to show" />
+          <IllustratedEmptyState title="Title" message="Message" actionText="Act" onAction={onAction} />
+        </TestWrapper>
+      );
+
+      fireEvent.press(screen.getByText('Act'));
+      expect(onAction).toHaveBeenCalled();
+    });
+
+    it('should render other empty states', () => {
+      render(
+        <TestWrapper>
+          <EmptyRecentlyViewed />
+          <EmptyNotifications />
+          <EmptyBlockedUsers />
+          <EmptyShoppingList onCreateList={() => {}} />
+          <EmptyMealPlans onCreatePlan={() => {}} />
+        </TestWrapper>
+      );
+
+      expect(screen.getByText('No recent activity')).toBeTruthy();
+      expect(screen.getByText('No notifications')).toBeTruthy();
+      expect(screen.getByText('No blocked users')).toBeTruthy();
+      expect(screen.getByText('No shopping lists')).toBeTruthy();
+      expect(screen.getByText('No meal plans yet')).toBeTruthy();
+    });
+  });
 });
 
 describe('Error States Components', () => {
@@ -711,6 +800,71 @@ describe('Error States Components', () => {
       );
 
       expect(screen.getByText('Email: Invalid email format')).toBeTruthy();
+    });
+  });
+
+  describe('Additional Error States', () => {
+    it('should render api error with and without code', () => {
+      render(
+        <TestWrapper>
+          <ApiErrorState errorCode="500" />
+          <ApiErrorState />
+        </TestWrapper>
+      );
+
+      expect(screen.getByText('Error 500')).toBeTruthy();
+      expect(screen.getByText('Request failed')).toBeTruthy();
+    });
+
+    it('should render various error states', () => {
+      render(
+        <TestWrapper>
+          <ServerErrorState />
+          <AuthErrorState />
+          <PermissionErrorState permission="camera" />
+          <NotFoundErrorState item="recipe" />
+          <PaymentErrorState />
+          <UploadErrorState fileType="photo" />
+          <CameraErrorState />
+          <StorageErrorState />
+          <InlineErrorState message="Inline error" />
+        </TestWrapper>
+      );
+
+      expect(screen.getByText('Server error')).toBeTruthy();
+      expect(screen.getByText('Authentication required')).toBeTruthy();
+      expect(screen.getByText('Permission required')).toBeTruthy();
+      expect(screen.getByText('Not found')).toBeTruthy();
+      expect(screen.getByText('Payment failed')).toBeTruthy();
+      expect(screen.getByText('Upload failed')).toBeTruthy();
+      expect(screen.getByText('Camera unavailable')).toBeTruthy();
+      expect(screen.getByText('Storage full')).toBeTruthy();
+      expect(screen.getByText('Inline error')).toBeTruthy();
+    });
+
+    it('handles inline error dismiss and banner actions', () => {
+      const onDismiss = jest.fn();
+      const onRetry = jest.fn();
+      const onBannerRetry = jest.fn();
+      const onBannerDismiss = jest.fn();
+
+      render(
+        <TestWrapper>
+          <InlineErrorState message="Dismiss me" onDismiss={onDismiss} />
+          <ErrorBanner message="Banner" onRetry={onBannerRetry} onDismiss={onBannerDismiss} />
+          <ErrorState title="Oops" message="Retry" onRetry={onRetry} retryText="Retry Now" />
+        </TestWrapper>
+      );
+
+      fireEvent.press(screen.getByTestId('inline-error-dismiss'));
+      fireEvent.press(screen.getByTestId('error-banner-retry'));
+      fireEvent.press(screen.getByTestId('error-banner-dismiss'));
+      fireEvent.press(screen.getByText('Retry Now'));
+
+      expect(onDismiss).toHaveBeenCalled();
+      expect(onBannerRetry).toHaveBeenCalled();
+      expect(onRetry).toHaveBeenCalled();
+      expect(onBannerDismiss).toHaveBeenCalled();
     });
   });
 });

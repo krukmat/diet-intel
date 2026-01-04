@@ -1,4 +1,4 @@
-import * as authTypes from '../auth';
+import { AUTH_ROLE_OPTIONS, buildEmptyAuthTokens, hasValidAuthTokens } from '../auth';
 
 describe('auth types', () => {
   it('supports creating auth-shaped data', () => {
@@ -30,6 +30,13 @@ describe('auth types', () => {
     expect(user.email).toBe('user@example.com');
     expect(tokens.expires_in).toBe(3600);
     expect(storage.user.id).toBe('user-1');
-    expect(authTypes).toBeDefined();
+    expect(AUTH_ROLE_OPTIONS).toContain('standard');
+    expect(buildEmptyAuthTokens()).toEqual({
+      access_token: '',
+      refresh_token: '',
+      token_type: 'bearer',
+      expires_in: 0,
+    });
+    expect(hasValidAuthTokens(tokens)).toBe(true);
   });
 });

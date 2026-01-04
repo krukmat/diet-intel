@@ -28,3 +28,22 @@ export interface ProfileUpdatePayload {
   bio?: string;
   visibility?: 'public' | 'followers_only';
 }
+
+export const createEmptyProfileStats = (): ProfileStats => ({
+  followers_count: 0,
+  following_count: 0,
+  posts_count: 0,
+  points_total: 0,
+  level: 0,
+  badges_count: 0,
+});
+
+export const createEmptyProfile = (userId: string): Profile => ({
+  user_id: userId,
+  handle: '',
+  visibility: 'public',
+  stats: createEmptyProfileStats(),
+  posts_notice: null,
+  follow_relation: null,
+  block_relation: null,
+});

@@ -1,4 +1,4 @@
-import * as visionTypes from '../visionLog';
+import { createEmptyMacroDistribution, createEmptyVisionHistoryState } from '../visionLog';
 
 describe('vision log types', () => {
   it('supports creating vision log response data', () => {
@@ -62,6 +62,16 @@ describe('vision log types', () => {
 
     expect(log.identified_ingredients[0].name).toBe('Oatmeal');
     expect(state.analysisResult?.id).toBe('log-1');
-    expect(visionTypes).toBeDefined();
+    expect(createEmptyMacroDistribution()).toEqual({
+      protein_percent: 0,
+      fat_percent: 0,
+      carbs_percent: 0,
+    });
+    expect(createEmptyVisionHistoryState()).toEqual({
+      logs: [],
+      isLoading: false,
+      hasMore: false,
+      error: null,
+    });
   });
 });

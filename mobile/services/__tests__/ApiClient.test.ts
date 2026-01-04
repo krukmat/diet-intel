@@ -150,4 +150,121 @@ describe('ApiClient', () => {
 
     expect(query).toBe('a=1&d=ok');
   });
+
+  it('refreshes token on unauthorized response and retries request', async () => {
+    const client = resetClient(false);
+    (AsyncStorage.setItem as jest.Mock).mockResolvedValue(undefined);
+    (client as any).refreshToken = 'refresh-old';
+
+    const executeRequest = jest.fn()
+      .mockRejectedValueOnce({ status: 401 })
+      .mockResolvedValueOnce({
+        data: { accessToken: 'access-new', refreshToken: 'refresh-new' },
+        status: 'success',
+        timestamp: 't',
+      })
+      .mockResolvedValueOnce({
+        data: { ok: true },
+        status: 'success',
+        timestamp: 't2',
+      });
+
+    (client as any).executeRequest = executeRequest;
+
+    await expect(client.request({ method: 'GET', url: '/secure' })).resolves.toEqual({
+      data: { ok: true },
+      status: 'success',
+      timestamp: 't2',
+    });
+
+    expect(AsyncStorage.setItem).toHaveBeenCalledWith('@auth_token', 'access-new');
+    expect(AsyncStorage.setItem).toHaveBeenCalledWith('@refresh_token', 'refresh-new');
+    expect(executeRequest).toHaveBeenCalledTimes(3);
+  });
+
+  it('clears auth tokens when refresh fails', async () => {
+    const client = resetClient(false);
+    (AsyncStorage.removeItem as jest.Mock).mockResolvedValue(undefined);
+    (client as any).refreshToken = 'refresh-old';
+
+    (client as any).executeRequest = jest.fn().mockRejectedValue({ status: 401 });
+    (client as any).refreshAccessToken = jest.fn().mockRejectedValue(new Error('nope'));
+
+    await expect(client.request({ method: 'GET', url: '/secure' })).rejects.toEqual({
+      code: 'AUTH_FAILED',
+      message: 'Authentication failed. Please login again.',
+      timestamp: expect.any(String),
+    });
+
+    expect(AsyncStorage.removeItem).toHaveBeenCalledWith('@auth_token');
+    expect(AsyncStorage.removeItem).toHaveBeenCalledWith('@refresh_token');
+  });
+
+  it('executes request with auth header and query params', async () => {
+    (AsyncStorage.getItem as jest.Mock).mockImplementation((key: string) => {
+      if (key === '@auth_token') {
+        return Promise.resolve('access-token');
+      }
+      if (key === '@refresh_token') {
+        return Promise.resolve('refresh-token');
+      }
+      return Promise.resolve(null);
+    });
+    const client = resetClient(true);
+    (global.fetch as jest.Mock).mockResolvedValue(buildFetchResponse({ ok: true }));
+    (AsyncStorage.setItem as jest.Mock).mockResolvedValue(undefined);
+
+    await client.setAuthTokens('access-token', 'refresh-token');
+
+    await client.get('/search', { q: 'hello world', limit: 2 });
+
+    expect(global.fetch).toHaveBeenCalledWith(
+      'http://localhost:8000/search?q=hello%20world&limit=2',
+      expect.objectContaining({
+        method: 'GET',
+        headers: expect.objectContaining({
+          Authorization: 'Bearer access-token',
+        }),
+      }),
+    );
+  });
+
+  it('expires cached entries based on ttl', async () => {
+    const client = resetClient(false);
+    (global.fetch as jest.Mock).mockResolvedValue(buildFetchResponse({ value: 2 }));
+
+    const cacheKey = (client as any).getCacheKey('/cached', undefined);
+    (client as any).cache.set(cacheKey, {
+      data: { data: { value: 1 }, status: 'success', timestamp: 't' },
+      timestamp: Date.now() - 10 * 60 * 1000,
+      ttl: 1000,
+    });
+
+    const result = await client.get('/cached');
+
+    expect(result.data).toEqual({ value: 2 });
+    expect(global.fetch).toHaveBeenCalledTimes(1);
+  });
+
+  it('processes queued requests when back online', async () => {
+    const client = resetClient(false);
+    const executeRequest = jest.fn().mockResolvedValue({ data: { ok: true } });
+    (client as any).executeRequest = executeRequest;
+    (client as any).networkState.isConnected = false;
+
+    await expect(client.get('/offline')).rejects.toThrow('No internet connection. Request has been queued.');
+    expect(client.getQueuedRequestCount()).toBe(1);
+
+    (client as any).networkState.isConnected = true;
+    await (client as any).processRequestQueue();
+
+    expect(executeRequest).toHaveBeenCalledTimes(1);
+    expect(client.getQueuedRequestCount()).toBe(0);
+  });
+
+  it('considers abort errors retryable', () => {
+    const client = resetClient(false);
+
+    expect((client as any).isRetryableError({ name: 'AbortError' })).toBe(true);
+  });
 });

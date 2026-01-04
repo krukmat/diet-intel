@@ -46,3 +46,15 @@ export interface TokenStorage {
   expires_at: string;
   user: User;
 }
+
+export const AUTH_ROLE_OPTIONS = ['standard', 'premium', 'developer'] as const;
+
+export const buildEmptyAuthTokens = (): AuthTokens => ({
+  access_token: '',
+  refresh_token: '',
+  token_type: 'bearer',
+  expires_in: 0,
+});
+
+export const hasValidAuthTokens = (tokens: AuthTokens | null): boolean =>
+  Boolean(tokens?.access_token && tokens?.refresh_token);

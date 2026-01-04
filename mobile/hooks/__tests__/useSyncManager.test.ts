@@ -149,4 +149,133 @@ describe('useSyncManager', () => {
     expect(result.current.getSyncStatusMessage()).toContain('Offline');
     expect(result.current.getLastSyncMessage()).toBe('Never synced');
   });
+
+  it('returns status messages for sync in progress and pending changes', async () => {
+    (syncManager.getStatus as jest.Mock).mockReturnValue({
+      isOnline: true,
+      lastSyncTime: 0,
+      pendingChanges: 3,
+      syncInProgress: true,
+      errors: [],
+    });
+
+    const { result } = renderHook(() => useSyncManager());
+
+    await waitFor(() => {
+      expect(result.current.status.pendingChanges).toBe(3);
+    });
+
+    expect(result.current.getSyncStatusMessage()).toBe('🔄 Syncing...');
+  });
+
+  it('returns pending changes message when not syncing', async () => {
+    (syncManager.getStatus as jest.Mock).mockReturnValue({
+      isOnline: true,
+      lastSyncTime: 0,
+      pendingChanges: 2,
+      syncInProgress: false,
+      errors: [],
+    });
+
+    const { result } = renderHook(() => useSyncManager());
+
+    await waitFor(() => {
+      expect(result.current.status.pendingChanges).toBe(2);
+    });
+
+    expect(result.current.getSyncStatusMessage()).toBe('📤 2 changes to sync');
+  });
+
+  it('returns errors message when errors exist', async () => {
+    (syncManager.getStatus as jest.Mock).mockReturnValue({
+      isOnline: true,
+      lastSyncTime: 0,
+      pendingChanges: 0,
+      syncInProgress: false,
+      errors: [{ message: 'err' }],
+    });
+
+    const { result } = renderHook(() => useSyncManager());
+
+    await waitFor(() => {
+      expect(result.current.status.errors.length).toBe(1);
+    });
+
+    expect(result.current.getSyncStatusMessage()).toBe('⚠️ 1 sync errors');
+  });
+
+  it('formats last sync time for minutes, hours, and days', async () => {
+    const now = Date.now();
+    (syncManager.getStatus as jest.Mock).mockReturnValue({
+      isOnline: true,
+      lastSyncTime: now - 5 * 60000,
+      pendingChanges: 0,
+      syncInProgress: false,
+      errors: [],
+    });
+
+    const { result, unmount } = renderHook(() => useSyncManager());
+
+    await waitFor(() => {
+      expect(result.current.getLastSyncMessage()).toBe('5 minutes ago');
+    });
+
+    unmount();
+    (syncManager.getStatus as jest.Mock).mockReturnValue({
+      isOnline: true,
+      lastSyncTime: now - 2 * 60 * 60000,
+      pendingChanges: 0,
+      syncInProgress: false,
+      errors: [],
+    });
+    const hoursHook = renderHook(() => useSyncManager());
+    await waitFor(() => {
+      expect(hoursHook.result.current.getLastSyncMessage()).toBe('2 hours ago');
+    });
+
+    (syncManager.getStatus as jest.Mock).mockReturnValue({
+      isOnline: true,
+      lastSyncTime: now - 2 * 24 * 60 * 60000,
+      pendingChanges: 0,
+      syncInProgress: false,
+      errors: [],
+    });
+    const daysHook = renderHook(() => useSyncManager());
+    await waitFor(() => {
+      expect(daysHook.result.current.getLastSyncMessage()).toBe('2 days ago');
+    });
+  });
+
+  it('resolves a single conflict and refreshes list', async () => {
+    (syncManager.getConflicts as jest.Mock).mockResolvedValueOnce([{ id: 'c1' }]).mockResolvedValueOnce([]);
+
+    const { result } = renderHook(() => useSyncManager());
+
+    await waitFor(() => {
+      expect(result.current.conflicts.length).toBe(1);
+    });
+
+    await act(async () => {
+      await result.current.resolveConflict('c1', 'local');
+    });
+
+    expect(syncManager.resolveManualConflict).toHaveBeenCalledWith('c1', 'local', undefined);
+  });
+
+  it('toggles needsAttention based on conflicts and errors', async () => {
+    (syncManager.getStatus as jest.Mock).mockReturnValue({
+      isOnline: true,
+      lastSyncTime: 0,
+      pendingChanges: 0,
+      syncInProgress: false,
+      errors: [{ message: 'err' }],
+    });
+    (syncManager.getConflicts as jest.Mock).mockResolvedValue([{ id: 'c1' }]);
+
+    const { result } = renderHook(() => useSyncManager());
+
+    await waitFor(() => {
+      expect(result.current.needsAttention).toBe(true);
+    });
+  });
 });
