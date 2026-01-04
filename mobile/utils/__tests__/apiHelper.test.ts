@@ -157,6 +157,77 @@ describe('ApiHelper', () => {
     );
   });
 
+  it('uploads label image using external endpoint', async () => {
+    (global as any).FormData = class {
+      append = jest.fn();
+    };
+
+    axiosInstance.post.mockResolvedValue({ data: { ok: true } });
+    const helper = new ApiHelper();
+
+    const result = await helper.uploadLabelImageExternal('file://image.jpg');
+
+    expect(result).toEqual({ ok: true });
+    expect(axiosInstance.post).toHaveBeenCalledWith(
+      '/product/scan-label-external',
+      expect.any(FormData),
+      { headers: { 'Content-Type': 'multipart/form-data' } }
+    );
+  });
+
+  it('retries on server errors until max retries is reached', async () => {
+    jest.useFakeTimers();
+    axiosInstance.mockResolvedValue({ data: { ok: true } });
+
+    new ApiHelper({ maxRetries: 1, retryDelay: 100 });
+
+    const error: any = {
+      response: { status: 500 },
+      config: { url: '/retry-server' }
+    };
+
+    const promise = responseError(error);
+    jest.advanceTimersByTime(100);
+
+    await expect(promise).resolves.toEqual({ data: { ok: true } });
+    expect(axiosInstance).toHaveBeenCalledWith({ url: '/retry-server', _retry: true, _retryCount: 1 });
+
+    jest.useRealTimers();
+  });
+
+  it('supports meal plan operations', async () => {
+    axiosInstance.post.mockResolvedValueOnce({ data: { id: 'plan' } });
+    axiosInstance.put.mockResolvedValueOnce({ data: { id: 'plan-updated' } });
+    axiosInstance.post.mockResolvedValueOnce({ data: { success: true, message: 'Added' } });
+    axiosInstance.get.mockResolvedValueOnce({ data: { maxCalories: 2000 } });
+
+    const helper = new ApiHelper();
+
+    await expect(helper.generateMealPlan({ age: 30, sex: 'male', height_cm: 170, weight_kg: 70, activity_level: 2, goal: 'maintain' }))
+      .resolves.toEqual({ id: 'plan' });
+    await expect(helper.customizeMealPlan({ meal_type: 'lunch', action: 'add', item: { barcode: '1', name: 'Item', serving_size: '1', calories_per_serving: 100, protein_g: 10, fat_g: 2, carbs_g: 5 } }))
+      .resolves.toEqual({ id: 'plan-updated' });
+    await expect(helper.addProductToPlan({ barcode: '1', meal_type: 'lunch' }))
+      .resolves.toEqual({ success: true, message: 'Added' });
+    await expect(helper.getMealPlanConfig()).resolves.toEqual({ maxCalories: 2000 });
+  });
+
+  it('searches products and maps response', async () => {
+    axiosInstance.get.mockResolvedValueOnce({
+      data: {
+        products: [
+          { code: '111', product_name: 'Bar', nutriments: { energy_kcal: 120 } },
+        ],
+      },
+    });
+
+    const helper = new ApiHelper();
+    const result = await helper.searchProducts('bar');
+
+    expect(axiosInstance.get).toHaveBeenCalledWith('/product/search?q=bar');
+    expect(result[0]).toEqual(expect.objectContaining({ barcode: '111', name: 'Bar' }));
+  });
+
   it('updates configuration and base URL', () => {
     const helper = new ApiHelper();
 

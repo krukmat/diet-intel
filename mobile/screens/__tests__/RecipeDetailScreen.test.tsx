@@ -5,7 +5,7 @@ import { Alert } from 'react-native';
 
 jest.mock('react-native', () => {
   const actual = jest.requireActual('react-native');
-  return { ...actual, Alert: { alert: jest.fn() } };
+  return { ...actual, Alert: { alert: jest.fn() }, TouchableOpacity: actual.Pressable };
 });
 
 jest.mock('react-i18next', () => ({
@@ -140,5 +140,79 @@ describe('RecipeDetailScreen', () => {
     fireEvent.press(getByTestId('mock-shopping'));
 
     expect(Alert.alert).toHaveBeenCalled();
+  });
+
+  it('shows optimize fallback when no handler is provided', () => {
+    const alertSpy = jest.spyOn(Alert, 'alert');
+
+    const { getByTestId } = render(
+      <RecipeDetailScreen recipe={recipe} onBackPress={jest.fn()} />
+    );
+
+    fireEvent.press(getByTestId('mock-optimize'));
+
+    expect(alertSpy).toHaveBeenCalledWith(
+      '⚡ Optimize Recipe',
+      'Recipe optimization will be available in the next update!'
+    );
+    alertSpy.mockRestore();
+  });
+
+  it('toggles favorite state on save', () => {
+    const alertSpy = jest.spyOn(Alert, 'alert');
+    const { getByTestId } = render(
+      <RecipeDetailScreen recipe={recipe} onBackPress={jest.fn()} />
+    );
+
+    fireEvent.press(getByTestId('mock-save'));
+    fireEvent.press(getByTestId('mock-save'));
+
+    expect(alertSpy).toHaveBeenCalledWith(
+      '❤️ Added to Favorites',
+      '"{{recipeName}}" {{action}} your favorites'
+    );
+    expect(alertSpy).toHaveBeenCalledWith(
+      '💔 Removed from Favorites',
+      '"{{recipeName}}" {{action}} your favorites'
+    );
+    alertSpy.mockRestore();
+  });
+
+  it('opens cooking mode and navigates steps', () => {
+    const richRecipe = {
+      ...recipe,
+      instructions: [
+        { step: 1, instruction: 'Prep ingredients', timeMinutes: 5, temperature: '180C' },
+        { step: 2, instruction: 'Bake', timeMinutes: 15 },
+      ],
+    };
+
+    const { getByText, getByTestId } = render(
+      <RecipeDetailScreen recipe={richRecipe} onBackPress={jest.fn()} />
+    );
+
+    fireEvent.press(getByText('Instructions'));
+    fireEvent.press(getByTestId('mock-cooking'));
+
+    expect(getByText('🔥 Cooking Mode')).toBeTruthy();
+    expect(getByText('1 / 2')).toBeTruthy();
+    expect(getByText('Prep ingredients')).toBeTruthy();
+
+    fireEvent.press(getByText('Next →'));
+    expect(getByText('2 / 2')).toBeTruthy();
+    expect(getByText('Bake')).toBeTruthy();
+
+    fireEvent.press(getByText('← Previous'));
+    expect(getByText('1 / 2')).toBeTruthy();
+  });
+
+  it('loads recipe by id when recipe prop is missing', async () => {
+    const { findByText, getByText, getByTestId } = render(
+      <RecipeDetailScreen recipeId="recipe-123" onBackPress={jest.fn()} />
+    );
+
+    fireEvent.press(getByText('Instructions'));
+    fireEvent.press(getByTestId('mock-cooking'));
+    expect(await findByText('1 / 7')).toBeTruthy();
   });
 });

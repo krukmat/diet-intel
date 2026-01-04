@@ -1,5 +1,6 @@
 import React from 'react';
 import { fireEvent, waitFor } from '@testing-library/react-native';
+import { Alert } from 'react-native';
 import SmartDietScreen from '../screens/SmartDietScreen';
 import * as mealPlanUtils from '../utils/mealPlanUtils';
 import {
@@ -370,5 +371,120 @@ describe('SmartDietScreen', () => {
     expect(await findByText('⚡ Suggested Optimizations')).toBeTruthy();
     expect(await findByText('Meal Swaps:')).toBeTruthy();
     expect(await findByText('Replace White rice with Quinoa')).toBeTruthy();
+  });
+
+  it('alerts when adding recommendation without barcode', async () => {
+    const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation((_title, _message, buttons) => {
+      const confirm = buttons?.[1];
+      if (confirm && typeof confirm.onPress === 'function') {
+        confirm.onPress();
+      }
+    });
+    mockedApi.get.mockResolvedValueOnce({
+      data: buildSmartDietResponse('today', {
+        suggestions: [buildSuggestion({ suggested_item: undefined, metadata: {} })],
+      }),
+    });
+
+    const { findByText } = renderScreen();
+
+    await findByText('Greek Yogurt with Berries');
+    fireEvent.press(await findByText('Add to breakfast'));
+
+    expect(alertSpy).toHaveBeenCalledWith(
+      'Cannot Add to Plan',
+      'This recommendation cannot be added to your meal plan (no barcode information available).',
+      [{ text: 'OK' }]
+    );
+    alertSpy.mockRestore();
+  });
+
+  it('prompts sign-in when user tries to add to plan', async () => {
+    const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation((_title, _message, buttons) => {
+      const confirm = buttons?.[1];
+      if (confirm && typeof confirm.onPress === 'function') {
+        confirm.onPress();
+      }
+    });
+    const { mockAuthContext } = require('../testUtils');
+    mockAuthContext.user = null;
+
+    const { findByText } = renderScreen();
+
+    await findByText('Greek Yogurt with Berries');
+    fireEvent.press(await findByText('Add to breakfast'));
+
+    expect(alertSpy).toHaveBeenCalledWith(
+      'Sign In Required',
+      'Please log in to modify your meal plan.'
+    );
+    alertSpy.mockRestore();
+  });
+
+  it('handles optimization action without barcode by showing success', async () => {
+    const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation((_title, _message, buttons) => {
+      const apply = buttons?.[1];
+      if (apply && typeof apply.onPress === 'function') {
+        apply.onPress();
+      }
+    });
+    mockedApi.get.mockResolvedValueOnce({
+      data: buildSmartDietResponse('today', {
+        suggestions: [
+          buildSuggestion({
+            suggestion_type: 'optimization',
+            metadata: {},
+            action_text: 'Apply Optimization',
+          }),
+        ],
+      }),
+    });
+
+    const { findByText } = renderScreen();
+
+    await findByText('Greek Yogurt with Berries');
+    fireEvent.press(await findByText('Apply Optimization'));
+
+    expect(alertSpy).toHaveBeenCalledWith('Success', 'Optimization applied');
+    alertSpy.mockRestore();
+  });
+
+  it('shows sign-in notice when feedback is submitted without user', async () => {
+    const alertSpy = jest.spyOn(Alert, 'alert');
+    const { mockAuthContext } = require('../testUtils');
+    mockAuthContext.user = null;
+
+    const { findAllByText } = renderScreen();
+
+    const positiveButtons = await findAllByText('👍');
+    fireEvent.press(positiveButtons[0]);
+
+    expect(alertSpy).toHaveBeenCalledWith('Sign In Required', 'Please log in to share feedback.');
+    alertSpy.mockRestore();
+  });
+
+  it('toggles notification preferences and triggers notification', async () => {
+    const { mockNotificationService } = require('../testUtils');
+    mockNotificationService.getConfig.mockResolvedValueOnce({
+      enabled: false,
+      dailySuggestionTime: '09:00',
+      reminderInterval: 24,
+      preferredContexts: ['today'],
+    });
+
+    const { findByText } = renderScreen();
+
+    const settingsButton = await findByText('⚙️');
+    fireEvent.press(settingsButton);
+
+    const toggleButton = await findByText('🔕');
+    fireEvent.press(toggleButton);
+
+    await waitFor(() => {
+      expect(mockNotificationService.updateConfig).toHaveBeenCalledWith(
+        expect.objectContaining({ enabled: true })
+      );
+      expect(mockNotificationService.triggerSmartDietNotification).toHaveBeenCalled();
+    });
   });
 });

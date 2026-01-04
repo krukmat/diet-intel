@@ -6,13 +6,35 @@
 import React from 'react';
 import { Text } from 'react-native';
 import { render, screen, fireEvent } from '@testing-library/react-native';
-import { ScreenLayout, LoadingScreenLayout, ErrorScreenLayout, EmptyScreenLayout } from '../layouts/ScreenLayout';
-import { Header, NavigationHeader, ModalHeader } from '../layouts/Header';
+import {
+  ScreenLayout,
+  LoadingScreenLayout,
+  ErrorScreenLayout,
+  EmptyScreenLayout,
+  NavigableScreenLayout,
+  ModalScreenLayout,
+} from '../layouts/ScreenLayout';
+import {
+  Header,
+  NavigationHeader,
+  ModalHeader,
+  SearchHeader,
+  ActionHeader,
+  ProfileHeader,
+  TabHeader,
+  MinimalHeader,
+} from '../layouts/Header';
 import { 
   LoadingSpinner, 
   FullScreenLoading, 
   InlineLoading, 
-  SkeletonLoader 
+  SkeletonLoader,
+  TextSkeleton,
+  CardSkeleton,
+  ListSkeleton,
+  PullToRefreshLoading,
+  ButtonLoading,
+  PageLoading
 } from '../components/LoadingStates';
 import {
   EmptyState,
@@ -95,6 +117,61 @@ describe('ScreenLayout Components', () => {
           </ScreenLayout>
         </TestWrapper>
       );
+    });
+
+    it('should render footer when provided', () => {
+      render(
+        <TestWrapper>
+          <ScreenLayout title="Footer Screen" footer={<Text>Footer</Text>}>
+            <Text>Content</Text>
+          </ScreenLayout>
+        </TestWrapper>
+      );
+
+      expect(screen.getByText('Footer')).toBeTruthy();
+    });
+  });
+
+  describe('NavigableScreenLayout', () => {
+    it('should show back button and navigate on press', () => {
+      const onNavigate = jest.fn();
+      render(
+        <TestWrapper>
+          <NavigableScreenLayout currentScreen="track" onNavigate={onNavigate} title="Nav">
+            <Text>Content</Text>
+          </NavigableScreenLayout>
+        </TestWrapper>
+      );
+
+      fireEvent.press(screen.getByText('← Back'));
+      expect(onNavigate).toHaveBeenCalledWith('splash');
+    });
+
+    it('should hide back button on root screens', () => {
+      const onNavigate = jest.fn();
+      render(
+        <TestWrapper>
+          <NavigableScreenLayout currentScreen="splash" onNavigate={onNavigate} title="Nav">
+            <Text>Content</Text>
+          </NavigableScreenLayout>
+        </TestWrapper>
+      );
+
+      expect(screen.queryByText('← Back')).toBeNull();
+    });
+  });
+
+  describe('ModalScreenLayout', () => {
+    it('should hide close button when disabled', () => {
+      render(
+        <TestWrapper>
+          <ModalScreenLayout title="Modal" onClose={jest.fn()} showCloseButton={false}>
+            <Text>Content</Text>
+          </ModalScreenLayout>
+        </TestWrapper>
+      );
+
+      expect(screen.queryByText('← Back')).toBeNull();
     });
   });
 
@@ -238,6 +315,23 @@ describe('Header Components', () => {
       // Should not show back button for 'splash' screen
       expect(screen.queryByText('←')).toBeNull();
     });
+
+    it('should navigate to default back target when no handler provided', () => {
+      const mockNavigate = jest.fn();
+
+      render(
+        <TestWrapper>
+          <NavigationHeader
+            currentScreen="track"
+            onNavigate={mockNavigate}
+            title="Track"
+          />
+        </TestWrapper>
+      );
+
+      fireEvent.press(screen.getByText('←'));
+      expect(mockNavigate).toHaveBeenCalledWith('splash');
+    });
   });
 
   describe('ModalHeader', () => {
@@ -257,6 +351,131 @@ describe('Header Components', () => {
       fireEvent.press(closeButton);
       
       expect(mockOnClose).toHaveBeenCalled();
+    });
+
+    it('should hide close button when disabled', () => {
+      render(
+        <TestWrapper>
+          <ModalHeader
+            title="Modal Title"
+            onClose={jest.fn()}
+            showCloseButton={false}
+          />
+        </TestWrapper>
+      );
+
+      expect(screen.queryByText('×')).toBeNull();
+    });
+  });
+
+  describe('SearchHeader', () => {
+    it('should handle search input events', () => {
+      const onSearchChange = jest.fn();
+      const onSearchSubmit = jest.fn();
+
+      render(
+        <TestWrapper>
+          <SearchHeader
+            title="Search"
+            searchValue="query"
+            onSearchChange={onSearchChange}
+            onSearchSubmit={onSearchSubmit}
+            searchPlaceholder="Search items"
+          />
+        </TestWrapper>
+      );
+
+      const input = screen.getByPlaceholderText('Search items');
+      fireEvent.changeText(input, 'new');
+      fireEvent(input, 'submitEditing');
+
+      expect(onSearchChange).toHaveBeenCalledWith('new');
+      expect(onSearchSubmit).toHaveBeenCalled();
+    });
+  });
+
+  describe('ActionHeader', () => {
+    it('should render action buttons and trigger handlers', () => {
+      const onRefresh = jest.fn();
+      const onSettings = jest.fn();
+
+      render(
+        <TestWrapper>
+          <ActionHeader
+            title="Actions"
+            actionButtons={[
+              { icon: '🔄', onPress: onRefresh, testID: 'refresh' },
+              { icon: '⚙️', onPress: onSettings, testID: 'settings' },
+            ]}
+          />
+        </TestWrapper>
+      );
+
+      fireEvent.press(screen.getByText('🔄'));
+      fireEvent.press(screen.getByText('⚙️'));
+
+      expect(onRefresh).toHaveBeenCalled();
+      expect(onSettings).toHaveBeenCalled();
+    });
+  });
+
+  describe('ProfileHeader', () => {
+    it('should render avatar placeholder when no avatar provided', () => {
+      render(
+        <TestWrapper>
+          <ProfileHeader title="Profile" userName="Alex" />
+        </TestWrapper>
+      );
+
+      expect(screen.getByText('A')).toBeTruthy();
+    });
+
+    it('should render avatar when provided', () => {
+      render(
+        <TestWrapper>
+          <ProfileHeader title="Profile" userAvatar="🧑" />
+        </TestWrapper>
+      );
+
+      expect(screen.getByText('🧑')).toBeTruthy();
+    });
+  });
+
+  describe('TabHeader', () => {
+    it('should render tabs and handle presses', () => {
+      const onFirst = jest.fn();
+      const onSecond = jest.fn();
+
+      render(
+        <TestWrapper>
+          <TabHeader
+            title="Tabs"
+            tabs={[
+              { label: 'One', isActive: true, onPress: onFirst },
+              { label: 'Two', onPress: onSecond },
+            ]}
+          />
+        </TestWrapper>
+      );
+
+      fireEvent.press(screen.getByText('One'));
+      fireEvent.press(screen.getByText('Two'));
+
+      expect(onFirst).toHaveBeenCalled();
+      expect(onSecond).toHaveBeenCalled();
+    });
+  });
+
+  describe('MinimalHeader', () => {
+    it('should render minimal header variant', () => {
+      render(
+        <TestWrapper>
+          <MinimalHeader title="Minimal" subtitle="Clean" />
+        </TestWrapper>
+      );
+
+      expect(screen.getByText('Minimal')).toBeTruthy();
+      expect(screen.getByText('Clean')).toBeTruthy();
     });
   });
 });
@@ -313,6 +532,79 @@ describe('Loading States Components', () => {
           <SkeletonLoader height={40} width={200} borderRadius={8} />
         </TestWrapper>
       );
+    });
+  });
+
+  describe('TextSkeleton', () => {
+    it('should render multiple skeleton lines', () => {
+      render(
+        <TestWrapper>
+          <TextSkeleton lines={2} />
+        </TestWrapper>
+      );
+
+      expect(screen.getByTestId('text-skeleton')).toBeTruthy();
+    });
+  });
+
+  describe('CardSkeleton', () => {
+    it('should render card skeleton without image', () => {
+      render(
+        <TestWrapper>
+          <CardSkeleton showImage={false} contentLines={2} />
+        </TestWrapper>
+      );
+
+      expect(screen.getByTestId('card-skeleton')).toBeTruthy();
+    });
+  });
+
+  describe('ListSkeleton', () => {
+    it('should render list skeleton items', () => {
+      render(
+        <TestWrapper>
+          <ListSkeleton itemCount={2} showImage={false} />
+        </TestWrapper>
+      );
+
+      expect(screen.getByTestId('list-skeleton')).toBeTruthy();
+    });
+  });
+
+  describe('PullToRefreshLoading', () => {
+    it('should render pull to refresh message', () => {
+      render(
+        <TestWrapper>
+          <PullToRefreshLoading message="Pull..." />
+        </TestWrapper>
+      );
+
+      expect(screen.getByText('Pull...')).toBeTruthy();
+    });
+  });
+
+  describe('ButtonLoading', () => {
+    it('should render button loading spinner', () => {
+      render(
+        <TestWrapper>
+          <ButtonLoading />
+        </TestWrapper>
+      );
+
+      expect(screen.getByTestId('button-loading')).toBeTruthy();
+    });
+  });
+
+  describe('PageLoading', () => {
+    it('should render page loading with subtitle', () => {
+      render(
+        <TestWrapper>
+          <PageLoading title="Loading" subtitle="Working" />
+        </TestWrapper>
+      );
+
+      expect(screen.getByText('Loading')).toBeTruthy();
+      expect(screen.getByText('Working')).toBeTruthy();
     });
   });
 });
