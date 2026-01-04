@@ -53,6 +53,7 @@ import {
 const SmartDietScreen = require('../../screens/SmartDietScreen').default as typeof import('../../screens/SmartDietScreen').default;
 const smartDietModule = require('../../services/SmartDietService') as typeof import('../../services/SmartDietService');
 const { smartDietService, SmartDietContext } = smartDietModule;
+type SmartDietContextType = (typeof SmartDietContext)[keyof typeof SmartDietContext];
 const apiModule = require('../../services/ApiService') as typeof import('../../services/ApiService');
 
 const harness = createSmartDietTestHarness();
@@ -63,7 +64,7 @@ const flushAsync = () =>
     await Promise.resolve();
   });
 
-const getContextLabelMatcher = (context: SmartDietContext) => {
+const getContextLabelMatcher = (context: SmartDietContextType) => {
   const translationKey = `smartDiet.contexts.${context}`;
   const fallbackLabel = context.charAt(0).toUpperCase() + context.slice(1);
   const escapedKey = translationKey.replace(/\./g, '\\.');
@@ -90,7 +91,7 @@ afterAll(async () => {
 beforeEach(() => {
   harness.reset();
   jest.clearAllMocks();
-  harness.stubSmartDietFetch((context: SmartDietContext) => buildSmartDietResponse(context));
+  harness.stubSmartDietFetch((context: SmartDietContextType) => buildSmartDietResponse(context));
 
   Object.assign(apiModule.apiService, mockApiService);
 
@@ -99,7 +100,7 @@ beforeEach(() => {
   mockApiService.get.mockImplementation(async (url: string) => {
     if (url.includes('/smart-diet/suggestions')) {
       const parsed = new URL(url, 'http://localhost');
-      const context = (parsed.searchParams.get('context') as SmartDietContext) ?? SmartDietContext.TODAY;
+      const context = (parsed.searchParams.get('context') as SmartDietContextType) ?? SmartDietContext.TODAY;
       return { data: buildSmartDietResponse(context) };
     }
 

@@ -38,7 +38,7 @@ describe('ProductDetail Logic Tests', () => {
 
   describe('Product Data Normalization', () => {
     it('should normalize basic product data correctly', () => {
-      const mockProduct = {
+      const mockProduct: any = {
         code: '1234567890',
         product_name: 'Test Product',
         brands: 'Test Brand',
@@ -101,7 +101,7 @@ describe('ProductDetail Logic Tests', () => {
     });
 
     it('should handle OCR format fields', () => {
-      const mockOCRProduct = {
+      const mockOCRProduct: any = {
         barcode: '9876543210',
         name: 'OCR Product',
         brand: 'OCR Brand',
@@ -153,7 +153,7 @@ describe('ProductDetail Logic Tests', () => {
     });
 
     it('should provide defaults for missing fields', () => {
-      const mockMinimalProduct = {
+      const mockMinimalProduct: any = {
         code: '1111111111'
       };
 

@@ -10,7 +10,7 @@ import {
   Platform,
   ScrollView,
 } from 'react-native';
-import { Camera, CameraCapturedPicture } from 'expo-camera';
+import { Camera, CameraCapturedPicture, CameraType } from 'expo-camera';
 import { useTranslation } from 'react-i18next';
 import { ImageUtils } from '../utils/imageUtils';
 import { visionLogService } from '../services/VisionLogService';
@@ -217,7 +217,7 @@ const VisionLogScreen: React.FC<VisionLogScreenProps> = ({ onBackPress }) => {
       <Camera
         ref={cameraRef}
         style={styles.camera}
-        type={Camera.Constants.Type.back}
+        type={CameraType.back}
       >
         <View style={styles.cameraOverlay}>
           <View style={styles.captureFrame}>

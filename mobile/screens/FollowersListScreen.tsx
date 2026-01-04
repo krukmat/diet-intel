@@ -24,7 +24,7 @@ interface FollowItem {
 
 export const FollowersListScreen: React.FC = () => {
   const navigation = useNavigation();
-  const route = useRoute();
+  const route = useRoute() as { params?: { userId?: string } };
   const [followers, setFollowers] = useState<FollowItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);

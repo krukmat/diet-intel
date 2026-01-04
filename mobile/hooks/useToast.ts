@@ -74,7 +74,7 @@ export function useToast(config: Partial<ToastConfig> = {}) {
   }, []);
 
   // Clear timeout
-  const clearTimeout = useCallback((toastId: string) => {
+  const clearToastTimeout = useCallback((toastId: string) => {
     const timeoutId = timeoutRefs.current.get(toastId);
     if (timeoutId) {
       clearTimeout(timeoutId);
@@ -110,8 +110,8 @@ export function useToast(config: Partial<ToastConfig> = {}) {
   // Dismiss specific toast
   const dismissToast = useCallback((toastId: string) => {
     setToasts(prev => prev.filter(toast => toast.id !== toastId));
-    clearTimeout(toastId);
-  }, [clearTimeout]);
+    clearToastTimeout(toastId);
+  }, [clearToastTimeout]);
 
   // Dismiss all toasts
   const dismissAll = useCallback(() => {
@@ -130,13 +130,13 @@ export function useToast(config: Partial<ToastConfig> = {}) {
 
     // If duration changed, reschedule auto-dismiss
     if (updates.duration !== undefined) {
-      clearTimeout(toastId);
+      clearToastTimeout(toastId);
       const toast = toasts.find(t => t.id === toastId);
       if (toast) {
         scheduleAutoDismiss({ ...toast, ...updates } as Toast);
       }
     }
-  }, [toasts, clearTimeout, scheduleAutoDismiss]);
+  }, [toasts, clearToastTimeout, scheduleAutoDismiss]);
 
   // Convenience methods for different toast types
   const success = useCallback((title: string, message?: string, options?: Partial<Toast>) => {

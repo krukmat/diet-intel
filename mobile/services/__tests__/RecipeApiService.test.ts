@@ -1,4 +1,4 @@
-import { RecipeApiService, getCurrentAppLanguage } from '../RecipeApiService';
+import { RecipeApiService, getCurrentAppLanguage, type RecipeGenerationRequest } from '../RecipeApiService';
 import { apiClient } from '../ApiClient';
 
 jest.mock('../ApiClient', () => ({
@@ -32,7 +32,7 @@ describe('RecipeApiService', () => {
 
   it('generates recipe with apiClient and returns data', async () => {
     const service = RecipeApiService.getInstance();
-    const request = {
+    const request: RecipeGenerationRequest = {
       cuisineTypes: ['Italian'],
       dietaryRestrictions: [],
       mealType: 'dinner',

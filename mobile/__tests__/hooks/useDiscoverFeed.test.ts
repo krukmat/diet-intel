@@ -42,7 +42,11 @@ const mockAnalytics = analyticsService as jest.Mocked<typeof analyticsService>;
           }
         ],
         next_cursor: 'cursor123'
-      }
+      },
+      status: 200,
+      statusText: 'OK',
+      headers: {},
+      config: { headers: {} } as any,
     });
   });
 
@@ -126,7 +130,11 @@ const mockAnalytics = analyticsService as jest.Mocked<typeof analyticsService>;
           }
         ],
         next_cursor: null
-      }
+      },
+      status: 200,
+      statusText: 'OK',
+      headers: {},
+      config: { headers: {} } as any,
     });
 
     act(() => {
@@ -227,6 +235,10 @@ const mockAnalytics = analyticsService as jest.Mocked<typeof analyticsService>;
         ],
         next_cursor: null,
       },
+      status: 200,
+      statusText: 'OK',
+      headers: {},
+      config: { headers: {} } as any,
     });
 
     const { result } = renderHook(() => useDiscoverFeed({ autoLoad: true }));

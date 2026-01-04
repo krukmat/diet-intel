@@ -309,7 +309,8 @@ export class ErrorHandler {
     // Add dismiss button
     alertButtons.push({
       text: 'Dismiss',
-      style: 'cancel' as const,
+      style: 'default' as const,
+      onPress: () => {},
     });
 
     Alert.alert('Error', error.userMessage, alertButtons);

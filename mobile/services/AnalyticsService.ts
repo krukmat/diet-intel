@@ -107,10 +107,14 @@ class AnalyticsService {
       }
 
       // Log to console for development
+      const surfaceLabel = 'surface' in event
+        ? event.surface
+        : `${event.surface_from}→${event.surface_to}`;
+
       console.log('[MOBILE_ANALYTICS]', {
         description,
         type: event.type,
-        surface: event.surface || event.surface_from + '→' + event.surface_to,
+        surface: surfaceLabel,
         user_id: event.user_id,
         timestamp: event.timestamp,
       });
@@ -127,7 +131,7 @@ class AnalyticsService {
     try {
       const tokens = await authService.getStoredTokens();
       if (tokens?.access_token) {
-        const userInfo = await authService.validateToken(tokens.access_token);
+        const userInfo = await authService.getCurrentUser(tokens.access_token);
         return userInfo?.id || 'anonymous';
       }
     } catch (error) {
@@ -161,7 +165,10 @@ class AnalyticsService {
   getEventSummary(): Record<string, number> {
     const summary: Record<string, number> = {};
     this.events.forEach(event => {
-      const key = `${event.type}_${event.surface || 'unknown'}`;
+      const surfaceLabel = 'surface' in event
+        ? event.surface
+        : `${event.surface_from}_${event.surface_to}`;
+      const key = `${event.type}_${surfaceLabel || 'unknown'}`;
       summary[key] = (summary[key] || 0) + 1;
     });
     return summary;

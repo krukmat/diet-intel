@@ -558,11 +558,14 @@ const originalSetInterval = global.setInterval;
 const originalClearTimeout = global.clearTimeout;
 const originalClearInterval = global.clearInterval;
 
-global.setTimeout = ((handler: TimerHandler, timeout?: number, ...args: any[]) => {
+const wrappedSetTimeout = ((handler: TimerHandler, timeout?: number, ...args: any[]) => {
   const timeoutId = originalSetTimeout(handler, timeout, ...args) as any;
   activeTimeouts.add(timeoutId);
   return timeoutId;
-});
+}) as typeof setTimeout;
+
+(wrappedSetTimeout as any).__promisify__ = (originalSetTimeout as any).__promisify__;
+global.setTimeout = wrappedSetTimeout;
 
 global.setInterval = ((handler: TimerHandler, interval?: number, ...args: any[]) => {
   const intervalId = originalSetInterval(handler, interval, ...args) as any;

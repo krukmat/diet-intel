@@ -45,7 +45,16 @@ const mockApiService = apiService as jest.Mocked<typeof apiService>;
 const mockUseAuth = useAuth as jest.MockedFunction<typeof useAuth>;
 
 describe('BlockedListScreen', () => {
-  const mockUser = { id: 'user1', email: 'test@example.com' };
+  const mockUser = {
+    id: 'user1',
+    email: 'test@example.com',
+    full_name: 'Test User',
+    is_developer: false,
+    role: 'standard' as const,
+    is_active: true,
+    email_verified: true,
+    created_at: '2025-01-01T00:00:00Z',
+  };
   const mockBlockedUsers = {
     items: [
       {
@@ -69,10 +78,13 @@ describe('BlockedListScreen', () => {
   beforeEach(() => {
     mockUseAuth.mockReturnValue({
       user: mockUser,
-      loading: false,
+      tokens: null,
+      isLoading: false,
+      isAuthenticated: true,
       login: jest.fn(),
       logout: jest.fn(),
-      refreshAuth: jest.fn(),
+      register: jest.fn(),
+      refreshTokens: jest.fn(),
     });
 
     mockApiService.getBlockedUsers.mockResolvedValue({
@@ -80,7 +92,7 @@ describe('BlockedListScreen', () => {
       status: 200,
       statusText: 'OK',
       headers: {},
-      config: {},
+      config: { headers: {} } as any,
     });
   });
 
@@ -126,7 +138,7 @@ describe('BlockedListScreen', () => {
       status: 200,
       statusText: 'OK',
       headers: {},
-      config: {},
+      config: { headers: {} } as any,
     });
 
     const { getAllByText } = render(<BlockedListScreen />);
@@ -199,7 +211,7 @@ describe('BlockedListScreen', () => {
         status: 200,
         statusText: 'OK',
         headers: {},
-        config: {},
+        config: { headers: {} } as any,
       });
 
     const { getByText } = render(<BlockedListScreen />);
@@ -225,7 +237,7 @@ describe('BlockedListScreen', () => {
       status: 200,
       statusText: 'OK',
       headers: {},
-      config: {},
+      config: { headers: {} } as any,
     });
 
     const { getByText } = render(<BlockedListScreen />);

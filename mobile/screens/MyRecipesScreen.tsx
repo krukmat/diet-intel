@@ -68,7 +68,6 @@ function useRecipeLibrary() {
     createCollection,
     addToCollection,
     removeFromCollection,
-    refresh,
   } = usePersonalRecipes();
   
   const [searchQuery, setSearchQuery] = useState('');
@@ -80,6 +79,9 @@ function useRecipeLibrary() {
   const [viewMode, setViewMode] = useState<'grid' | 'list' | 'compact'>('grid');
   const [selectedCollection, setSelectedCollection] = useState<string | null>(null);
   const [filteredRecipes, setFilteredRecipes] = useState<PersonalRecipe[]>([]);
+  const refresh = useCallback(async () => {
+    await loadRecipes(1, undefined, false);
+  }, [loadRecipes]);
 
   // Filter and sort recipes based on current settings
   useEffect(() => {
@@ -98,7 +100,7 @@ function useRecipeLibrary() {
     // Apply collection filter
     if (selectedCollection) {
       filtered = filtered.filter(recipe =>
-        recipe.personalMetadata.collections.includes(selectedCollection)
+        recipe.collections.includes(selectedCollection)
       );
     }
     
@@ -155,8 +157,8 @@ function useRecipeLibrary() {
           comparison = (a.personalMetadata.timesCooked || 0) - (b.personalMetadata.timesCooked || 0);
           break;
         case 'lastCooked':
-          const aLastCooked = a.personalMetadata.lastCookedDate ? new Date(a.personalMetadata.lastCookedDate).getTime() : 0;
-          const bLastCooked = b.personalMetadata.lastCookedDate ? new Date(b.personalMetadata.lastCookedDate).getTime() : 0;
+          const aLastCooked = a.personalMetadata.lastCooked ? new Date(a.personalMetadata.lastCooked).getTime() : 0;
+          const bLastCooked = b.personalMetadata.lastCooked ? new Date(b.personalMetadata.lastCooked).getTime() : 0;
           comparison = aLastCooked - bLastCooked;
           break;
         case 'cookingTime':
@@ -185,7 +187,9 @@ function useRecipeLibrary() {
       calories: recipe.calories || 0,
       cuisineType: recipe.cuisineType,
       tags: recipe.tags || [],
-      imageUrl: recipe.image,
+      imageUrl: recipe.imageUrl,
+      isFavorite: recipe.personalMetadata?.isFavorite ?? false,
+      collections: recipe.collections ?? [],
       personalMetadata: recipe.personalMetadata,
     })),
     totalCount: filteredRecipes.length,
@@ -224,6 +228,7 @@ function useRecipeLibrary() {
       createCollection,
       addToCollection,
       removeFromCollection,
+      refresh,
     },
   };
 }
@@ -400,7 +405,7 @@ export default function MyRecipesScreen({
       
       await apiHooks.saveRecipe(duplicatedRecipe, {
         source: 'custom',
-        personalTags: recipe.tags,
+        personalTags: [...(recipe.tags || [])],
       });
       
       Alert.alert(

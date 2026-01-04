@@ -184,7 +184,7 @@ export class ApiClient {
 
     // Check cache first for GET requests
     if (config.method === 'GET' && config.cache !== false) {
-      const cached = this.getFromCache(config.url, config.params);
+      const cached = this.getFromCache<T>(config.url, config.params);
       if (cached) {
         return cached;
       }
@@ -284,14 +284,25 @@ export class ApiClient {
       throw new Error('No refresh token available');
     }
 
-    const response = await this.executeRequest({
+    const response = await this.executeRequest<{
+      accessToken?: string;
+      refreshToken?: string;
+      access_token?: string;
+      refresh_token?: string;
+    }>({
       method: 'POST',
       url: '/auth/refresh',
       data: { refreshToken: this.refreshToken },
     });
 
-    const { accessToken, refreshToken } = response.data;
-    await this.setAuthTokens(accessToken, refreshToken);
+    const accessToken = response.data.accessToken ?? response.data.access_token;
+    const refreshToken = response.data.refreshToken ?? response.data.refresh_token ?? this.refreshToken;
+
+    if (!accessToken) {
+      throw new Error('Refresh token response missing access token');
+    }
+
+    await this.setAuthTokens(accessToken, refreshToken || undefined);
   }
 
   // Retry Logic with Exponential Backoff

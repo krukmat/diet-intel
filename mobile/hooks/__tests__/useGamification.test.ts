@@ -36,7 +36,7 @@ describe('useGamification Hooks', () => {
   describe('useGamification - Main Hook', () => {
     it('should return gamification context', () => {
       const wrapper = ({ children }: { children: React.ReactNode }) => (
-        React.createElement(GamificationProvider, {}, children)
+        React.createElement(GamificationProvider, { children })
       );
 
       const { result } = renderHook(() => useGamification(), { wrapper });
@@ -81,7 +81,7 @@ describe('useGamification Hooks', () => {
       );
 
       const wrapper = ({ children }: { children: React.ReactNode }) => (
-        React.createElement(GamificationProvider, {}, children)
+        React.createElement(GamificationProvider, { children })
       );
 
       const { result } = renderHook(
@@ -97,7 +97,7 @@ describe('useGamification Hooks', () => {
 
     it('should return false for locked achievement', () => {
       const wrapper = ({ children }: { children: React.ReactNode }) => (
-        React.createElement(GamificationProvider, {}, children)
+        React.createElement(GamificationProvider, { children })
       );
 
       const { result } = renderHook(
@@ -128,7 +128,7 @@ describe('useGamification Hooks', () => {
       );
 
       const wrapper = ({ children }: { children: React.ReactNode }) => (
-        React.createElement(GamificationProvider, {}, children)
+        React.createElement(GamificationProvider, { children })
       );
 
       const { result } = renderHook(
@@ -145,7 +145,7 @@ describe('useGamification Hooks', () => {
 
     it('should return 0 for nonexistent achievement', () => {
       const wrapper = ({ children }: { children: React.ReactNode }) => (
-        React.createElement(GamificationProvider, {}, children)
+        React.createElement(GamificationProvider, { children })
       );
 
       const { result } = renderHook(
@@ -162,7 +162,7 @@ describe('useGamification Hooks', () => {
   describe('useGamificationSummary', () => {
     it('should return summary object', () => {
       const wrapper = ({ children }: { children: React.ReactNode }) => (
-        React.createElement(GamificationProvider, {}, children)
+        React.createElement(GamificationProvider, { children })
       );
 
       const { result } = renderHook(() => useGamificationSummary(), { wrapper });
@@ -179,7 +179,7 @@ describe('useGamification Hooks', () => {
 
     it('should have correct initial values', () => {
       const wrapper = ({ children }: { children: React.ReactNode }) => (
-        React.createElement(GamificationProvider, {}, children)
+        React.createElement(GamificationProvider, { children })
       );
 
       const { result } = renderHook(() => useGamificationSummary(), { wrapper });
@@ -194,7 +194,7 @@ describe('useGamification Hooks', () => {
   describe('useStreakMultiplier', () => {
     it('should return 1.0x for days 1-3', () => {
       const wrapper = ({ children }: { children: React.ReactNode }) => (
-        React.createElement(GamificationProvider, {}, children)
+        React.createElement(GamificationProvider, { children })
       );
 
       const { result } = renderHook(() => useStreakMultiplier(), { wrapper });
@@ -231,7 +231,7 @@ describe('useGamification Hooks', () => {
   describe('usePointsWithMultiplier', () => {
     it('should calculate points with multiplier', () => {
       const wrapper = ({ children }: { children: React.ReactNode }) => (
-        React.createElement(GamificationProvider, {}, children)
+        React.createElement(GamificationProvider, { children })
       );
 
       const { result } = renderHook(() => usePointsWithMultiplier(100), { wrapper });
@@ -242,7 +242,7 @@ describe('useGamification Hooks', () => {
 
     it('should apply floor to result', () => {
       const wrapper = ({ children }: { children: React.ReactNode }) => (
-        React.createElement(GamificationProvider, {}, children)
+        React.createElement(GamificationProvider, { children })
       );
 
       // This would need a specific streak to test multiplication
@@ -258,7 +258,7 @@ describe('useGamification Hooks', () => {
   describe('useNextLevelTarget', () => {
     it('should return next level target', () => {
       const wrapper = ({ children }: { children: React.ReactNode }) => (
-        React.createElement(GamificationProvider, {}, children)
+        React.createElement(GamificationProvider, { children })
       );
 
       const { result } = renderHook(() => useNextLevelTarget(), { wrapper });
@@ -291,7 +291,7 @@ describe('useGamification Hooks', () => {
       );
 
       const wrapper = ({ children }: { children: React.ReactNode }) => (
-        React.createElement(GamificationProvider, {}, children)
+        React.createElement(GamificationProvider, { children })
       );
 
       const { result } = renderHook(() => useUnlockedAchievements(), { wrapper });
@@ -304,7 +304,7 @@ describe('useGamification Hooks', () => {
 
     it('should return empty array when no achievements unlocked', () => {
       const wrapper = ({ children }: { children: React.ReactNode }) => (
-        React.createElement(GamificationProvider, {}, children)
+        React.createElement(GamificationProvider, { children })
       );
 
       const { result } = renderHook(() => useUnlockedAchievements(), { wrapper });
@@ -332,7 +332,7 @@ describe('useGamification Hooks', () => {
       );
 
       const wrapper = ({ children }: { children: React.ReactNode }) => (
-        React.createElement(GamificationProvider, {}, children)
+        React.createElement(GamificationProvider, { children })
       );
 
       const { result } = renderHook(() => useAchievement('test_achievement'), {
@@ -347,7 +347,7 @@ describe('useGamification Hooks', () => {
 
     it('should return null for nonexistent achievement', () => {
       const wrapper = ({ children }: { children: React.ReactNode }) => (
-        React.createElement(GamificationProvider, {}, children)
+        React.createElement(GamificationProvider, { children })
       );
 
       const { result } = renderHook(() => useAchievement('nonexistent'), {

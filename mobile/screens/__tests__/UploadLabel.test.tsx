@@ -13,6 +13,14 @@ jest.mock('../../services/ApiService', () => ({
   }
 }));
 
+const mockAxiosResponse = (data: any) => ({
+  data,
+  status: 200,
+  statusText: 'OK',
+  headers: {} as any,
+  config: { headers: {} as any } as any,
+});
+
 describe('UploadLabel', () => {
   const mockOnBackPress = jest.fn();
   const mockApiService = apiService as jest.Mocked<typeof apiService>;
@@ -21,32 +29,28 @@ describe('UploadLabel', () => {
     jest.clearAllMocks();
     
     // Mock successful OCR responses
-    mockApiService.scanNutritionLabel.mockResolvedValue({
-      data: {
-        confidence: 0.85,
-        nutrients: {
-          energy_kcal_per_100g: 250,
-          protein_g_per_100g: 8,
-          fat_g_per_100g: 12,
-          carbs_g_per_100g: 30,
-          sugars_g_per_100g: 5,
-          salt_g_per_100g: 1.2
-        },
-        text_extracted: 'Nutrition facts per 100g...'
-      }
-    });
+    mockApiService.scanNutritionLabel.mockResolvedValue(mockAxiosResponse({
+      confidence: 0.85,
+      nutrients: {
+        energy_kcal_per_100g: 250,
+        protein_g_per_100g: 8,
+        fat_g_per_100g: 12,
+        carbs_g_per_100g: 30,
+        sugars_g_per_100g: 5,
+        salt_g_per_100g: 1.2
+      },
+      text_extracted: 'Nutrition facts per 100g...'
+    }));
 
-    mockApiService.scanNutritionLabelExternal.mockResolvedValue({
-      data: {
-        confidence: 0.90,
-        nutrients: {
-          energy_kcal_per_100g: 300,
-          protein_g_per_100g: 10,
-          fat_g_per_100g: 15,
-          carbs_g_per_100g: 35
-        }
+    mockApiService.scanNutritionLabelExternal.mockResolvedValue(mockAxiosResponse({
+      confidence: 0.90,
+      nutrients: {
+        energy_kcal_per_100g: 300,
+        protein_g_per_100g: 10,
+        fat_g_per_100g: 15,
+        carbs_g_per_100g: 35
       }
-    });
+    }));
   });
 
   describe('Component Rendering', () => {
@@ -151,15 +155,13 @@ describe('UploadLabel', () => {
     });
 
     it('should handle high confidence results', () => {
-      mockApiService.scanNutritionLabel.mockResolvedValue({
-        data: {
-          confidence: 0.95,
-          nutrients: {
-            energy_kcal_per_100g: 250,
-            protein_g_per_100g: 8
-          }
+      mockApiService.scanNutritionLabel.mockResolvedValue(mockAxiosResponse({
+        confidence: 0.95,
+        nutrients: {
+          energy_kcal_per_100g: 250,
+          protein_g_per_100g: 8
         }
-      });
+      }));
 
       const component = TestRenderer.create(
         <UploadLabel onBackPress={mockOnBackPress} />
@@ -169,13 +171,11 @@ describe('UploadLabel', () => {
     });
 
     it('should handle low confidence results', () => {
-      mockApiService.scanNutritionLabel.mockResolvedValue({
-        data: {
-          confidence: 0.45,
-          nutrients: {},
-          text_extracted: 'Unable to extract nutrition info clearly'
-        }
-      });
+      mockApiService.scanNutritionLabel.mockResolvedValue(mockAxiosResponse({
+        confidence: 0.45,
+        nutrients: {},
+        text_extracted: 'Unable to extract nutrition info clearly'
+      }));
 
       const component = TestRenderer.create(
         <UploadLabel onBackPress={mockOnBackPress} />

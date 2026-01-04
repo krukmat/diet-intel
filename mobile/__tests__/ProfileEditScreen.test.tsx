@@ -97,7 +97,13 @@ describe('ProfileEditScreen', () => {
 
   test('successfully saves profile and calls onSave', async () => {
     const mockOnSave = jest.fn();
-    mockUpdateProfile.mockResolvedValue({ data: {} });
+    mockUpdateProfile.mockResolvedValue({
+      data: {},
+      status: 200,
+      statusText: 'OK',
+      headers: {},
+      config: { headers: {} } as any,
+    });
 
     render(
       <ProfileEditScreen onSave={mockOnSave} onCancel={jest.fn()} />
@@ -192,7 +198,13 @@ describe('ProfileEditScreen', () => {
     fireEvent.press(privateButtons[0]);
 
     // Check that visibility is correctly passed to update
-    mockUpdateProfile.mockResolvedValue({ data: {} });
+    mockUpdateProfile.mockResolvedValue({
+      data: {},
+      status: 200,
+      statusText: 'OK',
+      headers: {},
+      config: { headers: {} } as any,
+    });
   });
 
   test('loading state disables Save button', async () => {

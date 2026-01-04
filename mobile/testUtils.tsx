@@ -484,7 +484,7 @@ const resolveRequestUrl = (input: RequestInfo | URL): string => {
   return String(input);
 };
 
-const createMockFetchResponse = <T>(payload: T, status = 200): Response => ({
+const createMockFetchResponse = <T,>(payload: T, status = 200): Response => ({
   ok: status >= 200 && status < 300,
   status,
   json: () => Promise.resolve(payload),
@@ -546,7 +546,6 @@ export const buildSmartDietResponse = (
         implementation_complexity: 'simple',
         implementation_notes: 'Enjoy this meal',
         tags: ['high_protein', 'balanced'],
-        action_text: 'Add to meal plan',
         created_at: new Date('2024-01-01T00:00:00Z').toISOString(),
       },
     ],

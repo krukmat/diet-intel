@@ -18,6 +18,7 @@ import { StatusBar as ExpoStatusBar } from 'expo-status-bar';
 import * as ImagePicker from 'expo-image-picker';
 import * as ImageManipulator from 'expo-image-manipulator';
 import { useTranslation } from 'react-i18next';
+import type { TFunction } from 'i18next';
 import { translateFoodNameSync } from '../utils/foodTranslation';
 // import { LineChart } from 'react-native-chart-kit';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -75,6 +76,12 @@ interface MarkMealEatenModalProps {
   onConfirm: (photo?: string) => void;
   meal: Meal | null;
 }
+
+const getTranslatedMealName = (t: TFunction, mealName: string): string => {
+  const translationKey = `plan.meals.${mealName}`;
+  const translatedName = t(translationKey);
+  return translatedName !== translationKey ? translatedName : mealName;
+};
 
 const MarkMealEatenModal: React.FC<MarkMealEatenModalProps> = ({
   visible,
@@ -144,7 +151,7 @@ const MarkMealEatenModal: React.FC<MarkMealEatenModalProps> = ({
         <ScrollView style={styles.modalContent}>
           {meal && (
             <View style={styles.mealSummary}>
-              <Text style={styles.mealName}>{translateMealName(meal.name)}</Text>
+              <Text style={styles.mealName}>{getTranslatedMealName(t, meal.name)}</Text>
               <Text style={styles.mealCalories}>{Math.round(meal.actual_calories)} kcal</Text>
               {meal.items.map((item, index) => (
                 <Text key={index} style={styles.mealItem}>
@@ -319,12 +326,6 @@ interface TrackScreenProps {
 
 export default function TrackScreen({ onBackPress }: TrackScreenProps) {
   const { t } = useTranslation();
-
-  const translateMealName = (mealName: string): string => {
-    const translationKey = `plan.meals.${mealName}`;
-    const translatedName = t(translationKey);
-    return translatedName !== translationKey ? translatedName : mealName;
-  };
   const [dailyPlan, setDailyPlan] = useState<DailyPlan | null>(null);
   const [weightHistory, setWeightHistory] = useState<WeightEntry[]>([]);
   const [photoLogs, setPhotoLogs] = useState<PhotoLog[]>([]);
@@ -617,10 +618,10 @@ export default function TrackScreen({ onBackPress }: TrackScreenProps) {
           {dailyPlan?.meals.map((meal, index) => (
             <View key={meal.name} style={styles.mealCard}>
               <View style={styles.mealHeader}>
-                <Text style={styles.mealTitle}>
-                  {meal.name === 'Breakfast' ? '🌅' : 
-                   meal.name === 'Lunch' ? '🌞' : '🌙'} {translateMealName(meal.name)}
-                </Text>
+                  <Text style={styles.mealTitle}>
+                    {meal.name === 'Breakfast' ? '🌅' : 
+                   meal.name === 'Lunch' ? '🌞' : '🌙'} {getTranslatedMealName(t, meal.name)}
+                  </Text>
                 <Text style={styles.mealCalories}>{Math.round(meal.actual_calories)} kcal</Text>
               </View>
 
@@ -963,17 +964,6 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#333',
     marginBottom: 5,
-  },
-  mealCalories: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#007AFF',
-    marginBottom: 10,
-  },
-  mealItem: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 3,
   },
   photoSection: {
     backgroundColor: 'white',

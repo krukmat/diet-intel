@@ -10,21 +10,31 @@ jest.mock('../../hooks/useApiRecipes', () => ({
   useNetworkStatus: jest.fn(),
 }));
 
-jest.mock('../../components/RecipeFormComponents', () => ({
-  MultiSelect: () => <mock-multiselect testID="multi-select" />,
-  CheckboxGroup: () => <mock-checkbox-group />,
-  RadioGroup: () => <mock-radio-group />,
-  NumberInput: () => <mock-number-input />,
-  ValidatedTextInput: ({ onValueChange }: any) => (
-    <mock-text-input testID="validated-input" onPress={() => onValueChange('400')} />
-  ),
-}));
+jest.mock('../../components/RecipeFormComponents', () => {
+  const React = require('react');
+  const { View, TouchableOpacity } = require('react-native');
 
-jest.mock('../../components/RecipeLanguageToggle', () => ({
-  RecipeLanguageToggle: ({ onLanguageChange }: any) => (
-    <mock-language-toggle onPress={() => onLanguageChange('en')} />
-  )
-}));
+  return {
+    MultiSelect: () => <View testID="multi-select" />,
+    CheckboxGroup: () => <View testID="checkbox-group" />,
+    RadioGroup: () => <View testID="radio-group" />,
+    NumberInput: () => <View testID="number-input" />,
+    ValidatedTextInput: ({ onValueChange }: any) => (
+      <TouchableOpacity testID="validated-input" onPress={() => onValueChange('400')} />
+    ),
+  };
+});
+
+jest.mock('../../components/RecipeLanguageToggle', () => {
+  const React = require('react');
+  const { TouchableOpacity } = require('react-native');
+
+  return {
+    RecipeLanguageToggle: ({ onLanguageChange }: any) => (
+      <TouchableOpacity testID="mock-language-toggle" onPress={() => onLanguageChange('en')} />
+    ),
+  };
+});
 
 jest.mock('../../utils/recipeLanguageHelper', () => ({
   getCurrentRecipeLanguage: jest.fn(() => 'en'),
@@ -111,7 +121,9 @@ describe('RecipeGenerationScreen', () => {
     });
 
     const alertSpy = jest.spyOn(require('react-native').Alert, 'alert').mockImplementation((_title, _message, buttons) => {
-      const confirm = buttons?.find((button: any) => button.text === 'Save');
+      const confirm = Array.isArray(buttons)
+        ? buttons.find((button: any) => button.text === 'Save')
+        : undefined;
       if (confirm && typeof confirm.onPress === 'function') {
         confirm.onPress();
       }

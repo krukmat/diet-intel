@@ -17,6 +17,7 @@ interface VisionHistoryScreenProps {
 }
 
 const VisionHistoryScreen: React.FC<VisionHistoryScreenProps> = ({ navigation }) => {
+  const { t } = useTranslation();
   // Estado exactamente como especificado en last_sprint.md
   const [historyState, setHistoryState] = useState<VisionHistoryState>({
     logs: [],

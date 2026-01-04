@@ -19,32 +19,37 @@ jest.mock('react-i18next', () => ({
   }),
 }));
 
-jest.mock('../../components/RecipeDetailComponents', () => ({
-  RecipeHeader: ({ onShare, onSave, onOptimize, onGenerateShoppingList }: any) => (
-    <mock-recipe-header testID="mock-recipe-header">
-      <mock-share testID="mock-share" onPress={onShare} />
-      <mock-save testID="mock-save" onPress={onSave} />
-      <mock-optimize testID="mock-optimize" onPress={onOptimize} />
-      <mock-shopping testID="mock-shopping" onPress={onGenerateShoppingList} />
-    </mock-recipe-header>
-  ),
-  InteractiveIngredients: ({ onServingsChange, onIngredientToggle }: any) => (
-    <mock-ingredients testID="mock-ingredients">
-      <mock-servings testID="mock-servings" onPress={() => onServingsChange(2)} />
-      <mock-ingredient-toggle testID="mock-ingredient-toggle" onPress={() => onIngredientToggle(0, true)} />
-    </mock-ingredients>
-  ),
-  Instructions: ({ onStartCookingMode, onStepComplete }: any) => (
-    <mock-instructions testID="mock-instructions">
-      <mock-cooking testID="mock-cooking" onPress={onStartCookingMode} />
-      <mock-step testID="mock-step" onPress={() => onStepComplete(0, true)} />
-    </mock-instructions>
-  ),
-  NutritionDisplay: () => <mock-nutrition testID="mock-nutrition" />,
-  RatingSystem: ({ onRatingSubmit }: any) => (
-    <mock-rating testID="mock-rating" onPress={() => onRatingSubmit(5, 'great')} />
-  ),
-}));
+jest.mock('../../components/RecipeDetailComponents', () => {
+  const React = require('react');
+  const { View, TouchableOpacity } = require('react-native');
+
+  return {
+    RecipeHeader: ({ onShare, onSave, onOptimize, onGenerateShoppingList }: any) => (
+      <View testID="mock-recipe-header">
+        <TouchableOpacity testID="mock-share" onPress={onShare} />
+        <TouchableOpacity testID="mock-save" onPress={onSave} />
+        <TouchableOpacity testID="mock-optimize" onPress={onOptimize} />
+        <TouchableOpacity testID="mock-shopping" onPress={onGenerateShoppingList} />
+      </View>
+    ),
+    InteractiveIngredients: ({ onServingsChange, onIngredientToggle }: any) => (
+      <View testID="mock-ingredients">
+        <TouchableOpacity testID="mock-servings" onPress={() => onServingsChange(2)} />
+        <TouchableOpacity testID="mock-ingredient-toggle" onPress={() => onIngredientToggle(0, true)} />
+      </View>
+    ),
+    Instructions: ({ onStartCookingMode, onStepComplete }: any) => (
+      <View testID="mock-instructions">
+        <TouchableOpacity testID="mock-cooking" onPress={onStartCookingMode} />
+        <TouchableOpacity testID="mock-step" onPress={() => onStepComplete(0, true)} />
+      </View>
+    ),
+    NutritionDisplay: () => <View testID="mock-nutrition" />,
+    RatingSystem: ({ onRatingSubmit }: any) => (
+      <TouchableOpacity testID="mock-rating" onPress={() => onRatingSubmit(5, 'great')} />
+    ),
+  };
+});
 
 jest.mock('../../utils/recipeLanguageHelper', () => ({
   getCurrentRecipeLanguage: jest.fn(() => 'en'),

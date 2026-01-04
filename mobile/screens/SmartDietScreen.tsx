@@ -18,6 +18,7 @@ import {
   smartDietService, 
   SmartDietContext, 
   type SmartDietResponse,
+  type SmartDietRequest,
   type SmartSuggestion,
   type SmartDietInsights
 } from '../services/SmartDietService';
@@ -183,7 +184,7 @@ export default function SmartDietScreen({ onBackPress, navigationContext, naviga
     
     try {
       // Use the optimized SmartDietService with proper options
-      const options = {
+      const options: Partial<SmartDietRequest> = {
         dietary_restrictions: preferences.dietaryRestrictions,
         cuisine_preferences: preferences.cuisinePreferences,
         excluded_ingredients: preferences.excludedIngredients,
@@ -224,7 +225,16 @@ export default function SmartDietScreen({ onBackPress, navigationContext, naviga
       // Fallback to legacy recommendations API for backward compatibility
       if (selectedContext === SmartDietContext.TODAY) {
         try {
-          const legacyRequest = {
+          const legacyRequest: {
+            meal_context: string;
+            max_recommendations: number;
+            min_confidence: number;
+            dietary_restrictions: string[];
+            cuisine_preferences: string[];
+            excluded_ingredients: string[];
+            include_history: boolean;
+            user_id?: string;
+          } = {
             meal_context: 'all',
             max_recommendations: preferences.maxSuggestions,
             min_confidence: 0.3,
@@ -704,6 +714,7 @@ export default function SmartDietScreen({ onBackPress, navigationContext, naviga
     if (!smartData?.optimizations || selectedContext !== 'optimize') return null;
 
     const optimizations = smartData.optimizations;
+    if (Array.isArray(optimizations)) return null;
 
     return (
       <View style={styles.optimizationsCard}>
@@ -1388,12 +1399,6 @@ const styles = StyleSheet.create({
   },
   preferenceSection: {
     marginBottom: 30,
-  },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 15,
   },
   tagContainer: {
     flexDirection: 'row',

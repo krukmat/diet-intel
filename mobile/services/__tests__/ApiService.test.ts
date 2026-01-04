@@ -4,20 +4,42 @@ import { environments } from '../../config/environments';
 import { authService } from '../AuthService';
 
 // Mock axios completely
-jest.mock('axios', () => ({
-  create: jest.fn(() => ({
-    get: jest.fn(),
-    post: jest.fn(),
-    put: jest.fn(),
-    delete: jest.fn(),
-    patch: jest.fn(),
-    interceptors: {
-      request: { use: jest.fn() },
-      response: { use: jest.fn() }
-    },
-    defaults: { baseURL: 'http://localhost:8000' }
-  }))
-}));
+jest.mock('axios', () => {
+  class MockAxiosHeaders {
+    private store: Record<string, string> = {};
+    static from(headers?: Record<string, string>) {
+      const instance = new MockAxiosHeaders();
+      if (headers) {
+        Object.entries(headers).forEach(([key, value]) => {
+          instance.set(key, value);
+        });
+      }
+      return instance;
+    }
+    set(key: string, value: string) {
+      this.store[key.toLowerCase()] = value;
+    }
+    get(key: string) {
+      return this.store[key.toLowerCase()];
+    }
+  }
+
+  return {
+    AxiosHeaders: MockAxiosHeaders,
+    create: jest.fn(() => ({
+      get: jest.fn(),
+      post: jest.fn(),
+      put: jest.fn(),
+      delete: jest.fn(),
+      patch: jest.fn(),
+      interceptors: {
+        request: { use: jest.fn() },
+        response: { use: jest.fn() }
+      },
+      defaults: { baseURL: 'http://localhost:8000' }
+    }))
+  };
+});
 
 jest.mock('../AuthService', () => ({
   authService: {
@@ -407,8 +429,11 @@ describe('ApiService', () => {
       const config = { headers: {} as Record<string, string>, method: 'get', url: '/test' };
 
       const result = await requestSuccess(config);
+      const authHeader = (result.headers as any)?.get
+        ? (result.headers as any).get('Authorization')
+        : (result.headers as any)?.Authorization;
 
-      expect(result.headers.Authorization).toBe('Bearer token-123');
+      expect(authHeader).toBe('Bearer token-123');
     });
 
     it('should skip token attachment when token expired', async () => {
@@ -422,8 +447,11 @@ describe('ApiService', () => {
       const config = { headers: {} as Record<string, string>, method: 'get', url: '/test' };
 
       const result = await requestSuccess(config);
+      const authHeader = (result.headers as any)?.get
+        ? (result.headers as any).get('Authorization')
+        : (result.headers as any)?.Authorization;
 
-      expect(result.headers.Authorization).toBeUndefined();
+      expect(authHeader).toBeUndefined();
     });
 
     it('should handle token retrieval errors gracefully', async () => {

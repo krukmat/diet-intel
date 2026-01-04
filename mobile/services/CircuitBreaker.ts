@@ -70,9 +70,9 @@ export class CircuitBreaker {
 
     try {
       // Set timeout for the operation
-      const result = await Promise.race([
+      const result = await Promise.race<T>([
         operation(),
-        this.createTimeoutPromise(),
+        this.createTimeoutPromise<T>(),
       ]);
 
       this.onSuccess();

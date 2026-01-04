@@ -45,6 +45,7 @@ export interface SmartSuggestion {
   category: SuggestionCategory;
   title: string;
   description: string;
+  action_text?: string;
   reasoning: string;
   suggested_item: Record<string, any>;
   current_item?: Record<string, any>;
@@ -62,11 +63,39 @@ export interface SmartSuggestion {
   tags: string[];
 }
 
+export interface SmartDietOptimizations {
+  meal_swaps?: Array<{
+    from_food: string;
+    to_food: string;
+    calorie_difference: number;
+    benefit: string;
+  }>;
+  macro_adjustments?: Array<{
+    nutrient: string;
+    current: number;
+    target: number;
+    suggestion: string;
+  }>;
+}
+
 export interface SmartDietRequest {
   user_id?: string;
   context_type: SmartDietContext;
   meal_context?: string;
   current_meal_plan_id?: string;
+  maxSuggestions?: number;
+  includeHistory?: boolean;
+  forceRefresh?: boolean;
+  includeRecommendations?: boolean;
+  mealContext?: string;
+  currentMealPlanId?: string;
+  calorieBudget?: number;
+  targetMacros?: Record<string, number>;
+  preferences?: {
+    dietaryRestrictions?: string[];
+    cuisinePreferences?: string[];
+    excludedIngredients?: string[];
+  };
   dietary_restrictions: string[];
   cuisine_preferences: string[];
   excluded_ingredients: string[];
@@ -85,7 +114,7 @@ export interface SmartDietResponse {
   generated_at: string;
   suggestions: SmartSuggestion[];
   today_highlights: SmartSuggestion[];
-  optimizations: SmartSuggestion[];
+  optimizations: SmartSuggestion[] | SmartDietOptimizations;
   discoveries: SmartSuggestion[];
   insights: SmartSuggestion[];
   nutritional_summary: Record<string, any>;

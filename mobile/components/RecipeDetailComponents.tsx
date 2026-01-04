@@ -301,6 +301,7 @@ export const Instructions: React.FC<InstructionsProps> = ({
   onStepComplete,
 }) => {
   const { t } = useTranslation();
+  const currentLanguage = getCurrentRecipeLanguage();
   const [activeStep, setActiveStep] = useState(0);
 
   return (

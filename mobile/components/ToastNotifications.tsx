@@ -10,8 +10,7 @@ import {
   TouchableOpacity,
   Dimensions,
   SafeAreaView,
-  PanGestureHandler,
-  State,
+  PanResponder,
 } from 'react-native';
 import { Toast, ToastType } from '../hooks/useToast';
 
@@ -69,37 +68,46 @@ const ToastItem: React.FC<ToastItemProps> = ({ toast, onDismiss, index, total })
     });
   };
 
-  const handleSwipe = ({ nativeEvent }: any) => {
-    if (nativeEvent.state === State.END) {
-      const { translationX, velocityX } = nativeEvent;
-      
-      if (Math.abs(translationX) > 100 || Math.abs(velocityX) > 1000) {
-        // Swipe to dismiss
-        Animated.parallel([
-          Animated.timing(translateX, {
-            toValue: translationX > 0 ? screenWidth : -screenWidth,
-            duration: 200,
-            useNativeDriver: true,
-          }),
-          Animated.timing(opacity, {
-            toValue: 0,
-            duration: 200,
-            useNativeDriver: true,
-          }),
-        ]).start(() => {
-          onDismiss(toast.id);
-        });
-      } else {
-        // Spring back to center
-        Animated.spring(translateX, {
-          toValue: 0,
-          useNativeDriver: true,
-        }).start();
-      }
-    } else if (nativeEvent.state === State.ACTIVE) {
-      translateX.setValue(nativeEvent.translationX);
-    }
-  };
+  const panResponder = useRef(
+    PanResponder.create({
+      onMoveShouldSetPanResponder: (_, gestureState) =>
+        toast.dismissible && Math.abs(gestureState.dx) > 10,
+      onPanResponderMove: (_, gestureState) => {
+        translateX.setValue(gestureState.dx);
+        opacity.setValue(Math.max(0, 1 - Math.abs(gestureState.dx) / screenWidth));
+      },
+      onPanResponderRelease: (_, gestureState) => {
+        const { dx, vx } = gestureState;
+        if (Math.abs(dx) > 100 || Math.abs(vx) > 1) {
+          Animated.parallel([
+            Animated.timing(translateX, {
+              toValue: dx > 0 ? screenWidth : -screenWidth,
+              duration: 200,
+              useNativeDriver: true,
+            }),
+            Animated.timing(opacity, {
+              toValue: 0,
+              duration: 200,
+              useNativeDriver: true,
+            }),
+          ]).start(() => {
+            onDismiss(toast.id);
+          });
+        } else {
+          Animated.parallel([
+            Animated.spring(translateX, {
+              toValue: 0,
+              useNativeDriver: true,
+            }),
+            Animated.spring(opacity, {
+              toValue: 1,
+              useNativeDriver: true,
+            }),
+          ]).start();
+        }
+      },
+    })
+  ).current;
 
   const getToastStyle = () => {
     const baseStyle = styles.toastContainer;
@@ -142,22 +150,22 @@ const ToastItem: React.FC<ToastItemProps> = ({ toast, onDismiss, index, total })
   const stackScale = Math.max(1 - (index * 0.05), 0.85);
 
   return (
-    <PanGestureHandler onHandlerStateChange={handleSwipe} enabled={toast.dismissible}>
-      <Animated.View
-        style={[
-          getToastStyle(),
-          {
-            transform: [
-              { translateY },
-              { translateX },
-              { scale: Animated.multiply(scale, stackScale) },
-            ],
-            opacity,
-            zIndex: total - index,
-            top: stackOffset,
-          },
-        ]}
-      >
+    <Animated.View
+      style={[
+        getToastStyle(),
+        {
+          transform: [
+            { translateY },
+            { translateX },
+            { scale: Animated.multiply(scale, stackScale) },
+          ],
+          opacity,
+          zIndex: total - index,
+          top: stackOffset,
+        },
+      ]}
+      {...(toast.dismissible ? panResponder.panHandlers : {})}
+    >
         <View style={styles.toastContent}>
           {/* Icon */}
           {toast.icon && (
@@ -212,7 +220,6 @@ const ToastItem: React.FC<ToastItemProps> = ({ toast, onDismiss, index, total })
           </View>
         )}
       </Animated.View>
-    </PanGestureHandler>
   );
 };
 

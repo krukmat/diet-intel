@@ -44,7 +44,7 @@ const ShoppingOptimizationScreen: React.FC<ShoppingOptimizationScreenProps> = ({
   const generateOptimization = async () => {
     setLoading(true);
     try {
-      const recipeApi = new RecipeApiService();
+      const recipeApi = RecipeApiService.getInstance();
 
       const optimizationResult = await recipeApi.optimizeShoppingList({
         recipeIds: selectedRecipes.map(r => r.id),

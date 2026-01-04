@@ -95,7 +95,7 @@ export const BlockedByScreen: React.FC = () => {
     <View style={styles.userItem}>
       <TouchableOpacity
         style={styles.userInfo}
-        onPress={() => navigation.navigate('profile' as never, { userId: item.user_id })}
+        onPress={() => (navigation as any).navigate('profile', { userId: item.user_id })}
       >
         <Image
           source={{ uri: item.avatar_url || 'https://via.placeholder.com/50' }}

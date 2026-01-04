@@ -18,6 +18,7 @@ export interface Achievement {
   id: string;
   title: string;
   description: string;
+  icon?: string;
   points: number;
   unlocked: boolean;
   unlockedAt?: Date;

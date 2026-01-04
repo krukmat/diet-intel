@@ -17,55 +17,67 @@ jest.mock('../../hooks/useApiRecipes', () => ({
   useNetworkStatus: jest.fn(),
 }));
 
-jest.mock('../../components/RecipeLanguageToggle', () => ({
-  RecipeLanguageToggle: ({ onLanguageChange }: { onLanguageChange: (lang: string) => void }) => (
-    <mock-language-toggle onPress={() => onLanguageChange('en')} />
-  )
-}));
+jest.mock('../../components/RecipeLanguageToggle', () => {
+  const React = require('react');
+  const { TouchableOpacity } = require('react-native');
 
-jest.mock('../../components/SyncStatusComponents', () => ({
-  SyncStatusIndicator: () => <mock-sync-indicator />,
-  SyncStatusBanner: () => <mock-sync-banner />,
-}));
+  return {
+    RecipeLanguageToggle: ({ onLanguageChange }: { onLanguageChange: (lang: string) => void }) => (
+      <TouchableOpacity testID="mock-language-toggle" onPress={() => onLanguageChange('en')} />
+    ),
+  };
+});
+
+jest.mock('../../components/SyncStatusComponents', () => {
+  const React = require('react');
+  const { View } = require('react-native');
+
+  return {
+    SyncStatusIndicator: () => <View testID="mock-sync-indicator" />,
+    SyncStatusBanner: () => <View testID="mock-sync-banner" />,
+  };
+});
 
 jest.mock('../../components/RecipeLibraryComponents', () => {
   const React = require('react');
-  const { Text } = require('react-native');
+  const { View, Text, TouchableOpacity } = require('react-native');
 
   return {
     CollectionCard: ({ collection, onPress }: any) => (
-      <mock-collection-card testID={`collection-${collection.id}`} onPress={() => onPress(collection)}>
+      <TouchableOpacity testID={`collection-${collection.id}`} onPress={() => onPress(collection)}>
         <Text>{collection.name}</Text>
-      </mock-collection-card>
+      </TouchableOpacity>
     ),
     PersonalRecipeCard: ({ recipe, onFavorite }: any) => (
-      <mock-recipe-card testID={`recipe-${recipe.id}`} onPress={() => onFavorite(recipe.id)}>
+      <TouchableOpacity testID={`recipe-${recipe.id}`} onPress={() => onFavorite(recipe.id)}>
         <Text>{recipe.name}</Text>
-      </mock-recipe-card>
+      </TouchableOpacity>
     ),
   LibrarySearchBar: ({ searchQuery, onSearchChange, onFilterPress, onSortPress }: any) => (
-    <mock-search-bar>
-      <mock-search-value>{searchQuery}</mock-search-value>
-      <mock-search-change testID="search-change" onPress={() => onSearchChange('chicken')} />
-      <mock-filter testID="filter-button" onPress={onFilterPress} />
-      <mock-sort testID="sort-button" onPress={onSortPress} />
-    </mock-search-bar>
+    <View>
+      <Text testID="mock-search-value">{searchQuery}</Text>
+      <TouchableOpacity testID="search-change" onPress={() => onSearchChange('chicken')} />
+      <TouchableOpacity testID="filter-button" onPress={onFilterPress} />
+      <TouchableOpacity testID="sort-button" onPress={onSortPress} />
+    </View>
   ),
-  CollectionSelectorModal: ({ visible }: any) => (visible ? <mock-collection-selector /> : null),
+  CollectionSelectorModal: ({ visible }: any) => (visible ? <View testID="mock-collection-selector" /> : null),
   CreateCollectionModal: ({ visible, onSubmit }: any) => (
-    visible ? <mock-create-collection testID="create-collection-modal" onPress={() => onSubmit('New', '', '#fff', 'folder')} /> : null
+    visible ? <TouchableOpacity testID="create-collection-modal" onPress={() => onSubmit('New', '', '#fff', 'folder')} /> : null
   ),
   EmptyLibraryState: ({ title, actionText, onAction }: any) => (
-    <mock-empty-state>
-      <mock-empty-title>{title}</mock-empty-title>
-      <mock-empty-action onPress={onAction}>{actionText}</mock-empty-action>
-    </mock-empty-state>
+    <View>
+      <Text testID="mock-empty-title">{title}</Text>
+      <TouchableOpacity testID="mock-empty-action" onPress={onAction}>
+        <Text>{actionText}</Text>
+      </TouchableOpacity>
+    </View>
   ),
   RecipeManagementModal: ({ visible, onDelete }: any) => (
-    visible ? <mock-management-modal onPress={() => onDelete('r1')} /> : null
+    visible ? <TouchableOpacity testID="mock-management-modal" onPress={() => onDelete('r1')} /> : null
   ),
-  LibraryStats: () => <mock-library-stats />,
-    BackupExportModal: ({ visible }: any) => (visible ? <mock-backup-modal /> : null),
+  LibraryStats: () => <View testID="mock-library-stats" />,
+    BackupExportModal: ({ visible }: any) => (visible ? <View testID="mock-backup-modal" /> : null),
   };
 });
 
@@ -144,8 +156,8 @@ describe('MyRecipesScreen', () => {
     (usePersonalRecipes as jest.Mock).mockReturnValue({
       ...baseHookState,
       recipes: [
-        { id: 'r1', name: 'Chicken Soup', cookingTime: 10, difficulty: 'beginner', cuisineType: 'american', tags: [], personalMetadata: { collections: [], dateAdded: new Date().toISOString() } },
-        { id: 'r2', name: 'Beef Stew', cookingTime: 20, difficulty: 'beginner', cuisineType: 'american', tags: [], personalMetadata: { collections: [], dateAdded: new Date().toISOString() } },
+        { id: 'r1', name: 'Chicken Soup', cookingTime: 10, difficulty: 'beginner', cuisineType: 'american', tags: [], collections: [], personalMetadata: { collections: [], dateAdded: new Date().toISOString() } },
+        { id: 'r2', name: 'Beef Stew', cookingTime: 20, difficulty: 'beginner', cuisineType: 'american', tags: [], collections: [], personalMetadata: { collections: [], dateAdded: new Date().toISOString() } },
       ],
     });
 
@@ -165,7 +177,7 @@ describe('MyRecipesScreen', () => {
     (usePersonalRecipes as jest.Mock).mockReturnValue({
       ...baseHookState,
       recipes: [
-        { id: 'r1', name: 'Chicken Soup', cookingTime: 10, difficulty: 'beginner', cuisineType: 'american', tags: [], personalMetadata: { collections: ['c1'], dateAdded: new Date().toISOString() } },
+        { id: 'r1', name: 'Chicken Soup', cookingTime: 10, difficulty: 'beginner', cuisineType: 'american', tags: [], collections: ['c1'], personalMetadata: { collections: ['c1'], dateAdded: new Date().toISOString() } },
       ],
       collections: [{ id: 'c1', name: 'Favorites', icon: 'F', recipeCount: 1 }],
     });
@@ -187,7 +199,7 @@ describe('MyRecipesScreen', () => {
       ...baseHookState,
       toggleFavorite,
       recipes: [
-        { id: 'r1', name: 'Chicken Soup', cookingTime: 10, difficulty: 'beginner', cuisineType: 'american', tags: [], personalMetadata: { collections: [], dateAdded: new Date().toISOString() } },
+        { id: 'r1', name: 'Chicken Soup', cookingTime: 10, difficulty: 'beginner', cuisineType: 'american', tags: [], collections: [], personalMetadata: { collections: [], dateAdded: new Date().toISOString() } },
       ],
     });
 

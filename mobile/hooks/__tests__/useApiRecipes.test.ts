@@ -48,6 +48,7 @@ jest.mock('../../services/RecipeStorageService', () => ({
   recipeStorage: {
     searchRecipes: jest.fn(),
     saveRecipe: jest.fn(),
+    getRecipe: jest.fn(),
   }
 }));
 
@@ -65,6 +66,7 @@ describe('useApiRecipes hooks', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     (recipeStorage.searchRecipes as jest.Mock).mockResolvedValue({ items: [] });
+    (recipeStorage.getRecipe as jest.Mock).mockResolvedValue(null);
     (recipeApi.getPersonalRecipes as jest.Mock).mockResolvedValue({ recipes: [] });
     (recipeApi.getCollections as jest.Mock).mockResolvedValue([]);
   });
@@ -261,6 +263,8 @@ describe('useApiRecipes hooks', () => {
     it('saves recipe locally and queues sync when API fails', async () => {
       const savedRecipe = { id: 'saved-1', name: 'Saved', personalMetadata: { isFavorite: false } };
       (recipeStorage.saveRecipe as jest.Mock).mockResolvedValue(savedRecipe);
+      (recipeStorage.searchRecipes as jest.Mock).mockResolvedValue({ items: [{ id: 'saved-1' }] });
+      (recipeStorage.getRecipe as jest.Mock).mockResolvedValue(savedRecipe);
       (recipeApi.savePersonalRecipe as jest.Mock).mockRejectedValue(new Error('api fail'));
       (syncManager.queueRecipeChange as jest.Mock).mockResolvedValue(undefined);
 
@@ -282,7 +286,8 @@ describe('useApiRecipes hooks', () => {
 
     it('updates and deletes recipes with sync', async () => {
       const initial = { id: 'r1', name: 'Old', personalMetadata: { isFavorite: false } };
-      (recipeStorage.searchRecipes as jest.Mock).mockResolvedValue({ items: [initial] });
+      (recipeStorage.searchRecipes as jest.Mock).mockResolvedValue({ items: [{ id: 'r1' }] });
+      (recipeStorage.getRecipe as jest.Mock).mockResolvedValue(initial);
       (recipeApi.getPersonalRecipes as jest.Mock).mockResolvedValue({ recipes: [] });
       (recipeApi.updatePersonalRecipe as jest.Mock).mockResolvedValue({ recipe: { ...initial, name: 'New' } });
       (recipeApi.deletePersonalRecipe as jest.Mock).mockResolvedValue(undefined);
@@ -326,7 +331,8 @@ describe('useApiRecipes hooks', () => {
         name: 'Recipe',
         personalMetadata: { isFavorite: false },
       };
-      (recipeStorage.searchRecipes as jest.Mock).mockResolvedValue({ items: [initial] });
+      (recipeStorage.searchRecipes as jest.Mock).mockResolvedValue({ items: [{ id: 'r1' }] });
+      (recipeStorage.getRecipe as jest.Mock).mockResolvedValue(initial);
       (recipeApi.getPersonalRecipes as jest.Mock).mockResolvedValue({ recipes: [] });
       (recipeApi.updatePersonalRecipe as jest.Mock).mockResolvedValue({
         recipe: { ...initial, personalMetadata: { isFavorite: true } }

@@ -12,7 +12,7 @@ import { intelligentFlowService } from '../../services/IntelligentFlowService';
 jest.mock('../../services/IntelligentFlowService', () => ({
   intelligentFlowService: {
     runFlow: jest.fn(),
-    runFlowAsync: jest.fn(),
+    startFlow: jest.fn(),
     getJobStatus: jest.fn(),
   },
 }));
@@ -26,25 +26,42 @@ jest.mock('react-i18next', () => ({
 describe('IntelligentFlowScreen', () => {
   const mockOnBackPress = jest.fn();
   const mockFlowService = intelligentFlowService as jest.Mocked<typeof intelligentFlowService>;
+  const baseFlowResponse = {
+    status: 'complete' as const,
+    vision_result: {
+      id: 'vision-1',
+      user_id: 'user-1',
+      meal_type: 'lunch',
+      identified_ingredients: [],
+      estimated_portions: {},
+      nutritional_analysis: {},
+      exercise_suggestions: [],
+      created_at: '2024-01-01T00:00:00Z',
+      processing_time_ms: 1000,
+    },
+    recipe_result: null,
+    smart_diet_result: null,
+    timings: {},
+    metadata: {
+      user_id: 'user-1',
+      meal_type: 'lunch',
+      total_duration_ms: 1000,
+      warnings: [],
+    },
+  };
 
   beforeEach(() => {
     jest.clearAllMocks();
     jest.useFakeTimers();
 
-    mockFlowService.runFlow.mockResolvedValue({
-      job_id: 'job-123',
-      status: 'processing',
-      meals: [],
-      total_calories: 0,
-    });
+    mockFlowService.runFlow.mockResolvedValue(baseFlowResponse);
 
     mockFlowService.getJobStatus.mockResolvedValue({
       job_id: 'job-123',
       status: 'completed',
-      result: {
-        meals: [],
-        total_calories: 2000,
-      },
+      created_at: '2024-01-01T00:00:00Z',
+      updated_at: '2024-01-01T00:00:00Z',
+      result: baseFlowResponse,
     });
   });
 
@@ -109,10 +126,8 @@ describe('IntelligentFlowScreen', () => {
           setTimeout(
             () =>
               resolve({
-                job_id: 'job-123',
-                status: 'processing',
-                meals: [],
-                total_calories: 0,
+                ...baseFlowResponse,
+                status: 'partial',
               }),
             500
           );
@@ -131,25 +146,7 @@ describe('IntelligentFlowScreen', () => {
    * Test 6: Displays meal results after processing
    */
   it('should display meal plan results', async () => {
-    const mockMeals = [
-      {
-        meal_type: 'breakfast',
-        items: [{ name: 'Oatmeal', calories: 200 }],
-        total_calories: 200,
-      },
-      {
-        meal_type: 'lunch',
-        items: [{ name: 'Chicken salad', calories: 400 }],
-        total_calories: 400,
-      },
-    ];
-
-    mockFlowService.runFlow.mockResolvedValue({
-      job_id: 'job-123',
-      status: 'completed',
-      meals: mockMeals,
-      total_calories: 600,
-    });
+    mockFlowService.runFlow.mockResolvedValue(baseFlowResponse);
 
     const { getByText } = render(
       <IntelligentFlowScreen onBackPress={mockOnBackPress} />
@@ -162,9 +159,11 @@ describe('IntelligentFlowScreen', () => {
    * Test 7: Handles async processing with polling
    */
   it('should poll for job status during async processing', async () => {
-    mockFlowService.runFlowAsync.mockResolvedValue({
+    mockFlowService.startFlow.mockResolvedValue({
       job_id: 'job-456',
       status: 'queued',
+      created_at: '2024-01-01T00:00:00Z',
+      updated_at: '2024-01-01T00:00:00Z',
     });
 
     const { getByText } = render(
@@ -172,7 +171,7 @@ describe('IntelligentFlowScreen', () => {
     );
 
     // Should support async with polling
-    expect(mockFlowService.runFlowAsync).toBeDefined();
+    expect(mockFlowService.startFlow).toBeDefined();
   });
 
   /**
@@ -181,8 +180,9 @@ describe('IntelligentFlowScreen', () => {
   it('should display job status during polling', async () => {
     mockFlowService.getJobStatus.mockResolvedValue({
       job_id: 'job-456',
-      status: 'processing',
-      progress: 45,
+      status: 'running',
+      created_at: '2024-01-01T00:00:00Z',
+      updated_at: '2024-01-01T00:00:00Z',
     } as any);
 
     const { getByText } = render(
@@ -240,20 +240,10 @@ describe('IntelligentFlowScreen', () => {
    * Test 12: Integrates with gamification on success
    */
   it('should be ready for gamification integration on completion', async () => {
-    const completeResult = {
-      job_id: 'job-789',
-      status: 'completed',
-      meals: [
-        {
-          meal_type: 'lunch',
-          items: [{ name: 'Chicken', calories: 300 }],
-          total_calories: 300,
-        },
-      ],
-      total_calories: 300,
-    };
-
-    mockFlowService.runFlow.mockResolvedValue(completeResult as any);
+    mockFlowService.runFlow.mockResolvedValue({
+      ...baseFlowResponse,
+      status: 'complete',
+    });
 
     const { getByText } = render(
       <IntelligentFlowScreen onBackPress={mockOnBackPress} />

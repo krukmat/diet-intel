@@ -271,7 +271,7 @@ describe('SmartDietService', () => {
 
       const result = await service.getSmartSuggestions(SmartDietContext.OPTIMIZE, {
         userId: testUserId,
-        maxSuggestions: 5,
+        max_suggestions: 5,
         includeHistory: false,
         includeRecommendations: false,
         mealContext: 'lunch',

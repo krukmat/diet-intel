@@ -161,8 +161,8 @@ describe('PlanScreen', () => {
       },
       status: 200,
       statusText: 'OK',
-      headers: {},
-      config: {} as any,
+      headers: {} as any,
+      config: { headers: {} as any as any } as any as any,
     });
 
     // Mock product search
@@ -180,8 +180,8 @@ describe('PlanScreen', () => {
       },
       status: 200,
       statusText: 'OK',
-      headers: {},
-      config: {} as any,
+      headers: {} as any,
+      config: { headers: {} as any as any } as any as any,
     });
 
     mockApiService.searchProduct.mockResolvedValue({
@@ -196,8 +196,8 @@ describe('PlanScreen', () => {
       },
       status: 200,
       statusText: 'OK',
-      headers: {},
-      config: {} as any,
+      headers: {} as any,
+      config: { headers: {} as any as any } as any as any,
     });
   });
 
@@ -300,8 +300,8 @@ describe('PlanScreen', () => {
         },
         status: 200,
         statusText: 'OK',
-        headers: {},
-        config: {} as any,
+        headers: {} as any,
+        config: { headers: {} as any as any } as any as any,
       });
 
       let component: TestRenderer.ReactTestRenderer | undefined;
@@ -327,7 +327,7 @@ describe('PlanScreen', () => {
 
   describe('Customize Meal Flow', () => {
     it('adds an item on customize confirm', async () => {
-      mockApiService.customizeMealPlan.mockResolvedValue({ data: {} });
+      mockApiService.customizeMealPlan.mockResolvedValue({ data: {}, status: 200, statusText: "OK", headers: {} as any, config: { headers: {} as any as any } as any });
       let component: TestRenderer.ReactTestRenderer | undefined;
       await TestRenderer.act(async () => {
         component = TestRenderer.create(
@@ -390,7 +390,7 @@ describe('PlanScreen', () => {
     });
 
     it('searches by barcode and customizes a meal item', async () => {
-      mockApiService.customizeMealPlan.mockResolvedValue({ data: {} });
+      mockApiService.customizeMealPlan.mockResolvedValue({ data: {}, status: 200, statusText: "OK", headers: {} as any, config: { headers: {} as any as any } as any });
       let component: TestRenderer.ReactTestRenderer | undefined;
       await TestRenderer.act(async () => {
         component = TestRenderer.create(
@@ -428,7 +428,7 @@ describe('PlanScreen', () => {
     });
 
     it('searches by text and customizes a meal item', async () => {
-      mockApiService.customizeMealPlan.mockResolvedValue({ data: {} });
+      mockApiService.customizeMealPlan.mockResolvedValue({ data: {}, status: 200, statusText: "OK", headers: {} as any, config: { headers: {} as any as any } as any });
       let component: TestRenderer.ReactTestRenderer | undefined;
       await TestRenderer.act(async () => {
         component = TestRenderer.create(
@@ -472,7 +472,7 @@ describe('PlanScreen', () => {
     });
 
     it('adds a manual item when provided', async () => {
-      mockApiService.customizeMealPlan.mockResolvedValue({ data: {} });
+      mockApiService.customizeMealPlan.mockResolvedValue({ data: {}, status: 200, statusText: "OK", headers: {} as any, config: { headers: {} as any as any } as any });
       let component: TestRenderer.ReactTestRenderer | undefined;
       await TestRenderer.act(async () => {
         component = TestRenderer.create(
@@ -717,8 +717,8 @@ describe('PlanScreen', () => {
         data: null,
         status: 200,
         statusText: 'OK',
-        headers: {},
-        config: {} as any
+        headers: {} as any,
+        config: { headers: {} as any as any } as any as any
       });
 
       const component = TestRenderer.create(

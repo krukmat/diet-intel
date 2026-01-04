@@ -35,6 +35,7 @@ jest.mock('expo-camera', () => {
     __esModule: true,
     Camera: CameraComponent,
     CameraCapturedPicture: {},
+    CameraType: { front: 'front', back: 'back' },
     requestCameraPermissionsAsync: jest.fn(() => Promise.resolve({ status: 'granted' })),
     Constants: {
       BarCodeType: 'org.iso.Code128',

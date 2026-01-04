@@ -100,7 +100,21 @@ beforeEach(() => {
     .mockResolvedValue(undefined);
   getDietInsightsSpy = jest
     .spyOn(smartDietService, 'getDietInsights')
-    .mockResolvedValue({ insights: [], nutritional_summary: {} });
+    .mockResolvedValue({
+      period: 'weekly',
+      user_id: 'test-user',
+      analysis_date: new Date().toISOString(),
+      nutritional_gaps: {},
+      macro_trends: {},
+      calorie_trends: [],
+      eating_patterns: {},
+      successful_suggestions: [],
+      ignored_suggestions: [],
+      priority_improvements: [],
+      suggested_changes: [],
+      goal_progress: {},
+      improvement_score: 0,
+    });
   invalidateUserCacheSpy = jest
     .spyOn(smartDietService, 'invalidateUserCache')
     .mockResolvedValue(undefined);

@@ -38,6 +38,14 @@ jest.mock('react-i18next', () => ({
   }),
 }));
 
+const mockAxiosResponse = (data: any) => ({
+  data,
+  status: 200,
+  statusText: 'OK',
+  headers: {} as any,
+  config: { headers: {} as any } as any,
+});
+
 describe('UploadLabel Screen - Enhanced Tests', () => {
   const mockOnBackPress = jest.fn();
   const mockApiService = apiService as jest.Mocked<typeof apiService>;
@@ -67,32 +75,28 @@ describe('UploadLabel Screen - Enhanced Tests', () => {
       base64: 'base64data',
     } as any);
 
-    mockApiService.scanNutritionLabel.mockResolvedValue({
-      data: {
-        confidence: 0.85,
-        nutrients: {
-          energy_kcal_per_100g: 250,
-          protein_g_per_100g: 8,
-          fat_g_per_100g: 12,
-          carbs_g_per_100g: 30,
-          sugars_g_per_100g: 5,
-          salt_g_per_100g: 1.2,
-        },
-        text_extracted: 'Nutrition facts per 100g...',
+    mockApiService.scanNutritionLabel.mockResolvedValue(mockAxiosResponse({
+      confidence: 0.85,
+      nutrients: {
+        energy_kcal_per_100g: 250,
+        protein_g_per_100g: 8,
+        fat_g_per_100g: 12,
+        carbs_g_per_100g: 30,
+        sugars_g_per_100g: 5,
+        salt_g_per_100g: 1.2,
       },
-    });
+      text_extracted: 'Nutrition facts per 100g...',
+    }));
 
-    mockApiService.scanNutritionLabelExternal.mockResolvedValue({
-      data: {
-        confidence: 0.90,
-        nutrients: {
-          energy_kcal_per_100g: 300,
-          protein_g_per_100g: 10,
-          fat_g_per_100g: 15,
-          carbs_g_per_100g: 35,
-        },
+    mockApiService.scanNutritionLabelExternal.mockResolvedValue(mockAxiosResponse({
+      confidence: 0.90,
+      nutrients: {
+        energy_kcal_per_100g: 300,
+        protein_g_per_100g: 10,
+        fat_g_per_100g: 15,
+        carbs_g_per_100g: 35,
       },
-    });
+    }));
   });
 
   /**
@@ -181,13 +185,11 @@ describe('UploadLabel Screen - Enhanced Tests', () => {
    * Test 7: Calls external OCR API when local fails
    */
   it('should fallback to external OCR when local confidence is low', async () => {
-    mockApiService.scanNutritionLabel.mockResolvedValue({
-      data: {
-        confidence: 0.30,
-        nutrients: {},
-        suggest_external_ocr: true,
-      },
-    });
+    mockApiService.scanNutritionLabel.mockResolvedValue(mockAxiosResponse({
+      confidence: 0.30,
+      nutrients: {},
+      suggest_external_ocr: true,
+    }));
 
     render(<UploadLabel onBackPress={mockOnBackPress} />);
 
@@ -198,17 +200,15 @@ describe('UploadLabel Screen - Enhanced Tests', () => {
    * Test 8: Handles high confidence OCR results
    */
   it('should process high confidence OCR results (>0.70)', async () => {
-    const highConfidenceResult = {
-      data: {
-        confidence: 0.95,
-        nutrients: {
-          energy_kcal_per_100g: 250,
-          protein_g_per_100g: 8,
-          fat_g_per_100g: 12,
-          carbs_g_per_100g: 30,
-        },
+    const highConfidenceResult = mockAxiosResponse({
+      confidence: 0.95,
+      nutrients: {
+        energy_kcal_per_100g: 250,
+        protein_g_per_100g: 8,
+        fat_g_per_100g: 12,
+        carbs_g_per_100g: 30,
       },
-    };
+    });
 
     mockApiService.scanNutritionLabel.mockResolvedValue(highConfidenceResult);
 
@@ -222,16 +222,14 @@ describe('UploadLabel Screen - Enhanced Tests', () => {
    * Test 9: Handles low confidence OCR results
    */
   it('should handle low confidence OCR results (<0.70)', async () => {
-    const lowConfidenceResult = {
-      data: {
-        confidence: 0.45,
-        nutrients: {
-          energy_kcal_per_100g: 200,
-        },
-        low_confidence: true,
-        suggest_external_ocr: true,
+    const lowConfidenceResult = mockAxiosResponse({
+      confidence: 0.45,
+      nutrients: {
+        energy_kcal_per_100g: 200,
       },
-    };
+      low_confidence: true,
+      suggest_external_ocr: true,
+    });
 
     mockApiService.scanNutritionLabel.mockResolvedValue(lowConfidenceResult);
 
@@ -254,12 +252,10 @@ describe('UploadLabel Screen - Enhanced Tests', () => {
       salt_g_per_100g: 1.2,
     };
 
-    mockApiService.scanNutritionLabel.mockResolvedValue({
-      data: {
-        confidence: 0.85,
-        nutrients: completeNutrients,
-      },
-    });
+    mockApiService.scanNutritionLabel.mockResolvedValue(mockAxiosResponse({
+      confidence: 0.85,
+      nutrients: completeNutrients,
+    }));
 
     render(<UploadLabel onBackPress={mockOnBackPress} />);
 
@@ -276,12 +272,10 @@ describe('UploadLabel Screen - Enhanced Tests', () => {
       // Missing other fields
     };
 
-    mockApiService.scanNutritionLabel.mockResolvedValue({
-      data: {
-        confidence: 0.60,
-        nutrients: partialNutrients,
-      },
-    });
+    mockApiService.scanNutritionLabel.mockResolvedValue(mockAxiosResponse({
+      confidence: 0.60,
+      nutrients: partialNutrients,
+    }));
 
     render(<UploadLabel onBackPress={mockOnBackPress} />);
 
@@ -298,12 +292,10 @@ describe('UploadLabel Screen - Enhanced Tests', () => {
         new Promise((resolve) => {
           setTimeout(
             () =>
-              resolve({
-                data: {
-                  confidence: 0.85,
-                  nutrients: { energy_kcal_per_100g: 250 },
-                },
-              }),
+              resolve(mockAxiosResponse({
+                confidence: 0.85,
+                nutrients: { energy_kcal_per_100g: 250 },
+              })),
             500
           );
         })
@@ -380,15 +372,13 @@ describe('UploadLabel Screen - Enhanced Tests', () => {
    * Test 18: Saves valid OCR results
    */
   it('should save validated OCR results', async () => {
-    mockApiService.scanNutritionLabel.mockResolvedValue({
-      data: {
-        confidence: 0.85,
-        nutrients: {
-          energy_kcal_per_100g: 250,
-          protein_g_per_100g: 8,
-        },
+    mockApiService.scanNutritionLabel.mockResolvedValue(mockAxiosResponse({
+      confidence: 0.85,
+      nutrients: {
+        energy_kcal_per_100g: 250,
+        protein_g_per_100g: 8,
       },
-    });
+    }));
 
     render(<UploadLabel onBackPress={mockOnBackPress} />);
 
@@ -424,12 +414,10 @@ describe('UploadLabel Screen - Enhanced Tests', () => {
    * Test 21: Handles rapid successive uploads
    */
   it('should handle rapid successive image uploads', async () => {
-    mockApiService.scanNutritionLabel.mockResolvedValue({
-      data: {
-        confidence: 0.85,
-        nutrients: { energy_kcal_per_100g: 250 },
-      },
-    });
+    mockApiService.scanNutritionLabel.mockResolvedValue(mockAxiosResponse({
+      confidence: 0.85,
+      nutrients: { energy_kcal_per_100g: 250 },
+    }));
 
     render(<UploadLabel onBackPress={mockOnBackPress} />);
 
@@ -451,12 +439,10 @@ describe('UploadLabel Screen - Enhanced Tests', () => {
    * Test 23: Displays success message after upload
    */
   it('should show success feedback after successful OCR', async () => {
-    mockApiService.scanNutritionLabel.mockResolvedValue({
-      data: {
-        confidence: 0.85,
-        nutrients: { energy_kcal_per_100g: 250 },
-      },
-    });
+    mockApiService.scanNutritionLabel.mockResolvedValue(mockAxiosResponse({
+      confidence: 0.85,
+      nutrients: { energy_kcal_per_100g: 250 },
+    }));
 
     render(<UploadLabel onBackPress={mockOnBackPress} />);
 
@@ -484,12 +470,10 @@ describe('UploadLabel Screen - Enhanced Tests', () => {
   it('should allow retry after failed OCR processing', async () => {
     mockApiService.scanNutritionLabel
       .mockRejectedValueOnce(new Error('First attempt failed'))
-      .mockResolvedValueOnce({
-        data: {
-          confidence: 0.85,
-          nutrients: { energy_kcal_per_100g: 250 },
-        },
-      });
+      .mockResolvedValueOnce(mockAxiosResponse({
+        confidence: 0.85,
+        nutrients: { energy_kcal_per_100g: 250 },
+      }));
 
     render(<UploadLabel onBackPress={mockOnBackPress} />);
 

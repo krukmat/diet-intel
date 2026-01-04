@@ -436,7 +436,11 @@ describe('Permissions Utility Logic Tests', () => {
         return { status: 'invalid', platformHandled: false };
       }
 
-      const baseResult = {
+      const baseResult: {
+        status: string;
+        platformHandled: boolean;
+        additionalInfo?: any;
+      } = {
         status: response.status,
         platformHandled: false
       };

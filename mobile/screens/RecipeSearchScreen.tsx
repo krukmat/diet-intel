@@ -16,6 +16,7 @@ import { useRecipeSearch, useNetworkStatus } from '../hooks/useApiRecipes';
 import { RecipeSearchRequest } from '../services/RecipeApiService';
 import { SyncStatusIndicator } from '../components/SyncStatusComponents';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import type { BaseRecipe } from '../types/RecipeTypes';
 import {
   SearchBar,
   QuickFilters,
@@ -38,19 +39,7 @@ interface SearchFilters {
   minRating: number;
 }
 
-interface Recipe {
-  id: string;
-  name: string;
-  description: string;
-  cookingTime: number;
-  difficulty: string;
-  rating: number;
-  totalRatings: number;
-  calories: number;
-  cuisineType: string;
-  tags: string[];
-  imageUrl?: string;
-}
+type Recipe = BaseRecipe;
 
 export default function RecipeSearchScreen({
   onBackPress,

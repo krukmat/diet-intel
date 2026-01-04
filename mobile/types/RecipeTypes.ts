@@ -6,12 +6,14 @@ export interface BaseRecipe {
   readonly name: string;
   readonly description: string;
   readonly cookingTime: number;
+  readonly servings?: number;
   readonly difficulty: 'beginner' | 'intermediate' | 'advanced';
   readonly rating: number;
   readonly totalRatings: number;
   readonly calories: number;
   readonly cuisineType: string;
   readonly tags: readonly string[];
+  readonly dietaryRestrictions?: readonly string[];
   readonly imageUrl?: string;
   readonly ingredients?: readonly RecipeIngredient[];
   readonly instructions?: readonly RecipeInstruction[];
@@ -40,6 +42,7 @@ export interface PersonalRecipe extends BaseRecipe {
 
 export interface PersonalRecipeMetadata {
   readonly dateAdded: Date;
+  readonly lastModified?: Date;
   readonly lastCooked?: Date;
   readonly timesCooked: number;
   readonly personalRating?: number;
@@ -77,9 +80,13 @@ export interface LibrarySearchFilters {
   readonly collections?: readonly string[];
   readonly personalTags?: readonly string[];
   readonly cuisineTypes?: readonly string[];
+  readonly dietaryRestrictions?: readonly string[];
   readonly difficulty?: readonly string[];
+  readonly cookingTime?: { readonly min: number; readonly max: number };
   readonly cookingTimeRange?: { readonly min: number; readonly max: number };
+  readonly calories?: { readonly min: number; readonly max: number };
   readonly calorieRange?: { readonly min: number; readonly max: number };
+  readonly minRating?: number;
   readonly personalRatingMin?: number;
   readonly lastCookedWithin?: number; // days
   readonly source?: readonly ('generated' | 'search' | 'custom' | 'imported')[];
@@ -110,9 +117,15 @@ export interface RecipeStorageEvent {
 export interface RecipeListItem {
   readonly id: string;
   readonly name: string;
+  readonly description?: string;
   readonly imageUrl?: string;
   readonly cookingTime: number;
+  readonly difficulty?: 'beginner' | 'intermediate' | 'advanced';
   readonly personalRating?: number;
+  readonly calories?: number;
+  readonly cuisineType?: string;
+  readonly tags?: readonly string[];
+  readonly personalMetadata?: PersonalRecipeMetadata;
   readonly isFavorite: boolean;
   readonly collections: readonly string[];
   readonly lastCooked?: Date;

@@ -52,7 +52,7 @@ const TastePreferencesScreen: React.FC<TastePreferencesScreenProps> = ({
   const loadUserData = async () => {
     setLoading(true);
     try {
-      const recipeApi = new RecipeApiService();
+      const recipeApi = RecipeApiService.getInstance();
 
       // Load learning progress and current taste profile
       const [progressData, profileData] = await Promise.all([
@@ -78,7 +78,7 @@ const TastePreferencesScreen: React.FC<TastePreferencesScreenProps> = ({
   const handleSavePreferences = async () => {
     setLoading(true);
     try {
-      const recipeApi = new RecipeApiService();
+      const recipeApi = RecipeApiService.getInstance();
 
       await recipeApi.learnUserPreferences({
         cuisinePreferences: selectedCuisines,

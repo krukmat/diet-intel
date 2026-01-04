@@ -334,7 +334,12 @@ const OptimizedSmartDietScreen: React.FC<OptimizedSmartDietScreenProps> = memo((
   
   const handleSuggestionFeedback = useCallback(async (suggestionId: string, action: string) => {
     try {
-      await smartDietService.submitSuggestionFeedback(suggestionId, action === 'accepted', '');
+      await smartDietService.submitSuggestionFeedback({
+        suggestion_id: suggestionId,
+        user_id: 'mobile_user',
+        action: action === 'accepted' ? 'accepted' : 'rejected',
+        feedback_reason: '',
+      });
       
       // Update UI optimistically
       setSuggestions(prev => prev.map(s => 

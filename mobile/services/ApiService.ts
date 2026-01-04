@@ -1,4 +1,4 @@
-import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios';
+import axios, { AxiosInstance, AxiosResponse, AxiosRequestConfig, AxiosHeaders } from 'axios';
 import { getEnvironmentConfig } from '../config/environments';
 import { authService } from './AuthService';
 import { DiscoverFeedResponse } from '../types/feed';
@@ -34,8 +34,9 @@ class ApiService {
         try {
           const storedTokens = await authService.getStoredTokens();
           if (storedTokens?.access_token && !authService.isTokenExpired(storedTokens.expires_at)) {
-            config.headers = config.headers || {};
-            config.headers.Authorization = `Bearer ${storedTokens.access_token}`;
+          const headers = AxiosHeaders.from(config.headers ?? {});
+          headers.set('Authorization', `Bearer ${storedTokens.access_token}`);
+          config.headers = headers;
           }
         } catch (error) {
           console.warn('API Request Token Attach Error:', error);

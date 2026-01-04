@@ -11,7 +11,7 @@ jest.mock('../ApiService', () => ({
 jest.mock('../AuthService', () => ({
   authService: {
     getStoredTokens: jest.fn(),
-    validateToken: jest.fn(),
+    getCurrentUser: jest.fn(),
   },
 }));
 
@@ -23,7 +23,7 @@ describe('AnalyticsService', () => {
 
   it('tracks discover view and load more events', async () => {
     (authService.getStoredTokens as jest.Mock).mockResolvedValue({ access_token: 'token' });
-    (authService.validateToken as jest.Mock).mockResolvedValue({ id: 'user-1' });
+    (authService.getCurrentUser as jest.Mock).mockResolvedValue({ id: 'user-1' });
 
     await analyticsService.trackDiscoverView(10, 'mobile');
     await analyticsService.trackDiscoverLoadMore(5, 'web', 'cursor');
@@ -37,7 +37,7 @@ describe('AnalyticsService', () => {
   it('tracks surface switch and summarizes events', async () => {
     await analyticsService.trackDiscoverSurfaceSwitch('mobile', 'web');
     const summary = analyticsService.getEventSummary();
-    expect(summary['discover_surface_switch_unknown']).toBe(1);
+    expect(summary['discover_surface_switch_mobile_web']).toBe(1);
   });
 
   it('tracks item interactions and forwards to api', async () => {

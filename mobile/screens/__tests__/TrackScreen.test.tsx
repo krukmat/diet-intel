@@ -30,6 +30,14 @@ const findTouchableByText = (component: any, targetText: string) =>
       ).length > 0
     );
 
+const mockAxiosResponse = (data: any) => ({
+  data,
+  status: 200,
+  statusText: 'OK',
+  headers: {} as any,
+  config: { headers: {} as any } as any,
+});
+
 // Mock the API service
 jest.mock('../../services/ApiService', () => ({
   apiService: {
@@ -66,34 +74,30 @@ describe('TrackScreen', () => {
     // Mock successful API responses
     mockApiService.get.mockImplementation((endpoint) => {
       if (endpoint.includes('weight/history')) {
-        return Promise.resolve({
-          data: {
-            entries: [
-              { date: '2024-01-01T00:00:00Z', weight: 75.2, photo_url: null },
-              { date: '2024-01-08T00:00:00Z', weight: 74.8, photo_url: null }
-            ]
-          }
-        });
+        return Promise.resolve(mockAxiosResponse({
+          entries: [
+            { date: '2024-01-01T00:00:00Z', weight: 75.2, photo_url: null },
+            { date: '2024-01-08T00:00:00Z', weight: 74.8, photo_url: null }
+          ]
+        }));
       }
       if (endpoint.includes('photos')) {
-        return Promise.resolve({
-          data: {
-            logs: [
-              {
-                id: '1',
-                timestamp: '2024-01-01T12:00:00Z',
-                photo_url: 'mock-photo-url',
-                type: 'meal',
-                description: 'Breakfast'
-              }
-            ]
-          }
-        });
+        return Promise.resolve(mockAxiosResponse({
+          logs: [
+            {
+              id: '1',
+              timestamp: '2024-01-01T12:00:00Z',
+              photo_url: 'mock-photo-url',
+              type: 'meal',
+              description: 'Breakfast'
+            }
+          ]
+        }));
       }
-      return Promise.resolve({ data: {} });
+      return Promise.resolve(mockAxiosResponse({}));
     });
 
-    mockApiService.post.mockResolvedValue({ data: { success: true } });
+    mockApiService.post.mockResolvedValue(mockAxiosResponse({ success: true }));
 
     // Mock image picker
     mockImagePicker.requestCameraPermissionsAsync.mockResolvedValue({ 
@@ -324,30 +328,26 @@ describe('TrackScreen', () => {
     it('should render weigh-in photo logs', async () => {
       mockApiService.get.mockImplementation((endpoint) => {
         if (endpoint.includes('photos')) {
-          return Promise.resolve({
-            data: {
-              logs: [
-                {
-                  id: '2',
-                  timestamp: '2024-02-01T12:00:00Z',
-                  photo_url: 'mock-photo-url',
-                  type: 'weigh-in',
-                  description: 'Weight'
-                }
-              ]
-            }
-          });
+          return Promise.resolve(mockAxiosResponse({
+            logs: [
+              {
+                id: '2',
+                timestamp: '2024-02-01T12:00:00Z',
+                photo_url: 'mock-photo-url',
+                type: 'weigh-in',
+                description: 'Weight'
+              }
+            ]
+          }));
         }
         if (endpoint.includes('weight/history')) {
-          return Promise.resolve({
-            data: {
-              entries: [
-                { date: '2024-01-01T00:00:00Z', weight: 75.2, photo_url: null }
-              ]
-            }
-          });
+          return Promise.resolve(mockAxiosResponse({
+            entries: [
+              { date: '2024-01-01T00:00:00Z', weight: 75.2, photo_url: null }
+            ]
+          }));
         }
-        return Promise.resolve({ data: {} });
+        return Promise.resolve(mockAxiosResponse({}));
       });
 
       const component = TestRenderer.create(
@@ -733,7 +733,7 @@ describe('TrackScreen', () => {
         if (endpoint.includes('weight/history')) {
           return Promise.reject(new Error('Weight API Error'));
         }
-        return Promise.resolve({ data: { logs: [] } });
+        return Promise.resolve(mockAxiosResponse({ logs: [] }));
       });
       
       const component = TestRenderer.create(
@@ -751,9 +751,9 @@ describe('TrackScreen', () => {
           return Promise.reject(new Error('Photos API Error'));
         }
         if (endpoint.includes('weight/history')) {
-          return Promise.resolve({ data: { entries: [] } });
+          return Promise.resolve(mockAxiosResponse({ entries: [] }));
         }
-        return Promise.resolve({ data: {} });
+        return Promise.resolve(mockAxiosResponse({}));
       });
       
       const component = TestRenderer.create(
@@ -823,9 +823,10 @@ describe('TrackScreen', () => {
     });
 
     it('should handle empty data states', async () => {
-      mockApiService.get.mockResolvedValue({ 
-        data: { entries: [], logs: [] } 
-      });
+      mockApiService.get.mockResolvedValue(mockAxiosResponse({ 
+        entries: [],
+        logs: []
+      }));
       
       const component = TestRenderer.create(
         <TrackScreen onBackPress={mockOnBackPress} />
@@ -943,9 +944,9 @@ describe('TrackScreen', () => {
             type: 'meal',
             description: `Meal ${i}`
           }));
-          return Promise.resolve({ data: { logs: largeLogs } });
+          return Promise.resolve(mockAxiosResponse({ logs: largeLogs }));
         }
-        return Promise.resolve({ data: { entries: [] } });
+        return Promise.resolve(mockAxiosResponse({ entries: [] }));
       });
       
       const startTime = performance.now();

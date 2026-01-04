@@ -304,7 +304,10 @@ export function usePersonalRecipes() {
       let localRecipes: PersonalRecipe[] = [];
       try {
         const searchResult = await recipeStorage.searchRecipes(filters || {});
-        localRecipes = searchResult.items;
+        const storedRecipes = await Promise.all(
+          searchResult.items.map(item => recipeStorage.getRecipe(item.id))
+        );
+        localRecipes = storedRecipes.filter(Boolean) as PersonalRecipe[];
       } catch (localError) {
         console.warn('Failed to load from local storage:', localError);
       }

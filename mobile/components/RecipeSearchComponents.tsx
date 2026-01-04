@@ -11,6 +11,7 @@ import {
   Animated,
   Dimensions,
 } from 'react-native';
+import type { BaseRecipe } from '../types/RecipeTypes';
 
 const { width: screenWidth } = Dimensions.get('window');
 
@@ -521,19 +522,7 @@ export const FilterModal: React.FC<FilterModalProps> = ({
 
 // Recipe Card Component
 interface RecipeCardProps {
-  recipe: {
-    id: string;
-    name: string;
-    description: string;
-    cookingTime: number;
-    difficulty: string;
-    rating: number;
-    totalRatings: number;
-    calories: number;
-    cuisineType: string;
-    tags: string[];
-    imageUrl?: string;
-  };
+  recipe: BaseRecipe;
   onPress: () => void;
   onSave: () => void;
   onShare: () => void;

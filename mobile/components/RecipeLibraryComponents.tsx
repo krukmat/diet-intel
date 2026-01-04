@@ -816,6 +816,12 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
     borderRadius: 4,
   },
+  placeholder: {
+    height: 16,
+    width: '100%',
+    borderRadius: 8,
+    backgroundColor: '#F2F2F7',
+  },
 
   // Recipe Card Styles
   recipeCard: {

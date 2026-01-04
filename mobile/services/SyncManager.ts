@@ -267,7 +267,7 @@ export class SyncManager {
         const localRecipe = await recipeStorage.getRecipe(remoteRecipe.id);
         
         if (!localRecipe || this.shouldUseRemoteVersion(localRecipe, remoteRecipe)) {
-          await recipeStorage.saveRecipe(remoteRecipe, 'synced');
+          await recipeStorage.saveRecipe(remoteRecipe, 'imported');
         }
       }
 
@@ -323,7 +323,7 @@ export class SyncManager {
         if (localRecipe) {
           await recipeApi.savePersonalRecipe({
             recipe: localRecipe,
-            source: 'mobile',
+            source: 'imported',
           });
         }
         break;
@@ -401,14 +401,14 @@ export class SyncManager {
       case 'remote':
         // Use remote version
         if (conflict.type === 'recipe') {
-          await recipeStorage.saveRecipe(conflict.remoteVersion, 'synced');
+          await recipeStorage.saveRecipe(conflict.remoteVersion, 'imported');
         }
         break;
       case 'merge':
         // Merge versions (simple strategy: keep local user data, use remote for metadata)
         const merged = this.mergeVersions(conflict.localVersion, conflict.remoteVersion);
         if (conflict.type === 'recipe') {
-          await recipeStorage.saveRecipe(merged, 'synced');
+          await recipeStorage.saveRecipe(merged, 'imported');
         }
         break;
       case 'manual':
@@ -424,7 +424,7 @@ export class SyncManager {
       personalMetadata: {
         ...remote.personalMetadata,
         ...local.personalMetadata, // Keep local personal data
-        lastModified: new Date().toISOString(),
+        lastModified: new Date(),
       },
       personalNotes: local.personalNotes || remote.personalNotes,
       personalRating: local.personalMetadata?.personalRating || remote.personalMetadata?.personalRating,
@@ -533,7 +533,7 @@ export class SyncManager {
       }
 
       if (conflict.type === 'recipe') {
-        await recipeStorage.saveRecipe(resolvedData, 'synced');
+        await recipeStorage.saveRecipe(resolvedData, 'imported');
       }
 
       // Remove resolved conflict

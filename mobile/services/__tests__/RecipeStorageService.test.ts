@@ -5,12 +5,22 @@ import { SYSTEM_COLLECTIONS } from '../../types/RecipeTypes';
 const baseRecipe = {
   id: 'recipe-1',
   name: 'Test Recipe',
-  imageUrl: 'https://example.com/1.png',
+  description: 'Test recipe description',
   cookingTime: 30,
+  difficulty: 'beginner' as const,
+  rating: 4,
+  totalRatings: 10,
+  calories: 350,
+  cuisineType: 'general',
+  tags: ['test'],
+  imageUrl: 'https://example.com/1.png',
   ingredients: [
-    { name: 'Oats', amount: '1 cup' },
+    { id: 'ing-1', name: 'Oats', amount: 1, unit: 'cup' },
   ],
-  instructions: ['Mix', 'Cook'],
+  instructions: [
+    { step: 1, instruction: 'Mix' },
+    { step: 2, instruction: 'Cook' },
+  ],
 };
 
 describe('RecipeStorageService', () => {
