@@ -267,4 +267,89 @@ describe('ApiClient', () => {
 
     expect((client as any).isRetryableError({ name: 'AbortError' })).toBe(true);
   });
+
+  it('throws a network error when unauthorized without refresh token', async () => {
+    const client = resetClient(false);
+    (client as any).executeRequest = jest.fn().mockRejectedValue({ status: 401, message: 'Unauthorized' });
+
+    await expect(client.request({ method: 'GET', url: '/secure' })).rejects.toEqual({
+      code: 'NETWORK_ERROR',
+      message: 'Unauthorized',
+      timestamp: expect.any(String),
+    });
+  });
+
+  it('queues up to 50 requests when offline', async () => {
+    const client = resetClient(false);
+    (client as any).networkState.isConnected = false;
+
+    for (let i = 0; i < 55; i += 1) {
+      await expect(client.get(`/offline-${i}`)).rejects.toThrow('Request has been queued.');
+    }
+
+    expect(client.getQueuedRequestCount()).toBe(50);
+  });
+
+  it('respects non-retryable offline requests', async () => {
+    const client = resetClient(false);
+    (client as any).networkState.isConnected = false;
+
+    await expect(client.request({ method: 'GET', url: '/offline', retryable: false })).rejects.toThrow(
+      'No internet connection.',
+    );
+    expect(client.getQueuedRequestCount()).toBe(0);
+  });
+
+  it('clears cache when requested', async () => {
+    const client = resetClient(false);
+    (global.fetch as jest.Mock).mockResolvedValue(buildFetchResponse({ value: 1 }));
+
+    await client.get('/cached');
+    expect((client as any).cache.size).toBeGreaterThan(0);
+
+    client.clearCache();
+    expect((client as any).cache.size).toBe(0);
+  });
+
+  it('exposes network state snapshot', () => {
+    const client = resetClient(false);
+    (client as any).networkState = { isConnected: false, type: 'wifi', isInternetReachable: false };
+
+    expect(client.getNetworkState()).toEqual({
+      isConnected: false,
+      type: 'wifi',
+      isInternetReachable: false,
+    });
+  });
+
+  it('sends payloads with post/put/delete helpers', async () => {
+    const client = resetClient(true);
+    (global.fetch as jest.Mock).mockResolvedValue(buildFetchResponse({ ok: true }));
+
+    await client.post('/items', { name: 'A' });
+    await client.put('/items/1', { name: 'B' });
+    await client.delete('/items/1');
+
+    expect(global.fetch).toHaveBeenNthCalledWith(
+      1,
+      'http://localhost:8000/items',
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({ name: 'A' }),
+      }),
+    );
+    expect(global.fetch).toHaveBeenNthCalledWith(
+      2,
+      'http://localhost:8000/items/1',
+      expect.objectContaining({
+        method: 'PUT',
+        body: JSON.stringify({ name: 'B' }),
+      }),
+    );
+    expect(global.fetch).toHaveBeenNthCalledWith(
+      3,
+      'http://localhost:8000/items/1',
+      expect.objectContaining({ method: 'DELETE' }),
+    );
+  });
 });
