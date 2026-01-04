@@ -141,7 +141,7 @@ class AnalyticsService {
   }
 
   private getUserAgent(): string {
-    return `Mobile-App/${require('../../package.json').version || '1.0.0'}`;
+    return `Mobile-App/${require('../package.json').version || '1.0.0'}`;
   }
 
   private async sendToBackend(event: AnalyticsEvent): Promise<void> {
