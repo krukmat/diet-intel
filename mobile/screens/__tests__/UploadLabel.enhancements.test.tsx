@@ -21,15 +21,9 @@ jest.mock('../../services/ApiService', () => ({
   },
 }));
 
-jest.mock('expo-image-picker', () => ({
-  requestCameraPermissionsAsync: jest.fn(),
-  requestMediaLibraryPermissionsAsync: jest.fn(),
-  launchCameraAsync: jest.fn(),
-  launchImageLibraryAsync: jest.fn(),
-}));
-
 jest.mock('expo-image-manipulator', () => ({
   manipulateAsync: jest.fn(),
+  SaveFormat: { JPEG: 'jpeg' },
 }));
 
 jest.mock('react-i18next', () => ({
@@ -51,6 +45,14 @@ describe('UploadLabel Screen - Enhanced Tests', () => {
   const mockApiService = apiService as jest.Mocked<typeof apiService>;
   const mockImagePicker = ImagePicker as jest.Mocked<typeof ImagePicker>;
   const mockImageManipulator = ImageManipulator as jest.Mocked<typeof ImageManipulator>;
+  const pressByTestId = async (getByTestId: (testId: string) => any, testId: string) => {
+    const node = getByTestId(testId);
+    if (node.props?.onPress) {
+      await node.props.onPress();
+      return;
+    }
+    fireEvent.press(node);
+  };
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -99,35 +101,16 @@ describe('UploadLabel Screen - Enhanced Tests', () => {
     }));
   });
 
-  /**
-   * Test 1: Component renders successfully
-   */
-  it('should render UploadLabel screen without errors', () => {
-    const { getByTestId } = render(
-      <UploadLabel onBackPress={mockOnBackPress} />
-    );
-
-    expect(getByTestId).toBeDefined();
-  });
-
-  /**
-   * Test 2: Requests permissions on mount
-   */
-  it('should request camera and media library permissions on mount', async () => {
+  it('requests camera and media permissions on mount', async () => {
     render(<UploadLabel onBackPress={mockOnBackPress} />);
 
-    await waitFor(
-      () => {
-        expect(mockImagePicker.requestCameraPermissionsAsync).toHaveBeenCalled();
-      },
-      { timeout: 2000 }
-    );
+    await waitFor(() => {
+      expect(mockImagePicker.requestCameraPermissionsAsync).toHaveBeenCalled();
+      expect(mockImagePicker.requestMediaLibraryPermissionsAsync).toHaveBeenCalled();
+    });
   });
 
-  /**
-   * Test 3: Shows alert when permissions denied
-   */
-  it('should show alert when permissions are denied', async () => {
+  it('alerts when permissions are denied', async () => {
     const alertSpy = jest.spyOn(Alert, 'alert');
     mockImagePicker.requestCameraPermissionsAsync.mockResolvedValue({
       status: 'denied',
@@ -138,155 +121,135 @@ describe('UploadLabel Screen - Enhanced Tests', () => {
     render(<UploadLabel onBackPress={mockOnBackPress} />);
 
     await waitFor(() => {
-      expect(alertSpy).toHaveBeenCalled();
+      expect(alertSpy).toHaveBeenCalledWith('permissions.title', 'permissions.cameraRequired');
     });
 
     alertSpy.mockRestore();
   });
 
-  /**
-   * Test 4: Compresses image before upload
-   */
-  it('should compress image before uploading', async () => {
+  it('selects image from gallery and shows preview actions', async () => {
     mockImagePicker.launchImageLibraryAsync.mockResolvedValue({
       assets: [{ uri: 'file:///original-image.jpg' }],
       canceled: false,
     } as any);
 
-    // Would need to trigger image selection in component
-    // This test verifies compression logic is called
-    expect(mockImageManipulator.manipulateAsync).toBeDefined();
-  });
-
-  /**
-   * Test 5: Handles compression errors gracefully
-   */
-  it('should handle image compression errors', async () => {
-    mockImageManipulator.manipulateAsync.mockRejectedValue(
-      new Error('Compression failed')
+    const { getByTestId, queryByTestId } = render(
+      <UploadLabel onBackPress={mockOnBackPress} />
     );
 
-    render(<UploadLabel onBackPress={mockOnBackPress} />);
+    await pressByTestId(getByTestId, 'upload-from-gallery');
 
-    // Component should still render
-    expect(mockOnBackPress).toBeDefined();
+    await waitFor(() => {
+      expect(mockImagePicker.launchImageLibraryAsync).toHaveBeenCalled();
+      expect(queryByTestId('upload-scan-label')).toBeTruthy();
+      expect(queryByTestId('upload-retry')).toBeTruthy();
+    });
   });
 
-  /**
-   * Test 6: Calls local OCR API
-   */
-  it('should call local OCR scanning API', async () => {
-    render(<UploadLabel onBackPress={mockOnBackPress} />);
+  it('takes photo and transitions to upload preview', async () => {
+    mockImagePicker.launchCameraAsync.mockResolvedValue({
+      assets: [{ uri: 'file:///camera-image.jpg' }],
+      canceled: false,
+    } as any);
 
-    expect(mockApiService.scanNutritionLabel).toBeDefined();
+    const { getByTestId, queryByTestId } = render(
+      <UploadLabel onBackPress={mockOnBackPress} />
+    );
+
+    await pressByTestId(getByTestId, 'upload-take-photo');
+
+    await waitFor(() => {
+      expect(mockImagePicker.launchCameraAsync).toHaveBeenCalled();
+      expect(queryByTestId('upload-scan-label')).toBeTruthy();
+    });
   });
 
-  /**
-   * Test 7: Calls external OCR API when local fails
-   */
-  it('should fallback to external OCR when local confidence is low', async () => {
+  it('returns compressed image uri on successful compression', async () => {
+    mockImagePicker.launchImageLibraryAsync.mockResolvedValue({
+      assets: [{ uri: 'file:///original-image.jpg' }],
+      canceled: false,
+    } as any);
+
+    const { getByTestId, queryByTestId } = render(
+      <UploadLabel onBackPress={mockOnBackPress} />
+    );
+
+    await pressByTestId(getByTestId, 'upload-from-gallery');
+
+    await waitFor(() => {
+      expect(mockImageManipulator.manipulateAsync).toHaveBeenCalled();
+      expect(queryByTestId('upload-scan-label')).toBeTruthy();
+    });
+  });
+
+  it('falls back to original image when compression fails', async () => {
+    mockImageManipulator.manipulateAsync.mockRejectedValueOnce(
+      new Error('Compression failed')
+    );
+    mockImagePicker.launchImageLibraryAsync.mockResolvedValue({
+      assets: [{ uri: 'file:///original-image.jpg' }],
+      canceled: false,
+    } as any);
+
+    const { getByTestId, queryByTestId } = render(
+      <UploadLabel onBackPress={mockOnBackPress} />
+    );
+
+    await pressByTestId(getByTestId, 'upload-from-gallery');
+
+    await waitFor(() => {
+      expect(mockImageManipulator.manipulateAsync).toHaveBeenCalled();
+      expect(queryByTestId('upload-scan-label')).toBeTruthy();
+    });
+  });
+
+  it('uploads image and renders OCR results', async () => {
+    const alertSpy = jest.spyOn(Alert, 'alert');
+    mockImagePicker.launchImageLibraryAsync.mockResolvedValue({
+      assets: [{ uri: 'file:///original-image.jpg' }],
+      canceled: false,
+    } as any);
+
     mockApiService.scanNutritionLabel.mockResolvedValue(mockAxiosResponse({
-      confidence: 0.30,
-      nutrients: {},
-      suggest_external_ocr: true,
-    }));
-
-    render(<UploadLabel onBackPress={mockOnBackPress} />);
-
-    expect(mockApiService.scanNutritionLabelExternal).toBeDefined();
-  });
-
-  /**
-   * Test 8: Handles high confidence OCR results
-   */
-  it('should process high confidence OCR results (>0.70)', async () => {
-    const highConfidenceResult = mockAxiosResponse({
-      confidence: 0.95,
-      nutrients: {
+      confidence: 0.88,
+      raw_text: 'Nutrition facts per 100g...',
+      source: 'local',
+      scanned_at: '2026-01-01',
+      nutriments: {
         energy_kcal_per_100g: 250,
         protein_g_per_100g: 8,
-        fat_g_per_100g: 12,
-        carbs_g_per_100g: 30,
       },
-    });
-
-    mockApiService.scanNutritionLabel.mockResolvedValue(highConfidenceResult);
-
-    render(<UploadLabel onBackPress={mockOnBackPress} />);
-
-    // API should be available for mocking
-    expect(mockApiService.scanNutritionLabel).toBeDefined();
-  });
-
-  /**
-   * Test 9: Handles low confidence OCR results
-   */
-  it('should handle low confidence OCR results (<0.70)', async () => {
-    const lowConfidenceResult = mockAxiosResponse({
-      confidence: 0.45,
-      nutrients: {
-        energy_kcal_per_100g: 200,
-      },
-      low_confidence: true,
-      suggest_external_ocr: true,
-    });
-
-    mockApiService.scanNutritionLabel.mockResolvedValue(lowConfidenceResult);
-
-    render(<UploadLabel onBackPress={mockOnBackPress} />);
-
-    // API should handle low confidence scenarios
-    expect(mockApiService.scanNutritionLabel).toBeDefined();
-  });
-
-  /**
-   * Test 10: Extracts all nutrition fields correctly
-   */
-  it('should extract all nutrition fields from OCR results', async () => {
-    const completeNutrients = {
-      energy_kcal_per_100g: 250,
-      protein_g_per_100g: 8,
-      fat_g_per_100g: 12,
-      carbs_g_per_100g: 30,
-      sugars_g_per_100g: 5,
-      salt_g_per_100g: 1.2,
-    };
-
-    mockApiService.scanNutritionLabel.mockResolvedValue(mockAxiosResponse({
-      confidence: 0.85,
-      nutrients: completeNutrients,
     }));
 
-    render(<UploadLabel onBackPress={mockOnBackPress} />);
+    const { getByTestId, queryByTestId, queryByText } = render(
+      <UploadLabel onBackPress={mockOnBackPress} />
+    );
 
-    expect(mockApiService.scanNutritionLabel).toBeDefined();
+    await pressByTestId(getByTestId, 'upload-from-gallery');
+
+    await waitFor(() => {
+      expect(queryByTestId('upload-scan-label')).toBeTruthy();
+    });
+
+    await pressByTestId(getByTestId, 'upload-scan-label');
+
+    await waitFor(() => {
+      expect(mockApiService.scanNutritionLabel).toHaveBeenCalled();
+      expect(queryByText('upload.rawText')).toBeTruthy();
+      expect(queryByText('upload.nutritionFacts')).toBeTruthy();
+    });
+
+    expect(alertSpy).not.toHaveBeenCalledWith('upload.results.lowConfidence', expect.any(String));
+    alertSpy.mockRestore();
   });
 
-  /**
-   * Test 11: Handles partial nutrition data
-   */
-  it('should handle partial nutrition data from OCR', async () => {
-    const partialNutrients = {
-      energy_kcal_per_100g: 250,
-      protein_g_per_100g: 8,
-      // Missing other fields
-    };
+  it('shows progress updates while uploading', async () => {
+    jest.useFakeTimers();
+    mockImagePicker.launchImageLibraryAsync.mockResolvedValue({
+      assets: [{ uri: 'file:///original-image.jpg' }],
+      canceled: false,
+    } as any);
 
-    mockApiService.scanNutritionLabel.mockResolvedValue(mockAxiosResponse({
-      confidence: 0.60,
-      nutrients: partialNutrients,
-    }));
-
-    render(<UploadLabel onBackPress={mockOnBackPress} />);
-
-    // Should handle partial data gracefully
-    expect(mockApiService.scanNutritionLabel).toBeDefined();
-  });
-
-  /**
-   * Test 12: Shows loading state during OCR processing
-   */
-  it('should display loading indicator during OCR processing', async () => {
     mockApiService.scanNutritionLabel.mockImplementation(
       () =>
         new Promise((resolve) => {
@@ -294,190 +257,384 @@ describe('UploadLabel Screen - Enhanced Tests', () => {
             () =>
               resolve(mockAxiosResponse({
                 confidence: 0.85,
-                nutrients: { energy_kcal_per_100g: 250 },
+                raw_text: 'Nutrition facts per 100g...',
+                source: 'local',
+                scanned_at: '2026-01-01',
+                nutriments: { energy_kcal_per_100g: 250 },
               })),
-            500
+            2000
           );
         })
     );
 
-    render(<UploadLabel onBackPress={mockOnBackPress} />);
-
-    // Component should be in loading state during API call
-    expect(mockApiService.scanNutritionLabel).toBeDefined();
-  });
-
-  /**
-   * Test 13: Handles OCR API timeout
-   */
-  it('should handle OCR API timeout gracefully', async () => {
-    mockApiService.scanNutritionLabel.mockImplementation(
-      () =>
-        new Promise((_, reject) => {
-          setTimeout(() => reject(new Error('Request timeout')), 100);
-        })
+    const { getByTestId, queryByTestId } = render(
+      <UploadLabel onBackPress={mockOnBackPress} />
     );
 
-    render(<UploadLabel onBackPress={mockOnBackPress} />);
+    await act(async () => {
+      await pressByTestId(getByTestId, 'upload-from-gallery');
+    });
 
-    // Component should handle error without crashing
-    expect(mockOnBackPress).toBeDefined();
+    expect(queryByTestId('upload-scan-label')).toBeTruthy();
+
+    await act(async () => {
+      fireEvent.press(getByTestId('upload-scan-label'));
+    });
+
+    await act(async () => {
+      jest.advanceTimersByTime(400);
+    });
+
+    const progress = queryByTestId('upload-progress-fill');
+    expect(progress).toBeTruthy();
+    expect(progress?.props?.style?.[1]?.width).not.toBe('0%');
+
+    jest.runOnlyPendingTimers();
+    jest.useRealTimers();
   });
 
-  /**
-   * Test 14: Handles network errors
-   */
-  it('should handle network errors during OCR', async () => {
-    mockApiService.scanNutritionLabel.mockRejectedValue(
-      new Error('Network error')
-    );
+  it('shows low confidence actions and triggers external OCR', async () => {
+    const alertSpy = jest.spyOn(Alert, 'alert');
+    mockImagePicker.launchImageLibraryAsync.mockResolvedValue({
+      assets: [{ uri: 'file:///original-image.jpg' }],
+      canceled: false,
+    } as any);
 
-    render(<UploadLabel onBackPress={mockOnBackPress} />);
-
-    // Component should render error state
-    expect(mockApiService.scanNutritionLabel).toBeDefined();
-  });
-
-  /**
-   * Test 15: Allows manual editing of OCR results
-   */
-  it('should allow manual editing of nutrition values', () => {
-    render(<UploadLabel onBackPress={mockOnBackPress} />);
-
-    // Manual edit functionality should be available
-    expect(mockOnBackPress).toBeDefined();
-  });
-
-  /**
-   * Test 16: Validates nutrition input values
-   */
-  it('should validate manual nutrition input values', () => {
-    render(<UploadLabel onBackPress={mockOnBackPress} />);
-
-    // Should have input validation
-    expect(mockOnBackPress).toBeDefined();
-  });
-
-  /**
-   * Test 17: Rejects invalid nutrition values (negative, too large)
-   */
-  it('should reject invalid nutrition values', () => {
-    render(<UploadLabel onBackPress={mockOnBackPress} />);
-
-    // Should validate ranges
-    expect(mockOnBackPress).toBeDefined();
-  });
-
-  /**
-   * Test 18: Saves valid OCR results
-   */
-  it('should save validated OCR results', async () => {
     mockApiService.scanNutritionLabel.mockResolvedValue(mockAxiosResponse({
-      confidence: 0.85,
-      nutrients: {
+      confidence: 0.4,
+      raw_text: 'Unclear label',
+      source: 'local',
+      scanned_at: '2026-01-01',
+      low_confidence: true,
+      suggest_external_ocr: true,
+      nutriments: {
+        energy_kcal_per_100g: 120,
+      },
+    }));
+
+    mockApiService.scanNutritionLabelExternal.mockResolvedValue(mockAxiosResponse({
+      confidence: 0.9,
+      raw_text: 'External label',
+      source: 'external',
+      scanned_at: '2026-01-01',
+      nutriments: {
+        energy_kcal_per_100g: 200,
+      },
+    }));
+
+    const { getByTestId, queryByText } = render(
+      <UploadLabel onBackPress={mockOnBackPress} />
+    );
+
+    await pressByTestId(getByTestId, 'upload-from-gallery');
+
+    await waitFor(() => {
+      expect(queryByText('upload.scanLabel')).toBeTruthy();
+    });
+
+    await pressByTestId(getByTestId, 'upload-scan-label');
+
+    await waitFor(() => {
+      expect(queryByText('upload.lowConfidenceWarning')).toBeTruthy();
+      expect(queryByText('upload.externalOcrButton')).toBeTruthy();
+    });
+
+    await pressByTestId(getByTestId, 'upload-external-ocr');
+
+    await waitFor(() => {
+      expect(mockApiService.scanNutritionLabelExternal).toHaveBeenCalled();
+      expect(alertSpy).toHaveBeenCalledWith('upload.results.externalOCR', 'upload.externalOcrSuccess');
+    });
+
+    alertSpy.mockRestore();
+  });
+
+  it('allows manual edit flow and saves values', async () => {
+    const alertSpy = jest.spyOn(Alert, 'alert');
+    mockImagePicker.launchImageLibraryAsync.mockResolvedValue({
+      assets: [{ uri: 'file:///original-image.jpg' }],
+      canceled: false,
+    } as any);
+
+    mockApiService.scanNutritionLabel.mockResolvedValue(mockAxiosResponse({
+      confidence: 0.4,
+      raw_text: 'Unclear label',
+      source: 'local',
+      scanned_at: '2026-01-01',
+      low_confidence: true,
+      nutriments: {
+        energy_kcal_per_100g: 120,
+        protein_g_per_100g: 4,
+      },
+    }));
+
+    const { getByTestId, getAllByPlaceholderText, queryByText } = render(
+      <UploadLabel onBackPress={mockOnBackPress} />
+    );
+
+    await pressByTestId(getByTestId, 'upload-from-gallery');
+
+    await waitFor(() => {
+      expect(queryByText('upload.scanLabel')).toBeTruthy();
+    });
+
+    await pressByTestId(getByTestId, 'upload-scan-label');
+
+    await waitFor(() => {
+      expect(queryByText('upload.manualEditButton')).toBeTruthy();
+    });
+
+    await pressByTestId(getByTestId, 'upload-manual-edit');
+
+    const inputs = getAllByPlaceholderText('upload.enterValue');
+    fireEvent.changeText(inputs[0], '210');
+
+    await pressByTestId(getByTestId, 'upload-save-values');
+
+    await waitFor(() => {
+      expect(alertSpy).toHaveBeenCalledWith('common.success', 'upload.edit.updated');
+    });
+
+    alertSpy.mockRestore();
+  });
+
+  it('shows error alert when OCR upload fails', async () => {
+    const alertSpy = jest.spyOn(Alert, 'alert');
+    mockImagePicker.launchImageLibraryAsync.mockResolvedValue({
+      assets: [{ uri: 'file:///original-image.jpg' }],
+      canceled: false,
+    } as any);
+
+    mockApiService.scanNutritionLabel.mockRejectedValue(
+      new Error('OCR Service Error')
+    );
+
+    const { getByTestId, queryByText } = render(
+      <UploadLabel onBackPress={mockOnBackPress} />
+    );
+
+    await pressByTestId(getByTestId, 'upload-from-gallery');
+
+    await waitFor(() => {
+      expect(queryByText('upload.scanLabel')).toBeTruthy();
+    });
+
+    await pressByTestId(getByTestId, 'upload-scan-label');
+
+    await waitFor(() => {
+      expect(alertSpy).toHaveBeenCalledWith(
+        'upload.errors.uploadFailed',
+        'upload.errors.processingFailed',
+        [{ text: 'common.ok' }]
+      );
+    });
+
+    alertSpy.mockRestore();
+  });
+
+  it('alerts when image picker fails', async () => {
+    const alertSpy = jest.spyOn(Alert, 'alert');
+    mockImagePicker.launchImageLibraryAsync.mockRejectedValue(
+      new Error('Picker failed')
+    );
+
+    const { getByTestId } = render(
+      <UploadLabel onBackPress={mockOnBackPress} />
+    );
+
+    await pressByTestId(getByTestId, 'upload-from-gallery');
+
+    await waitFor(() => {
+      expect(alertSpy).toHaveBeenCalledWith('common.error', 'upload.errors.pickFailed');
+    });
+
+    alertSpy.mockRestore();
+  });
+
+  it('alerts when camera capture fails', async () => {
+    const alertSpy = jest.spyOn(Alert, 'alert');
+    mockImagePicker.launchCameraAsync.mockRejectedValue(
+      new Error('Camera failed')
+    );
+
+    const { getByTestId } = render(
+      <UploadLabel onBackPress={mockOnBackPress} />
+    );
+
+    await pressByTestId(getByTestId, 'upload-take-photo');
+
+    await waitFor(() => {
+      expect(alertSpy).toHaveBeenCalledWith('common.error', 'upload.errors.photoFailed');
+    });
+
+    alertSpy.mockRestore();
+  });
+
+  it('resets session when retrying before OCR', async () => {
+    mockImagePicker.launchImageLibraryAsync.mockResolvedValue({
+      assets: [{ uri: 'file:///original-image.jpg' }],
+      canceled: false,
+    } as any);
+
+    const { getByTestId, queryByTestId, queryByText } = render(
+      <UploadLabel onBackPress={mockOnBackPress} />
+    );
+
+    await pressByTestId(getByTestId, 'upload-from-gallery');
+
+    await waitFor(() => {
+      expect(queryByTestId('upload-retry')).toBeTruthy();
+    });
+
+    await pressByTestId(getByTestId, 'upload-retry');
+
+    await waitFor(() => {
+      expect(queryByTestId('upload-scan-label')).toBeNull();
+      expect(queryByText('upload.takePhoto')).toBeTruthy();
+    });
+  });
+
+  it('resets session when starting over after OCR', async () => {
+    mockImagePicker.launchImageLibraryAsync.mockResolvedValue({
+      assets: [{ uri: 'file:///original-image.jpg' }],
+      canceled: false,
+    } as any);
+
+    mockApiService.scanNutritionLabel.mockResolvedValue(mockAxiosResponse({
+      confidence: 0.88,
+      raw_text: 'Nutrition facts per 100g...',
+      source: 'local',
+      scanned_at: '2026-01-01',
+      nutriments: {
         energy_kcal_per_100g: 250,
         protein_g_per_100g: 8,
       },
     }));
 
-    render(<UploadLabel onBackPress={mockOnBackPress} />);
-
-    // Should have persistence capability
-    expect(mockApiService.scanNutritionLabel).toBeDefined();
-  });
-
-  /**
-   * Test 19: Handles back button navigation
-   */
-  it('should call onBackPress when back button is tapped', () => {
-    render(<UploadLabel onBackPress={mockOnBackPress} />);
-
-    // Back button should trigger callback
-    expect(mockOnBackPress).toBeDefined();
-  });
-
-  /**
-   * Test 20: Cleans up resources on unmount
-   */
-  it('should cleanup resources when component unmounts', () => {
-    const { unmount } = render(
+    const { getByTestId, queryByTestId, queryByText } = render(
       <UploadLabel onBackPress={mockOnBackPress} />
     );
 
-    unmount();
+    await pressByTestId(getByTestId, 'upload-from-gallery');
 
-    // Should cleanup without errors
-    expect(mockOnBackPress).toBeDefined();
+    await waitFor(() => {
+      expect(queryByTestId('upload-scan-label')).toBeTruthy();
+    });
+
+    await pressByTestId(getByTestId, 'upload-scan-label');
+
+    await waitFor(() => {
+      expect(queryByTestId('upload-start-over')).toBeTruthy();
+    });
+
+    await pressByTestId(getByTestId, 'upload-start-over');
+
+    await waitFor(() => {
+      expect(queryByTestId('upload-scan-label')).toBeNull();
+      expect(queryByText('upload.takePhoto')).toBeTruthy();
+    });
   });
 
-  /**
-   * Test 21: Handles rapid successive uploads
-   */
-  it('should handle rapid successive image uploads', async () => {
+  it('closes manual edit without saving', async () => {
+    mockImagePicker.launchImageLibraryAsync.mockResolvedValue({
+      assets: [{ uri: 'file:///original-image.jpg' }],
+      canceled: false,
+    } as any);
+
     mockApiService.scanNutritionLabel.mockResolvedValue(mockAxiosResponse({
-      confidence: 0.85,
-      nutrients: { energy_kcal_per_100g: 250 },
+      confidence: 0.4,
+      raw_text: 'Unclear label',
+      source: 'local',
+      scanned_at: '2026-01-01',
+      low_confidence: true,
+      nutriments: {
+        energy_kcal_per_100g: 120,
+      },
     }));
 
-    render(<UploadLabel onBackPress={mockOnBackPress} />);
-
-    // Should handle multiple rapid calls
-    expect(mockApiService.scanNutritionLabel).toBeDefined();
-  });
-
-  /**
-   * Test 22: Progress indicator updates correctly
-   */
-  it('should update progress indicator during upload', async () => {
-    render(<UploadLabel onBackPress={mockOnBackPress} />);
-
-    // Progress should track upload state
-    expect(mockOnBackPress).toBeDefined();
-  });
-
-  /**
-   * Test 23: Displays success message after upload
-   */
-  it('should show success feedback after successful OCR', async () => {
-    mockApiService.scanNutritionLabel.mockResolvedValue(mockAxiosResponse({
-      confidence: 0.85,
-      nutrients: { energy_kcal_per_100g: 250 },
-    }));
-
-    render(<UploadLabel onBackPress={mockOnBackPress} />);
-
-    // Should provide user feedback for success
-    expect(mockApiService.scanNutritionLabel).toBeDefined();
-  });
-
-  /**
-   * Test 24: Displays error message for failed uploads
-   */
-  it('should show error message when OCR fails', async () => {
-    mockApiService.scanNutritionLabel.mockRejectedValue(
-      new Error('OCR Service Error')
+    const { getByTestId, queryByTestId } = render(
+      <UploadLabel onBackPress={mockOnBackPress} />
     );
 
-    render(<UploadLabel onBackPress={mockOnBackPress} />);
+    await pressByTestId(getByTestId, 'upload-from-gallery');
 
-    // Error should be displayed to user
-    expect(mockApiService.scanNutritionLabel).toBeDefined();
+    await waitFor(() => {
+      expect(queryByTestId('upload-scan-label')).toBeTruthy();
+    });
+
+    await pressByTestId(getByTestId, 'upload-scan-label');
+
+    await waitFor(() => {
+      expect(queryByTestId('upload-manual-edit')).toBeTruthy();
+    });
+
+    await pressByTestId(getByTestId, 'upload-manual-edit');
+
+    await waitFor(() => {
+      expect(queryByTestId('upload-cancel-manual')).toBeTruthy();
+    });
+
+    await pressByTestId(getByTestId, 'upload-cancel-manual');
+
+    await waitFor(() => {
+      expect(queryByTestId('upload-save-values')).toBeNull();
+    });
   });
 
-  /**
-   * Test 25: Retry functionality after failed OCR
-   */
-  it('should allow retry after failed OCR processing', async () => {
-    mockApiService.scanNutritionLabel
-      .mockRejectedValueOnce(new Error('First attempt failed'))
-      .mockResolvedValueOnce(mockAxiosResponse({
-        confidence: 0.85,
-        nutrients: { energy_kcal_per_100g: 250 },
-      }));
+  it('shows error alert when external OCR fails', async () => {
+    const alertSpy = jest.spyOn(Alert, 'alert');
+    mockImagePicker.launchImageLibraryAsync.mockResolvedValue({
+      assets: [{ uri: 'file:///original-image.jpg' }],
+      canceled: false,
+    } as any);
 
-    render(<UploadLabel onBackPress={mockOnBackPress} />);
+    mockApiService.scanNutritionLabel.mockResolvedValue(mockAxiosResponse({
+      confidence: 0.4,
+      raw_text: 'Unclear label',
+      source: 'local',
+      scanned_at: '2026-01-01',
+      low_confidence: true,
+      suggest_external_ocr: true,
+      nutriments: {
+        energy_kcal_per_100g: 120,
+      },
+    }));
 
-    // Should support retry functionality
-    expect(mockApiService.scanNutritionLabel).toBeDefined();
+    mockApiService.scanNutritionLabelExternal.mockRejectedValue(
+      new Error('External failed')
+    );
+
+    const { getByTestId, queryByTestId } = render(
+      <UploadLabel onBackPress={mockOnBackPress} />
+    );
+
+    await pressByTestId(getByTestId, 'upload-from-gallery');
+
+    await waitFor(() => {
+      expect(queryByTestId('upload-scan-label')).toBeTruthy();
+    });
+
+    await pressByTestId(getByTestId, 'upload-scan-label');
+
+    await waitFor(() => {
+      expect(queryByTestId('upload-external-ocr')).toBeTruthy();
+    });
+
+    await pressByTestId(getByTestId, 'upload-external-ocr');
+
+    await waitFor(() => {
+      expect(alertSpy).toHaveBeenCalledWith('upload.results.externalFailed', 'upload.externalOcrFailed');
+    });
+
+    alertSpy.mockRestore();
+  });
+
+  it('fires back navigation callback', async () => {
+    const { getByTestId } = render(
+      <UploadLabel onBackPress={mockOnBackPress} />
+    );
+
+    await pressByTestId(getByTestId, 'upload-back');
+    expect(mockOnBackPress).toHaveBeenCalled();
   });
 });

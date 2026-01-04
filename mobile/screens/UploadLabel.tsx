@@ -262,11 +262,15 @@ export default function UploadLabel({ onBackPress }: UploadLabelProps) {
       <Text style={styles.subtitle}>{t('upload.subtitle')}</Text>
       
       <View style={styles.buttonRow}>
-        <TouchableOpacity style={styles.primaryButton} onPress={takePhoto}>
+        <TouchableOpacity style={styles.primaryButton} onPress={takePhoto} testID="upload-take-photo">
           <Text style={styles.primaryButtonText}>{t('upload.takePhoto')}</Text>
         </TouchableOpacity>
         
-        <TouchableOpacity style={styles.secondaryButton} onPress={pickImageFromGallery}>
+        <TouchableOpacity
+          style={styles.secondaryButton}
+          onPress={pickImageFromGallery}
+          testID="upload-from-gallery"
+        >
           <Text style={styles.secondaryButtonText}>{t('upload.fromGallery')}</Text>
         </TouchableOpacity>
       </View>
@@ -279,10 +283,11 @@ export default function UploadLabel({ onBackPress }: UploadLabelProps) {
       <Image source={{ uri: selectedImage! }} style={styles.imagePreview} />
       
       <View style={styles.buttonRow}>
-        <TouchableOpacity 
+        <TouchableOpacity
           style={[styles.primaryButton, uploading && styles.buttonDisabled]} 
           onPress={uploadImage}
           disabled={uploading}
+          testID="upload-scan-label"
         >
           {uploading ? (
             <ActivityIndicator size="small" color="white" />
@@ -291,18 +296,18 @@ export default function UploadLabel({ onBackPress }: UploadLabelProps) {
           )}
         </TouchableOpacity>
         
-        <TouchableOpacity style={styles.tertiaryButton} onPress={resetSession}>
+        <TouchableOpacity style={styles.tertiaryButton} onPress={resetSession} testID="upload-retry">
           <Text style={styles.tertiaryButtonText}>{t('upload.retry')}</Text>
         </TouchableOpacity>
       </View>
       
       {uploading && (
-        <View style={styles.progressContainer}>
-          <Text style={styles.progressText}>{t('upload.processingWithProgress', { progress: uploadProgress })}</Text>
-          <View style={styles.progressBar}>
-            <View style={[styles.progressFill, { width: `${uploadProgress}%` }]} />
+          <View style={styles.progressContainer}>
+            <Text style={styles.progressText}>{t('upload.processingWithProgress', { progress: uploadProgress })}</Text>
+            <View style={styles.progressBar}>
+              <View style={[styles.progressFill, { width: `${uploadProgress}%` }]} testID="upload-progress-fill" />
+            </View>
           </View>
-        </View>
       )}
     </View>
   );
@@ -330,6 +335,7 @@ export default function UploadLabel({ onBackPress }: UploadLabelProps) {
                 style={styles.externalOcrButton} 
                 onPress={sendToExternalOCR}
                 disabled={uploading}
+                testID="upload-external-ocr"
               >
                 {uploading ? (
                   <ActivityIndicator size="small" color="white" />
@@ -341,6 +347,7 @@ export default function UploadLabel({ onBackPress }: UploadLabelProps) {
               <TouchableOpacity 
                 style={styles.manualEditButton} 
                 onPress={handleManualEdit}
+                testID="upload-manual-edit"
               >
                 <Text style={styles.manualEditButtonText}>{t('upload.manualEditButton')}</Text>
               </TouchableOpacity>
@@ -374,7 +381,7 @@ export default function UploadLabel({ onBackPress }: UploadLabelProps) {
           </View>
         )}
 
-        <TouchableOpacity style={styles.retryButton} onPress={resetSession}>
+        <TouchableOpacity style={styles.retryButton} onPress={resetSession} testID="upload-start-over">
           <Text style={styles.retryButtonText}>{t('upload.startOver')}</Text>
         </TouchableOpacity>
       </View>
@@ -406,13 +413,14 @@ export default function UploadLabel({ onBackPress }: UploadLabelProps) {
         ))}
         
         <View style={styles.buttonRow}>
-          <TouchableOpacity style={styles.primaryButton} onPress={saveManualValues}>
+          <TouchableOpacity style={styles.primaryButton} onPress={saveManualValues} testID="upload-save-values">
             <Text style={styles.primaryButtonText}>{t('upload.saveValues')}</Text>
           </TouchableOpacity>
           
           <TouchableOpacity 
             style={styles.tertiaryButton} 
             onPress={() => setShowManualEdit(false)}
+            testID="upload-cancel-manual"
           >
             <Text style={styles.tertiaryButtonText}>{t('upload.cancel')}</Text>
           </TouchableOpacity>
@@ -426,7 +434,7 @@ export default function UploadLabel({ onBackPress }: UploadLabelProps) {
       <ExpoStatusBar style="light" backgroundColor="#007AFF" />
       
       <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={onBackPress}>
+        <TouchableOpacity style={styles.backButton} onPress={onBackPress} testID="upload-back">
           <Text style={styles.backButtonText}>🏠</Text>
         </TouchableOpacity>
         <View style={styles.headerContent}>

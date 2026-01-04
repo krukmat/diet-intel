@@ -231,6 +231,7 @@ const VisionLogScreen: React.FC<VisionLogScreenProps> = ({ onBackPress }) => {
           <TouchableOpacity
             style={styles.cameraButton}
             onPress={handleTakePhoto}
+            testID="vision-take-photo"
           >
             <Text style={styles.cameraButtonText}>📸 {t('vision.camera.takePhoto', 'Take Photo')}</Text>
           </TouchableOpacity>
@@ -282,6 +283,7 @@ const VisionLogScreen: React.FC<VisionLogScreenProps> = ({ onBackPress }) => {
               <TouchableOpacity
                 style={styles.analyzeButton}
                 onPress={handleAnalyzeFood}
+                testID="vision-analyze"
               >
                 <Text style={styles.analyzeButtonText}>
                   🍽️ {t('vision.analysis.analyze', 'Analyze Food')}
@@ -333,6 +335,7 @@ const VisionLogScreen: React.FC<VisionLogScreenProps> = ({ onBackPress }) => {
             style={[styles.startButton, cameraPermission === false && styles.buttonDisabled]}
             onPress={handleStartCamera}
             disabled={cameraPermission === false}
+            testID="vision-start-camera"
           >
             <Text style={styles.startButtonText}>
               📷 {t('vision.start', 'Start Camera')}
