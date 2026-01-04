@@ -37,7 +37,26 @@
     "track": "📊 Track",
     "smartDiet": "🧠 Smart Diet",
     "intelligentFlow": "🤖 Intelligent Flow",
-    "recipes": "🍳 Recipes"
+    "recipes": "🍳 Recipes",
+    "vision": "👁️ Vision"
+  },
+  "home": {
+    "sections": {
+      "primary": "Quick actions",
+      "secondary": "More",
+      "progress": "Progress"
+    },
+    "actions": {
+      "logMeal": "🍽️ Log Meal",
+      "aiPlan": "🤖 AI Plan",
+      "progress": "📈 Progress",
+      "explore": "🧭 Explore",
+      "profile": "👤 Profile",
+      "gamification": "🏆 Rewards"
+    },
+    "progress": {
+      "description": "Quick overview of your tracking and plan"
+    }
   },
   "plan": {
     "title": "🍽️ Daily Meal Plan",

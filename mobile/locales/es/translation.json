@@ -37,7 +37,26 @@
     "track": "📊 Seguimiento",
     "smartDiet": "🧠 Dieta Inteligente",
     "intelligentFlow": "🤖 Flujo Inteligente",
-    "recipes": "🍳 Recetas"
+    "recipes": "🍳 Recetas",
+    "vision": "👁️ Visión"
+  },
+  "home": {
+    "sections": {
+      "primary": "Acciones rápidas",
+      "secondary": "Más",
+      "progress": "Progreso"
+    },
+    "actions": {
+      "logMeal": "🍽️ Registrar comida",
+      "aiPlan": "🤖 Plan IA",
+      "progress": "📈 Progreso",
+      "explore": "🧭 Explorar",
+      "profile": "👤 Perfil",
+      "gamification": "🏆 Recompensas"
+    },
+    "progress": {
+      "description": "Resumen rápido de tu seguimiento y plan"
+    }
   },
   "plan": {
     "title": "🍽️ Plan de Comidas Diario",

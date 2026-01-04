@@ -40,6 +40,9 @@ import { developerSettingsService, DeveloperConfig, FeatureToggle } from './serv
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { ProfileProvider } from './contexts/ProfileContext';
 import { notificationService } from './services/NotificationService';
+import { HomePrimaryActions, HomeSecondaryActions, HomeToolActions, HomeProgressCard } from './shared/ui/components';
+import { useHomeActions } from './hooks/useHomeActions';
+import { resolveScreenTarget } from './core/navigation/ScreenRegistry';
 import LoginScreen from './screens/LoginScreen';
 import RegisterScreen from './screens/RegisterScreen';
 import SplashScreen from './screens/SplashScreen';
@@ -134,11 +137,11 @@ function MainApp({ user, onLogout }: { user: any; onLogout: () => void }) {
   const [showLanguageSwitcher, setShowLanguageSwitcher] = useState(false);
   const [developerConfig, setDeveloperConfig] = useState<DeveloperConfig | null>(null);
   const [featureToggles, setFeatureToggles] = useState<FeatureToggle | null>(null);
+  const { primaryActions, secondaryActions, toolActions } = useHomeActions(featureToggles ?? undefined);
   
   // Debug logging
   console.log('Current screen:', currentScreen);
   
-  const isActiveScreen = (screen: ScreenType) => currentScreen === screen;
   const [currentProduct, setCurrentProduct] = useState<any>(null);
   const [showProductDetail, setShowProductDetail] = useState(false);
 
@@ -150,6 +153,11 @@ function MainApp({ user, onLogout }: { user: any; onLogout: () => void }) {
   }) => {
     setCurrentScreen(screen);
     setNavigationContext(context || {});
+  };
+
+  const handleHomeActionPress = (action: { target: string }) => {
+    const target = resolveScreenTarget(action.target as ScreenType, 'scanner');
+    setCurrentScreen(target);
   };
 
   useEffect(() => {
@@ -450,6 +458,13 @@ function MainApp({ user, onLogout }: { user: any; onLogout: () => void }) {
           <Text style={styles.version}>{t('app.version')}</Text>
         </View>
         <View style={styles.headerButtons}>
+          <HomeToolActions
+            actions={toolActions.map(action => ({
+              id: action.id,
+              label: t(action.labelKey),
+              onPress: () => handleHomeActionPress(action),
+            }))}
+          />
           <LanguageToggle onPress={() => setShowLanguageSwitcher(true)} />
           <TouchableOpacity 
             style={styles.headerActionButton}
@@ -478,120 +493,26 @@ function MainApp({ user, onLogout }: { user: any; onLogout: () => void }) {
 
       {/* Navigation */}
       <View style={styles.navigationSection}>
-        {featureToggles?.barcodeScanner && (
-          <TouchableOpacity 
-            style={[styles.navButton, isActiveScreen('scanner') && styles.navButtonActive]}
-            onPress={() => setCurrentScreen('scanner')}
-          >
-            <Text style={[styles.navButtonText, isActiveScreen('scanner') && styles.navButtonTextActive]}>
-              {t('navigation.barcodeScanner')}
-            </Text>
-          </TouchableOpacity>
-        )}
-        
-        {featureToggles?.uploadLabelFeature && (
-          <TouchableOpacity 
-            style={[styles.navButton, isActiveScreen('upload') && styles.navButtonActive]}
-            onPress={() => setCurrentScreen('upload')}
-          >
-            <Text style={[styles.navButtonText, isActiveScreen('upload') && styles.navButtonTextActive]}>
-              {t('navigation.uploadLabel')}
-            </Text>
-          </TouchableOpacity>
-        )}
-        
-        {featureToggles?.mealPlanFeature && (
-          <TouchableOpacity 
-            style={[styles.navButton, isActiveScreen('plan') && styles.navButtonActive]}
-            onPress={() => {
-              console.log('Meal Plan tab pressed!');
-              setCurrentScreen('plan');
-            }}
-          >
-            <Text style={[styles.navButtonText, isActiveScreen('plan') && styles.navButtonTextActive]}>
-              {t('navigation.mealPlan')}
-            </Text>
-          </TouchableOpacity>
-        )}
-        
-        {featureToggles?.trackingFeature && (
-          <TouchableOpacity 
-            style={[styles.navButton, isActiveScreen('track') && styles.navButtonActive]}
-            onPress={() => setCurrentScreen('track')}
-          >
-            <Text style={[styles.navButtonText, isActiveScreen('track') && styles.navButtonTextActive]}>
-              {t('navigation.track')}
-            </Text>
-          </TouchableOpacity>
-        )}
-
-        {featureToggles?.intelligentFlowFeature && (
-          <TouchableOpacity
-            style={[styles.navButton, isActiveScreen('intelligent-flow') && styles.navButtonActive]}
-            onPress={() => setCurrentScreen('intelligent-flow')}
-          >
-            <Text style={[styles.navButtonText, isActiveScreen('intelligent-flow') && styles.navButtonTextActive]}>
-              {t('navigation.intelligentFlow', '🤖 Intelligent Flow')}
-            </Text>
-          </TouchableOpacity>
-        )}
-        
-        <TouchableOpacity 
-          style={[styles.navButton, isActiveScreen('recommendations') && styles.navButtonActive]}
-          onPress={() => {
-            console.log('Smart Recommendations tab pressed!');
-            setCurrentScreen('recommendations');
-          }}
-        >
-          <Text style={[styles.navButtonText, isActiveScreen('recommendations') && styles.navButtonTextActive]}>
-            {t('navigation.smartDiet')}
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.navButton, isActiveScreen('discover-feed') && styles.navButtonActive]}
-          onPress={() => setCurrentScreen('discover-feed')}
-        >
-          <Text style={[styles.navButtonText, isActiveScreen('discover-feed') && styles.navButtonTextActive]}>
-            Discover
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.navButton, isActiveScreen('recipes') && styles.navButtonActive]}
-          onPress={() => {
-            console.log('Recipe AI tab pressed!');
-            setCurrentScreen('recipes');
-          }}
-        >
-          <Text style={[styles.navButtonText, isActiveScreen('recipes') && styles.navButtonTextActive]}>
-            {t('navigation.recipes')}
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.navButton, isActiveScreen('vision') && styles.navButtonActive]}
-          onPress={() => {
-            console.log('Food Vision tab pressed!');
-            setCurrentScreen('vision');
-          }}
-        >
-          <Text style={[styles.navButtonText, isActiveScreen('vision') && styles.navButtonTextActive]}>
-            {t('navigation.vision', 'Vision')}
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.navButton, isActiveScreen('profile') && styles.navButtonActive]}
-          onPress={() => {
-            console.log('Profile tab pressed!');
-            setCurrentScreen('profile');
-          }}
-        >
-          <Text style={[styles.navButtonText, isActiveScreen('profile') && styles.navButtonTextActive]}>
-            Profile
-          </Text>
-        </TouchableOpacity>
+        <HomeProgressCard
+          title={t('home.sections.progress', 'Progress')}
+          description={t('home.progress.description', 'Quick overview of your tracking and plan')}
+        />
+        <HomePrimaryActions
+          title={t('home.sections.primary', 'Quick actions')}
+          actions={primaryActions.map(action => ({
+            id: action.id,
+            label: t(action.labelKey),
+            onPress: () => handleHomeActionPress(action),
+          }))}
+        />
+        <HomeSecondaryActions
+          title={t('home.sections.secondary', 'More')}
+          actions={secondaryActions.map(action => ({
+            id: action.id,
+            label: t(action.labelKey),
+            onPress: () => handleHomeActionPress(action),
+          }))}
+        />
       </View>
 
       {/* Scanner Status in Top Left Corner */}
@@ -1009,10 +930,10 @@ const styles = StyleSheet.create({
   },
   navigationSection: {
     backgroundColor: 'white',
-    paddingHorizontal: 10,
-    paddingVertical: 15,
-    flexDirection: 'row',
-    gap: 6,
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    flexDirection: 'column',
+    gap: 12,
     borderBottomWidth: 1,
     borderBottomColor: '#E0E0E0',
   },
