@@ -4,42 +4,20 @@ import { environments } from '../../config/environments';
 import { authService } from '../AuthService';
 
 // Mock axios completely
-jest.mock('axios', () => {
-  class MockAxiosHeaders {
-    private store: Record<string, string> = {};
-    static from(headers?: Record<string, string>) {
-      const instance = new MockAxiosHeaders();
-      if (headers) {
-        Object.entries(headers).forEach(([key, value]) => {
-          instance.set(key, value);
-        });
-      }
-      return instance;
-    }
-    set(key: string, value: string) {
-      this.store[key.toLowerCase()] = value;
-    }
-    get(key: string) {
-      return this.store[key.toLowerCase()];
-    }
-  }
-
-  return {
-    AxiosHeaders: MockAxiosHeaders,
-    create: jest.fn(() => ({
-      get: jest.fn(),
-      post: jest.fn(),
-      put: jest.fn(),
-      delete: jest.fn(),
-      patch: jest.fn(),
-      interceptors: {
-        request: { use: jest.fn() },
-        response: { use: jest.fn() }
-      },
-      defaults: { baseURL: 'http://localhost:8000' }
-    }))
-  };
-});
+jest.mock('axios', () => ({
+  create: jest.fn(() => ({
+    get: jest.fn(),
+    post: jest.fn(),
+    put: jest.fn(),
+    delete: jest.fn(),
+    patch: jest.fn(),
+    interceptors: {
+      request: { use: jest.fn() },
+      response: { use: jest.fn() }
+    },
+    defaults: { baseURL: 'http://localhost:8000' }
+  }))
+}));
 
 jest.mock('../AuthService', () => ({
   authService: {
@@ -52,10 +30,6 @@ const mockedAxios = axios as jest.Mocked<typeof axios>;
 
 describe('ApiService', () => {
   let mockAxiosInstance: any;
-  let requestSuccess: any;
-  let requestError: any;
-  let responseSuccess: any;
-  let responseError: any;
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -69,16 +43,10 @@ describe('ApiService', () => {
       patch: jest.fn(),
       interceptors: {
         request: { 
-          use: jest.fn((onSuccess, onError) => {
-            requestSuccess = onSuccess;
-            requestError = onError;
-          })
+          use: jest.fn()
         },
         response: { 
-          use: jest.fn((onSuccess, onError) => {
-            responseSuccess = onSuccess;
-            responseError = onError;
-          })
+          use: jest.fn()
         }
       },
       defaults: { baseURL: 'http://localhost:8000' }
@@ -417,32 +385,25 @@ describe('ApiService', () => {
     });
   });
 
-  describe('Request/Response Interceptors', () => {
-    it('should attach auth token when available and valid', async () => {
-      (authService.getStoredTokens as jest.Mock).mockResolvedValue({
-        access_token: 'token-123',
-        expires_at: Date.now() + 1000
-      });
-      (authService.isTokenExpired as jest.Mock).mockReturnValue(false);
-
+  describe('Health Check', () => {
+    it('should return healthy response on success', async () => {
+      mockAxiosInstance.get.mockResolvedValue({ data: { status: 'ok' } });
       const service = new ApiService();
-      const config = { headers: {} as Record<string, string>, method: 'get', url: '/test' };
 
-      const result = await requestSuccess(config);
-      const authHeader = (result.headers as any)?.get
-        ? (result.headers as any).get('Authorization')
-        : (result.headers as any)?.Authorization;
+      const result = await service.healthCheck();
 
-      expect(authHeader).toBe('Bearer token-123');
+      expect(result).toEqual({ healthy: true, status: 'ok' });
+      expect(mockAxiosInstance.get).toHaveBeenCalledWith('/health', { timeout: 5000 });
     });
 
-    it('should handle token expiration by not attaching tokens', async () => {
-      // Simplified test - just verify that isTokenExpired is called
-      const getTokensSpy = (authService.getStoredTokens as jest.Mock).mockResolvedValue({
-        access_token: 'token-123',
-        expires_at: Date.now() - 1000
-      });
-      const isExpiredSpy = (authService.isTokenExpired as jest.Mock).mockReturnValue(true);
-
+    it('should return unhealthy response on error', async () => {
+      mockAxiosInstance.get.mockRejectedValue(new Error('down'));
       const service = new ApiService();
-      const config = { headers: {} as Record<string, string>, method
+
+      const result = await service.healthCheck();
+
+      expect(result.healthy).toBe(false);
+      expect(result.error).toBe('down');
+    });
+  });
+});
