@@ -310,60 +310,38 @@ class MealPlannerService:
                          optional_products: List[str], flexibility: bool,
                          preferences) -> Meal:
         """
-        Build a single meal using greedy selection algorithm.
-        
-        Args:
-            meal_name: Name of the meal (Breakfast, Lunch, Dinner)
-            target_calories: Target calories for this meal
-            available_products: All available products
-            optional_products: Barcodes to prioritize
-            flexibility: Whether to use flexible constraints
-            preferences: User dietary preferences
-            
-        Returns:
-            Complete Meal object with selected items
+        Build a single meal using refactored pipeline.
         """
-        selected_items = []
-        current_calories = 0.0
-        
-        # Set constraints based on flexibility
         max_items = self.config.max_items_flexible if flexibility else self.config.max_items_per_meal
         tolerance = self.config.calorie_tolerance_flexible if flexibility else self.config.calorie_tolerance_strict
-        
-        # Separate optional and regular products
-        optional_prods = [p for p in available_products if p.barcode in optional_products]
-        regular_prods = [p for p in available_products if p.barcode not in optional_products]
-        
-        # Prioritize optional products first
-        products_to_try = optional_prods + regular_prods
-        
-        # Sort for deterministic results in testing, with some variety
-        products_to_try.sort(key=lambda p: (p.barcode, p.name or ""))
-        
-        for product in products_to_try:
+        optional_set = set(optional_products or [])
+
+        filtered_products = self._filter_products_by_preferences(available_products, preferences)
+        filtered_products.sort(key=lambda p: (0 if p.barcode in optional_set else 1, p.barcode, p.name or ""))
+
+        constrained_products = self._apply_macro_constraints(filtered_products, target_calories, 0.0, preferences)
+        selected_products = self._pick_best_products(constrained_products, target_calories, max_items, preferences)
+
+        selected_items = []
+        current_calories = 0.0
+
+        for product in selected_products:
             if len(selected_items) >= max_items:
                 break
-            
-            # Skip products that don't match preferences (basic filtering)
-            if not self._matches_preferences(product, preferences):
-                continue
-            
-            # Calculate serving info
+
             serving_info = self._calculate_serving_info(product)
             if not serving_info:
                 continue
-            
+
             serving_size, serving_calories, serving_macros = serving_info
-            
-            # Check if adding this item would exceed our target (with tolerance)
             max_allowed_calories = target_calories * (1 + tolerance)
+
             if current_calories + serving_calories > max_allowed_calories:
-                # Try to scale down the serving if flexible
                 if flexibility and current_calories < target_calories:
                     remaining_calories = target_calories - current_calories
-                    if remaining_calories > 50:  # Minimum useful calories
+                    if remaining_calories > 50:
                         scale_factor = remaining_calories / serving_calories
-                        if scale_factor >= 0.3:  # Don't scale too small
+                        if scale_factor >= 0.3:
                             scaled_serving = self._scale_serving(serving_size, serving_calories, serving_macros, scale_factor)
                             if scaled_serving:
                                 scaled_size, scaled_calories, scaled_macros = scaled_serving
@@ -378,8 +356,7 @@ class MealPlannerService:
                                 current_calories += scaled_calories
                                 break
                 continue
-            
-            # Add the item
+
             item = MealItem(
                 barcode=product.barcode,
                 name=product.name or "Unknown",
@@ -387,18 +364,17 @@ class MealPlannerService:
                 calories=serving_calories,
                 macros=serving_macros
             )
-            
+
             selected_items.append(item)
             current_calories += serving_calories
-            
-            # Check if we're close enough to target
+
             min_allowed_calories = target_calories * (1 - tolerance)
             if current_calories >= min_allowed_calories:
                 break
-        
+
         logger.info(f"Built {meal_name}: {len(selected_items)} items, "
                    f"{current_calories:.1f}/{target_calories:.1f} kcal")
-        
+
         return Meal(
             name=meal_name,
             target_calories=target_calories,
@@ -711,5 +687,128 @@ class MealPlannerService:
             optional_products_used=0
         )
 
+
+    def _filter_products_by_preferences(self, products: List[ProductResponse], preferences) -> List[ProductResponse]:
+        """
+        Filter products based on user dietary preferences and restrictions.
+        """
+        if preferences is None:
+            return products
+
+        filtered_products = []
+
+        for product in products:
+            if self._matches_preferences(product, preferences):
+                filtered_products.append(product)
+            else:
+                logger.debug(f"Filtered out product: {product.name} due to preferences")
+
+        return filtered_products
+
+    def _apply_macro_constraints(self, products: List[ProductResponse], target_calories: float, 
+                                current_calories: float, preferences) -> List[ProductResponse]:
+        """
+        Apply macro constraints to filter products for optimal nutritional balance.
+        """
+        if not products:
+            return []
+
+        remaining_calories = target_calories - current_calories
+        constrained_products = []
+
+        for product in products:
+            serving_info = self._calculate_serving_info(product)
+            if not serving_info:
+                continue
+
+            serving_size, serving_calories, serving_macros = serving_info
+
+            if serving_calories > remaining_calories * 1.5:
+                continue
+
+            if self._meets_macro_requirements(serving_macros, remaining_calories, preferences):
+                constrained_products.append(product)
+
+        return constrained_products
+
+    def _meets_macro_requirements(self, macros: MealItemMacros, remaining_calories: float, 
+                                  preferences) -> bool:
+        """
+        Check if macros meet nutritional requirements.
+        """
+        if macros.sugars_g and macros.sugars_g > 0:
+            sugar_calories = macros.sugars_g * 4
+            sugar_percentage = (sugar_calories / max(remaining_calories, 1)) * 100
+
+            if sugar_percentage > 30:
+                return False
+
+        if macros.fat_g > 0:
+            fat_calories = macros.fat_g * 9
+            fat_percentage = (fat_calories / max(remaining_calories, 1)) * 100
+
+            if fat_percentage > 60:
+                return False
+
+        return True
+
+    def _score_product_for_meal(self, product: ProductResponse, target_calories: float, 
+                                current_calories: float, preferences) -> float:
+        """
+        Calculate a score for how well a product fits a meal.
+        """
+        score = 0.5
+        serving_info = self._calculate_serving_info(product)
+        if not serving_info:
+            return 0.0
+
+        serving_size, serving_calories, serving_macros = serving_info
+        remaining_calories = target_calories - current_calories
+        if remaining_calories > 0:
+            calorie_diff = abs(serving_calories - remaining_calories)
+            calorie_score = max(0.0, 1.0 - (calorie_diff / max(remaining_calories, 1.0)))
+            score += calorie_score * 0.3
+        else:
+            score -= 0.3
+
+        if serving_macros.protein_g > 0:
+            score += 0.1
+        if serving_macros.carbs_g > 0:
+            score += 0.05
+        if serving_macros.fat_g > 0:
+            score += 0.05
+
+        return max(0.0, min(1.0, score))
+
+    def _pick_best_products(self, products: List[ProductResponse], target_calories: float, 
+                            max_items: int, preferences) -> List[ProductResponse]:
+        """
+        Pick the best products for a meal using scoring algorithm.
+        """
+        if not products:
+            return []
+
+        scored_products = []
+        for product in products:
+            score = self._score_product_for_meal(product, target_calories, 0.0, preferences)
+            if score > 0.3:
+                scored_products.append((product, score))
+
+        scored_products.sort(key=lambda x: x[1], reverse=True)
+        selected_products = []
+        total_calories = 0.0
+
+        for product, score in scored_products[: max_items * 2]:
+            serving_info = self._calculate_serving_info(product)
+            if serving_info:
+                serving_size, serving_calories, serving_macros = serving_info
+                if total_calories + serving_calories <= target_calories * 1.1:
+                    selected_products.append(product)
+                    total_calories += serving_calories
+
+                    if len(selected_products) >= max_items:
+                        break
+
+        return selected_products
 
 meal_planner = MealPlannerService()

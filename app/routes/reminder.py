@@ -14,6 +14,7 @@ from app.services import cache as cache_module
 from app.repositories.reminder_repository import ReminderRepository
 from app.services.reminders_service import RemindersService  # Task: Phase 2 Batch 5
 from app.utils.auth_context import get_session_user_id
+import validation_helpers  # Task 2.1: Import validation helpers
 import logging
 
 logger = logging.getLogger(__name__)
@@ -361,30 +362,24 @@ async def update_reminder(
 
         updates = request.model_dump(exclude_unset=True)
 
-        if "days" in updates and updates["days"] is not None and not any(updates["days"]):
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail="At least one day must be selected."
-            )
+        # Task 2.1: Use validation helpers to reduce complexity
+        validation_helpers._validate_reminder_payload(request)
 
-        if "time" in updates and updates["time"] is not None:
-            if not _validate_time_format(updates["time"]):
-                raise HTTPException(
-                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                    detail="Invalid time format. Use HH:MM format."
-                )
+        # Task 2.2: Detect and track changes for logging/monitoring
+        changes = validation_helpers._compute_reminder_changes(target, updates)
 
-        if "label" in updates:
-            target["label"] = updates["label"]
-        if "time" in updates and updates["time"] is not None:
-            target["time"] = updates["time"]
-        if "days" in updates and updates["days"] is not None:
-            target["days"] = list(updates["days"])
+        # Task 2.3: Apply changes using helper logic
+        if changes.label_changed:
+            target["label"] = changes.new_label
+        if changes.time_changed:
+            target["time"] = changes.new_time
+        if changes.days_changed:
+            target["days"] = list(changes.new_days)
             target["days_format"] = getattr(request, "days_format", target.get("days_format", "bool"))
-        if "enabled" in updates and updates["enabled"] is not None:
-            target["enabled"] = updates["enabled"]
-        if "type" in updates and updates["type"] is not None:
-            new_type = updates["type"]
+        if changes.enabled_changed:
+            target["enabled"] = changes.new_enabled
+        if changes.type_changed:
+            new_type = changes.new_type
             if isinstance(new_type, ReminderType):
                 new_type = new_type.value
             target["type"] = ReminderType(new_type).value

@@ -10,7 +10,7 @@ import os
 import tempfile
 import inspect
 from datetime import datetime
-from typing import Optional, Union
+from typing import Optional, Tuple, Union
 
 from fastapi import Depends, File, UploadFile, status
 from app.models.product import ScanResponse, LowConfidenceScanResponse, ErrorResponse, Nutriments
@@ -289,25 +289,10 @@ async def scan_label_with_external_ocr(
     2. Fall back to local OCR if external fails or unavailable
     3. Return result with confidence scoring
     """
-    upload = image or legacy_file
+    upload = _validate_upload_file(image, legacy_file=legacy_file)
     using_legacy_upload = legacy_file is not None and image is None
 
-    if upload is None:
-        raise _raise_http_exception(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="field required"
-        )
-
-    # Similar validation as scan_label endpoint
-    if not upload.content_type or not upload.content_type.startswith('image/'):
-        raise _raise_http_exception(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="File must be an image"
-        )
-
     context = _ensure_request_context(context)
-
-    # Extract user context
     user_id = context.user_id
     session_id = context.session_id
 
@@ -315,131 +300,237 @@ async def scan_label_with_external_ocr(
     start_time = datetime.now()
 
     try:
-        # Save uploaded file
-        suffix = os.path.splitext(upload.filename or '')[1] or '.jpg'
-        temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=suffix)
-        temp_file_path = temp_file.name
-
-        content = await upload.read()
-        await _write_bytes_to_tempfile(temp_file_path, content)
-
-        # Try external OCR first
+        temp_file_path = await _process_upload_file(upload)
         legacy_ocr = _import_legacy_ocr()
-        external_callable = getattr(legacy_ocr, 'call_external_ocr', None) if legacy_ocr else None
-        ocr_result = None
-        if external_callable:
-            try:
-                external_payload = external_callable(temp_file_path)
-                if inspect.isawaitable(external_payload):
-                    external_payload = await external_payload
-                ocr_result = await _normalize_external_payload(external_payload, legacy_ocr, engine_label='external_ocr')
-                if _is_empty_ocr_result(ocr_result):
-                    ocr_result = None
-            except Exception as exc:
-                logger.warning(f"External OCR failed, falling back to local OCR: {exc}")
-                ocr_result = None
-
-        if ocr_result is None:
-            try:
-                fallback_payload = call_external_ocr(temp_file_path)
-                if inspect.isawaitable(fallback_payload):
-                    fallback_payload = await fallback_payload
-                ocr_result = await _normalize_external_payload(fallback_payload, legacy_ocr, engine_label='external_ocr')
-                if _is_empty_ocr_result(ocr_result):
-                    ocr_result = None
-            except Exception as exc:
-                logger.warning(f"External OCR hook failed, falling back to local OCR: {exc}")
-                ocr_result = None
-
-        if ocr_result:
-            logger.info("Using external OCR service result")
-            source = "external_ocr" if using_legacy_upload else "External OCR"
-            external_used = True
-        else:
-            logger.info("External OCR unavailable, falling back to local OCR")
-            ocr_result = await _run_local_ocr(temp_file_path)
-            source = "local_ocr_fallback" if using_legacy_upload else "Local OCR (fallback)"
-            external_used = False
+        ocr_result, source, external_used = await _try_external_ocr(temp_file_path, legacy_ocr, using_legacy_upload)
 
         if not ocr_result['raw_text'].strip():
             processing_time_ms = int((datetime.now() - start_time).total_seconds() * 1000)
-            await analytics_service.log_ocr_scan(
-                user_id, session_id, upload.size, 0.0, processing_time_ms,
-                source.replace(" OCR", "").lower() + "_api", 0, False, "No text extracted"
-            )
+            await _log_ocr_analytics(user_id, session_id, upload.size or 0, 0.0, processing_time_ms, source, 0, False, "No text extracted")
             raise _raise_http_exception(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="No text could be extracted from the image"
             )
 
-        # Extract parsed data
-        nutrition_data = ocr_result['parsed_nutriments']
-        serving_size = ocr_result.get('serving_size', '100g')  # Default serving size
-        confidence = ocr_result['confidence']
-        raw_text = ocr_result['raw_text']
+        nutrition_data, serving_size, confidence, raw_text = _extract_nutrition_data(ocr_result)
+        processing_time_ms = int((datetime.now() - start_time).total_seconds() * 1000)
+        logger.info(f"External OCR processing completed in {(processing_time_ms / 1000):.2f}s, confidence: {confidence:.2f}")
 
-        processing_time = (datetime.now() - start_time).total_seconds()
-        processing_time_ms = int(processing_time * 1000)
-        logger.info(f"External OCR processing completed in {processing_time:.2f}s, confidence: {confidence:.2f}")
-
-        # Log OCR analytics
         nutrients_extracted = len([v for v in nutrition_data.values() if v is not None])
-        await analytics_service.log_ocr_scan(
-            user_id, session_id, upload.size, confidence, processing_time_ms,
-            ocr_result.get('processing_details', {}).get('ocr_engine', 'external_api'),
-            nutrients_extracted, True
-        )
+        await _log_ocr_analytics(user_id, session_id, upload.size or 0, confidence, processing_time_ms, source, nutrients_extracted, True)
 
         scan_timestamp = datetime.now()
-
-        if confidence >= 0.7:
-            nutriments = Nutriments(
-                energy_kcal_per_100g=nutrition_data.get('energy_kcal'),
-                protein_g_per_100g=nutrition_data.get('protein_g'),
-                fat_g_per_100g=nutrition_data.get('fat_g'),
-                carbs_g_per_100g=nutrition_data.get('carbs_g'),
-                sugars_g_per_100g=nutrition_data.get('sugars_g'),
-                salt_g_per_100g=nutrition_data.get('salt_g')
-            )
-
-            return ScanResponse(
-                source=source,
-                confidence=confidence,
-                raw_text=raw_text,
-                serving_size=serving_size,
-                nutriments=nutriments,
-                nutrients=nutriments,
-                scanned_at=scan_timestamp
-            )
-        else:
-            return LowConfidenceScanResponse(
-                low_confidence=True,
-                confidence=confidence,
-                raw_text=raw_text,
-                partial_parsed=nutrition_data,
-                suggest_external_ocr=not external_used,
-                scanned_at=scan_timestamp
-            )
+        return _build_scan_response(nutrition_data, serving_size, confidence, raw_text, source, scan_timestamp, external_used)
 
     except Exception as exc:
-        if _is_http_exception(exc):
-            raise exc
-        processing_time_ms = int((datetime.now() - start_time).total_seconds() * 1000)
-        await analytics_service.log_ocr_scan(
-            user_id, session_id, upload.size or 0, 0.0, processing_time_ms,
-            "external_api", 0, False, f"Processing error: {str(exc)}"
-        )
-        logger.error(f"Error in external OCR processing: {exc}")
-        raise _raise_http_exception(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Error processing image with external OCR"
-        )
+        await _handle_ocr_error(exc, user_id, session_id, upload.size or 0, start_time)
 
     finally:
-        if temp_file_path:
-            try:
+        await _cleanup_temp_file(temp_file_path)
+
+
+def _validate_upload_file(upload, *, legacy_file: UploadFile = None) -> UploadFile:
+    """
+    Validate uploaded image file and return normalized upload.
+    """
+    final_upload = upload or legacy_file
+
+    if final_upload is None:
+        raise _raise_http_exception(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="field required"
+        )
+
+    if not final_upload.content_type or not final_upload.content_type.startswith('image/'):
+        raise _raise_http_exception(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="File must be an image"
+        )
+
+    return final_upload
+
+
+async def _process_upload_file(upload: UploadFile) -> str:
+    """
+    Process uploaded file and return temporary file path.
+    """
+    suffix = os.path.splitext(upload.filename or '')[1] or '.jpg'
+    temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=suffix)
+    temp_file_path = temp_file.name
+
+    try:
+        content = await upload.read()
+        await _write_bytes_to_tempfile(temp_file_path, content)
+        logger.info(f"Image saved to temp file: {temp_file_path}")
+        return temp_file_path
+    except Exception as exc:
+        try:
+            if os.path.exists(temp_file_path):
                 os.unlink(temp_file_path)
-            except FileNotFoundError:
-                logger.debug(f"Temp file already removed: {temp_file_path}")
-            except OSError as e:
-                logger.warning(f"Failed to clean up temp file: {e}")
+        except OSError:
+            pass
+        raise _raise_http_exception(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error processing upload: {str(exc)}"
+        )
+
+
+async def _try_external_ocr(temp_file_path: str, legacy_ocr, using_legacy_upload: bool) -> Tuple[Optional[dict], str, bool]:
+    """
+    Try external OCR service with fallback logic.
+    """
+    external_callable = getattr(legacy_ocr, 'call_external_ocr', None) if legacy_ocr else None
+    ocr_result = None
+
+    if external_callable:
+        try:
+            external_payload = external_callable(temp_file_path)
+            if inspect.isawaitable(external_payload):
+                external_payload = await external_payload
+            ocr_result = await _normalize_external_payload(external_payload, legacy_ocr, engine_label='external_ocr')
+            if _is_empty_ocr_result(ocr_result):
+                ocr_result = None
+        except Exception as exc:
+            logger.warning(f"External OCR failed, falling back to local OCR: {exc}")
+            ocr_result = None
+
+    if ocr_result is None:
+        try:
+            fallback_payload = call_external_ocr(temp_file_path)
+            if inspect.isawaitable(fallback_payload):
+                fallback_payload = await fallback_payload
+            ocr_result = await _normalize_external_payload(fallback_payload, legacy_ocr, engine_label='external_ocr')
+            if _is_empty_ocr_result(ocr_result):
+                ocr_result = None
+        except Exception as exc:
+            logger.warning(f"External OCR hook failed, falling back to local OCR: {exc}")
+            ocr_result = None
+
+    if ocr_result:
+        source = "external_ocr" if using_legacy_upload else "External OCR"
+        external_used = True
+    else:
+        logger.info("External OCR unavailable, falling back to local OCR")
+        ocr_result = await _run_local_ocr(temp_file_path)
+        source = "local_ocr_fallback" if using_legacy_upload else "Local OCR (fallback)"
+        external_used = False
+
+    return ocr_result, source, external_used
+
+
+def _extract_nutrition_data(ocr_result: dict) -> tuple[dict, str, float, str]:
+    """
+    Extract nutrition data from OCR result.
+    """
+    nutrition_data = ocr_result['parsed_nutriments']
+    serving_size = ocr_result.get('serving_size', '100g')
+    confidence = ocr_result['confidence']
+    raw_text = ocr_result['raw_text']
+
+    return nutrition_data, serving_size, confidence, raw_text
+
+
+async def _log_ocr_analytics(
+    user_id: str,
+    session_id: str,
+    file_size: int,
+    confidence: float,
+    processing_time_ms: int,
+    source: str,
+    nutrients_extracted: int,
+    success: bool,
+    error_message: str = None
+):
+    """
+    Log OCR processing analytics.
+    """
+    engine_label = source.replace(" OCR", "").replace(" ", "_").lower()
+    if not engine_label.endswith("_api"):
+        engine_label += "_api"
+
+    await analytics_service.log_ocr_scan(
+        user_id, session_id, file_size, confidence, processing_time_ms,
+        engine_label, nutrients_extracted, success, error_message
+    )
+
+
+async def _handle_ocr_error(
+    exc: Exception,
+    user_id: str,
+    session_id: str,
+    file_size: int,
+    start_time: datetime
+) -> None:
+    """
+    Handle OCR processing errors with logging and cleanup.
+    """
+    if _is_http_exception(exc):
+        raise exc
+
+    processing_time_ms = int((datetime.now() - start_time).total_seconds() * 1000)
+    await _log_ocr_analytics(
+        user_id, session_id, file_size or 0, 0.0, processing_time_ms,
+        "external_api", 0, False, f"Processing error: {str(exc)}"
+    )
+
+    logger.error(f"Error in external OCR processing: {exc}")
+    raise _raise_http_exception(
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        detail="Error processing image with external OCR"
+    )
+
+
+async def _cleanup_temp_file(temp_file_path: str) -> None:
+    """
+    Clean up temporary file with error handling.
+    """
+    if temp_file_path:
+        try:
+            os.unlink(temp_file_path)
+            logger.info(f"Cleaned up temp file: {temp_file_path}")
+        except FileNotFoundError:
+            logger.debug(f"Temp file already removed: {temp_file_path}")
+        except OSError as e:
+            logger.warning(f"Failed to clean up temp file: {e}")
+
+
+def _build_scan_response(
+    nutrition_data: dict,
+    serving_size: str,
+    confidence: float,
+    raw_text: str,
+    source: str,
+    scan_timestamp: datetime,
+    external_used: bool
+) -> Union[ScanResponse, LowConfidenceScanResponse]:
+    """
+    Build appropriate scan response based on confidence.
+    """
+    if confidence >= 0.7:
+        nutriments = Nutriments(
+            energy_kcal_per_100g=nutrition_data.get('energy_kcal'),
+            protein_g_per_100g=nutrition_data.get('protein_g'),
+            fat_g_per_100g=nutrition_data.get('fat_g'),
+            carbs_g_per_100g=nutrition_data.get('carbs_g'),
+            sugars_g_per_100g=nutrition_data.get('sugars_g'),
+            salt_g_per_100g=nutrition_data.get('salt_g')
+        )
+
+        return ScanResponse(
+            source=source,
+            confidence=confidence,
+            raw_text=raw_text,
+            serving_size=serving_size,
+            nutriments=nutriments,
+            nutrients=nutriments,
+            scanned_at=scan_timestamp
+        )
+    else:
+        return LowConfidenceScanResponse(
+            low_confidence=True,
+            confidence=confidence,
+            raw_text=raw_text,
+            partial_parsed=nutrition_data,
+            suggest_external_ocr=not external_used,
+            scanned_at=scan_timestamp
+        )
