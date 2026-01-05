@@ -27,16 +27,6 @@ interface ScannerExperienceProps {
   onReset: () => void;
 }
 
-const renderStatusIndicator = (hasPermission: boolean | null) => {
-  if (hasPermission === null) {
-    return <Text style={styles.statusText}>📷 Requesting...</Text>;
-  }
-  if (hasPermission === false) {
-    return <Text style={[styles.statusText, { color: '#FF3B30' }]}>📷 Permission denied</Text>;
-  }
-  return <Text style={[styles.statusText, { color: '#34C759' }]}>📷 Ready</Text>;
-};
-
 const renderCameraSection = ({
   hasPermission,
   showCamera,
@@ -80,13 +70,6 @@ const renderCameraSection = ({
       >
         <Text style={styles.cameraButtonText}>📷 Start Camera</Text>
       </TouchableOpacity>
-
-      <View style={styles.exampleContainer}>
-        <Text style={styles.exampleTitle}>Try these demo barcodes:</Text>
-        <Text style={styles.exampleItem}>• 1234567890123 (Coca Cola)</Text>
-        <Text style={styles.exampleItem}>• 7622210081551 (Nutella)</Text>
-        <Text style={styles.exampleItem}>• 0000000000000 (Not Found)</Text>
-      </View>
     </View>
   );
 };
@@ -107,10 +90,6 @@ export default function ScannerExperience({
 }: ScannerExperienceProps) {
   return (
     <>
-      <View style={styles.statusIndicator}>
-        {renderStatusIndicator(hasPermission)}
-      </View>
-
       <View style={styles.cameraSection}>
         {renderCameraSection({
           hasPermission,
@@ -173,21 +152,6 @@ export default function ScannerExperience({
 }
 
 const styles = StyleSheet.create({
-  statusIndicator: {
-    position: 'absolute',
-    top: Platform.OS === 'android' ? 50 : 40,
-    left: 5,
-    zIndex: 1000,
-    backgroundColor: 'rgba(0,0,0,0.7)',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 12,
-  },
-  statusText: {
-    color: '#007AFF',
-    fontSize: 12,
-    fontWeight: '600',
-  },
   cameraSection: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.95)',
@@ -269,25 +233,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     textAlign: 'center',
-  },
-  exampleContainer: {
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    padding: 20,
-    borderRadius: 15,
-    alignItems: 'center',
-    maxWidth: 320,
-  },
-  exampleTitle: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 12,
-  },
-  exampleItem: {
-    color: '#4FC3F7',
-    fontSize: 13,
-    fontFamily: Platform.OS === 'android' ? 'monospace' : 'Courier',
-    marginVertical: 3,
   },
   inputSection: {
     backgroundColor: 'white',

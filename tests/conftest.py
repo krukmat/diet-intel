@@ -2,6 +2,8 @@ import pytest
 import asyncio
 import inspect
 import uuid
+import os
+import tempfile
 from typing import Any, Dict, Optional
 from unittest.mock import AsyncMock, MagicMock
 from httpx import AsyncClient
@@ -74,10 +76,34 @@ import pytest
 
 from app.services.cache import CacheService
 from app.services.recommendation_engine import RecommendationEngine
-from app.services.database import db_service
+from app.services.database import db_service, ConnectionPool
+from app.repositories.connection import connection_manager
 from app.services.user_service import UserService
 from app.models.user import UserSession
 from app.services import auth as auth_module
+
+
+@pytest.fixture(scope="session", autouse=True)
+def use_temp_database_for_tests():
+    """Route db_service to a temporary SQLite database for the test session."""
+    fd, db_path = tempfile.mkstemp(suffix=".db", prefix="dietintel_test_")
+    os.close(fd)
+
+    # Re-point the shared db_service to the temp DB while keeping references intact.
+    db_service.db_path = db_path
+    connection_manager.db_path = db_path
+    max_connections = getattr(db_service.connection_pool, "max_connections", 10)
+    db_service.connection_pool = ConnectionPool(db_path, max_connections)
+    db_service._vision_tables_initialized = False
+    db_service.init_database()
+
+    yield db_path
+
+    for suffix in ("", "-wal", "-shm"):
+        try:
+            os.unlink(db_path + suffix)
+        except FileNotFoundError:
+            pass
 
 
 class InMemoryAsyncCacheService:

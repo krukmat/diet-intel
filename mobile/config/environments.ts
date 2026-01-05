@@ -12,11 +12,18 @@ export const environments: Record<string, EnvironmentConfig> = {
     description: 'Local development server'
   },
   
+  // Auth-only server for testing
+  auth_only: {
+    name: 'Auth Only',
+    apiBaseUrl: 'http://localhost:8001',
+    description: 'Authentication-only server for testing'
+  },
+  
   // Android Emulator - Special localhost mapping
   android_dev: {
     name: 'Android Development',
-    apiBaseUrl: 'http://192.168.1.57:8000',
-    description: 'Local server accessible from Android emulator via host IP'
+    apiBaseUrl: 'http://10.0.2.2:8000',
+    description: 'Local server accessible from Android emulator via 10.0.2.2'
   },
   
   // iOS Simulator - Local network
@@ -68,7 +75,7 @@ export const environments: Record<string, EnvironmentConfig> = {
 };
 
 // Default environment - easily changeable
-export const DEFAULT_ENVIRONMENT = 'android_dev';
+export const DEFAULT_ENVIRONMENT = 'auth_only';
 
 // Get available environment names
 export const getEnvironmentNames = (): string[] => {

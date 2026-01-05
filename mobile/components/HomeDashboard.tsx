@@ -39,11 +39,6 @@ export default function HomeDashboard({
   return (
     <>
       <View style={styles.header}>
-        <View style={styles.headerContent}>
-          <Text style={styles.title}>{title}</Text>
-          <Text style={styles.subtitle}>{subtitle}</Text>
-          <Text style={styles.version}>{version}</Text>
-        </View>
         <View style={styles.headerButtons}>
           <HomeToolActions actions={toolActions} />
           <LanguageToggle onPress={onShowLanguageSwitcher} />
@@ -61,6 +56,11 @@ export default function HomeDashboard({
             </TouchableOpacity>
           )}
         </View>
+        <View style={styles.headerContent}>
+          <Text style={styles.title}>{title}</Text>
+          <Text style={styles.subtitle}>{subtitle}</Text>
+          <Text style={styles.version}>{version}</Text>
+        </View>
       </View>
 
       <View style={styles.navigationSection}>
@@ -75,50 +75,50 @@ export default function HomeDashboard({
 const styles = StyleSheet.create({
   header: {
     backgroundColor: '#007AFF',
-    paddingVertical: 30,
     paddingHorizontal: 20,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingTop: Platform.OS === 'android' ? 40 : 30,
+    paddingTop: Platform.OS === 'android' ? 34 : 26,
+    paddingBottom: 18,
+    gap: 8,
   },
   headerContent: {
-    flex: 1,
     alignItems: 'center',
-    marginLeft: 20,
   },
   headerButtons: {
     flexDirection: 'row',
+    justifyContent: 'flex-end',
     gap: 10,
   },
   headerActionButton: {
     backgroundColor: 'rgba(255,255,255,0.2)',
-    width: 40,
-    height: 40,
+    width: 36,
+    height: 36,
     borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
   },
   headerActionButtonText: {
     color: 'white',
-    fontSize: 18,
+    fontSize: 16,
   },
   title: {
     color: 'white',
-    fontSize: 36,
+    fontSize: 32,
     fontWeight: 'bold',
-    marginBottom: 8,
+    marginBottom: 4,
+    textAlign: 'center',
   },
   subtitle: {
     color: 'rgba(255,255,255,0.9)',
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '600',
-    marginBottom: 4,
+    marginBottom: 2,
+    textAlign: 'center',
   },
   version: {
     color: 'rgba(255,255,255,0.7)',
-    fontSize: 12,
+    fontSize: 11,
     fontStyle: 'italic',
+    textAlign: 'center',
   },
   navigationSection: {
     backgroundColor: 'white',

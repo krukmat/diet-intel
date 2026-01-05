@@ -161,6 +161,9 @@ class MealPlannerService:
                     if product.barcode not in existing_barcodes:
                         products.append(product)
                         existing_barcodes.add(product.barcode)
+        if not products:
+            emergency_products = await product_discovery_service._get_emergency_fallback_products()
+            products.extend(emergency_products)
 
         # Legacy compatibility: include cached_products module attribute if populated
         if cached_products:

@@ -6,8 +6,7 @@ import {
   AuthTokens,
   TokenStorage,
 } from '../types/auth';
-
-const API_BASE_URL = 'http://10.0.2.2:8000'; // Android emulator localhost
+import { API_BASE_URL } from '../config/environment';
 
 type AsyncStorageLike = Pick<typeof AsyncStorage, 'getItem' | 'setItem' | 'removeItem'>;
 

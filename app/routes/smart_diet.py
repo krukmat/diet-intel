@@ -94,11 +94,8 @@ async def get_smart_diet_suggestions(
         HTTPException: 400 for invalid params, 401 for auth, 500 for processing errors
     """
     try:
-        # Get authenticated user
-        user_id = await _require_authenticated_user(
-            req,
-            "Authentication required for personalized Smart Diet suggestions"
-        )
+        # Allow session-based anonymous access for suggestions.
+        user_id = await auth_context.get_session_user_id(req)
         
         # Validate context
         try:

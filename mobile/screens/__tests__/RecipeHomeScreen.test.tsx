@@ -1,5 +1,4 @@
 import React from 'react';
-import { Alert } from 'react-native';
 import { act, fireEvent, render } from '@testing-library/react-native';
 import RecipeHomeScreen from '../RecipeHomeScreen';
 
@@ -88,8 +87,7 @@ describe('RecipeHomeScreen', () => {
     expect(navigateToGeneration).toHaveBeenCalledTimes(1);
   });
 
-  it('fires quick actions and random recipe alert', async () => {
-    const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+  it('fires quick actions for available features', async () => {
     const { getByText } = render(
       <RecipeHomeScreen
         onBackPress={onBackPress}
@@ -107,12 +105,6 @@ describe('RecipeHomeScreen', () => {
 
     fireEvent.press(getByText('📚 Mis Recetas'));
     expect(navigateToMyRecipes).toHaveBeenCalledTimes(1);
-
-    fireEvent.press(getByText('🎲 Random Recipe'));
-    expect(alertSpy).toHaveBeenCalledWith(
-      '🎲 Random Recipe',
-      'Random recipe generation will be available in the next update!'
-    );
   });
 
   it('reloads stats when language toggle is used', async () => {

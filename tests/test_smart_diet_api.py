@@ -109,15 +109,30 @@ class TestSmartDietAPI:
         # Verify service was called
         mock_get_suggestions.assert_called_once()
         
-    def test_get_smart_diet_suggestions_no_auth(self, client):
-        """Test Smart Diet suggestions without authentication."""
-        with patch('app.utils.auth_context.get_session_user_id') as mock_auth:
-            mock_auth.return_value = None
-            
-            response = client.get("/smart-diet/suggestions")
-            
-            assert response.status_code == 401
-            assert "Authentication required" in response.json()["detail"]
+    @patch('app.utils.auth_context.get_session_user_id')
+    @patch('app.services.smart_diet.smart_diet_engine.get_smart_suggestions')
+    def test_get_smart_diet_suggestions_no_auth(self, mock_get_suggestions, mock_auth, client):
+        """Test Smart Diet suggestions for anonymous sessions."""
+        mock_auth.return_value = "anon_test_user"
+
+        mock_response = SmartDietResponse(
+            user_id="anon_test_user",
+            context_type=SmartDietContext.TODAY,
+            suggestions=[],
+            optimizations=[],
+            discoveries=[],
+            insights=[],
+            total_suggestions=0,
+            avg_confidence=0.0,
+            nutritional_summary={}
+        )
+        mock_get_suggestions.return_value = mock_response
+
+        response = client.get("/smart-diet/suggestions")
+
+        assert response.status_code == 200
+        assert response.json()["user_id"] == "anon_test_user"
+        mock_get_suggestions.assert_called_once()
     
     def test_get_smart_diet_suggestions_invalid_context(self, client):
         """Test Smart Diet suggestions with invalid context."""

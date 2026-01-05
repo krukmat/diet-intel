@@ -96,8 +96,13 @@ def _fetch_candidate_posts(user_id: str, limit: int) -> List[Dict[str, Any]]:
                 COALESCE(l.likes_count, 0) AS likes_count,
                 COALESCE(c.comments_count, 0) AS comments_count,
                 'trending' AS source,
-                MAX(GREATEST(COALESCE(lr.created_at, p.created_at),
-                           COALESCE(cr.created_at, p.created_at))) AS source_timestamp
+                MAX(
+                    CASE
+                        WHEN COALESCE(lr.created_at, p.created_at) > COALESCE(cr.created_at, p.created_at)
+                            THEN COALESCE(lr.created_at, p.created_at)
+                        ELSE COALESCE(cr.created_at, p.created_at)
+                    END
+                ) AS source_timestamp
             FROM posts p
             LEFT JOIN user_profiles up ON p.author_id = up.user_id
             LEFT JOIN (
@@ -145,8 +150,8 @@ def _fetch_candidate_posts(user_id: str, limit: int) -> List[Dict[str, Any]]:
                     '2nd_degree' AS source,
                     p.created_at AS source_timestamp
                 FROM posts p
-                INNER JOIN user_follows uf ON p.author_id = uf.follower_id  -- 2nd-degree connections
-                                            AND uf.target_id IN ({','.join('?' for _ in following_users)})
+                INNER JOIN user_follows uf ON p.author_id = uf.followee_id  -- 2nd-degree connections
+                                            AND uf.follower_id IN ({','.join('?' for _ in following_users)})
                 LEFT JOIN user_profiles up ON p.author_id = up.user_id
                 LEFT JOIN (
                     SELECT post_id, COUNT(*) AS likes_count
@@ -192,13 +197,13 @@ def _get_user_following(user_id: str) -> List[str]:
         cursor = conn.cursor()
         cursor.execute(
             """
-            SELECT target_id
+            SELECT followee_id
             FROM user_follows
-            WHERE follower_id = ? AND status = 'accepted'
+            WHERE follower_id = ? AND status = 'active'
             """,
             (user_id,),
         )
-        return [row['target_id'] for row in cursor.fetchall()]
+        return [row['followee_id'] for row in cursor.fetchall()]
 
 
 def _score_candidates(rows: List[Dict[str, Any]], weights: Dict[str, Any]) -> List[Dict[str, Any]]:

@@ -476,6 +476,11 @@ class SmartDietEngine:
         # Use existing recommendation engine as foundation
         # Temporarily disabled for Task 8 integration - will re-enable after completion
         self.recommendation_engine = None  # recommendation_engine
+        try:
+            from app.services.recommendation_engine import recommendation_engine
+            self.recommendation_engine = recommendation_engine
+        except Exception as exc:
+            logger.warning(f"Recommendation engine unavailable: {exc}")
         
         # Add optimization capabilities
         self.optimization_engine = OptimizationEngine()

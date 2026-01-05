@@ -6,7 +6,6 @@ import {
   TouchableOpacity,
   ScrollView,
   ActivityIndicator,
-  Alert,
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { RecipeLanguageToggle } from '../components/RecipeLanguageToggle';
@@ -101,20 +100,9 @@ export default function RecipeHomeScreen({
       case 'my-recipes':
         navigateToMyRecipes();
         break;
-      case 'random':
-        handleRandomRecipe();
-        break;
       default:
         break;
     }
-  };
-
-  const handleRandomRecipe = () => {
-    // TODO: Implement random recipe generation in R.2.1.6
-    Alert.alert(
-      t('recipeHome.randomRecipe', '🎲 Random Recipe'),
-      t('recipeHome.randomComingSoon', 'Random recipe generation will be available in the next update!')
-    );
   };
 
   const handleLanguageChange = (language: string) => {
@@ -145,13 +133,6 @@ export default function RecipeHomeScreen({
       description: t('recipeHome.myRecipesDescription', 'Ver recetas guardadas y generadas'),
       color: '#FF9500',
       action: () => handleQuickAction('my-recipes'),
-    },
-    {
-      id: 'random',
-      title: t('recipeHome.randomRecipe', '🎲 Random Recipe'),
-      description: t('recipeHome.randomDescription', 'Get a surprise recipe suggestion'),
-      color: '#AF52DE',
-      action: () => handleQuickAction('random'),
     },
   ];
 

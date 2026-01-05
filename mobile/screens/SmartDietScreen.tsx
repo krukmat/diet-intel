@@ -470,8 +470,9 @@ export default function SmartDietScreen({ onBackPress, navigationContext, naviga
       const feedbackData = {
         user_id: feedbackUserId,
         suggestion_id: suggestion.id,
-        feedback_type: helpful ? 'helpful' : 'not_helpful',
-        context: selectedContext,
+        action: helpful ? 'accepted' : 'rejected',
+        feedback_reason: helpful ? 'helpful' : 'not_helpful',
+        meal_context: suggestion.meal_context,
       };
 
       await apiService.post('/smart-diet/feedback', feedbackData);

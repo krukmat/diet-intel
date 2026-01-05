@@ -37,11 +37,10 @@ describe('ScannerExperience', () => {
     jest.clearAllMocks();
   });
 
-  it('shows permission state and demo barcodes', () => {
+  it('renders camera start button', () => {
     const { getByText } = render(<ScannerExperience {...baseProps} />);
 
-    expect(getByText('📷 Ready')).toBeTruthy();
-    expect(getByText('Try these demo barcodes:')).toBeTruthy();
+    expect(getByText('📷 Start Camera')).toBeTruthy();
   });
 
   it('starts camera from button', () => {

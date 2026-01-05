@@ -1,6 +1,7 @@
 from datetime import datetime
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
+from types import SimpleNamespace
 
 import pytest
 from fastapi.testclient import TestClient
@@ -165,8 +166,8 @@ def test_add_product_invalid_meal_type(client):
 def test_add_product_no_plan(client):
     request = AddProductRequest(barcode="123", meal_type="lunch").model_dump()
     with patch("app.routes.plan.get_session_user_id", AsyncMock(return_value="user-1")), \
-         patch("app.routes.plan.db_service", autospec=True) as mock_db:
-        mock_db.get_user_meal_plans = AsyncMock(return_value=[])
+         patch("app.routes.plan.MealPlanRepository.get_by_user_id", new_callable=AsyncMock) as mock_get_plans:
+        mock_get_plans.return_value = []
         response = client.post("/plan/add-product", json=request)
 
     assert response.status_code == 200
@@ -196,11 +197,11 @@ def test_add_product_success(client):
     plan = build_plan()
     change_log = [ChangeLogEntry(change_type="add_manual", description="added", meal_affected="Lunch")]
     with patch("app.routes.plan.get_session_user_id", AsyncMock(return_value="user-1")), \
-         patch("app.routes.plan.db_service", autospec=True) as mock_db, \
+         patch("app.routes.plan.MealPlanRepository.get_by_user_id", new_callable=AsyncMock) as mock_get_plans, \
          patch("app.routes.plan.openfoodfacts_service", autospec=True) as mock_off, \
          patch("app.routes.plan.plan_storage", autospec=True) as mock_storage, \
          patch("app.routes.plan.plan_customizer", autospec=True) as mock_customizer:
-        mock_db.get_user_meal_plans = AsyncMock(return_value=[{"id": "plan-1"}])
+        mock_get_plans.return_value = [SimpleNamespace(id="plan-1")]
         mock_off.get_product = AsyncMock(return_value=product)
         mock_storage.get_plan = AsyncMock(return_value=plan)
         mock_customizer.customize_plan = AsyncMock(return_value=(plan, change_log))

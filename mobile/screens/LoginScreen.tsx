@@ -43,7 +43,7 @@ export default function LoginScreen({ onLogin, onNavigateToRegister, isLoading }
 
   const handleDemoLogin = async () => {
     try {
-      await onLogin({ email: 'test@example.com', password: 'password123' });
+      await onLogin({ email: 'john.doe@test.com', password: 'testpass123' });
     } catch (error) {
       Alert.alert(
         'Demo Login Failed',

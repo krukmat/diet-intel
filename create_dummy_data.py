@@ -7,6 +7,7 @@ import asyncio
 import json
 from datetime import datetime, timedelta
 from app.services.database import db_service
+from app.services.user_service import user_service
 from app.services.tracking_service import tracking_service
 from app.models.user import UserCreate, UserRole
 import bcrypt
@@ -28,7 +29,7 @@ async def create_dummy_data():
         full_name="John Doe",
         developer_code=""
     )
-    standard_user = await db_service.create_user(standard_user_data, password_hash)
+    standard_user = await user_service.create_user(standard_user_data, password_hash)
     print(f"   ✅ Created standard user: {standard_user.email}")
     
     # Create developer user
@@ -39,7 +40,7 @@ async def create_dummy_data():
         full_name="Developer User",
         developer_code="DIETINTEL_DEV_2024"
     )
-    dev_user = await db_service.create_user(dev_user_data, dev_password_hash)
+    dev_user = await user_service.create_user(dev_user_data, dev_password_hash)
     print(f"   ✅ Created developer user: {dev_user.email}")
     
     # Add dummy products for testing barcode lookups
@@ -145,119 +146,6 @@ async def create_dummy_data():
             source=product["source"]
         )
         print(f"   ✅ Added product: {product['name']}")
-    
-    # Add analytics data for testing
-    print("\n📊 Adding analytics data...")
-    
-    # Add product lookup analytics
-    base_time = datetime.now() - timedelta(days=7)
-    for i in range(20):
-        lookup_time = base_time + timedelta(hours=i*2)
-        success = i % 4 != 0  # 75% success rate
-        response_time = 150 + (i % 5) * 50  # 150-350ms
-        source = ["Database", "Cache", "OpenFoodFacts"][i % 3]
-        
-        await db_service.log_product_lookup(
-            user_id=standard_user.id if i % 2 == 0 else dev_user.id,
-            session_id=f"session_{i}",
-            barcode=dummy_products[i % len(dummy_products)]["barcode"],
-            product_name=dummy_products[i % len(dummy_products)]["name"] if success else None,
-            success=success,
-            response_time_ms=response_time,
-            source=source,
-            error_message="Product not found" if not success else None
-        )
-        print(f"   📈 Logged lookup {i+1}/20")
-    
-    # Add OCR scan analytics
-    for i in range(10):
-        scan_time = base_time + timedelta(hours=i*4)
-        confidence = 0.4 + (i % 6) * 0.1  # 0.4-0.9 confidence
-        processing_time = 2000 + (i % 4) * 1000  # 2-5 seconds
-        success = confidence >= 0.7
-        
-        await db_service.log_ocr_scan(
-            user_id=standard_user.id if i % 3 == 0 else dev_user.id,
-            session_id=f"ocr_session_{i}",
-            image_size=4000 + i * 500,
-            confidence_score=confidence,
-            processing_time_ms=processing_time,
-            ocr_engine="tesseract" if i % 2 == 0 else "external_api",
-            nutrients_extracted=4 if success else 2,
-            success=success,
-            error_message=None if success else "Low confidence extraction"
-        )
-        print(f"   🔍 Logged OCR scan {i+1}/10")
-    
-    # Add user interaction history
-    for i in range(15):
-        interaction_time = base_time + timedelta(hours=i*3)
-        actions = ["lookup", "view", "add_to_meal", "scan"]
-        context = ["search", "barcode_scan", "meal_logging", "tracking"]
-        
-        await db_service.log_user_product_interaction(
-            user_id=standard_user.id if i % 2 == 0 else dev_user.id,
-            session_id=f"interaction_session_{i}",
-            barcode=dummy_products[i % len(dummy_products)]["barcode"],
-            action=actions[i % len(actions)],
-            context=context[i % len(context)]
-        )
-        print(f"   🤝 Logged interaction {i+1}/15")
-    
-    # Add meal tracking data
-    print("\n🍽️ Adding meal tracking data...")
-    
-    for i in range(5):
-        meal_time = base_time + timedelta(days=i, hours=8)  # Breakfast times
-        meal_items = [
-            {
-                "barcode": dummy_products[0]["barcode"],
-                "name": dummy_products[0]["name"],
-                "serving": "2 tbsp (30g)",
-                "calories": 162,
-                "macros": {"protein": 1.9, "fat": 9.3, "carbs": 17.3}
-            },
-            {
-                "barcode": "bread_slice",
-                "name": "Whole Wheat Bread",
-                "serving": "2 slices",
-                "calories": 160,
-                "macros": {"protein": 8.0, "fat": 2.0, "carbs": 30.0}
-            }
-        ]
-        
-        class MockMealRequest:
-            def __init__(self, meal_name, items):
-                self.meal_name = meal_name
-                self.items = items
-        
-        meal_request = MockMealRequest(f"Breakfast Day {i+1}", meal_items)
-        meal_id = await tracking_service.create_meal(
-            user_id=standard_user.id,
-            meal_data=meal_request,
-            photo_url=None
-        )
-        print(f"   🥞 Added meal: {meal_request.meal_name}")
-    
-    # Add weight tracking data
-    print("\n⚖️ Adding weight tracking data...")
-    
-    for i in range(7):
-        weight_time = base_time + timedelta(days=i)
-        weight = 75.0 + (i * 0.2)  # Gradual weight change
-        
-        class MockWeightRequest:
-            def __init__(self, weight, date):
-                self.weight = weight
-                self.date = date
-        
-        weight_request = MockWeightRequest(weight, weight_time)
-        weight_id = await tracking_service.create_weight_entry(
-            user_id=standard_user.id,
-            weight_data=weight_request,
-            photo_url=None
-        )
-        print(f"   📊 Added weight entry: {weight}kg")
     
     print("\n✅ Dummy Data Creation Complete!")
     print("\nTest Credentials:")

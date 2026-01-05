@@ -33,11 +33,19 @@ class ApiService {
 
         try {
           const storedTokens = await authService.getStoredTokens();
-          if (storedTokens?.access_token && !authService.isTokenExpired(storedTokens.expires_at)) {
-          const headers = AxiosHeaders.from(config.headers ?? {});
-          headers.set('Authorization', `Bearer ${storedTokens.access_token}`);
-          config.headers = headers;
+          if (!storedTokens?.access_token) {
+            return config;
           }
+
+          let accessToken = storedTokens.access_token;
+          if (authService.isTokenExpired(storedTokens.expires_at) && storedTokens.refresh_token) {
+            const refreshed = await authService.refreshToken(storedTokens.refresh_token);
+            accessToken = refreshed.tokens.access_token;
+          }
+
+          const headers = AxiosHeaders.from(config.headers ?? {});
+          headers.set('Authorization', `Bearer ${accessToken}`);
+          config.headers = headers;
         } catch (error) {
           console.warn('API Request Token Attach Error:', error);
         }
