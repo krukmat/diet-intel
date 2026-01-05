@@ -207,7 +207,8 @@ main() {
     echo "📋 **PRÓXIMOS PASOS:**"
     echo "1. Inicie Android emulator: emulator -avd Pixel_7_API_33"
     echo "2. Ejecute aplicación: cd mobile && npx expo start --android"
-    echo "3. Siga la guía: TESTS_MANUALES_E2E_FEAT_PROPORTIONS.md"
+    echo "3. Revise documentación: docs/README.md"
+    echo "4. Registre pasos manuales en: manual-user-tests.md"
     echo ""
     echo "🚀 ¡Entorno listo para testing!"
 }

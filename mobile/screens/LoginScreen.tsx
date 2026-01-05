@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { StatusBar as ExpoStatusBar } from 'expo-status-bar';
 import { LoginCredentials } from '../types/auth';
+import { DEMO_CREDENTIALS } from '../config/demoCredentials';
 
 interface LoginScreenProps {
   onLogin: (credentials: LoginCredentials) => Promise<void>;
@@ -23,7 +24,6 @@ interface LoginScreenProps {
 export default function LoginScreen({ onLogin, onNavigateToRegister, isLoading }: LoginScreenProps) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [showDemo, setShowDemo] = useState(true);
 
   const handleLogin = async () => {
     if (!email.trim() || !password.trim()) {
@@ -42,8 +42,16 @@ export default function LoginScreen({ onLogin, onNavigateToRegister, isLoading }
   };
 
   const handleDemoLogin = async () => {
+    if (!DEMO_CREDENTIALS.enabled) {
+      Alert.alert('Demo Disabled', 'Demo login is currently unavailable.');
+      return;
+    }
+
     try {
-      await onLogin({ email: 'john.doe@test.com', password: 'testpass123' });
+      await onLogin({
+        email: DEMO_CREDENTIALS.email,
+        password: DEMO_CREDENTIALS.password,
+      });
     } catch (error) {
       Alert.alert(
         'Demo Login Failed',
@@ -73,7 +81,7 @@ export default function LoginScreen({ onLogin, onNavigateToRegister, isLoading }
         </View>
 
         {/* Demo Account Info */}
-        {showDemo && (
+        {DEMO_CREDENTIALS.enabled && DEMO_CREDENTIALS.showBanner && (
           <View style={styles.demoContainer}>
             <Text style={styles.demoTitle}>Demo Account Available</Text>
             <Text style={styles.demoText}>Try the app with a demo account</Text>

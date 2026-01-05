@@ -49,6 +49,8 @@
 
 ## 🏗️ **Technical Architecture & Documentation**
 
+- Canonical docs index: `docs/README.md`
+
 ### [System Architecture](#architecture)
 - [System Overview](#system-overview)
 - [Technology Stack](#technology-stack)

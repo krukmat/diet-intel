@@ -2,6 +2,7 @@ import React from 'react';
 import { Alert } from 'react-native';
 import { fireEvent, render, waitFor } from '@testing-library/react-native';
 import LoginScreen from '../LoginScreen';
+import { DEMO_CREDENTIALS } from '../../config/demoCredentials';
 
 jest.mock('react-native/Libraries/Animated/NativeAnimatedHelper');
 
@@ -28,8 +29,8 @@ describe('LoginScreen', () => {
 
     await waitFor(() => {
       expect(onLogin).toHaveBeenCalledWith({
-        email: 'test@example.com',
-        password: 'password123',
+        email: DEMO_CREDENTIALS.email,
+        password: DEMO_CREDENTIALS.password,
       });
     });
   });

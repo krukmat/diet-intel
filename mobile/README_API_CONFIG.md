@@ -174,3 +174,16 @@ EXPO_PUBLIC_API_ENVIRONMENT=staging expo build:android
 # For production build  
 EXPO_PUBLIC_API_ENVIRONMENT=production expo build:android
 ```
+## Demo Credentials Override
+
+When demo credentials are shipped with the mobile client, you can override them at build time:
+
+```bash
+EXPO_PUBLIC_DEMO_EMAIL=demo@yourorg.com \
+EXPO_PUBLIC_DEMO_PASSWORD=s3cretpass \
+EXPO_PUBLIC_DEMO_ENABLED=true \
+EXPO_PUBLIC_DEMO_BANNER=false \
+expo start
+```
+
+Set `EXPO_PUBLIC_DEMO_ENABLED=false` to hide the demo login entirely, or use the banner toggle flags to control the CTA visibility without touching code.
