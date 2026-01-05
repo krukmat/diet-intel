@@ -22,6 +22,8 @@ from app.routes.translation import router as translation_router
 from app.routes.food_vision import router as food_vision_router
 from app.routes.intelligent_flow import router as intelligent_flow_router
 from app.services.smart_diet import smart_diet_engine
+from app.models.user import UserCreate
+from app.services.auth import auth_service
 from logging_config import setup_logging
 
 setup_logging()
@@ -86,6 +88,23 @@ app.include_router(moderation_router, tags=["moderation"])
 
 # Expose key services on the app instance for testing/inspection
 app.smart_diet_engine = smart_diet_engine
+
+# Seed demo user for mobile testing
+@app.on_event("startup")
+async def seed_demo_user():
+    demo_email = "test@example.com"
+    demo_password = "password123"
+    existing_user = await auth_service.user_service.get_user_by_email(demo_email)
+    if existing_user:
+        return
+    await auth_service.register_user(
+        UserCreate(
+            email=demo_email,
+            password=demo_password,
+            full_name="Demo User",
+            developer_code=None,
+        )
+    )
 
 if __name__ == "__main__":
     import uvicorn
