@@ -75,7 +75,7 @@ export const environments: Record<string, EnvironmentConfig> = {
 };
 
 // Default environment - easily changeable
-export const DEFAULT_ENVIRONMENT = 'auth_only';
+export const DEFAULT_ENVIRONMENT = 'android_dev';
 
 // Get available environment names
 export const getEnvironmentNames = (): string[] => {
