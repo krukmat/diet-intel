@@ -14,13 +14,16 @@ import { useDiscoverFeed } from '../hooks/useDiscoverFeed';
 import { DiscoverFeedItem } from '../types/feed';
 import { analyticsService } from '../services/AnalyticsService';
 
-interface DiscoverFeedItemProps {
+interface DiscoverFeedScreenProps {
+  onBackPress?: () => void;
+}
+
+// Define the feed item component
+const DiscoverFeedItemComponent: React.FC<{
   item: DiscoverFeedItem;
   onPress: (item: DiscoverFeedItem) => void;
   onDismiss: (item: DiscoverFeedItem) => void;
-}
-
-const DiscoverFeedItemComponent: React.FC<DiscoverFeedItemProps> = ({ item, onPress, onDismiss }) => {
+}> = ({ item, onPress, onDismiss }) => {
   const reasonDisplay = item.reason.replace(/_/g, ' ').toLowerCase();
   const authorHandle = item.author_handle || item.author_id.substring(0, 10) || 'unknown';
   const timestamp = new Date(item.created_at).toLocaleString();
@@ -94,10 +97,6 @@ const DiscoverFeedItemComponent: React.FC<DiscoverFeedItemProps> = ({ item, onPr
     </Pressable>
   );
 };
-
-interface DiscoverFeedScreenProps {
-  onBackPress?: () => void;
-}
 
 export const DiscoverFeedScreen: React.FC<DiscoverFeedScreenProps> = ({ onBackPress }) => {
 
@@ -585,74 +584,6 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: 'bold',
     color: '#1f2933',
-    marginBottom: 8,
-  },
-  errorText: {
-    fontSize: 14,
-    color: '#6b7280',
-    textAlign: 'center',
-    marginBottom: 24,
-  },
-  retryButton: {
-    backgroundColor: '#007AFF',
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 8,
-  },
-  retryButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  emptyIcon: {
-    fontSize: 64,
-    marginBottom: 16,
-  },
-  emptyTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#1f2933',
-    marginBottom: 8,
-  },
-  emptyText: {
-    fontSize: 14,
-    color: '#6b7280',
-    textAlign: 'center',
-    marginBottom: 24,
-  },
-  emptyActions: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  emptyButton: {
-    backgroundColor: '#007AFF',
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 8,
-  },
-  emptyButtonText: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  loadingMore: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-  },
-  loadingMoreText: {
-    marginLeft: 8,
-    fontSize: 14,
-    color: '#6b7280',
-  },
-  endIndicator: {
-    paddingVertical: 16,
-    alignItems: 'center',
-  },
-  endIndicatorText: {
-    fontSize: 14,
-    color: '#6b7280',
-  },
-});
+    marginBottom: 8
+  }
+})

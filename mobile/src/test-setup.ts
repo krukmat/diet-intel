@@ -380,6 +380,112 @@ jest.mock('react-native', () => {
     return MockedComponent;
   };
 
+  const TouchableOpacity = React.forwardRef((props: any, ref: any) => {
+    const { testID, onPress, onClick, disabled, ...rest } = props;
+    const handlePress = (event: any) => {
+      if (typeof onPress === 'function') {
+        onPress(event);
+      }
+      if (typeof onClick === 'function') {
+        onClick(event);
+      }
+    };
+
+    return React.createElement('div', {
+      ...rest,
+      testID,
+      'data-testid': testID || 'touchableopacity',
+      onPress: handlePress,
+      onClick: handlePress,
+      'aria-disabled': disabled,
+      disabled,
+      ref
+    }, props.children);
+  });
+
+  const renderOptionalComponent = (component: any) => {
+    if (!component) {
+      return null;
+    }
+
+    return typeof component === 'function'
+      ? React.createElement(component)
+      : component;
+  };
+
+  const FlatList = React.forwardRef((props: any, ref: any) => {
+    const {
+      data = [],
+      renderItem,
+      ListHeaderComponent,
+      ListFooterComponent,
+      ListEmptyComponent,
+      keyExtractor: keyExtractorProp,
+      ItemSeparatorComponent,
+      testID,
+      ...rest
+    } = props;
+
+    const keyExtractor = keyExtractorProp || ((_: any, index: number) => index.toString());
+    const children: React.ReactNode[] = [];
+
+    const header = renderOptionalComponent(ListHeaderComponent);
+    if (header) {
+      children.push(header);
+    }
+
+    if (!data || data.length === 0) {
+      const empty = renderOptionalComponent(ListEmptyComponent);
+      if (empty) {
+        children.push(empty);
+      }
+    } else if (renderItem) {
+      data.forEach((item: any, index: number) => {
+        const separators = {
+          highlight: () => {},
+          unhighlight: () => {},
+          updateProps: () => {}
+        };
+
+        const renderedItem = renderItem({ item, index, separators });
+        if (!renderedItem) {
+          return;
+        }
+
+        const key = keyExtractor(item, index);
+        if (React.isValidElement(renderedItem)) {
+          children.push(
+            React.cloneElement(renderedItem, {
+              key: key ?? renderedItem.key ?? index,
+            })
+          );
+        } else {
+          children.push(renderedItem);
+        }
+
+        if (ItemSeparatorComponent) {
+          const separator = renderOptionalComponent(ItemSeparatorComponent);
+          if (separator) {
+            children.push(separator);
+          }
+        }
+      });
+    }
+
+    const footer = renderOptionalComponent(ListFooterComponent);
+    if (footer) {
+      children.push(footer);
+    }
+
+    return React.createElement('div', {
+      ...rest,
+      data,
+      testID,
+      'data-testid': testID || 'flatlist',
+      ref
+    }, children);
+  });
+
   const ActivityIndicator = React.forwardRef((props: any, ref: any) => {
     const { size = 'small', color = '#000', ...rest } = props || {};
     return React.createElement('div', {
@@ -400,13 +506,14 @@ jest.mock('react-native', () => {
     View: mockComponent('View'),
     Text: mockComponent('Text'),
     TextInput: mockComponent('TextInput'),
-    TouchableOpacity: mockComponent('TouchableOpacity'),
+    TouchableOpacity,
     ScrollView: mockComponent('ScrollView'),
     SafeAreaView: mockComponent('SafeAreaView'),
     KeyboardAvoidingView: mockComponent('KeyboardAvoidingView'),
+    StatusBar: mockComponent('StatusBar'),
     Image: mockComponent('Image'),
     Button: mockComponent('Button'),
-    FlatList: mockComponent('FlatList'),
+    FlatList,
     Modal: React.forwardRef((props: any, ref: any) => {
       // Always render modal to fix RNTL detection issue
       return React.createElement('div', { 
