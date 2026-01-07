@@ -165,16 +165,23 @@ export const SCREEN_REGISTRY: Record<ScreenType, ScreenConfig> = {
     component: null,
     options: { headerShown: true, gestureEnabled: true },
     dependencies: ['profile', 'auth']
+  },
+
+  // Rewards system
+  rewards: {
+    component: null,
+    options: { headerShown: true, gestureEnabled: true },
+    dependencies: ['gamification', 'profile', 'achievements']
   }
 };
 
 // Navigation transitions mapping
 export const NAVIGATION_TRANSITIONS: Record<ScreenType, ScreenType[]> = {
-  scanner: ['upload', 'track', 'plan', 'recommendations', 'recipes', 'vision', 'discover-feed', 'profile'],
+  scanner: ['upload', 'track', 'plan', 'recommendations', 'recipes', 'vision', 'discover-feed', 'profile', 'rewards'],
   upload: ['scanner', 'track'],
-  track: ['scanner', 'plan', 'recommendations'],
-  plan: ['scanner', 'recommendations', 'track'],
-  recommendations: ['scanner', 'plan', 'track', 'intelligent-flow'],
+  track: ['scanner', 'plan', 'recommendations', 'rewards'],
+  plan: ['scanner', 'recommendations', 'track', 'rewards'],
+  recommendations: ['scanner', 'plan', 'track', 'intelligent-flow', 'rewards'],
   'intelligent-flow': ['recommendations'],
   recipes: ['recipe-generation', 'recipe-search', 'my-recipes', 'taste-preferences', 'shopping-optimization'],
   'recipe-generation': ['recipe-detail', 'recipes'],
@@ -191,8 +198,9 @@ export const NAVIGATION_TRANSITIONS: Record<ScreenType, ScreenType[]> = {
   'following-list': ['profile'],
   'blocked-list': ['profile'],
   'blocked-by': ['profile'],
-  profile: ['profile-edit', 'followers-list', 'following-list', 'blocked-list', 'blocked-by'],
+  profile: ['profile-edit', 'followers-list', 'following-list', 'blocked-list', 'blocked-by', 'rewards'],
   'profile-edit': ['profile'],
+  rewards: ['profile', 'scanner', 'track', 'plan', 'recommendations'],
   splash: ['login'],
   login: ['register'],
   register: ['login']
@@ -207,6 +215,8 @@ export const MODULE_DEPENDENCIES = {
   vision: ['services', 'camera'],
   social: ['services', 'feed'],
   profile: ['services', 'contexts'],
+  gamification: ['contexts', 'services'],
+  achievements: ['services', 'storage'],
   ai: ['services'],
   camera: ['permissions'],
   upload: ['permissions'],

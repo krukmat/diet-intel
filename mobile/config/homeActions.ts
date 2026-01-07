@@ -72,7 +72,7 @@ export const HOME_ACTIONS: HomeActionDefinition[] = [
     id: 'gamification',
     labelKey: 'home.actions.gamification',
     group: 'tool',
-    target: 'profile',
+    target: 'rewards',
   },
 ];
 

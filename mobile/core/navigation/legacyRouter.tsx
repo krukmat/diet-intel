@@ -17,6 +17,7 @@ import IntelligentFlowScreen from '../../screens/IntelligentFlowScreen';
 import { ProfileScreen } from '../../screens/ProfileScreen';
 import { ProfileEditScreen } from '../../screens/ProfileEditScreen';
 import { DiscoverFeedScreen } from '../../screens/DiscoverFeedScreen';
+import RewardsScreen from '../../screens/RewardsScreen';
 
 interface RenderScreenParams {
   currentScreen: ScreenType;
@@ -153,6 +154,10 @@ const renderShoppingOptimization: ScreenRenderer = ({ setCurrentScreen, navigati
   />
 );
 
+const renderRewards: ScreenRenderer = ({ setCurrentScreen }) => (
+  <RewardsScreen navigation={{ goBack: () => setCurrentScreen('scanner') }} />
+);
+
 const screenRenderers: Partial<Record<ScreenType, ScreenRenderer>> = {
   upload: renderUpload,
   plan: renderPlan,
@@ -170,6 +175,7 @@ const screenRenderers: Partial<Record<ScreenType, ScreenRenderer>> = {
   'recipe-detail': renderRecipeDetail,
   'taste-preferences': renderTastePreferences,
   'shopping-optimization': renderShoppingOptimization,
+  rewards: renderRewards,
 };
 
 export const renderScreen = (params: RenderScreenParams): React.ReactNode | null => {

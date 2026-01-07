@@ -7,6 +7,7 @@ import HomeModals from './components/HomeModals';
 import { developerSettingsService, DeveloperConfig, FeatureToggle } from './services/DeveloperSettings';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { ProfileProvider } from './contexts/ProfileContext';
+import { GamificationProvider } from './contexts/GamificationContext';
 import HomeDashboard from './components/HomeDashboard';
 import ScannerExperience from './components/ScannerExperience';
 import { useHomeActions } from './hooks/useHomeActions';
@@ -21,12 +22,14 @@ import SplashScreen from './screens/SplashScreen';
 import { LoginCredentials, RegisterData } from './types/auth';
 import './i18n/config';
 
-// Main App Component wrapped with AuthProvider + ProfileProvider
+// Main App Component wrapped with AuthProvider + ProfileProvider + GamificationProvider
 export default function App() {
   return (
     <AuthProvider>
       <ProfileProvider>
-        <AppContent />
+        <GamificationProvider>
+          <AppContent />
+        </GamificationProvider>
       </ProfileProvider>
     </AuthProvider>
   );

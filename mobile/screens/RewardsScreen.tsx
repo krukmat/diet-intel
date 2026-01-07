@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text } from 'react-native';
 import { useRewardsData } from '../hooks/useRewardsData';
+import { useGamification } from '../contexts/GamificationContext';
 import { RewardsScreenData } from '../types/rewards';
 
 // Professional styling system
@@ -26,7 +27,29 @@ const FALLBACK_REWARDS_DATA: RewardsScreenData = {
 
 const RewardsScreen: React.FC<RewardsScreenProps> = ({ navigation }) => {
   const { data, loading, error } = useRewardsData(true);
-  const safeData = data ?? FALLBACK_REWARDS_DATA;
+  const gamificationData = useGamification();
+  
+  // Combinar datos del hook useRewardsData con GamificationContext
+  const combinedData = React.useMemo(() => {
+    const baseData = data ?? FALLBACK_REWARDS_DATA;
+    
+    // Usar datos del contexto de gamificación para estadísticas en tiempo real
+    const syncedData: RewardsScreenData = {
+      totalPoints: gamificationData.totalPoints,
+      currentLevel: gamificationData.currentLevel,
+      levelProgress: gamificationData.levelProgress,
+      pointsToNextLevel: gamificationData.pointsToNextLevel,
+      currentStreak: gamificationData.currentStreak,
+      longestStreak: gamificationData.longestStreak,
+      achievements: baseData.achievements ?? [],
+      unlockedAchievements: gamificationData.unlockedAchievements ?? [],
+      achievementPoints: gamificationData.achievementPoints
+    };
+    
+    return syncedData;
+  }, [data, gamificationData]);
+
+  const safeData = combinedData;
   const achievements = safeData.achievements ?? [];
   const achievementsCount = achievements.length;
   const achievementsToShow = achievements.slice(0, 5);
@@ -71,23 +94,32 @@ const RewardsScreen: React.FC<RewardsScreenProps> = ({ navigation }) => {
           <Text style={styles.statItem}>Puntos Totales: {safeData.totalPoints}</Text>
           <Text style={styles.statItem}>Nivel: {safeData.currentLevel}</Text>
           <Text style={styles.statItem}>Progreso: {safeData.levelProgress}%</Text>
+          <Text style={styles.statItem}>Puntos al Siguiente Nivel: {safeData.pointsToNextLevel}</Text>
           <Text style={styles.statItem}>Racha Actual: {safeData.currentStreak} días</Text>
+          <Text style={styles.statItem}>Racha Más Larga: {safeData.longestStreak} días</Text>
+          <Text style={styles.statItem}>Puntos de Logros: {safeData.achievementPoints}</Text>
         </View>
         
         <View style={styles.achievementsSection}>
           <Text style={styles.sectionTitle}>Logros ({achievementsCount})</Text>
-          {achievementsToShow.map((achievement) => (
-            <View key={achievement.id} style={styles.achievementItem}>
-              <Text style={styles.achievementIcon}>{achievement.icon}</Text>
-              <View style={styles.achievementContent}>
-                <Text style={styles.achievementTitle}>{achievement.title}</Text>
-                <Text style={styles.achievementDescription}>{achievement.description}</Text>
-                <Text style={styles.achievementProgress}>
-                  {achievement.unlocked ? '✅ Desbloqueado' : `${achievement.progress}/${achievement.target}`}
-                </Text>
+          {achievementsToShow.length > 0 ? (
+            achievementsToShow.map((achievement) => (
+              <View key={achievement.id} style={styles.achievementItem}>
+                <Text style={styles.achievementIcon}>{achievement.icon}</Text>
+                <View style={styles.achievementContent}>
+                  <Text style={styles.achievementTitle}>{achievement.title}</Text>
+                  <Text style={styles.achievementDescription}>{achievement.description}</Text>
+                  <Text style={styles.achievementProgress}>
+                    {achievement.unlocked ? '✅ Desbloqueado' : `${achievement.progress}/${achievement.target}`}
+                  </Text>
+                </View>
               </View>
+            ))
+          ) : (
+            <View style={styles.loadingContainer}>
+              <Text style={styles.loadingText}>No hay logros disponibles</Text>
             </View>
-          ))}
+          )}
         </View>
       </View>
     </View>

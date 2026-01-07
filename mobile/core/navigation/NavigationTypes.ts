@@ -29,7 +29,8 @@ export type ScreenType =
   | 'following-list'
   | 'blocked-list'
   | 'blocked-by'
-  | 'vision-history';
+  | 'vision-history'
+  | 'rewards';
 
 export interface NavigationContext {
   targetContext?: string;
