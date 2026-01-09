@@ -199,6 +199,84 @@ class TrackingService:
 
         return meal_record
 
+    async def update_meal(
+        self,
+        meal_id: str,
+        user_id: str,
+        meal_data: 'MealTrackingRequest | Dict[str, Any]',
+        photo_url: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Update an existing meal.
+
+        Args:
+            meal_id: ID of the meal to update
+            user_id: User ID of the meal owner
+            meal_data: MealTrackingRequest or dict with updated meal data
+            photo_url: Optional photo URL
+
+        Returns:
+            Updated meal dict
+
+        Coverage Goal: Test meal update, validation, photo handling
+
+        Task: Implement update functionality
+        """
+        from app.models.tracking import MealTrackingRequest
+
+        # Verify the meal belongs to the user
+        existing_meal = await self.get_meal_by_id(meal_id)
+        if not existing_meal:
+            raise ValueError(f"Meal with id {meal_id} not found")
+        
+        # Normalize meal data to model instance
+        request_obj = (
+            meal_data if isinstance(meal_data, MealTrackingRequest) else MealTrackingRequest(**meal_data)
+        )
+        
+        # Use repository to update the meal
+        updated = await self.repository.update_meal(
+            meal_id=meal_id,
+            user_id=user_id,
+            meal_name=request_obj.meal_name,
+            items=request_obj.items,
+            total_calories=sum(item.calories for item in request_obj.items),
+            photo_url=photo_url,
+            timestamp=datetime.now().isoformat()
+        )
+        
+        # Retrieve and return the updated meal
+        return await self.get_meal_by_id(meal_id)
+
+    async def delete_meal(
+        self,
+        meal_id: str,
+        user_id: str,
+    ) -> bool:
+        """Delete an existing meal.
+
+        Args:
+            meal_id: ID of the meal to delete
+            user_id: User ID of the meal owner
+
+        Returns:
+            True if successful, False otherwise
+
+        Coverage Goal: Test meal deletion
+
+        Task: Implement delete functionality
+        """
+        # Verify the meal belongs to the user
+        existing_meal = await self.get_meal_by_id(meal_id)
+        if not existing_meal:
+            logger.warning(f"Meal {meal_id} not found for user {user_id}")
+            return False
+            
+        # Use repository to delete the meal
+        await self.repository.delete_meal(meal_id)
+        
+        logger.info(f"Deleted meal {meal_id} for user {user_id}")
+        return True
+
     # ===== WEIGHT TRACKING METHODS =====
 
     async def create_weight_entry(

@@ -53,61 +53,31 @@ class TrackingRepository:
     # ===== MEAL TRACKING METHODS =====
 
     async def create_meal(self, meal: MealTrackingEntity) -> MealTrackingEntity:
-        """
-        Create new meal tracking entry with items.
-
-        Args:
-            meal: MealTrackingEntity with meal data and items
-
-        Returns:
-            Created MealTrackingEntity with confirmed ID
-        """
+        """Create new meal tracking entry with items."""
         async with connection_manager.get_connection() as conn:
             cursor = conn.cursor()
 
             try:
-                # Convert datetime objects to ISO format strings
                 timestamp_str = meal.timestamp.isoformat() if isinstance(meal.timestamp, datetime) else meal.timestamp
                 created_at_str = meal.created_at.isoformat() if isinstance(meal.created_at, datetime) else meal.created_at
 
-                # Insert meal record
                 cursor.execute(
-                    """
-                    INSERT INTO meals (id, user_id, meal_name, total_calories, photo_url, timestamp, created_at)
-                    VALUES (?, ?, ?, ?, ?, ?, ?)
-                    """,
-                    (
-                        meal.id,
-                        meal.user_id,
-                        meal.meal_name,
-                        meal.total_calories,
-                        meal.photo_url,
-                        timestamp_str,
-                        created_at_str
-                    )
+                    """INSERT INTO meals (id, user_id, meal_name, total_calories, photo_url, timestamp, created_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)""",
+                    (meal.id, meal.user_id, meal.meal_name, meal.total_calories, meal.photo_url, timestamp_str, created_at_str)
                 )
 
-                # Insert meal items - Task: Handle both dict and Pydantic MealItem objects
                 for item in meal.items:
-                    # Handle both dict and Pydantic model
                     if hasattr(item, 'model_dump'):
-                        # Pydantic model - convert to dict
                         item_dict = item.model_dump()
                     elif hasattr(item, 'dict'):
-                        # Pydantic v1 model
                         item_dict = item.dict()
                     elif isinstance(item, dict):
                         item_dict = item
                     else:
-                        # Try to access as object attributes
-                        item_dict = {
-                            'id': getattr(item, 'id', None),
-                            'barcode': getattr(item, 'barcode', None),
-                            'name': getattr(item, 'name', None),
-                            'serving': getattr(item, 'serving', None),
-                            'calories': getattr(item, 'calories', None),
-                            'macros': getattr(item, 'macros', {})
-                        }
+                        item_dict = {'id': getattr(item, 'id', None), 'barcode': getattr(item, 'barcode', None),
+                            'name': getattr(item, 'name', None), 'serving': getattr(item, 'serving', None),
+                            'calories': getattr(item, 'calories', None), 'macros': getattr(item, 'macros', {})}
 
                     macros_data = item_dict.get('macros', {})
                     if hasattr(macros_data, 'model_dump'):
@@ -122,25 +92,15 @@ class TrackingRepository:
                     macros_json = json.dumps(macros_dict)
 
                     cursor.execute(
-                        """
-                        INSERT INTO meal_items (id, meal_id, barcode, name, serving, calories, macros)
-                        VALUES (?, ?, ?, ?, ?, ?, ?)
-                        """,
-                        (
-                            item_dict.get('id'),
-                            meal.id,
-                            item_dict.get('barcode'),
-                            item_dict.get('name'),
-                            item_dict.get('serving'),
-                            item_dict.get('calories'),
-                            macros_json
-                        )
+                        """INSERT INTO meal_items (id, meal_id, barcode, name, serving, calories, macros)
+                        VALUES (?, ?, ?, ?, ?, ?, ?)""",
+                        (item_dict.get('id'), meal.id, item_dict.get('barcode'), item_dict.get('name'),
+                         item_dict.get('serving'), item_dict.get('calories'), macros_json)
                     )
 
                 conn.commit()
                 self.logger.info(f"Meal created: {meal.id}")
                 return meal
-
             except Exception as e:
                 conn.rollback()
                 self.logger.error(f"Failed to create meal: {e}")
@@ -150,8 +110,6 @@ class TrackingRepository:
         """Get meal with all its items"""
         async with connection_manager.get_connection() as conn:
             cursor = conn.cursor()
-
-            # Get meal
             cursor.execute(
                 "SELECT id, user_id, meal_name, total_calories, photo_url, timestamp, created_at FROM meals WHERE id = ?",
                 (meal_id,)
@@ -160,11 +118,7 @@ class TrackingRepository:
             if not row:
                 return None
 
-            # Get items and parse macros from JSON string to dict
-            cursor.execute(
-                "SELECT id, barcode, name, serving, calories, macros FROM meal_items WHERE meal_id = ?",
-                (meal_id,)
-            )
+            cursor.execute("SELECT id, barcode, name, serving, calories, macros FROM meal_items WHERE meal_id = ?", (meal_id,))
             items_rows = cursor.fetchall()
             items = []
             for item_row in items_rows:
@@ -177,12 +131,8 @@ class TrackingRepository:
                 items.append(item_dict)
 
             return MealTrackingEntity(
-                meal_id=row['id'],
-                user_id=row['user_id'],
-                meal_name=row['meal_name'],
-                total_calories=row['total_calories'],
-                items=items,
-                photo_url=row['photo_url'],
+                meal_id=row['id'], user_id=row['user_id'], meal_name=row['meal_name'],
+                total_calories=row['total_calories'], items=items, photo_url=row['photo_url'],
                 timestamp=datetime.fromisoformat(row['timestamp']) if row['timestamp'] else None,
                 created_at=datetime.fromisoformat(row['created_at']) if row['created_at'] else None
             )
@@ -191,29 +141,17 @@ class TrackingRepository:
         """Get all meals for a user with pagination"""
         async with connection_manager.get_connection() as conn:
             cursor = conn.cursor()
-
             cursor.execute(
-                """
-                SELECT id, user_id, meal_name, total_calories, photo_url, timestamp, created_at
-                FROM meals
-                WHERE user_id = ?
-                ORDER BY timestamp DESC
-                LIMIT ? OFFSET ?
-                """,
+                """SELECT id, user_id, meal_name, total_calories, photo_url, timestamp, created_at
+                FROM meals WHERE user_id = ? ORDER BY timestamp DESC LIMIT ? OFFSET ?""",
                 (user_id, limit, offset)
             )
             rows = cursor.fetchall()
 
             meals = []
             for row in rows:
-                # Get items for this meal
-                cursor.execute(
-                    "SELECT id, barcode, name, serving, calories, macros FROM meal_items WHERE meal_id = ?",
-                    (row['id'],)
-                )
+                cursor.execute("SELECT id, barcode, name, serving, calories, macros FROM meal_items WHERE meal_id = ?", (row['id'],))
                 items_rows = cursor.fetchall()
-
-                # Parse macros from JSON string to dict - Task: Fix JSON deserialization
                 items = []
                 for item_row in items_rows:
                     item_dict = dict(item_row)
@@ -224,29 +162,20 @@ class TrackingRepository:
                             item_dict['macros'] = {}
                     items.append(item_dict)
 
-                meal = MealTrackingEntity(
-                    meal_id=row['id'],
-                    user_id=row['user_id'],
-                    meal_name=row['meal_name'],
-                    total_calories=row['total_calories'],
-                    items=items,
-                    photo_url=row['photo_url'],
+                meals.append(MealTrackingEntity(
+                    meal_id=row['id'], user_id=row['user_id'], meal_name=row['meal_name'],
+                    total_calories=row['total_calories'], items=items, photo_url=row['photo_url'],
                     timestamp=datetime.fromisoformat(row['timestamp']) if row['timestamp'] else None,
                     created_at=datetime.fromisoformat(row['created_at']) if row['created_at'] else None
-                )
-                meals.append(meal)
-
+                ))
             return meals
 
     async def delete_meal(self, meal_id: str) -> bool:
         """Delete meal and its items"""
         async with connection_manager.get_connection() as conn:
             cursor = conn.cursor()
-
             try:
-                # Delete items first
                 cursor.execute("DELETE FROM meal_items WHERE meal_id = ?", (meal_id,))
-                # Then delete meal
                 cursor.execute("DELETE FROM meals WHERE id = ?", (meal_id,))
                 conn.commit()
                 self.logger.info(f"Meal deleted: {meal_id}")
@@ -256,31 +185,73 @@ class TrackingRepository:
                 self.logger.error(f"Failed to delete meal: {e}")
                 raise
 
+    async def update_meal(
+        self, meal_id: str, user_id: str, meal_name: str, items: List[Dict[str, Any]],
+        total_calories: float, photo_url: Optional[str] = None, timestamp: Optional[str] = None,
+    ) -> bool:
+        """Update an existing meal with new data."""
+        async with connection_manager.get_connection() as conn:
+            cursor = conn.cursor()
+            try:
+                cursor.execute("DELETE FROM meal_items WHERE meal_id = ?", (meal_id,))
+                timestamp_str = timestamp or datetime.now().isoformat()
+                cursor.execute(
+                    """UPDATE meals SET meal_name = ?, total_calories = ?, photo_url = ?, timestamp = ?
+                    WHERE id = ? AND user_id = ?""",
+                    (meal_name, total_calories, photo_url, timestamp_str, meal_id, user_id)
+                )
+
+                for item in items:
+                    if hasattr(item, 'model_dump'):
+                        item_dict = item.model_dump()
+                    elif hasattr(item, 'dict'):
+                        item_dict = item.dict()
+                    elif isinstance(item, dict):
+                        item_dict = item
+                    else:
+                        item_dict = {'id': getattr(item, 'id', None), 'barcode': getattr(item, 'barcode', None),
+                            'name': getattr(item, 'name', None), 'serving': getattr(item, 'serving', None),
+                            'calories': getattr(item, 'calories', None), 'macros': getattr(item, 'macros', {})}
+
+                    macros_data = item_dict.get('macros', {})
+                    if hasattr(macros_data, 'model_dump'):
+                        macros_dict = macros_data.model_dump()
+                    elif hasattr(macros_data, 'dict'):
+                        macros_dict = macros_data.dict()
+                    elif isinstance(macros_data, dict):
+                        macros_dict = macros_data
+                    else:
+                        macros_dict = {}
+
+                    macros_json = json.dumps(macros_dict)
+                    cursor.execute(
+                        """INSERT INTO meal_items (id, meal_id, barcode, name, serving, calories, macros)
+                        VALUES (?, ?, ?, ?, ?, ?, ?)""",
+                        (item_dict.get('id'), meal_id, item_dict.get('barcode'), item_dict.get('name'),
+                         item_dict.get('serving'), item_dict.get('calories'), macros_json)
+                    )
+
+                conn.commit()
+                self.logger.info(f"Meal updated: {meal_id}")
+                return True
+            except Exception as e:
+                conn.rollback()
+                self.logger.error(f"Failed to update meal: {e}")
+                raise
+
     # ===== WEIGHT TRACKING METHODS =====
 
     async def create_weight_entry(self, entry: WeightTrackingEntity) -> WeightTrackingEntity:
         """Create new weight tracking entry"""
         async with connection_manager.get_connection() as conn:
             cursor = conn.cursor()
-
             try:
-                # Convert datetime objects to ISO format strings
                 date_str = entry.date.isoformat() if isinstance(entry.date, datetime) else entry.date
                 created_at_str = entry.created_at.isoformat() if isinstance(entry.created_at, datetime) else entry.created_at
-
                 cursor.execute(
-                    """
-                    INSERT INTO weight_entries (id, user_id, weight, date, photo_url, created_at)
-                    VALUES (?, ?, ?, ?, ?, ?)
-                    """,
-                    (
-                        entry.id,
-                        entry.user_id,
-                        entry.weight,
-                        date_str,
-                        entry.photo_url,
-                        created_at_str
-                    )
+                    """INSERT INTO weight_entries (id, user_id, weight, date, photo_url, created_at)
+                    VALUES (?, ?, ?, ?, ?, ?)""",
+                    (entry.id, entry.user_id, entry.weight, date_str, entry.photo_url, created_at_str)
                 )
                 conn.commit()
                 self.logger.info(f"Weight entry created: {entry.id}")
@@ -295,20 +266,15 @@ class TrackingRepository:
         async with connection_manager.get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute(
-                "SELECT id, user_id, weight, date, photo_url, created_at FROM weight_entries WHERE id = ?",
-                (entry_id,)
+                "SELECT id, user_id, weight, date, photo_url, created_at FROM weight_entries WHERE id = ?", (entry_id,)
             )
             row = cursor.fetchone()
             if not row:
                 return None
-
             return WeightTrackingEntity(
-                entry_id=row['id'],
-                user_id=row['user_id'],
-                weight=row['weight'],
+                entry_id=row['id'], user_id=row['user_id'], weight=row['weight'],
                 date=datetime.fromisoformat(row['date']) if row['date'] else datetime.now(),
-                photo_url=row['photo_url'],
-                created_at=datetime.fromisoformat(row['created_at']) if row['created_at'] else None
+                photo_url=row['photo_url'], created_at=datetime.fromisoformat(row['created_at']) if row['created_at'] else None
             )
 
     async def get_user_weight_entries(self, user_id: str, limit: int = 100, offset: int = 0) -> List[WeightTrackingEntity]:
@@ -316,38 +282,25 @@ class TrackingRepository:
         async with connection_manager.get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute(
-                """
-                SELECT id, user_id, weight, date, photo_url, created_at
-                FROM weight_entries
-                WHERE user_id = ?
-                ORDER BY date DESC
-                LIMIT ? OFFSET ?
-                """,
+                """SELECT id, user_id, weight, date, photo_url, created_at FROM weight_entries
+                WHERE user_id = ? ORDER BY date DESC LIMIT ? OFFSET ?""",
                 (user_id, limit, offset)
             )
             rows = cursor.fetchall()
-
-            return [
-                WeightTrackingEntity(
-                    entry_id=row['id'],
-                    user_id=row['user_id'],
-                    weight=row['weight'],
-                    date=datetime.fromisoformat(row['date']) if row['date'] else datetime.now(),
-                    photo_url=row['photo_url'],
-                    created_at=datetime.fromisoformat(row['created_at']) if row['created_at'] else None
-                )
-                for row in rows
-            ]
+            return [WeightTrackingEntity(
+                entry_id=row['id'], user_id=row['user_id'], weight=row['weight'],
+                date=datetime.fromisoformat(row['date']) if row['date'] else datetime.now(),
+                photo_url=row['photo_url'], created_at=datetime.fromisoformat(row['created_at']) if row['created_at'] else None
+            ) for row in rows]
 
     async def get_user_weight_history(self, user_id: str, limit: int = 100) -> List[WeightTrackingEntity]:
-        """Alias for get_user_weight_entries for backward compatibility - Task: Add missing method"""
+        """Alias for get_user_weight_entries for backward compatibility"""
         return await self.get_user_weight_entries(user_id, limit)
 
     async def delete_weight_entry(self, entry_id: str) -> bool:
         """Delete weight entry"""
         async with connection_manager.get_connection() as conn:
             cursor = conn.cursor()
-
             try:
                 cursor.execute("DELETE FROM weight_entries WHERE id = ?", (entry_id,))
                 conn.commit()
@@ -373,3 +326,4 @@ class TrackingRepository:
             cursor = conn.cursor()
             cursor.execute("SELECT COUNT(*) FROM weight_entries WHERE user_id = ?", (user_id,))
             return cursor.fetchone()[0]
+

@@ -9,6 +9,8 @@ export type ScreenType =
   | 'plan'
   | 'track'
   | 'meal-log'
+  | 'weight'
+  | 'photos'
   | 'recommendations'
   | 'recipes'
   | 'recipe-generation'
@@ -102,7 +104,6 @@ export interface NavigationEvent {
   metadata?: Record<string, any>;
 }
 
-// Feature flag types
 export interface FeatureFlagConfig {
   barcodeScanner: boolean;
   uploadLabelFeature: boolean;
@@ -112,7 +113,6 @@ export interface FeatureFlagConfig {
   reminderNotifications: boolean;
 }
 
-// Navigation hook return types
 export interface UseNavigationReturn {
   navigate: (screen: ScreenType, context?: NavigationContext) => void;
   goBack: () => void;
@@ -132,7 +132,6 @@ export interface UseScreenStateReturn {
   goBack: () => void;
 }
 
-// Component prop types
 export interface ScreenProps {
   onBackPress?: () => void;
   navigationContext?: NavigationContext;

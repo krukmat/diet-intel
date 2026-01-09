@@ -124,16 +124,33 @@ export const useMealLog = (userId?: string): UseMealLogReturn => {
 
   // Update existing meal
   const updateMeal = useCallback(async (id: string, formData: Partial<MealFormData>) => {
+    // Create a new update object to avoid readonly property assignment errors
     const updateData: UpdateMealRequest = {};
 
-    if (formData.name !== undefined) updateData.name = formData.name;
-    if (formData.description !== undefined) updateData.description = formData.description;
-    if (formData.calories !== undefined) updateData.calories = parseFloat(formData.calories);
-    if (formData.protein_g !== undefined) updateData.protein_g = parseFloat(formData.protein_g);
-    if (formData.fat_g !== undefined) updateData.fat_g = parseFloat(formData.fat_g);
-    if (formData.carbs_g !== undefined) updateData.carbs_g = parseFloat(formData.carbs_g);
-    if (formData.mealType !== undefined) updateData.mealType = formData.mealType;
-    if (formData.photoUri !== undefined) updateData.photoUrl = formData.photoUri;
+    if (formData.name !== undefined) {
+      updateData.name = formData.name;
+    }
+    if (formData.description !== undefined) {
+      updateData.description = formData.description;
+    }
+    if (formData.calories !== undefined) {
+      updateData.calories = parseFloat(formData.calories);
+    }
+    if (formData.protein_g !== undefined) {
+      updateData.protein_g = parseFloat(formData.protein_g);
+    }
+    if (formData.fat_g !== undefined) {
+      updateData.fat_g = parseFloat(formData.fat_g);
+    }
+    if (formData.carbs_g !== undefined) {
+      updateData.carbs_g = parseFloat(formData.carbs_g);
+    }
+    if (formData.mealType !== undefined) {
+      updateData.mealType = formData.mealType;
+    }
+    if (formData.photoUri !== undefined) {
+      updateData.photoUrl = formData.photoUri;
+    }
 
     setLastOperation({ type: 'update', params: { id, data: updateData } });
 

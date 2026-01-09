@@ -36,27 +36,27 @@ export interface MealLogState {
 }
 
 export interface CreateMealRequest {
-  readonly name: string;
-  readonly description?: string;
-  readonly calories: number;
-  readonly protein_g: number;
-  readonly fat_g: number;
-  readonly carbs_g: number;
-  readonly mealType: MealType;
-  readonly photoUrl?: string;
-  readonly barcode?: string;
-  readonly source: MealSource;
+  name: string;
+  description?: string;
+  calories: number;
+  protein_g: number;
+  fat_g: number;
+  carbs_g: number;
+  mealType: MealType;
+  photoUrl?: string;
+  barcode?: string;
+  source: MealSource;
 }
 
 export interface UpdateMealRequest {
-  readonly name?: string;
-  readonly description?: string;
-  readonly calories?: number;
-  readonly protein_g?: number;
-  readonly fat_g?: number;
-  readonly carbs_g?: number;
-  readonly mealType?: MealType;
-  readonly photoUrl?: string;
+  name?: string;
+  description?: string;
+  calories?: number;
+  protein_g?: number;
+  fat_g?: number;
+  carbs_g?: number;
+  mealType?: MealType;
+  photoUrl?: string;
 }
 
 export interface MealLogFilters {
