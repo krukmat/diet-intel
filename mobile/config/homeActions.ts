@@ -16,7 +16,7 @@ export const HOME_ACTIONS: HomeActionDefinition[] = [
     id: 'logMeal',
     labelKey: 'home.actions.logMeal',
     group: 'primary',
-    target: 'scanner',
+    target: 'upload',
     featureFlags: ['barcodeScanner', 'uploadLabelFeature'],
     featureMode: 'any',
   },

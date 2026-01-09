@@ -36,7 +36,7 @@ const DEFAULT_FEATURE_TOGGLES: FeatureToggle = {
   trackingFeature: true,
   barcodeScanner: true,
   reminderNotifications: true,
-  intelligentFlowFeature: false,
+  intelligentFlowFeature: true,
 };
 
 class DeveloperSettingsService {

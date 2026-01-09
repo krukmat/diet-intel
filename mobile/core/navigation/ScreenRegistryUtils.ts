@@ -89,7 +89,8 @@ export const loadScreenComponent = async (screen: ScreenType): Promise<any> => {
     'blocked-list': () => Promise.resolve(require('../../screens/BlockedListScreen')),
     'blocked-by': () => Promise.resolve(require('../../screens/BlockedByScreen')),
     profile: () => Promise.resolve(require('../../screens/ProfileScreen')),
-    'profile-edit': () => Promise.resolve(require('../../screens/ProfileEditScreen'))
+    'profile-edit': () => Promise.resolve(require('../../screens/ProfileEditScreen')),
+    rewards: () => Promise.resolve(require('../../screens/RewardsScreen'))
   };
 
   const loader = componentMap[screen];
