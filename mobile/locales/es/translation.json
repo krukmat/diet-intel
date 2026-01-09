@@ -48,6 +48,8 @@
     },
     "actions": {
       "logMeal": "🍽️ Registrar comida",
+      "weight": "⚖️ Peso",
+      "photos": "🖼️ Fotos",
       "aiPlan": "🤖 Plan IA",
       "progress": "📈 Progreso",
       "explore": "🧭 Explorar",

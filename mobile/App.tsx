@@ -176,16 +176,19 @@ function MainApp({ user, onLogout }: { user: any; onLogout: () => void }) {
         toolActions={toolActions.map(action => ({
           id: action.id,
           label: t(action.labelKey),
+          icon: action.icon,
           onPress: () => handleHomeActionPress(action),
         }))}
         primaryActions={primaryActions.map(action => ({
           id: action.id,
           label: t(action.labelKey),
+          icon: action.icon,
           onPress: () => handleHomeActionPress(action),
         }))}
         secondaryActions={secondaryActions.map(action => ({
           id: action.id,
           label: t(action.labelKey),
+          icon: action.icon,
           onPress: () => handleHomeActionPress(action),
         }))}
         progressTitle={t('home.sections.progress', 'Progress')}

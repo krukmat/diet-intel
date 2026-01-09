@@ -17,6 +17,8 @@ import IntelligentFlowScreen from '../../screens/IntelligentFlowScreen';
 import { ProfileScreen } from '../../screens/ProfileScreen';
 import { ProfileEditScreen } from '../../screens/ProfileEditScreen';
 import { DiscoverFeedScreen } from '../../screens/DiscoverFeedScreen';
+import { WeightScreen } from '../../screens/WeightScreen';
+import { PhotoLogsScreen } from '../../screens/PhotoLogsScreen';
 import RewardsScreen from '../../screens/RewardsScreen';
 
 interface RenderScreenParams {
@@ -154,6 +156,21 @@ const renderShoppingOptimization: ScreenRenderer = ({ setCurrentScreen, navigati
   />
 );
 
+
+const renderWeight: ScreenRenderer = ({ setCurrentScreen }) => {
+  const handleBack = () => setCurrentScreen("scanner");
+  return (
+    <WeightScreen onBackPress={handleBack} />
+  );
+};
+
+const renderPhotos: ScreenRenderer = ({ setCurrentScreen }) => {
+  const handleBack = () => setCurrentScreen("scanner");
+  return (
+    <PhotoLogsScreen onBackPress={handleBack} />
+  );
+};
+
 const renderRewards: ScreenRenderer = ({ setCurrentScreen }) => (
   <RewardsScreen navigation={{ goBack: () => setCurrentScreen('scanner') }} />
 );
@@ -175,6 +192,8 @@ const screenRenderers: Partial<Record<ScreenType, ScreenRenderer>> = {
   'recipe-detail': renderRecipeDetail,
   'taste-preferences': renderTastePreferences,
   'shopping-optimization': renderShoppingOptimization,
+  weight: renderWeight,
+  photos: renderPhotos,
   rewards: renderRewards,
 };
 

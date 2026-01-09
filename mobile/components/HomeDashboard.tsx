@@ -3,13 +3,20 @@ import { View, Text, StyleSheet, TouchableOpacity, Platform } from 'react-native
 import { HomePrimaryActions, HomeSecondaryActions, HomeToolActions, HomeProgressCard } from '../shared/ui/components';
 import { LanguageToggle } from './LanguageSwitcher';
 
+interface ActionItem {
+  id: string;
+  label: string;
+  icon?: string;
+  onPress: () => void;
+}
+
 interface HomeDashboardProps {
   title: string;
   subtitle: string;
   version: string;
-  toolActions: Array<{ id: string; label: string; onPress: () => void }>;
-  primaryActions: Array<{ id: string; label: string; onPress: () => void }>;
-  secondaryActions: Array<{ id: string; label: string; onPress: () => void }>;
+  toolActions: ActionItem[];
+  primaryActions: ActionItem[];
+  secondaryActions: ActionItem[];
   progressTitle: string;
   progressDescription: string;
   showDeveloperSettings: boolean;

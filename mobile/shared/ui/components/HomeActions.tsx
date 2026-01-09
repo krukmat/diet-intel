@@ -117,11 +117,13 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
     borderColor: '#E5E5EA',
+    alignItems: 'center',
   },
   primaryLabel: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '600',
     color: '#111827',
+    textAlign: 'center',
   },
   secondaryList: {
     backgroundColor: '#FFFFFF',

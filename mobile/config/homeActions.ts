@@ -7,6 +7,7 @@ export interface HomeActionDefinition {
   labelKey: string;
   group: HomeActionGroup;
   target: string;
+  icon?: string;
   featureFlags?: Array<keyof FeatureToggle>;
   featureMode?: 'any' | 'all';
 }
@@ -17,20 +18,16 @@ export const HOME_ACTIONS: HomeActionDefinition[] = [
     labelKey: 'home.actions.logMeal',
     group: 'primary',
     target: 'upload',
+    icon: '📷',
     featureFlags: ['barcodeScanner', 'uploadLabelFeature'],
     featureMode: 'any',
-  },
-  {
-    id: 'registerMeal',
-    labelKey: 'home.actions.registerMeal',
-    group: 'primary',
-    target: 'meal-log',
   },
   {
     id: 'aiPlan',
     labelKey: 'home.actions.aiPlan',
     group: 'primary',
     target: 'recommendations',
+    icon: '🤖',
     featureFlags: ['mealPlanFeature'],
     featureMode: 'all',
   },
@@ -39,46 +36,58 @@ export const HOME_ACTIONS: HomeActionDefinition[] = [
     labelKey: 'home.actions.progress',
     group: 'primary',
     target: 'track',
+    icon: '📊',
     featureFlags: ['trackingFeature'],
     featureMode: 'all',
   },
   {
-    id: 'explore',
-    labelKey: 'home.actions.explore',
-    group: 'secondary',
-    target: 'discover-feed',
+    id: 'weight',
+    labelKey: 'home.actions.weight',
+    group: 'primary',
+    target: 'weight',
+    icon: '⚖️',
   },
   {
-    id: 'uploadLabel',
-    labelKey: 'navigation.uploadLabel',
-    group: 'secondary',
-    target: 'upload',
-    featureFlags: ['uploadLabelFeature'],
-    featureMode: 'all',
-  },
-  {
-    id: 'vision',
-    labelKey: 'navigation.vision',
-    group: 'secondary',
-    target: 'vision',
+    id: 'photos',
+    labelKey: 'home.actions.photos',
+    group: 'primary',
+    target: 'photos',
+    icon: '🖼️',
   },
   {
     id: 'recipes',
     labelKey: 'navigation.recipes',
     group: 'secondary',
     target: 'recipes',
+    icon: '📖',
+  },
+  {
+    id: 'vision',
+    labelKey: 'navigation.vision',
+    group: 'secondary',
+    target: 'vision',
+    icon: '👁️',
+  },
+  {
+    id: 'explore',
+    labelKey: 'home.actions.explore',
+    group: 'secondary',
+    target: 'discover-feed',
+    icon: '🌍',
   },
   {
     id: 'profile',
     labelKey: 'home.actions.profile',
     group: 'secondary',
     target: 'profile',
+    icon: '👤',
   },
   {
     id: 'gamification',
     labelKey: 'home.actions.gamification',
     group: 'tool',
     target: 'rewards',
+    icon: '🏆',
   },
 ];
 

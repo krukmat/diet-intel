@@ -18,7 +18,11 @@ import {
 import { useWeight } from '../hooks/useWeight';
 import { WeightEntry } from '../types/weight';
 
-export function WeightScreen(): JSX.Element {
+interface WeightScreenProps {
+  onBackPress?: () => void;
+}
+
+export function WeightScreen({ onBackPress }: WeightScreenProps): JSX.Element {
   const {
     entries,
     stats,
@@ -65,19 +69,27 @@ export function WeightScreen(): JSX.Element {
 
   return (
     <View style={styles.container}>
+      <View style={styles.header}>
+        <TouchableOpacity style={styles.backButton} onPress={onBackPress}>
+          <Text style={styles.backButtonText}>🏠</Text>
+        </TouchableOpacity>
+        <Text style={styles.title}>⚖️ Peso</Text>
+        <View style={styles.placeholder} />
+      </View>
+      
       {/* Stats Header */}
       {stats && (
         <View style={styles.statsContainer}>
           <View style={styles.statCard}>
-            <Text style={styles.statLabel}>Current</Text>
+            <Text style={styles.statLabel}>Actual</Text>
             <Text style={styles.statValue}>{stats.currentWeight.toFixed(1)} kg</Text>
           </View>
           <View style={styles.statCard}>
-            <Text style={styles.statLabel}>Starting</Text>
+            <Text style={styles.statLabel}>Inicio</Text>
             <Text style={styles.statValue}>{stats.startingWeight.toFixed(1)} kg</Text>
           </View>
           <View style={styles.statCard}>
-            <Text style={styles.statLabel}>Lost</Text>
+            <Text style={styles.statLabel}>Perdido</Text>
             <Text style={[styles.statValue, stats.totalLost > 0 ? styles.positive : styles.neutral]}>
               {stats.totalLost > 0 ? `-${stats.totalLost.toFixed(1)}` : '+${(-stats.totalLost).toFixed(1)'} kg</Text>
           </View>
@@ -86,11 +98,11 @@ export function WeightScreen(): JSX.Element {
 
       {/* Add Weight Form */}
       <View style={styles.addContainer}>
-        <Text style={styles.sectionTitle}>Add Weight</Text>
+        <Text style={styles.sectionTitle}>Agregar Peso</Text>
         <View style={styles.inputRow}>
           <TextInput
             style={styles.input}
-            placeholder="Weight (kg)"
+            placeholder="Peso (kg)"
             placeholderTextColor="#999"
             keyboardType="numeric"
             value={weightInput}
@@ -104,7 +116,7 @@ export function WeightScreen(): JSX.Element {
             {isAdding ? (
               <ActivityIndicator color="#fff" />
             ) : (
-              <Text style={styles.addButtonText}>Add</Text>
+              <Text style={styles.addButtonText}>Agregar</Text>
             )}
           </TouchableOpacity>
         </View>
@@ -112,14 +124,14 @@ export function WeightScreen(): JSX.Element {
 
       {/* History List */}
       <View style={styles.historyContainer}>
-        <Text style={styles.sectionTitle}>History</Text>
+        <Text style={styles.sectionTitle}>Historial</Text>
         
         {loading && !isAdding && entries.length === 0 ? (
           <ActivityIndicator size="large" color="#4CAF50" style={styles.loader} />
         ) : error ? (
           <Text style={styles.errorText}>{error}</Text>
         ) : entries.length === 0 ? (
-          <Text style={styles.emptyText}>No weight entries yet</Text>
+          <Text style={styles.emptyText}>Sin registros aún</Text>
         ) : (
           <ScrollView style={styles.list}>
             {entries.map((entry: WeightEntry) => (
@@ -144,6 +156,37 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f5f5f5',
+  },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    backgroundColor: '#fff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+  },
+  title: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  backButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#f0f0f0',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  backButtonText: {
+    fontSize: 24,
+    color: '#333',
+    lineHeight: 28,
+  },
+  placeholder: {
+    width: 40,
   },
   statsContainer: {
     flexDirection: 'row',
