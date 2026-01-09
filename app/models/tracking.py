@@ -182,7 +182,7 @@ class DayProgress(BaseModel):
     """Progress for a single nutrient."""
     consumed: float = Field(..., ge=0, description="Amount consumed")
     planned: float = Field(..., ge=0, description="Amount planned")
-    percentage: float = Field(..., ge=0, le=100, description="Percentage of goal achieved")
+    percentage: float = Field(..., ge=0, description="Percentage of goal (can exceed 100% when over-consuming)")
 
 
 class DayProgressSummary(BaseModel):
