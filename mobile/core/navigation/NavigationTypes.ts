@@ -8,6 +8,7 @@ export type ScreenType =
   | 'upload'
   | 'plan'
   | 'track'
+  | 'meal-log'
   | 'recommendations'
   | 'recipes'
   | 'recipe-generation'

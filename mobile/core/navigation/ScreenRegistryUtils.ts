@@ -70,6 +70,7 @@ export const loadScreenComponent = async (screen: ScreenType): Promise<any> => {
     scanner: () => Promise.resolve(require('../../screens/TrackScreen')),
     upload: () => Promise.resolve(require('../../screens/UploadLabel')),
     track: () => Promise.resolve(require('../../screens/TrackScreen')),
+    'meal-log': () => Promise.resolve(require('../../screens/MealLogScreen')),
     plan: () => Promise.resolve(require('../../screens/PlanScreen')),
     recommendations: () => Promise.resolve(require('../../screens/SmartDietScreen')),
     'intelligent-flow': () => Promise.resolve(require('../../screens/IntelligentFlowScreen')),

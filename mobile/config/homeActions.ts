@@ -21,6 +21,12 @@ export const HOME_ACTIONS: HomeActionDefinition[] = [
     featureMode: 'any',
   },
   {
+    id: 'registerMeal',
+    labelKey: 'home.actions.registerMeal',
+    group: 'primary',
+    target: 'meal-log',
+  },
+  {
     id: 'aiPlan',
     labelKey: 'home.actions.aiPlan',
     group: 'primary',
