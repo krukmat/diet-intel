@@ -487,6 +487,239 @@ class TrackingService:
         return logs[:limit]
 
 
+# ============ FASE 1 & 2: Dashboard & Progress Methods ============
+
+    async def get_active_plan(self, user_id: str) -> Optional['PlanProgress']:
+        """
+        Get user's active meal plan.
+        
+        Returns the most recent meal plan for the user.
+        This is a placeholder - full implementation in FASE 2.
+        
+        Args:
+            user_id: User ID to get plan for
+            
+        Returns:
+            PlanProgress object or None if no plan exists
+        """
+        from app.models.tracking import PlanProgress, PlanMealItem
+        
+        try:
+            # Get most recent plan from plan storage
+            from app.services.plan_storage import plan_storage
+            
+            plans = await plan_storage.get_user_plans(user_id, limit=1)
+            
+            if not plans:
+                return None
+            
+            plan = plans[0]
+            
+            # Convert to PlanProgress format
+            meal_items = []
+            for meal in plan.get('meals', []):
+                for item in meal.get('items', []):
+                    meal_items.append(PlanMealItem(
+                        id=item.get('id', str(uuid.uuid4())),
+                        barcode=item.get('barcode', ''),
+                        name=item.get('name', ''),
+                        serving=item.get('serving', '100g'),
+                        calories=item.get('calories', 0),
+                        macros=item.get('macros', {}),
+                        meal_type=meal.get('name', 'lunch').lower(),
+                        is_consumed=False
+                    ))
+            
+            return PlanProgress(
+                plan_id=plan.get('id', str(uuid.uuid4())),
+                daily_calorie_target=plan.get('daily_calorie_target', 2000),
+                meals=meal_items,
+                created_at=datetime.fromisoformat(plan.get('created_at', datetime.now().isoformat()))
+            )
+            
+        except Exception as e:
+            logger.error(f"Error getting active plan for user {user_id}: {e}")
+            return None
+
+    async def calculate_day_progress(self, user_id: str) -> 'DayProgressSummary':
+        """
+        Calculate daily nutritional progress.
+        
+        Calculates consumed vs planned macros from meals.
+        This is a placeholder - full implementation in FASE 2.
+        
+        Args:
+            user_id: User ID to calculate progress for
+            
+        Returns:
+            DayProgressSummary with calories, protein, fat, carbs progress
+        """
+        from app.models.tracking import DayProgress, DayProgressSummary
+        
+        try:
+            # Get today's meals
+            meals = await self.get_user_meals(user_id, limit=50)
+            
+            # Calculate totals from meals
+            total_calories = 0
+            total_protein = 0
+            total_fat = 0
+            total_carbs = 0
+            
+            for meal in meals:
+                items = meal.get('items', [])
+                for item in items:
+                    total_calories += item.get('calories', 0)
+                    macros = item.get('macros', {})
+                    total_protein += macros.get('protein', macros.get('protein_g', 0))
+                    total_fat += macros.get('fat', macros.get('fat_g', 0))
+                    total_carbs += macros.get('carbs', macros.get('carbs_g', 0))
+            
+            # Default targets (placeholder - should come from user profile)
+            target_calories = 2000
+            target_protein = 120
+            target_fat = 65
+            target_carbs = 250
+            
+            # Calculate percentages
+            calories_pct = (total_calories / target_calories * 100) if target_calories > 0 else 0
+            protein_pct = (total_protein / target_protein * 100) if target_protein > 0 else 0
+            fat_pct = (total_fat / target_fat * 100) if target_fat > 0 else 0
+            carbs_pct = (total_carbs / target_carbs * 100) if target_carbs > 0 else 0
+            
+            return DayProgressSummary(
+                calories=DayProgress(
+                    consumed=round(total_calories, 1),
+                    planned=target_calories,
+                    percentage=round(calories_pct, 1)
+                ),
+                protein=DayProgress(
+                    consumed=round(total_protein, 1),
+                    planned=target_protein,
+                    percentage=round(protein_pct, 1)
+                ),
+                fat=DayProgress(
+                    consumed=round(total_fat, 1),
+                    planned=target_fat,
+                    percentage=round(fat_pct, 1)
+                ),
+                carbs=DayProgress(
+                    consumed=round(total_carbs, 1),
+                    planned=target_carbs,
+                    percentage=round(carbs_pct, 1)
+                )
+            )
+            
+        except Exception as e:
+            logger.error(f"Error calculating day progress for user {user_id}: {e}")
+            # Return zeros on error
+            return DayProgressSummary(
+                calories=DayProgress(consumed=0, planned=2000, percentage=0),
+                protein=DayProgress(consumed=0, planned=120, percentage=0),
+                fat=DayProgress(consumed=0, planned=65, percentage=0),
+                carbs=DayProgress(consumed=0, planned=250, percentage=0)
+            )
+
+    async def get_consumed_plan_items(self, user_id: str) -> List[str]:
+        """
+        Get IDs of plan items that have been consumed.
+        
+        Returns a list of item IDs marked as consumed.
+        This is a placeholder - full implementation in FASE 3.
+        
+        Args:
+            user_id: User ID to get consumed items for
+            
+        Returns:
+            List of consumed item IDs
+        """
+        try:
+            # Get from cache first
+            cache_key = f"consumed_plan_items_{user_id}"
+            cached = await self.repository.cache.get(cache_key)
+            
+            if cached and isinstance(cached, list):
+                return cached
+            
+            return []
+            
+        except Exception as e:
+            logger.error(f"Error getting consumed plan items for user {user_id}: {e}")
+            return []
+
+    async def consume_plan_item(
+        self, user_id: str, item_id: str, consumed_at: str
+    ) -> Dict[str, Any]:
+        """
+        Mark a meal plan item as consumed.
+        
+        This creates a meal entry from the plan item and updates progress.
+        This is a placeholder - full implementation in FASE 3.
+        
+        Args:
+            user_id: User ID
+            item_id: ID of the plan item to mark as consumed
+            consumed_at: ISO timestamp when item was consumed
+            
+        Returns:
+            Dict with success status, message, and updated progress
+        """
+        try:
+            # Get the active plan
+            active_plan = await self.get_active_plan(user_id)
+            
+            if not active_plan:
+                return {
+                    "success": False,
+                    "message": "No active meal plan found",
+                    "item_id": item_id
+                }
+            
+            # Find the item in the plan
+            item_found = False
+            item_data = None
+            for meal in active_plan.meals:
+                if meal.id == item_id:
+                    item_found = True
+                    item_data = meal
+                    break
+            
+            if not item_found:
+                return {
+                    "success": False,
+                    "message": f"Item {item_id} not found in plan",
+                    "item_id": item_id
+                }
+            
+            # Mark item as consumed in cache
+            cache_key = f"consumed_plan_items_{user_id}"
+            consumed_items = await self.get_consumed_plan_items(user_id)
+            
+            if item_id not in consumed_items:
+                consumed_items.append(item_id)
+                await self.repository.cache.set(cache_key, consumed_items, ttl=24 * 3600)
+            
+            # Calculate updated progress
+            updated_progress = await self.calculate_day_progress(user_id)
+            
+            logger.info(f"User {user_id} consumed plan item {item_id}")
+            
+            return {
+                "success": True,
+                "message": f"Item '{item_data.name}' marked as consumed",
+                "item_id": item_id,
+                "updated_progress": updated_progress
+            }
+            
+        except Exception as e:
+            logger.error(f"Error consuming plan item {item_id} for user {user_id}: {e}")
+            return {
+                "success": False,
+                "message": f"Error: {str(e)}",
+                "item_id": item_id
+            }
+
+
 # Global service instance - Phase 2 Batch 8 & Task 2.1.3: TrackingService
 # Task 2.1.3: Now uses TrackingRepository instead of DatabaseService
 tracking_service = TrackingService()

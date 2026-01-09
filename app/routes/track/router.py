@@ -22,6 +22,13 @@ from app.models.tracking import (
     WeightHistoryResponse,
     PhotoLogsResponse,
     MealItem,
+    DayDashboardResponse,
+    DayProgress,
+    DayProgressSummary,
+    PlanProgress,
+    PlanMealItem,
+    ConsumePlanItemRequest,
+    ConsumePlanItemResponse,
 )
 from app.services.cache import cache_service
 from app.repositories.tracking_repository import TrackingRepository
@@ -297,3 +304,84 @@ async def delete_meal(req: Request, meal_id: str):
         raise
     except Exception as e:
         raise handle_track_error("delete meal", e)
+
+
+# ============ FASE 1: Dashboard Endpoints ============
+
+@router.get("/dashboard", response_model=DayDashboardResponse)
+async def get_day_dashboard(req: Request):
+    """
+    Get daily dashboard with meals consumed, active plan, and progress.
+    
+    Returns:
+        - consumed_meals: Meals consumed today
+        - active_plan: User's active meal plan (if any)
+        - progress: Nutritional progress (calories, protein, fat, carbs)
+        - consumed_items: IDs of plan items already consumed
+    """
+    try:
+        user_id = await get_session_user_id(req)
+        log_operation("Getting day dashboard", user_id)
+        
+        # Get meals consumed today
+        meals_raw = await tracking_service.get_user_meals(user_id, limit=50)
+        meals_response = build_meal_history_response(meals_raw)
+        
+        # Get active meal plan (placeholder - will be implemented in FASE 2)
+        active_plan = await tracking_service.get_active_plan(user_id)
+        
+        # Calculate progress (placeholder - will be implemented in FASE 2)
+        progress = await tracking_service.calculate_day_progress(user_id)
+        
+        # Get consumed items from plan (placeholder)
+        consumed_items = await tracking_service.get_consumed_plan_items(user_id)
+        
+        # Build response
+        response = DayDashboardResponse(
+            consumed_meals=meals_response.meals,
+            meal_count=meals_response.count,
+            active_plan=active_plan,
+            progress=progress,
+            consumed_items=consumed_items,
+            date=datetime.now().strftime("%Y-%m-%d")
+        )
+        
+        log_operation("Got dashboard", user_id, f"meals={response.meal_count}")
+        return response
+        
+    except Exception as e:
+        raise handle_track_error("get day dashboard", e)
+
+
+@router.post("/plan-item/{item_id}/consume", response_model=ConsumePlanItemResponse)
+async def consume_plan_item(req: Request, item_id: str, request_data: ConsumePlanItemRequest):
+    """
+    Mark a meal plan item as consumed.
+    
+    This creates a meal entry from the plan item and updates progress.
+    """
+    try:
+        user_id = await get_session_user_id(req)
+        log_operation("Consuming plan item", user_id, item_id)
+        
+        # Consume the plan item (placeholder - will be implemented in FASE 3)
+        result = await tracking_service.consume_plan_item(user_id, item_id, request_data.consumed_at)
+        
+        if result["success"]:
+            log_operation("Consumed plan item", user_id, item_id)
+            return ConsumePlanItemResponse(
+                success=True,
+                item_id=item_id,
+                message="Item marked as consumed",
+                updated_progress=result.get("updated_progress")
+            )
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=result.get("message", "Failed to consume item")
+            )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise handle_track_error("consume plan item", e)

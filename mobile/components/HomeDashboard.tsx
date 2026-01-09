@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Platform } from 'react-native';
-import { HomePrimaryActions, HomeSecondaryActions, HomeToolActions, HomeProgressCard } from '../shared/ui/components';
+import { HomePrimaryActions, HomeSecondaryActions, HomeToolActions } from '../shared/ui/components';
 import { LanguageToggle } from './LanguageSwitcher';
 
 interface ActionItem {
@@ -71,7 +71,6 @@ export default function HomeDashboard({
       </View>
 
       <View style={styles.navigationSection}>
-        <HomeProgressCard title={progressTitle} description={progressDescription} />
         <HomePrimaryActions title=" " actions={primaryActions} />
         <HomeSecondaryActions title=" " actions={secondaryActions} />
       </View>
