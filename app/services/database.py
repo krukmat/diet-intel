@@ -462,6 +462,10 @@ class DatabaseService:
                     expires_at TIMESTAMP
                 )
             """)
+            cursor.execute("PRAGMA table_info(meal_plans)")
+            meal_plan_columns = {row[1] for row in cursor.fetchall()}
+            if "is_active" not in meal_plan_columns:
+                cursor.execute("ALTER TABLE meal_plans ADD COLUMN is_active BOOLEAN DEFAULT FALSE")
             
             # Analytics tables for 100% database integration
             # User product lookup analytics

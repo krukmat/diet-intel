@@ -13,6 +13,7 @@ jest.mock('../../services/ApiService', () => ({
     customizeMealPlan: jest.fn(),
     getProductByBarcode: jest.fn(),
     searchProduct: jest.fn(),
+    getDashboard: jest.fn(),
   },
 }));
 
@@ -40,6 +41,7 @@ describe('PlanScreen', () => {
   const getUserPlansMock = apiService.getUserPlans as jest.Mock;
   const setPlanActiveMock = apiService.setPlanActive as jest.Mock;
   const customizeMealPlanMock = apiService.customizeMealPlan as jest.Mock;
+  const getDashboardMock = apiService.getDashboard as jest.Mock;
   const storeCurrentMealPlanIdMock = storeCurrentMealPlanId as jest.Mock;
   const alertSpy = jest.spyOn(Alert, 'alert');
 
@@ -111,6 +113,16 @@ describe('PlanScreen', () => {
         is_active: true,
       },
     });
+    getDashboardMock.mockResolvedValue({
+      data: {
+        progress: {
+          calories: { consumed: 900, planned: 1800, percentage: 50 },
+          protein: { consumed: 60, planned: 120, percentage: 50 },
+          fat: { consumed: 30, planned: 60, percentage: 50 },
+          carbs: { consumed: 100, planned: 200, percentage: 50 },
+        },
+      },
+    });
   });
 
   it('renders plan list with active state', async () => {
@@ -161,6 +173,7 @@ describe('PlanScreen', () => {
     generateMealPlanMock.mockReturnValueOnce(pendingPlan);
 
     const { findByText } = render(<PlanScreen onBackPress={jest.fn()} />);
+    fireEvent.press(await findByText('plan.generateNewPlan', { exact: false }));
     expect(await findByText('plan.generating')).toBeTruthy();
 
     resolvePlan({ data: sampleDailyPlan });
@@ -176,7 +189,8 @@ describe('PlanScreen', () => {
 
     const { findByText } = render(<PlanScreen onBackPress={jest.fn()} />);
 
-    const retryButton = await findByText('plan.retry');
+    fireEvent.press(await findByText('plan.generateNewPlan', { exact: false }));
+    const retryButton = await findByText('plan.generateNewPlan', { exact: false });
     fireEvent.press(retryButton);
 
     await waitFor(() => {
@@ -190,6 +204,7 @@ describe('PlanScreen', () => {
       <PlanScreen onBackPress={jest.fn()} navigateToSmartDiet={navigateToSmartDiet} />
     );
 
+    fireEvent.press(await findByText('plan.generateNewPlan', { exact: false }));
     const optimizeButton = await findByText('plan.optimize.button', { exact: false });
     fireEvent.press(optimizeButton);
 
@@ -205,6 +220,7 @@ describe('PlanScreen', () => {
     });
 
     const { findByText } = render(<PlanScreen onBackPress={jest.fn()} />);
+    fireEvent.press(await findByText('plan.generateNewPlan', { exact: false }));
     const optimizeButton = await findByText('plan.optimize.button', { exact: false });
     fireEvent.press(optimizeButton);
 
@@ -220,6 +236,8 @@ describe('PlanScreen', () => {
       <PlanScreen onBackPress={jest.fn()} />
     );
 
+    fireEvent.press(await findByText('plan.generateNewPlan', { exact: false }));
+    await findByText(/Breakfast/);
     const customizeButtons = await findAllByText('plan.customize');
     fireEvent.press(customizeButtons[0]);
 
@@ -245,6 +263,8 @@ describe('PlanScreen', () => {
       <PlanScreen onBackPress={jest.fn()} />
     );
 
+    fireEvent.press(await findByText('plan.generateNewPlan', { exact: false }));
+    await findByText(/Breakfast/);
     const customizeButtons = await findAllByText('plan.customize');
     fireEvent.press(customizeButtons[0]);
 
@@ -266,7 +286,7 @@ describe('PlanScreen', () => {
 
     fireEvent.press(await findByText('plan.generateNewPlan', { exact: false }));
     await waitFor(() => {
-      expect(generateMealPlanMock).toHaveBeenCalledTimes(2);
+      expect(generateMealPlanMock).toHaveBeenCalledTimes(1);
     });
   });
 
@@ -300,7 +320,8 @@ describe('PlanScreen', () => {
     const consoleSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
     storeCurrentMealPlanIdMock.mockRejectedValueOnce(new Error('store failed'));
 
-    render(<PlanScreen onBackPress={jest.fn()} />);
+    const { findByText } = render(<PlanScreen onBackPress={jest.fn()} />);
+    fireEvent.press(await findByText('plan.generateNewPlan', { exact: false }));
 
     await waitFor(() => {
       expect(consoleSpy).toHaveBeenCalledWith(
@@ -316,6 +337,7 @@ describe('PlanScreen', () => {
       <PlanScreen onBackPress={jest.fn()} />
     );
 
+    fireEvent.press(await findByText('plan.generateNewPlan', { exact: false }));
     const customizeButtons = await findAllByText('plan.customize');
     fireEvent.press(customizeButtons[0]);
 

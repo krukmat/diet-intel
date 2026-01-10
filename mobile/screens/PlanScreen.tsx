@@ -346,10 +346,11 @@ export const CustomizeModal: React.FC<CustomizeModalProps> = ({
 
 interface PlanScreenProps {
   onBackPress: () => void;
+  onViewPlan?: (planId: string) => void;
   navigateToSmartDiet?: (context?: { planId?: string }) => void;
 }
 
-export default function PlanScreen({ onBackPress, navigateToSmartDiet }: PlanScreenProps) {
+export default function PlanScreen({ onBackPress, onViewPlan, navigateToSmartDiet }: PlanScreenProps) {
   const { t } = useTranslation();
   const [dailyPlan, setDailyPlan] = useState<DailyPlan | null>(null);
   const [loading, setLoading] = useState(false);
@@ -372,12 +373,11 @@ export default function PlanScreen({ onBackPress, navigateToSmartDiet }: PlanScr
     mealIndex: -1,
   });
   
-  // Mock consumed values for progress tracking
-  const [consumed] = useState({
-    calories: 850,
-    protein: 35,
-    fat: 25,
-    carbs: 120,
+  const [consumed, setConsumed] = useState({
+    calories: 0,
+    protein: 0,
+    fat: 0,
+    carbs: 0,
   });
 
   const mockUserProfile: UserProfile = {
@@ -400,6 +400,11 @@ export default function PlanScreen({ onBackPress, navigateToSmartDiet }: PlanScr
         dailyCalorieTarget: plan.daily_calorie_target ?? 0,
       }));
       setPlanList(plans);
+      const activePlan = (response.data || []).find((plan: any) => plan.is_active);
+      if (activePlan?.plan_id && activePlan?.meals && activePlan?.metrics) {
+        setDailyPlan(activePlan);
+        setCurrentPlanId(activePlan.plan_id);
+      }
     } catch (error) {
       console.error('Plan list fetch failed:', error);
     } finally {
@@ -407,9 +412,28 @@ export default function PlanScreen({ onBackPress, navigateToSmartDiet }: PlanScr
     }
   }, []);
 
+  const fetchDashboard = useCallback(async () => {
+    try {
+      const response = await apiService.getDashboard();
+      const progress = response.data?.progress;
+      setConsumed({
+        calories: progress?.calories?.consumed ?? 0,
+        protein: progress?.protein?.consumed ?? 0,
+        fat: progress?.fat?.consumed ?? 0,
+        carbs: progress?.carbs?.consumed ?? 0,
+      });
+    } catch (error) {
+      console.error('Dashboard fetch failed:', error);
+    }
+  }, []);
+
   useEffect(() => {
     fetchPlans();
   }, [fetchPlans]);
+
+  useEffect(() => {
+    fetchDashboard();
+  }, [fetchDashboard, currentPlanId]);
 
   const togglePlanActive = useCallback(
     async (planId: string, currentlyActive: boolean) => {
@@ -431,10 +455,6 @@ export default function PlanScreen({ onBackPress, navigateToSmartDiet }: PlanScr
     },
     [currentPlanId, fetchPlans, t]
   );
-
-  useEffect(() => {
-    generatePlan();
-  }, []);
 
   const handleOptimizePlan = () => {
     if (navigateToSmartDiet && currentPlanId) {
@@ -570,30 +590,6 @@ export default function PlanScreen({ onBackPress, navigateToSmartDiet }: PlanScr
     </View>
   );
 
-  if (loading) {
-    return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#007AFF" />
-          <Text style={styles.loadingText}>{t('plan.generating')}</Text>
-        </View>
-      </SafeAreaView>
-    );
-  }
-
-  if (!dailyPlan) {
-    return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.errorContainer}>
-          <Text style={styles.errorText}>{t('plan.failed')}</Text>
-          <TouchableOpacity style={styles.retryButton} onPress={generatePlan}>
-            <Text style={styles.retryButtonText}>{t('plan.retry')}</Text>
-          </TouchableOpacity>
-        </View>
-      </SafeAreaView>
-    );
-  }
-
   return (
     <SafeAreaView style={styles.container}>
       <ExpoStatusBar style="light" backgroundColor="#007AFF" />
@@ -604,7 +600,11 @@ export default function PlanScreen({ onBackPress, navigateToSmartDiet }: PlanScr
         </TouchableOpacity>
         <View style={styles.headerContent}>
           <Text style={styles.title}>{t('plan.title')}</Text>
-          <Text style={styles.subtitle}>{t('plan.todaysCalories', { calories: Math.round(dailyPlan.daily_calorie_target) })}</Text>
+          <Text style={styles.subtitle}>
+            {dailyPlan
+              ? t('plan.todaysCalories', { calories: Math.round(dailyPlan.daily_calorie_target) })
+              : t('plan.emptySubtitle')}
+          </Text>
         </View>
         <View style={styles.headerSpacer} />
       </View>
@@ -613,57 +613,76 @@ export default function PlanScreen({ onBackPress, navigateToSmartDiet }: PlanScr
         plans={planList}
         loading={plansLoading}
         onToggleActive={togglePlanActive}
+        onViewPlan={onViewPlan}
       />
 
+      <View style={styles.actionButtonsContainer}>
+        <TouchableOpacity
+          style={[styles.actionButton, styles.optimizeButton, !currentPlanId && styles.disabledButton]}
+          onPress={handleOptimizePlan}
+          disabled={!currentPlanId}
+        >
+          <Text style={[styles.actionButtonText, styles.optimizeButtonText]}>
+            ⚡ {t('plan.optimize.button')}
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity style={[styles.actionButton, styles.regenerateButton]} onPress={generatePlan}>
+          <Text style={[styles.actionButtonText, styles.regenerateButtonText]}>
+            🔄 {t('plan.generateNewPlan')}
+          </Text>
+        </TouchableOpacity>
+      </View>
+
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        {/* Daily Progress */}
-        <View style={styles.progressSection}>
-          <Text style={styles.sectionTitle}>{t('plan.dailyProgress')}</Text>
-          
-          <View style={styles.progressItem}>
-            <Text style={styles.progressLabel}>{t('plan.calories')}</Text>
-            {renderProgressBar(consumed.calories, dailyPlan.metrics.total_calories, '#FF6B6B')}
+        {loading && (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color="#007AFF" />
+            <Text style={styles.loadingText}>{t('plan.generating')}</Text>
           </View>
-          
-          <View style={styles.progressItem}>
-            <Text style={styles.progressLabel}>{t('plan.protein')}</Text>
-            {renderProgressBar(consumed.protein, dailyPlan.metrics.protein_g, '#4ECDC4')}
-          </View>
-          
-          <View style={styles.progressItem}>
-            <Text style={styles.progressLabel}>{t('plan.fat')}</Text>
-            {renderProgressBar(consumed.fat, dailyPlan.metrics.fat_g, '#45B7D1')}
-          </View>
-          
-          <View style={styles.progressItem}>
-            <Text style={styles.progressLabel}>{t('plan.carbs')}</Text>
-            {renderProgressBar(consumed.carbs, dailyPlan.metrics.carbs_g, '#F9CA24')}
-          </View>
-        </View>
+        )}
 
-        {/* Meals */}
-        <View style={styles.mealsSection}>
-          <Text style={styles.sectionTitle}>{t('plan.plannedMeals')}</Text>
-          {dailyPlan.meals.map(renderMeal)}
-        </View>
+        {!loading && !dailyPlan && (
+          <View style={styles.errorContainer}>
+            <Text style={styles.errorText}>{t('plan.empty')}</Text>
+          </View>
+        )}
 
-        <View style={styles.actionButtonsContainer}>
-          <TouchableOpacity 
-            style={[styles.actionButton, styles.optimizeButton, !currentPlanId && styles.disabledButton]} 
-            onPress={handleOptimizePlan}
-            disabled={!currentPlanId}
-          >
-            <Text style={[styles.actionButtonText, styles.optimizeButtonText]}>
-              ⚡ {t('plan.optimize.button')}
-            </Text>
-          </TouchableOpacity>
-          
-          <TouchableOpacity style={[styles.actionButton, styles.regenerateButton]} onPress={generatePlan}>
-            <Text style={[styles.actionButtonText, styles.regenerateButtonText]}>
-              🔄 {t('plan.generateNewPlan')}
-            </Text>
-          </TouchableOpacity>
-        </View>
+        {!loading && dailyPlan && (
+          <>
+            {/* Daily Progress */}
+            <View style={styles.progressSection}>
+              <Text style={styles.sectionTitle}>{t('plan.dailyProgress')}</Text>
+              
+              <View style={styles.progressItem}>
+                <Text style={styles.progressLabel}>{t('plan.calories')}</Text>
+                {renderProgressBar(consumed.calories, dailyPlan.metrics.total_calories, '#FF6B6B')}
+              </View>
+              
+              <View style={styles.progressItem}>
+                <Text style={styles.progressLabel}>{t('plan.protein')}</Text>
+                {renderProgressBar(consumed.protein, dailyPlan.metrics.protein_g, '#4ECDC4')}
+              </View>
+              
+              <View style={styles.progressItem}>
+                <Text style={styles.progressLabel}>{t('plan.fat')}</Text>
+                {renderProgressBar(consumed.fat, dailyPlan.metrics.fat_g, '#45B7D1')}
+              </View>
+              
+              <View style={styles.progressItem}>
+                <Text style={styles.progressLabel}>{t('plan.carbs')}</Text>
+                {renderProgressBar(consumed.carbs, dailyPlan.metrics.carbs_g, '#F9CA24')}
+              </View>
+            </View>
+
+            {/* Meals */}
+            <View style={styles.mealsSection}>
+              <Text style={styles.sectionTitle}>{t('plan.plannedMeals')}</Text>
+              {dailyPlan.meals.map(renderMeal)}
+            </View>
+
+          </>
+        )}
       </ScrollView>
 
       <CustomizeModal

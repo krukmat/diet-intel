@@ -42,4 +42,19 @@ describe('PlanSelectionList', () => {
     fireEvent.press(getByText('Activar'));
     expect(toggleMock).toHaveBeenCalledWith('plan-def456', false);
   });
+
+  it('calls onViewPlan when view button pressed', () => {
+    const viewMock = jest.fn();
+    const { getAllByText } = render(
+      <PlanSelectionList
+        plans={samplePlans}
+        loading={false}
+        onToggleActive={jest.fn()}
+        onViewPlan={viewMock}
+      />
+    );
+
+    fireEvent.press(getAllByText('Ver')[0]);
+    expect(viewMock).toHaveBeenCalledWith('plan-abc123');
+  });
 });

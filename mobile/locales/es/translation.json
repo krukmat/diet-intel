@@ -37,8 +37,8 @@
     "track": "📊 Seguimiento",
     "smartDiet": "🧠 Dieta Inteligente",
     "intelligentFlow": "🤖 Flujo Inteligente",
-    "recipes": "🍳 Recetas",
-    "vision": "👁️ Visión"
+    "recipes": "Recetas",
+    "vision": "Visión"
   },
   "home": {
     "sections": {
@@ -96,8 +96,20 @@
     "plannedMeals": "Comidas Planificadas",
     "generateNewPlan": "🔄 Generar Nuevo Plan",
     "customize": "🔧 Personalizar",
+    "optimize": {
+      "button": "Optimizar plan activo",
+      "title": "Optimizar plan",
+      "noPlan": "Necesitas un plan activo primero"
+    },
     "generating": "Generando tu plan de comidas...",
     "failed": "Error al cargar el plan de comidas",
+    "empty": "Aún no hay un plan. Genera el primero.",
+    "emptySubtitle": "Crea un plan para comenzar",
+    "detail": {
+      "subtitle": "Viendo plan guardado",
+      "loading": "Cargando detalle del plan...",
+      "notFound": "No se encontró el detalle del plan"
+    },
     "retry": "Reintentar",
     "meals": {
       "Breakfast": "Desayuno",

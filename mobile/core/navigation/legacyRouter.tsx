@@ -3,6 +3,7 @@ import { Alert } from 'react-native';
 import type { ScreenType, NavigationContext } from './NavigationTypes';
 import UploadLabel from '../../screens/UploadLabel';
 import PlanScreen from '../../screens/PlanScreen';
+import PlanDetailScreen from '../../screens/PlanDetailScreen';
 import TrackScreen from '../../screens/TrackScreen';
 import SmartDietScreen from '../../screens/SmartDietScreen';
 import VisionLogScreen from '../../screens/VisionLogScreen';
@@ -38,6 +39,7 @@ const renderUpload: ScreenRenderer = ({ setCurrentScreen }) => (
 const renderPlan: ScreenRenderer = ({ setCurrentScreen, navigateToScreen }) => (
   <PlanScreen
     onBackPress={() => setCurrentScreen('scanner')}
+    onViewPlan={(planId: string) => navigateToScreen('plan-detail', { planId })}
     navigateToSmartDiet={(context?: any) =>
       navigateToScreen('recommendations', {
         targetContext: 'optimize',
@@ -45,6 +47,13 @@ const renderPlan: ScreenRenderer = ({ setCurrentScreen, navigateToScreen }) => (
         ...context,
       })
     }
+  />
+);
+
+const renderPlanDetail: ScreenRenderer = ({ setCurrentScreen, navigationContext }) => (
+  <PlanDetailScreen
+    onBackPress={() => setCurrentScreen('plan')}
+    planId={navigationContext.planId}
   />
 );
 
@@ -178,6 +187,7 @@ const renderRewards: ScreenRenderer = ({ setCurrentScreen }) => (
 const screenRenderers: Partial<Record<ScreenType, ScreenRenderer>> = {
   upload: renderUpload,
   plan: renderPlan,
+  'plan-detail': renderPlanDetail,
   track: renderTrack,
   recommendations: renderRecommendations,
   'intelligent-flow': renderIntelligentFlow,

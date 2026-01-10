@@ -197,7 +197,9 @@ export default function SmartDietScreen({ onBackPress, navigationContext, naviga
 
       // Add meal plan ID for optimize context
       if (selectedContext === SmartDietContext.OPTIMIZE) {
-        const currentPlanId = await getCurrentMealPlanId();
+        const navigationPlanId = navigationContext?.planId;
+        const storedPlanId = await getCurrentMealPlanId();
+        const currentPlanId = navigationPlanId ?? storedPlanId;
         console.log('SmartDiet Debug - Retrieved meal plan ID:', currentPlanId);
         if (currentPlanId) {
           console.log('SmartDiet Debug - Adding meal plan ID to options:', currentPlanId);

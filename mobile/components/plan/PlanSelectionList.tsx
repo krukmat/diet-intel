@@ -12,12 +12,14 @@ interface PlanSelectionListProps {
   plans: PlanSummary[];
   loading?: boolean;
   onToggleActive: (planId: string, isActive: boolean) => void;
+  onViewPlan?: (planId: string) => void;
 }
 
 export const PlanSelectionList: React.FC<PlanSelectionListProps> = ({
   plans,
   loading = false,
   onToggleActive,
+  onViewPlan,
 }) => {
   return (
     <View style={styles.container}>
@@ -49,12 +51,22 @@ export const PlanSelectionList: React.FC<PlanSelectionListProps> = ({
                   {plan.dailyCalorieTarget ? `${Math.round(plan.dailyCalorieTarget)} kcal objetivo` : 'Objetivo no disponible'}
                 </Text>
               </View>
-              <TouchableOpacity
-                style={[styles.toggleButton, buttonStyle]}
-                onPress={() => onToggleActive(plan.planId, isActive)}
-              >
-                <Text style={[styles.toggleText, buttonTextStyle]}>{buttonLabel}</Text>
-              </TouchableOpacity>
+              <View style={styles.planActions}>
+                {onViewPlan && (
+                  <TouchableOpacity
+                    style={[styles.actionButton, styles.viewButton]}
+                    onPress={() => onViewPlan(plan.planId)}
+                  >
+                    <Text style={[styles.toggleText, styles.viewButtonText]}>Ver</Text>
+                  </TouchableOpacity>
+                )}
+                <TouchableOpacity
+                  style={[styles.actionButton, buttonStyle]}
+                  onPress={() => onToggleActive(plan.planId, isActive)}
+                >
+                  <Text style={[styles.toggleText, buttonTextStyle]}>{buttonLabel}</Text>
+                </TouchableOpacity>
+              </View>
             </View>
           );
         })}
@@ -107,6 +119,11 @@ const styles = StyleSheet.create({
   planInfo: {
     flex: 1,
   },
+  planActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
   planId: {
     fontWeight: '600',
     color: '#111',
@@ -116,11 +133,15 @@ const styles = StyleSheet.create({
     color: '#777',
     marginTop: 2,
   },
-  toggleButton: {
+  actionButton: {
     paddingVertical: 6,
     paddingHorizontal: 12,
     borderRadius: 10,
     borderWidth: 1,
+  },
+  viewButton: {
+    borderColor: '#CBD5F5',
+    backgroundColor: '#F5F7FF',
   },
   activateButton: {
     borderColor: '#007AFF',
@@ -139,5 +160,8 @@ const styles = StyleSheet.create({
   },
   activeButtonText: {
     color: '#2C7F3A',
+  },
+  viewButtonText: {
+    color: '#3B4CCA',
   },
 });

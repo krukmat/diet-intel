@@ -41,13 +41,17 @@ export const HomePrimaryActions: React.FC<HomePrimaryActionsProps> = ({ title, a
             onPress={action.onPress}
             testID={`home-primary-${action.id}`}
           >
-            {action.icon && (
-              <View style={styles.iconBadge}>
-                <Text style={styles.iconText}>{action.icon}</Text>
+            <View style={styles.actionRow}>
+              {action.icon && (
+                <View style={styles.iconBadge}>
+                  <Text style={styles.iconText}>{action.icon}</Text>
+                </View>
+              )}
+              <View style={styles.actionText}>
+                <Text style={styles.actionLabel}>{action.label}</Text>
+                {action.subtitle && <Text style={styles.actionSubtitle}>{action.subtitle}</Text>}
               </View>
-            )}
-            <Text style={styles.actionLabel}>{action.label}</Text>
-            {action.subtitle && <Text style={styles.actionSubtitle}>{action.subtitle}</Text>}
+            </View>
           </TouchableOpacity>
         ))}
       </View>
@@ -68,13 +72,17 @@ export const HomeSecondaryActions: React.FC<HomeSecondaryActionsProps> = ({ titl
             onPress={action.onPress}
             testID={`home-secondary-${action.id}`}
           >
-            {action.icon && (
-              <View style={styles.iconBadge}>
-                <Text style={styles.iconText}>{action.icon}</Text>
+            <View style={styles.actionRow}>
+              {action.icon && (
+                <View style={styles.iconBadge}>
+                  <Text style={styles.iconText}>{action.icon}</Text>
+                </View>
+              )}
+              <View style={styles.actionText}>
+                <Text style={styles.actionLabel}>{action.label}</Text>
+                {action.subtitle && <Text style={styles.actionSubtitle}>{action.subtitle}</Text>}
               </View>
-            )}
-            <Text style={styles.actionLabel}>{action.label}</Text>
-            {action.subtitle && <Text style={styles.actionSubtitle}>{action.subtitle}</Text>}
+            </View>
           </TouchableOpacity>
         ))}
       </View>
@@ -133,9 +141,16 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
     borderColor: '#E5E5EA',
-    alignItems: 'flex-start',
-    minHeight: 96,
-    justifyContent: 'flex-start',
+    minHeight: 80,
+    justifyContent: 'center',
+  },
+  actionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  actionText: {
+    flex: 1,
   },
   actionLabel: {
     fontSize: 14,
@@ -148,16 +163,16 @@ const styles = StyleSheet.create({
     color: '#6B7280',
   },
   iconBadge: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
     backgroundColor: '#EFF6FF',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 6,
+    marginBottom: 4,
   },
   iconText: {
-    fontSize: 16,
+    fontSize: 13,
   },
   toolRow: {
     flexDirection: 'row',

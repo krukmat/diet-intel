@@ -83,12 +83,13 @@ const RewardsScreen: React.FC<RewardsScreenProps> = ({ navigation }) => {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>🏆 Recompensas</Text>
         {navigation?.goBack && (
           <Text style={styles.backButton} onPress={navigation.goBack}>
-            ← Volver
+            🏠
           </Text>
         )}
+        <Text style={styles.headerTitle}>🏆 Recompensas</Text>
+        <Text style={styles.backButtonPlaceholder}> </Text>
       </View>
       
       <View style={styles.content}>
