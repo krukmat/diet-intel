@@ -4,7 +4,7 @@ import { StatusBar as ExpoStatusBar } from 'expo-status-bar';
 import { useTranslation } from 'react-i18next';
 import ProductDetail from './components/ProductDetail';
 import HomeModals from './components/HomeModals';
-import { developerSettingsService, DeveloperConfig, FeatureToggle } from './services/DeveloperSettings';
+import { developerSettingsService, DeveloperConfig, FeatureToggle, DEFAULT_DEVELOPER_CONFIG, DEFAULT_FEATURE_TOGGLES } from './services/DeveloperSettings';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { ProfileProvider } from './contexts/ProfileContext';
 import { GamificationProvider } from './contexts/GamificationContext';
@@ -89,9 +89,10 @@ function MainApp({ user, onLogout }: { user: any; onLogout: () => void }) {
   const [showApiConfig, setShowApiConfig] = useState(false);
   const [showDeveloperSettings, setShowDeveloperSettings] = useState(false);
   const [showLanguageSwitcher, setShowLanguageSwitcher] = useState(false);
-  const [developerConfig, setDeveloperConfig] = useState<DeveloperConfig | null>(null);
-  const [featureToggles, setFeatureToggles] = useState<FeatureToggle | null>(null);
-  const { primaryActions, secondaryActions, toolActions } = useHomeActions(featureToggles ?? undefined);
+  // Initialize with defaults to ensure feature flags work immediately
+  const [developerConfig, setDeveloperConfig] = useState<DeveloperConfig>(DEFAULT_DEVELOPER_CONFIG);
+  const [featureToggles, setFeatureToggles] = useState<FeatureToggle>(DEFAULT_FEATURE_TOGGLES);
+  const { primaryActions, secondaryActions, toolActions } = useHomeActions(featureToggles);
   
   // Debug logging
   console.log('Current screen:', currentScreen);
@@ -127,7 +128,7 @@ function MainApp({ user, onLogout }: { user: any; onLogout: () => void }) {
   useNotifications(navigateToScreen);
 
   useEffect(() => {
-    // Initialize developer settings
+    // Initialize developer settings (async, but UI already has defaults)
     const initializeDeveloperSettings = async () => {
       await developerSettingsService.initialize();
       setDeveloperConfig(developerSettingsService.getDeveloperConfig());

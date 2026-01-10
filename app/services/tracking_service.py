@@ -652,65 +652,90 @@ class TrackingService:
     ) -> Dict[str, Any]:
         """
         Mark a meal plan item as consumed.
-        
+
         This creates a meal entry from the plan item and updates progress.
-        This is a placeholder - full implementation in FASE 3.
-        
+        FASE 3: Full implementation - creates meal and updates progress.
+
         Args:
             user_id: User ID
             item_id: ID of the plan item to mark as consumed
             consumed_at: ISO timestamp when item was consumed
-            
+
         Returns:
             Dict with success status, message, and updated progress
         """
         try:
-            # Get the active plan
+            # 1. Get the active plan
             active_plan = await self.get_active_plan(user_id)
-            
+
             if not active_plan:
                 return {
                     "success": False,
                     "message": "No active meal plan found",
                     "item_id": item_id
                 }
-            
-            # Find the item in the plan
-            item_found = False
+
+            # 2. Find the item in the plan
             item_data = None
             for meal in active_plan.meals:
                 if meal.id == item_id:
-                    item_found = True
                     item_data = meal
                     break
-            
-            if not item_found:
+
+            if not item_data:
                 return {
                     "success": False,
                     "message": f"Item {item_id} not found in plan",
                     "item_id": item_id
                 }
-            
-            # Mark item as consumed in cache
+
+            # 3. Check if item was already consumed
             cache_key = f"consumed_plan_items_{user_id}"
             consumed_items = await self.get_consumed_plan_items(user_id)
+
+            if item_id in consumed_items:
+                return {
+                    "success": False,
+                    "message": f"Item {item_id} already consumed",
+                    "item_id": item_id
+                }
+
+            # 4. Create meal entry from plan item
+            from app.models.tracking import MealItem, MealTrackingRequest
             
-            if item_id not in consumed_items:
-                consumed_items.append(item_id)
-                await self.repository.cache.set(cache_key, consumed_items, ttl=24 * 3600)
-            
-            # Calculate updated progress
+            meal_item = MealItem(
+                barcode=item_data.barcode,
+                name=item_data.name,
+                serving=item_data.serving,
+                calories=item_data.calories,
+                macros=item_data.macros
+            )
+
+            meal_request = MealTrackingRequest(
+                meal_name=f"Plan: {item_data.name}",
+                items=[meal_item],
+                timestamp=consumed_at
+            )
+
+            # 5. Create the meal in database
+            await self.create_meal(user_id, meal_request)
+
+            # 6. Mark item as consumed in cache
+            consumed_items.append(item_id)
+            await self.repository.cache.set(cache_key, consumed_items, ttl=24 * 3600)
+
+            # 7. Calculate updated progress
             updated_progress = await self.calculate_day_progress(user_id)
-            
-            logger.info(f"User {user_id} consumed plan item {item_id}")
-            
+
+            logger.info(f"User {user_id} consumed plan item {item_id}: {item_data.name}")
+
             return {
                 "success": True,
                 "message": f"Item '{item_data.name}' marked as consumed",
                 "item_id": item_id,
                 "updated_progress": updated_progress
             }
-            
+
         except Exception as e:
             logger.error(f"Error consuming plan item {item_id} for user {user_id}: {e}")
             return {

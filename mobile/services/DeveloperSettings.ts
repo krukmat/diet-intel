@@ -21,7 +21,7 @@ export interface FeatureToggle {
 const DEVELOPER_CONFIG_KEY = '@dietintel_developer_config';
 const FEATURE_TOGGLES_KEY = '@dietintel_feature_toggles';
 
-const DEFAULT_DEVELOPER_CONFIG: DeveloperConfig = {
+export const DEFAULT_DEVELOPER_CONFIG: DeveloperConfig = {
   isDeveloperModeEnabled: true,
   showApiConfiguration: true,
   showDebugFeatures: true,
@@ -30,7 +30,7 @@ const DEFAULT_DEVELOPER_CONFIG: DeveloperConfig = {
   enableBetaFeatures: false,
 };
 
-const DEFAULT_FEATURE_TOGGLES: FeatureToggle = {
+export const DEFAULT_FEATURE_TOGGLES: FeatureToggle = {
   uploadLabelFeature: true,
   mealPlanFeature: true,
   trackingFeature: true,
@@ -190,10 +190,8 @@ class DeveloperSettingsService {
     ]);
   }
 
-  // Secret gesture sequence to enable developer mode
-  // This would be called when user performs the secret gesture
   async trySecretGesture(sequence: string): Promise<boolean> {
-    const SECRET_SEQUENCE = 'DIETINTEL_DEV_2024'; // Secret sequence
+    const SECRET_SEQUENCE = 'DIETINTEL_DEV_2024';
     
     if (sequence === SECRET_SEQUENCE) {
       await this.enableDeveloperMode();
@@ -203,7 +201,6 @@ class DeveloperSettingsService {
     return false;
   }
 
-  // Generate debug information for developers
   getDebugInfo(): object {
     return {
       developerConfig: this.developerConfig,

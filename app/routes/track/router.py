@@ -357,22 +357,22 @@ async def get_day_dashboard(req: Request):
 async def consume_plan_item(req: Request, item_id: str, request_data: ConsumePlanItemRequest):
     """
     Mark a meal plan item as consumed.
-    
+
     This creates a meal entry from the plan item and updates progress.
     """
     try:
         user_id = await get_session_user_id(req)
         log_operation("Consuming plan item", user_id, item_id)
-        
-        # Consume the plan item (placeholder - will be implemented in FASE 3)
+
+        # Consume the plan item with full implementation
         result = await tracking_service.consume_plan_item(user_id, item_id, request_data.consumed_at)
-        
+
         if result["success"]:
             log_operation("Consumed plan item", user_id, item_id)
             return ConsumePlanItemResponse(
                 success=True,
                 item_id=item_id,
-                message="Item marked as consumed",
+                message=result.get("message", "Item marked as consumed"),
                 updated_progress=result.get("updated_progress")
             )
         else:
@@ -380,7 +380,7 @@ async def consume_plan_item(req: Request, item_id: str, request_data: ConsumePla
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=result.get("message", "Failed to consume item")
             )
-        
+
     except HTTPException:
         raise
     except Exception as e:

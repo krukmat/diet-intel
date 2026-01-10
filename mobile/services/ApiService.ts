@@ -3,6 +3,37 @@ import { getEnvironmentConfig } from '../config/environments';
 import { authService } from './AuthService';
 import { DiscoverFeedResponse } from '../types/feed';
 
+// Types for tracking API responses
+export interface NutritionProgress {
+  consumed: number;
+  planned: number;
+  percentage: number;
+}
+
+export interface DashboardData {
+  consumed_meals: any[];
+  active_plan: any | null;
+  progress: {
+    calories: NutritionProgress;
+    protein: NutritionProgress;
+    fat: NutritionProgress;
+    carbs: NutritionProgress;
+  };
+  consumed_items: string[];
+}
+
+export interface ConsumePlanItemResponse {
+  success: boolean;
+  message: string;
+  item_id: string;
+  updated_progress?: {
+    calories: NutritionProgress;
+    protein: NutritionProgress;
+    fat: NutritionProgress;
+    carbs: NutritionProgress;
+  };
+}
+
 class ApiService {
   private axiosInstance: AxiosInstance;
   private currentEnvironment: string;
@@ -158,6 +189,43 @@ class ApiService {
 
   public async addProductToPlan(data: { barcode: string; meal_type?: string; serving_size?: string }) {
     return this.post('/plan/add-product', data);
+  }
+
+  // Tracking endpoints - FASE 4.2
+  public async getDashboard(): Promise<AxiosResponse<DashboardData>> {
+    return this.get<DashboardData>('/track/dashboard');
+  }
+
+  public async getDayProgress(): Promise<AxiosResponse<any>> {
+    return this.get('/track/day-progress');
+  }
+
+  public async getActivePlan(): Promise<AxiosResponse<any>> {
+    return this.get('/track/active-plan');
+  }
+
+  public async consumePlanItem(itemId: string): Promise<AxiosResponse<ConsumePlanItemResponse>> {
+    return this.post<ConsumePlanItemResponse>(`/track/plan-item/${itemId}/consume`);
+  }
+
+  public async getMealHistory(limit: number = 50): Promise<AxiosResponse<any>> {
+    return this.get(`/track/meal/history?limit=${limit}`);
+  }
+
+  public async createMeal(data: any): Promise<AxiosResponse<any>> {
+    return this.post('/track/meal', data);
+  }
+
+  public async getWeightHistory(limit: number = 30): Promise<AxiosResponse<any>> {
+    return this.get(`/track/weight/history?limit=${limit}`);
+  }
+
+  public async createWeightEntry(data: any): Promise<AxiosResponse<any>> {
+    return this.post('/track/weight', data);
+  }
+
+  public async getPhotoLogs(limit: number = 50): Promise<AxiosResponse<any>> {
+    return this.get(`/track/photos?limit=${limit}`);
   }
 
   // Smart recommendations endpoints
