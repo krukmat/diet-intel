@@ -10,6 +10,7 @@ from uuid import uuid4
 import json
 
 from app.models.tracking import MealTrackingRequest, WeightTrackingRequest, MealItem
+from app.models.meal_plan import DailyMacros, MealPlanResponse
 from app.repositories.tracking_repository import TrackingRepository, MealTrackingEntity, WeightTrackingEntity
 from app.services.tracking_service import TrackingService
 
@@ -489,3 +490,132 @@ class TestTrackingServiceWithRepository:
             # Execute & Verify
             with pytest.raises(RuntimeError, match="Failed to retrieve persisted weight"):
                 await service.track_weight("user_123", sample_weight_request)
+
+
+class TestTrackingServicePlanProgress:
+    """Plan-aware behavior for TrackingService (Phase 2 coverage)."""
+
+    @pytest.mark.asyncio
+    async def test_get_active_plan_returns_plan_progress(self, mock_tracking_repository):
+        from app.models.meal_plan import MealPlanResponse, Meal, MealItem, MealItemMacros, DailyMacros
+
+        service = TrackingService(mock_tracking_repository)
+
+        macros = MealItemMacros(
+            protein_g=20,
+            fat_g=10,
+            carbs_g=30,
+            sugars_g=2,
+            salt_g=0.5
+        )
+        item = MealItem(
+            barcode="111",
+            name="Mock Item",
+            serving="120g",
+            calories=250,
+            macros=macros
+        )
+        meal = Meal(name="Lunch", target_calories=400, actual_calories=250, items=[item])
+        metrics = DailyMacros(
+            total_calories=250,
+            protein_g=20,
+            fat_g=10,
+            carbs_g=30,
+            sugars_g=2,
+            salt_g=0.5,
+            protein_percent=20,
+            fat_percent=40,
+            carbs_percent=40,
+        )
+        plan = MealPlanResponse(
+            bmr=1400,
+            tdee=1800,
+            daily_calorie_target=1800,
+            meals=[meal],
+            metrics=metrics,
+            plan_id="plan-foo",
+            created_at=datetime.utcnow(),
+            flexibility_used=False,
+            optional_products_used=0
+        )
+
+        with patch('app.services.tracking_service.plan_storage.get_active_plan_for_user', AsyncMock(return_value=plan)) as mock_active:
+            result = await service.get_active_plan("user-1")
+
+        assert result is not None
+        assert result.plan_id == "plan-foo"
+        assert len(result.meals) == 1
+        mock_active.assert_awaited_once_with("user-1")
+
+    @pytest.mark.asyncio
+    async def test_calculate_day_progress_uses_plan_targets(self, mock_tracking_repository):
+        service = TrackingService(mock_tracking_repository)
+        today = datetime.utcnow()
+        meal_entry = {
+            "id": "meal-1",
+            "timestamp": today.isoformat(),
+            "created_at": today.isoformat(),
+            "items": [
+                {
+                    "calories": 300,
+                    "macros": {"protein": 25, "fat": 10, "carbs": 35}
+                }
+            ]
+        }
+
+        service.get_user_meals = AsyncMock(return_value=[meal_entry])
+
+        metrics = {
+            "total_calories": 1800,
+            "protein_g": 120,
+            "fat_g": 65,
+            "carbs_g": 250,
+            "sugars_g": 10,
+            "salt_g": 2,
+            "protein_percent": 20,
+            "fat_percent": 15,
+            "carbs_percent": 55
+        }
+        plan = MealPlanResponse(
+            bmr=1400,
+            tdee=1800,
+            daily_calorie_target=1800,
+            meals=[],
+            metrics=DailyMacros(**metrics),
+            plan_id="plan-100",
+            created_at=today,
+            flexibility_used=False,
+            optional_products_used=0
+        )
+
+        with patch('app.services.tracking_service.plan_storage.get_active_plan_for_user', AsyncMock(return_value=plan)):
+            summary = await service.calculate_day_progress("user-1")
+
+        assert summary.calories.planned == 1800
+        assert summary.calories.consumed == 300
+        assert summary.protein.planned == 120
+
+    @pytest.mark.asyncio
+    async def test_calculate_day_progress_falls_back_without_plan(self, mock_tracking_repository):
+        service = TrackingService(mock_tracking_repository)
+        today = datetime.utcnow()
+        meal_entry = {
+            "id": "meal-2",
+            "timestamp": today.isoformat(),
+            "created_at": today.isoformat(),
+            "items": [
+                {
+                    "calories": 250,
+                    "macros": {"protein": 20, "fat": 5, "carbs": 40}
+                }
+            ]
+        }
+
+        service.get_user_meals = AsyncMock(return_value=[meal_entry])
+
+        with patch('app.services.tracking_service.plan_storage.get_active_plan_for_user', AsyncMock(return_value=None)):
+            summary = await service.calculate_day_progress("user-2")
+
+        assert summary.calories.planned == 2000
+        assert summary.calories.consumed == 250
+        assert summary.protein.planned == 120

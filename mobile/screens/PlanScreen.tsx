@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -17,6 +17,7 @@ import { useTranslation } from 'react-i18next';
 import { apiService } from '../services/ApiService';
 import { translateFoodNameSync } from '../utils/foodTranslation';
 import { storeCurrentMealPlanId } from '../utils/mealPlanUtils';
+import { PlanSelectionList, PlanSummary } from '../components/plan/PlanSelectionList';
 
 interface UserProfile {
   age: number;
@@ -88,7 +89,13 @@ interface CustomizeModalProps {
   translateMealName: (mealName: string) => string;
 }
 
-const CustomizeModal: React.FC<CustomizeModalProps> = ({ visible, onClose, onConfirm, mealType, translateMealName }) => {
+export const CustomizeModal: React.FC<CustomizeModalProps> = ({
+  visible,
+  onClose,
+  onConfirm,
+  mealType,
+  translateMealName,
+}) => {
   const { t } = useTranslation();
   const [searchQuery, setSearchQuery] = useState('');
   const [searchType, setSearchType] = useState<'barcode' | 'text'>('barcode');
@@ -347,6 +354,8 @@ export default function PlanScreen({ onBackPress, navigateToSmartDiet }: PlanScr
   const [dailyPlan, setDailyPlan] = useState<DailyPlan | null>(null);
   const [loading, setLoading] = useState(false);
   const [currentPlanId, setCurrentPlanId] = useState<string | null>(null);
+  const [planList, setPlanList] = useState<PlanSummary[]>([]);
+  const [plansLoading, setPlansLoading] = useState(false);
   
   // Helper function to translate meal names
   const translateMealName = (mealName: string): string => {
@@ -379,6 +388,49 @@ export default function PlanScreen({ onBackPress, navigateToSmartDiet }: PlanScr
     activity_level: 'moderately_active',
     goal: 'maintain',
   };
+
+  const fetchPlans = useCallback(async () => {
+    setPlansLoading(true);
+    try {
+      const response = await apiService.getUserPlans();
+      const plans = (response.data || []).map((plan: any) => ({
+        planId: plan.plan_id,
+        isActive: Boolean(plan.is_active),
+        createdAt: plan.created_at,
+        dailyCalorieTarget: plan.daily_calorie_target ?? 0,
+      }));
+      setPlanList(plans);
+    } catch (error) {
+      console.error('Plan list fetch failed:', error);
+    } finally {
+      setPlansLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchPlans();
+  }, [fetchPlans]);
+
+  const togglePlanActive = useCallback(
+    async (planId: string, currentlyActive: boolean) => {
+      setPlansLoading(true);
+      try {
+        const response = await apiService.setPlanActive(planId, !currentlyActive);
+        const updated = response.data;
+        if (updated?.is_active) {
+          setCurrentPlanId(updated.plan_id);
+        } else if (currentPlanId === planId) {
+          setCurrentPlanId(null);
+        }
+        await fetchPlans();
+      } catch (error) {
+        Alert.alert(t('common.error'), 'No se pudo cambiar el estado del plan.');
+      } finally {
+        setPlansLoading(false);
+      }
+    },
+    [currentPlanId, fetchPlans, t]
+  );
 
   useEffect(() => {
     generatePlan();
@@ -426,6 +478,7 @@ export default function PlanScreen({ onBackPress, navigateToSmartDiet }: PlanScr
       } else {
         console.log('PlanScreen Debug - No plan_id found in response. response.data:', response.data ? 'exists' : 'null', 'plan_id:', response.data?.plan_id);
       }
+      await fetchPlans();
     } catch (error) {
       Alert.alert(t('common.error'), 'Failed to generate meal plan. Please try again.');
       console.error('Plan generation failed:', error);
@@ -555,6 +608,12 @@ export default function PlanScreen({ onBackPress, navigateToSmartDiet }: PlanScr
         </View>
         <View style={styles.headerSpacer} />
       </View>
+
+      <PlanSelectionList
+        plans={planList}
+        loading={plansLoading}
+        onToggleActive={togglePlanActive}
+      />
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         {/* Daily Progress */}

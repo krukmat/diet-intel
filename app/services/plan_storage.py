@@ -23,7 +23,13 @@ class PlanStorageService:
         self.default_ttl_hours = default_ttl_hours
         self.plan_prefix = "meal_plan:"
     
-    async def store_plan(self, plan: MealPlanResponse, plan_id: Optional[str] = None, user_id: str = "anonymous") -> str:
+    def _entity_to_response(self, entity: MealPlan) -> MealPlanResponse:
+        plan = MealPlanResponse(**entity.plan_data)
+        plan.plan_id = entity.id
+        plan.is_active = bool(entity.is_active)
+        return plan
+    
+    async def store_plan(self, plan: MealPlanResponse, plan_id: Optional[str] = None, user_id: str = "anonymous", activate: bool = False) -> str:
         """
         Store a meal plan with a unique ID using MealPlanRepository.
         Task 2.1.2: Uses Repository Pattern
@@ -37,23 +43,25 @@ class PlanStorageService:
             The plan ID used for storage
         """
         try:
-            # Generate plan ID if not provided
             actual_plan_id = plan_id or str(uuid.uuid4())
 
-            # Create MealPlan entity for repository
+            if activate:
+                await self.repository.deactivate_plans_for_user(user_id)
+
+            plan.is_active = bool(activate)
+
             meal_plan = MealPlan(
                 id=actual_plan_id,
                 user_id=user_id,
                 plan_data=plan.model_dump(),
                 bmr=plan.bmr,
                 tdee=plan.tdee,
-                daily_calorie_target=plan.daily_calorie_target
+                daily_calorie_target=plan.daily_calorie_target,
+                is_active=bool(plan.is_active)
             )
 
-            # Store in repository
             created_plan = await self.repository.create(meal_plan)
 
-            # Cache for performance (non-blocking) - Task 2.1.2
             cache_key = f"{self.plan_prefix}{actual_plan_id}"
             plan_data = plan.model_dump()
             plan_data["_storage_metadata"] = {
@@ -61,6 +69,8 @@ class PlanStorageService:
                 "plan_id": actual_plan_id,
                 "version": 1
             }
+            plan_data["is_active"] = int(plan.is_active)
+
             try:
                 await cache_service.set(cache_key, plan_data, ttl=self.default_ttl_hours * 3600)
             except Exception as cache_error:
@@ -89,26 +99,25 @@ class PlanStorageService:
         try:
             cached_data = await cache_service.get(cache_key)
             if cached_data:
-                # Remove storage metadata before creating model
                 if "_storage_metadata" in cached_data:
                     del cached_data["_storage_metadata"]
                 plan = MealPlanResponse(**cached_data)
+                plan.plan_id = plan_id
+                plan.is_active = bool(cached_data.get("is_active", False))
                 logger.info(f"Retrieved meal plan from cache: {plan_id}")
                 return plan
         except Exception as cache_error:
             logger.warning(f"Cache retrieval failed for plan {plan_id}: {cache_error}")
 
-        # Fallback to repository - Task 2.1.2
         try:
             stored_plan = await self.repository.get_by_id(plan_id)
             if not stored_plan:
                 logger.info(f"Plan not found: {plan_id}")
                 return None
 
-            plan = MealPlanResponse(**stored_plan.plan_data)
+            plan = self._entity_to_response(stored_plan)
             logger.info(f"Retrieved meal plan from repository: {plan_id}")
 
-            # Update cache (non-blocking)
             try:
                 cache_data = stored_plan.plan_data.copy()
                 cache_data["_storage_metadata"] = {
@@ -116,12 +125,12 @@ class PlanStorageService:
                     "plan_id": plan_id,
                     "version": 1
                 }
+                cache_data["is_active"] = int(stored_plan.is_active)
                 await cache_service.set(cache_key, cache_data, ttl=self.default_ttl_hours * 3600)
             except Exception as cache_error:
                 logger.warning(f"Failed to cache retrieved plan {plan_id}: {cache_error}")
 
             return plan
-
         except Exception as e:
             logger.error(f"Error retrieving plan {plan_id}: {e}")
             return None
@@ -166,6 +175,21 @@ class PlanStorageService:
         except Exception as e:
             logger.error(f"Failed to update meal plan {plan_id}: {e}")
             return None
+
+    async def set_plan_active_state(self, user_id: str, plan_id: str, is_active: bool) -> Optional[MealPlanResponse]:
+        """Activate or deactivate a meal plan, ensuring only one active per user."""
+        plan_entity = await self.repository.get_by_id(plan_id)
+        if not plan_entity or plan_entity.user_id != user_id:
+            return None
+
+        if is_active:
+            await self.repository.deactivate_plans_for_user(user_id)
+
+        updated_entity = await self.repository.update(plan_id, {"is_active": int(is_active)})
+        if not updated_entity:
+            return None
+
+        return self._entity_to_response(updated_entity)
     
     async def delete_plan(self, plan_id: str) -> bool:
         """
@@ -261,8 +285,7 @@ class PlanStorageService:
             plans = []
             for stored_plan in stored_plans:
                 try:
-                    plan = MealPlanResponse(**stored_plan.plan_data)
-                    plans.append(plan)
+                    plans.append(self._entity_to_response(stored_plan))
                 except Exception as e:
                     logger.warning(f"Failed to convert plan {stored_plan.id} for user {user_id}: {e}")
                     continue
@@ -273,6 +296,26 @@ class PlanStorageService:
         except Exception as e:
             logger.error(f"Error retrieving plans for user {user_id}: {e}")
             return []
+
+    async def get_active_plan_for_user(self, user_id: str) -> Optional[MealPlanResponse]:
+        """
+        Retrieve the single active meal plan for a user.
+
+        Args:
+            user_id: The user whose active plan should be returned
+
+        Returns:
+            MealPlanResponse for the active plan or None when missing
+        """
+        try:
+            active_plan_entity = await self.repository.get_active_plan_for_user(user_id)
+            if not active_plan_entity:
+                return None
+
+            return self._entity_to_response(active_plan_entity)
+        except Exception as e:
+            logger.error(f"Error retrieving active plan for user {user_id}: {e}")
+            return None
 
 
 # Global instance

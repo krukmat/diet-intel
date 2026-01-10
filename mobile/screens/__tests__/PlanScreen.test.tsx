@@ -1,349 +1,574 @@
-// PlanScreen Test Suite - 95%+ Coverage Achievement
-// Pure unit tests without external dependencies
+import React from 'react';
+import { Alert } from 'react-native';
+import { fireEvent, render, waitFor } from '@testing-library/react-native';
+import PlanScreen, { CustomizeModal } from '../PlanScreen';
+import { apiService } from '../../services/ApiService';
+import { storeCurrentMealPlanId } from '../../utils/mealPlanUtils';
 
-describe('PlanScreen Logic Tests - 95%+ Coverage Target', () => {
+jest.mock('../../services/ApiService', () => ({
+  apiService: {
+    generateMealPlan: jest.fn(),
+    getUserPlans: jest.fn(),
+    setPlanActive: jest.fn(),
+    customizeMealPlan: jest.fn(),
+    getProductByBarcode: jest.fn(),
+    searchProduct: jest.fn(),
+  },
+}));
 
-  // Test 1: Pure data validation (25% coverage)
-  describe('Data Structure Validation (25% coverage)', () => {
-    it('should validate basic object structures (100% coverage)', () => {
-      const testObject = { id: 'test', value: 123 };
-      expect(testObject).toHaveProperty('id');
-      expect(testObject).toHaveProperty('value');
-      expect(typeof testObject.id).toBe('string');
-      expect(typeof testObject.value).toBe('number');
-    });
+jest.mock('../../utils/mealPlanUtils', () => ({
+  storeCurrentMealPlanId: jest.fn(() => Promise.resolve()),
+}));
 
-    it('should validate nested object structures (100% coverage)', () => {
-      const nestedObject = {
-        level1: {
-          level2: {
-            value: 'deep'
-          }
-        }
-      };
-      expect(nestedObject.level1).toHaveProperty('level2');
-      expect(nestedObject.level1.level2).toHaveProperty('value');
-      expect(nestedObject.level1.level2.value).toBe('deep');
-    });
+jest.mock('../../utils/foodTranslation', () => ({
+  translateFoodNameSync: (name: string) => name,
+}));
 
-    it('should validate array structures (100% coverage)', () => {
-      const testArray = ['item1', 'item2', 'item3'];
-      expect(Array.isArray(testArray)).toBe(true);
-      expect(testArray).toHaveLength(3);
-      expect(testArray).toContain('item1');
-      expect(testArray).toContain('item2');
-      expect(testArray).toContain('item3');
-    });
+jest.mock('react-i18next', () => ({
+  useTranslation: () => ({
+    t: (key: string, options?: Record<string, any>) => {
+      if (key === 'plan.todaysCalories' && options?.calories != null) {
+        return `Calories ${options.calories}`;
+      }
+      return key;
+    },
+  }),
+}));
 
-    it('should validate complex data structures (100% coverage)', () => {
-      const complexData = {
-        header: { title: 'Test', subtitle: 'Sub' },
+describe('PlanScreen', () => {
+  const generateMealPlanMock = apiService.generateMealPlan as jest.Mock;
+  const getUserPlansMock = apiService.getUserPlans as jest.Mock;
+  const setPlanActiveMock = apiService.setPlanActive as jest.Mock;
+  const customizeMealPlanMock = apiService.customizeMealPlan as jest.Mock;
+  const storeCurrentMealPlanIdMock = storeCurrentMealPlanId as jest.Mock;
+  const alertSpy = jest.spyOn(Alert, 'alert');
+
+  const sampleDailyPlan = {
+    plan_id: 'plan-abc123',
+    daily_calorie_target: 2000,
+    bmr: 1700,
+    tdee: 2200,
+    meals: [
+      {
+        name: 'Breakfast',
+        target_calories: 500,
+        actual_calories: 450,
         items: [
-          { id: 1, name: 'A', active: true },
-          { id: 2, name: 'B', active: false }
+          {
+            barcode: 'item-1',
+            name: 'Eggs',
+            serving: '2 units',
+            calories: 150,
+            macros: {
+              protein_g: 12,
+              fat_g: 10,
+              carbs_g: 1,
+            },
+          },
         ],
-        meta: {
-          count: 2,
-          total: 10,
-          percentage: 20
-        }
-      };
+      },
+    ],
+    metrics: {
+      total_calories: 2000,
+      protein_g: 120,
+      fat_g: 70,
+      carbs_g: 200,
+      sugars_g: 30,
+      salt_g: 5,
+      protein_percent: 24,
+      fat_percent: 31,
+      carbs_percent: 45,
+    },
+    created_at: '2026-01-10T00:00:00Z',
+    flexibility_used: false,
+    optional_products_used: 0,
+  };
 
-      expect(complexData.header.title).toBe('Test');
-      expect(complexData.items).toHaveLength(2);
-      expect(complexData.items[0].active).toBe(true);
-      expect(complexData.items[1].active).toBe(false);
-      expect(complexData.meta.count).toBe(2);
-      expect(complexData.meta.total).toBe(10);
-      expect(complexData.meta.percentage).toBe(20);
-    });
-  });
-
-  // Test 2: Function behavior (25% coverage)
-  describe('Function Behavior Testing (25% coverage)', () => {
-    it('should execute simple functions (100% coverage)', () => {
-      const testFunction = () => 'result';
-      expect(testFunction()).toBe('result');
-    });
-
-    it('should handle function parameters (100% coverage)', () => {
-      const addFunction = (a: number, b: number) => a + b;
-      expect(addFunction(2, 3)).toBe(5);
-      expect(addFunction(10, 15)).toBe(25);
-    });
-
-    it('should handle callback functions (100% coverage)', () => {
-      const mockCallback = jest.fn();
-      const executeCallback = (callback: () => void) => {
-        callback();
-      };
-
-      executeCallback(mockCallback);
-      expect(mockCallback).toHaveBeenCalledTimes(1);
-    });
-
-    it('should handle multiple callback executions (100% coverage)', () => {
-      const mockCallback = jest.fn();
-      const executeMultipleTimes = (callback: () => void, times: number) => {
-        for (let i = 0; i < times; i++) {
-          callback();
-        }
-      };
-
-      executeMultipleTimes(mockCallback, 3);
-      expect(mockCallback).toHaveBeenCalledTimes(3);
-    });
-
-    it('should handle function composition (100% coverage)', () => {
-      const double = (x: number) => x * 2;
-      const addFive = (x: number) => x + 5;
-      const composed = (x: number) => addFive(double(x));
-
-      expect(composed(3)).toBe(11); // (3 * 2) + 5 = 11
-      expect(composed(10)).toBe(25); // (10 * 2) + 5 = 25
-    });
-  });
-
-  // Test 3: State management logic (20% coverage)
-  describe('State Management Logic (20% coverage)', () => {
-    it('should handle basic state updates (100% coverage)', () => {
-      let state = 'initial';
-      const updateState = (newValue: string) => {
-        state = newValue;
-      };
-
-      expect(state).toBe('initial');
-      updateState('updated');
-      expect(state).toBe('updated');
-    });
-
-    it('should handle array state mutations (100% coverage)', () => {
-      let items: string[] = [];
-      const addItem = (item: string) => {
-        items = [...items, item];
-      };
-      const removeItem = (item: string) => {
-        items = items.filter(i => i !== item);
-      };
-
-      expect(items).toHaveLength(0);
-
-      addItem('item1');
-      expect(items).toHaveLength(1);
-      expect(items).toContain('item1');
-
-      addItem('item2');
-      expect(items).toHaveLength(2);
-      expect(items).toContain('item2');
-
-      removeItem('item1');
-      expect(items).toHaveLength(1);
-      expect(items).toContain('item2');
-    });
-
-    it('should handle object state updates (100% coverage)', () => {
-      let user = { name: 'John', age: 25 };
-      const updateUser = (updates: Partial<typeof user>) => {
-        user = { ...user, ...updates };
-      };
-
-      expect(user.name).toBe('John');
-      expect(user.age).toBe(25);
-
-      updateUser({ age: 26 });
-      expect(user.name).toBe('John');
-      expect(user.age).toBe(26);
-
-      updateUser({ name: 'Jane' });
-      expect(user.name).toBe('Jane');
-      expect(user.age).toBe(26);
-    });
-
-    it('should handle boolean state toggles (100% coverage)', () => {
-      let isVisible = false;
-      const toggleVisibility = () => {
-        isVisible = !isVisible;
-      };
-      const setVisibility = (visible: boolean) => {
-        isVisible = visible;
-      };
-
-      expect(isVisible).toBe(false);
-      toggleVisibility();
-      expect(isVisible).toBe(true);
-      toggleVisibility();
-      expect(isVisible).toBe(false);
-
-      setVisibility(true);
-      expect(isVisible).toBe(true);
-      setVisibility(false);
-      expect(isVisible).toBe(false);
-    });
-  });
-
-  // Test 4: Calculation logic (15% coverage)
-  describe('Calculation Logic (15% coverage)', () => {
-    it('should calculate percentages correctly (100% coverage)', () => {
-      const calculatePercentage = (current: number, total: number) => {
-        return Math.round((current / total) * 100);
-      };
-
-      expect(calculatePercentage(50, 100)).toBe(50);
-      expect(calculatePercentage(25, 200)).toBe(12);
-      expect(calculatePercentage(1, 3)).toBe(33);
-    });
-
-    it('should calculate totals and averages (100% coverage)', () => {
-      const calculateStats = (numbers: number[]) => {
-        const total = numbers.reduce((sum, num) => sum + num, 0);
-        const average = numbers.length > 0 ? total / numbers.length : 0;
-        return { total, average };
-      };
-
-      const stats1 = calculateStats([1, 2, 3, 4, 5]);
-      expect(stats1.total).toBe(15);
-      expect(stats1.average).toBe(3);
-
-      const stats2 = calculateStats([]);
-      expect(stats2.total).toBe(0);
-      expect(stats2.average).toBe(0);
-    });
-
-    it('should handle mathematical operations (100% coverage)', () => {
-      const calculateNutrition = (consumed: number, planned: number) => {
-        const remaining = Math.max(0, planned - consumed);
-        const percentage = planned > 0 ? Math.round((consumed / planned) * 100) : 0;
-        const status = consumed >= planned ? 'complete' : 'incomplete';
-
-        return { remaining, percentage, status };
-      };
-
-      const result1 = calculateNutrition(1200, 2000);
-      expect(result1.remaining).toBe(800);
-      expect(result1.percentage).toBe(60);
-      expect(result1.status).toBe('incomplete');
-
-      const result2 = calculateNutrition(2000, 2000);
-      expect(result2.remaining).toBe(0);
-      expect(result2.percentage).toBe(100);
-      expect(result2.status).toBe('complete');
-    });
-  });
-
-  // Test 5: Edge cases and error handling (10% coverage)
-  describe('Edge Cases & Error Handling (10% coverage)', () => {
-    it('should handle null and undefined values (100% coverage)', () => {
-      const handleNullable = (value: any) => {
-        if (value === null || value === undefined) return 'default';
-        return value;
-      };
-
-      expect(handleNullable(null)).toBe('default');
-      expect(handleNullable(undefined)).toBe('default');
-      expect(handleNullable('value')).toBe('value');
-      expect(handleNullable(0)).toBe(0);
-    });
-
-    it('should handle empty arrays and objects (100% coverage)', () => {
-      const processArray = (arr: any[]) => {
-        return arr.length === 0 ? 'empty' : 'not-empty';
-      };
-
-      const processObject = (obj: any) => {
-        return Object.keys(obj).length === 0 ? 'empty' : 'not-empty';
-      };
-
-      expect(processArray([])).toBe('empty');
-      expect(processArray([1, 2, 3])).toBe('not-empty');
-      expect(processObject({})).toBe('empty');
-      expect(processObject({ key: 'value' })).toBe('not-empty');
-    });
-
-    it('should handle boundary conditions (100% coverage)', () => {
-      const clampValue = (value: number, min: number, max: number) => {
-        return Math.min(Math.max(value, min), max);
-      };
-
-      expect(clampValue(5, 0, 10)).toBe(5); // within range
-      expect(clampValue(-5, 0, 10)).toBe(0); // below min
-      expect(clampValue(15, 0, 10)).toBe(10); // above max
-      expect(clampValue(0, 0, 10)).toBe(0); // at min
-      expect(clampValue(10, 0, 10)).toBe(10); // at max
-    });
-
-    it('should handle type conversions safely (100% coverage)', () => {
-      const safeStringify = (value: any) => {
-        try {
-          return JSON.stringify(value);
-        } catch {
-          return 'unserializable';
-        }
-      };
-
-      expect(safeStringify({ key: 'value' })).toBe('{"key":"value"}');
-      expect(safeStringify([1, 2, 3])).toBe('[1,2,3]');
-      expect(safeStringify(null)).toBe('null');
-      expect(safeStringify(undefined)).toBe(undefined);
-    });
-  });
-
-  // Test 6: Integration patterns (5% coverage)
-  describe('Integration Patterns (5% coverage)', () => {
-    it('should handle data transformation pipelines (100% coverage)', () => {
-      const pipeline = {
-        validate: (data: any) => data != null,
-        transform: (data: any) => ({ ...data, processed: true }),
-        format: (data: any) => `Processed: ${JSON.stringify(data)}`
-      };
-
-      const input = { value: 42 };
-      expect(pipeline.validate(input)).toBe(true);
-
-      const transformed = pipeline.transform(input);
-      expect(transformed.processed).toBe(true);
-      expect(transformed.value).toBe(42);
-
-      const formatted = pipeline.format(transformed);
-      expect(formatted).toContain('Processed:');
-      expect(formatted).toContain('42');
-    });
-
-    it('should handle event-driven patterns (100% coverage)', () => {
-      const eventEmitter = {
-        listeners: {} as Record<string, Function[]>,
-        on: function(event: string, callback: Function) {
-          if (!this.listeners[event]) this.listeners[event] = [];
-          this.listeners[event].push(callback);
+  beforeEach(() => {
+    jest.clearAllMocks();
+    alertSpy.mockImplementation(() => {});
+    generateMealPlanMock.mockResolvedValue({ data: sampleDailyPlan });
+    storeCurrentMealPlanIdMock.mockResolvedValue(undefined);
+    getUserPlansMock.mockResolvedValue({
+      data: [
+        {
+          plan_id: 'plan-abc123',
+          is_active: true,
+          created_at: '2026-01-01T00:00:00Z',
+          daily_calorie_target: 1800,
         },
-        emit: function(event: string, data?: any) {
-          if (this.listeners[event]) {
-            this.listeners[event].forEach(callback => callback(data));
-          }
-        }
-      };
-
-      const mockListener = jest.fn();
-      eventEmitter.on('test-event', mockListener);
-
-      eventEmitter.emit('test-event', 'test-data');
-      expect(mockListener).toHaveBeenCalledWith('test-data');
-      expect(mockListener).toHaveBeenCalledTimes(1);
+        {
+          plan_id: 'plan-def456',
+          is_active: false,
+          created_at: '2026-01-02T00:00:00Z',
+          daily_calorie_target: 1900,
+        },
+      ],
     });
-
-    it('should handle async operation patterns (100% coverage)', async () => {
-      const asyncOperation = {
-        delay: (ms: number) => new Promise(resolve => setTimeout(resolve, ms)),
-        process: async (data: any) => {
-          await asyncOperation.delay(1); // minimal delay for testing
-          return { ...data, processed: true };
-        }
-      };
-
-      const input = { value: 'test' };
-      const result = await asyncOperation.process(input);
-
-      expect(result.value).toBe('test');
-      expect(result.processed).toBe(true);
+    setPlanActiveMock.mockResolvedValue({
+      data: {
+        plan_id: 'plan-def456',
+        is_active: true,
+      },
     });
   });
+
+  it('renders plan list with active state', async () => {
+    const { findByText } = render(<PlanScreen onBackPress={jest.fn()} />);
+
+    expect(await findByText('Planes guardados')).toBeTruthy();
+    expect(await findByText('Plan plan-abc123')).toBeTruthy();
+    expect(await findByText('Plan plan-def456')).toBeTruthy();
+    expect(await findByText('Activo • Desactivar')).toBeTruthy();
+    expect(await findByText('Activar')).toBeTruthy();
+  });
+
+  it('activates an inactive plan via API', async () => {
+    const { findByText } = render(<PlanScreen onBackPress={jest.fn()} />);
+
+    const activateButton = await findByText('Activar');
+    fireEvent.press(activateButton);
+
+    await waitFor(() => {
+      expect(setPlanActiveMock).toHaveBeenCalledWith('plan-def456', true);
+    });
+  });
+
+  it('deactivates the active plan via API', async () => {
+    setPlanActiveMock.mockResolvedValueOnce({
+      data: {
+        plan_id: 'plan-abc123',
+        is_active: false,
+      },
+    });
+
+    const { findByText } = render(<PlanScreen onBackPress={jest.fn()} />);
+
+    const deactivateButton = await findByText('Activo • Desactivar');
+    fireEvent.press(deactivateButton);
+
+    await waitFor(() => {
+      expect(setPlanActiveMock).toHaveBeenCalledWith('plan-abc123', false);
+    });
+  });
+
+  it('shows loading state before plan is ready', async () => {
+    let resolvePlan: (value: { data: typeof sampleDailyPlan }) => void;
+    const pendingPlan = new Promise((resolve) => {
+      resolvePlan = resolve;
+    });
+
+    generateMealPlanMock.mockReturnValueOnce(pendingPlan);
+
+    const { findByText } = render(<PlanScreen onBackPress={jest.fn()} />);
+    expect(await findByText('plan.generating')).toBeTruthy();
+
+    resolvePlan({ data: sampleDailyPlan });
+
+    await waitFor(() => {
+      expect(storeCurrentMealPlanIdMock).toHaveBeenCalledWith('plan-abc123');
+    });
+  });
+
+  it('shows error state and retries on failure', async () => {
+    generateMealPlanMock.mockRejectedValueOnce(new Error('fail'));
+    generateMealPlanMock.mockResolvedValueOnce({ data: sampleDailyPlan });
+
+    const { findByText } = render(<PlanScreen onBackPress={jest.fn()} />);
+
+    const retryButton = await findByText('plan.retry');
+    fireEvent.press(retryButton);
+
+    await waitFor(() => {
+      expect(generateMealPlanMock).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  it('navigates to Smart Diet when optimizing with a plan', async () => {
+    const navigateToSmartDiet = jest.fn();
+    const { findByText } = render(
+      <PlanScreen onBackPress={jest.fn()} navigateToSmartDiet={navigateToSmartDiet} />
+    );
+
+    const optimizeButton = await findByText('plan.optimize.button', { exact: false });
+    fireEvent.press(optimizeButton);
+
+    expect(navigateToSmartDiet).toHaveBeenCalledWith({ planId: 'plan-abc123' });
+  });
+
+  it('alerts when optimizing without a plan id', async () => {
+    generateMealPlanMock.mockResolvedValueOnce({
+      data: {
+        ...sampleDailyPlan,
+        plan_id: null,
+      },
+    });
+
+    const { findByText } = render(<PlanScreen onBackPress={jest.fn()} />);
+    const optimizeButton = await findByText('plan.optimize.button', { exact: false });
+    fireEvent.press(optimizeButton);
+
+    expect(alertSpy).toHaveBeenCalledWith('plan.optimize.title', 'plan.optimize.noPlan', [
+      { text: 'common.ok' },
+    ]);
+  });
+
+  it('customizes a meal and calls the API', async () => {
+    customizeMealPlanMock.mockResolvedValueOnce({ data: {} });
+
+    const { findAllByText, findByPlaceholderText, findByText } = render(
+      <PlanScreen onBackPress={jest.fn()} />
+    );
+
+    const customizeButtons = await findAllByText('plan.customize');
+    fireEvent.press(customizeButtons[0]);
+
+    fireEvent.press(await findByText('plan.modal.manual', { exact: false }));
+    fireEvent.changeText(await findByPlaceholderText('plan.modal.productNamePlaceholder'), 'Extra Item');
+    fireEvent.press(await findByText('plan.modal.addItem'));
+
+    await waitFor(() => {
+      expect(customizeMealPlanMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          meal_type: 'breakfast',
+          action: 'add',
+          item: expect.objectContaining({ name: 'Extra Item' }),
+        })
+      );
+    });
+  });
+
+  it('alerts when customizing a meal fails', async () => {
+    customizeMealPlanMock.mockRejectedValueOnce(new Error('customize failed'));
+
+    const { findAllByText, findByPlaceholderText, findByText } = render(
+      <PlanScreen onBackPress={jest.fn()} />
+    );
+
+    const customizeButtons = await findAllByText('plan.customize');
+    fireEvent.press(customizeButtons[0]);
+
+    fireEvent.press(await findByText('plan.modal.manual', { exact: false }));
+    fireEvent.changeText(await findByPlaceholderText('plan.modal.productNamePlaceholder'), 'Fail Item');
+    fireEvent.press(await findByText('plan.modal.addItem'));
+
+    await waitFor(() => {
+      expect(alertSpy).toHaveBeenCalledWith('common.error', 'Failed to customize meal plan.');
+    });
+  });
+
+  it('supports back navigation and regenerate actions', async () => {
+    const onBackPress = jest.fn();
+    const { findByText } = render(<PlanScreen onBackPress={onBackPress} />);
+
+    fireEvent.press(await findByText('🏠'));
+    expect(onBackPress).toHaveBeenCalled();
+
+    fireEvent.press(await findByText('plan.generateNewPlan', { exact: false }));
+    await waitFor(() => {
+      expect(generateMealPlanMock).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  it('handles plan list fetch errors', async () => {
+    const consoleSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+    getUserPlansMock.mockRejectedValueOnce(new Error('fetch failed'));
+
+    render(<PlanScreen onBackPress={jest.fn()} />);
+
+    await waitFor(() => {
+      expect(consoleSpy).toHaveBeenCalledWith(
+        'Plan list fetch failed:',
+        expect.any(Error)
+      );
+    });
+    consoleSpy.mockRestore();
+  });
+
+  it('alerts when toggling plan state fails', async () => {
+    setPlanActiveMock.mockRejectedValueOnce(new Error('toggle failed'));
+
+    const { findByText } = render(<PlanScreen onBackPress={jest.fn()} />);
+    fireEvent.press(await findByText('Activar'));
+
+    await waitFor(() => {
+      expect(alertSpy).toHaveBeenCalledWith('common.error', 'No se pudo cambiar el estado del plan.');
+    });
+  });
+
+  it('logs when saving plan id fails', async () => {
+    const consoleSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+    storeCurrentMealPlanIdMock.mockRejectedValueOnce(new Error('store failed'));
+
+    render(<PlanScreen onBackPress={jest.fn()} />);
+
+    await waitFor(() => {
+      expect(consoleSpy).toHaveBeenCalledWith(
+        'PlanScreen Debug - Failed to store meal plan ID:',
+        expect.any(Error)
+      );
+    });
+    consoleSpy.mockRestore();
+  });
+
+  it('closes customize modal from the header button', async () => {
+    const { findAllByText, findByText } = render(
+      <PlanScreen onBackPress={jest.fn()} />
+    );
+
+    const customizeButtons = await findAllByText('plan.customize');
+    fireEvent.press(customizeButtons[0]);
+
+    fireEvent.press(await findByText('✕'));
+    expect(await findByText('plan.title')).toBeTruthy();
+  });
+});
+
+describe('CustomizeModal', () => {
+  const getProductByBarcodeMock = apiService.getProductByBarcode as jest.Mock;
+  const searchProductMock = apiService.searchProduct as jest.Mock;
+  const alertSpy = jest.spyOn(Alert, 'alert');
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    alertSpy.mockImplementation(() => {});
+  });
+
+  it('adds item from barcode search', async () => {
+    const onConfirm = jest.fn();
+    const onClose = jest.fn();
+
+    getProductByBarcodeMock.mockResolvedValueOnce({
+      data: {
+        code: '123',
+        product_name: 'Test Product',
+        serving_size: '100g',
+        nutriments: {
+          energy_kcal_100g: 120,
+          proteins_100g: 8,
+          fat_100g: 5,
+          carbohydrates_100g: 15,
+        },
+      },
+    });
+
+    const { getByPlaceholderText, findByText } = render(
+      <CustomizeModal
+        visible
+        onClose={onClose}
+        onConfirm={onConfirm}
+        mealType="Breakfast"
+        translateMealName={(name) => name}
+      />
+    );
+
+    fireEvent.changeText(getByPlaceholderText('scanner.manual.placeholder'), '123');
+    fireEvent.press(await findByText('plan.modal.searchProduct'));
+
+    await waitFor(() => {
+      expect(onConfirm).toHaveBeenCalledWith(
+        expect.objectContaining({
+          barcode: '123',
+          name: 'Test Product',
+          calories: 120,
+        })
+      );
+    });
+    expect(onClose).toHaveBeenCalled();
+  });
+
+  it('adds item from manual entry', async () => {
+    const onConfirm = jest.fn();
+    const onClose = jest.fn();
+
+    const { getByPlaceholderText, findByText } = render(
+      <CustomizeModal
+        visible
+        onClose={onClose}
+        onConfirm={onConfirm}
+        mealType="Lunch"
+        translateMealName={(name) => name}
+      />
+    );
+
+    fireEvent.press(await findByText('plan.modal.manual', { exact: false }));
+    fireEvent.changeText(getByPlaceholderText('plan.modal.productNamePlaceholder'), 'Manual Food');
+    fireEvent.press(await findByText('plan.modal.addItem'));
+
+    await waitFor(() => {
+      expect(onConfirm).toHaveBeenCalledWith(
+        expect.objectContaining({
+          name: 'Manual Food',
+        })
+      );
+    });
+    expect(onClose).toHaveBeenCalled();
+  });
+
+  it('uses text search when selected', async () => {
+    const onConfirm = jest.fn();
+    const onClose = jest.fn();
+
+    searchProductMock.mockResolvedValueOnce({
+      data: {
+        name: 'Text Result',
+        serving_size: '100g',
+        nutriments: {
+          energy_kcal_100g: 90,
+          proteins_100g: 7,
+          fat_100g: 3,
+          carbohydrates_100g: 12,
+        },
+      },
+    });
+
+    const { findAllByPlaceholderText, findByPlaceholderText, findByText } = render(
+      <CustomizeModal
+        visible
+        onClose={onClose}
+        onConfirm={onConfirm}
+        mealType="Dinner"
+        translateMealName={(name) => name}
+      />
+    );
+
+    fireEvent.press(await findByText('plan.modal.text'));
+    fireEvent.changeText(await findByPlaceholderText('plan.modal.searchProduct'), 'pasta');
+    fireEvent.press(await findByText('plan.modal.searchProduct'));
+
+    await waitFor(() => {
+      expect(searchProductMock).toHaveBeenCalledWith('pasta');
+    });
+    expect(onConfirm).toHaveBeenCalled();
+    expect(onClose).toHaveBeenCalled();
+  });
+
+  it('lets users return to search mode and barcode search', async () => {
+    const onConfirm = jest.fn();
+    const onClose = jest.fn();
+
+    getProductByBarcodeMock.mockResolvedValueOnce({
+      data: {
+        code: '444',
+        product_name: 'Barcode Item',
+        serving_size: '100g',
+        nutriments: {
+          energy_kcal_100g: 80,
+          proteins_100g: 6,
+          fat_100g: 2,
+          carbohydrates_100g: 11,
+        },
+      },
+    });
+
+    const { findByPlaceholderText, findByText } = render(
+      <CustomizeModal
+        visible
+        onClose={onClose}
+        onConfirm={onConfirm}
+        mealType="Snack"
+        translateMealName={(name) => name}
+      />
+    );
+
+    fireEvent.press(await findByText('plan.modal.manual', { exact: false }));
+    fireEvent.press(await findByText('plan.modal.search', { exact: false }));
+    fireEvent.press(await findByText('plan.modal.barcode'));
+    fireEvent.changeText(await findByPlaceholderText('scanner.manual.placeholder'), '444');
+    fireEvent.press(await findByText('plan.modal.searchProduct'));
+
+    await waitFor(() => {
+      expect(getProductByBarcodeMock).toHaveBeenCalledWith('444');
+    });
+    expect(onConfirm).toHaveBeenCalled();
+  });
+
+  it('captures all manual fields before adding', async () => {
+    const onConfirm = jest.fn();
+    const onClose = jest.fn();
+
+    const { findAllByPlaceholderText, findByPlaceholderText, findByText } = render(
+      <CustomizeModal
+        visible
+        onClose={onClose}
+        onConfirm={onConfirm}
+        mealType="Dinner"
+        translateMealName={(name) => name}
+      />
+    );
+
+    fireEvent.press(await findByText('plan.modal.manual', { exact: false }));
+    fireEvent.changeText(await findByPlaceholderText('plan.modal.productNamePlaceholder'), 'Full Manual');
+    fireEvent.changeText(await findByPlaceholderText('plan.modal.brandPlaceholder'), 'Brand');
+    fireEvent.changeText(await findByPlaceholderText('plan.modal.servingSizePlaceholder'), '2 units');
+    const numericInputs = await findAllByPlaceholderText('0');
+    fireEvent.changeText(numericInputs[0], '110');
+    fireEvent.changeText(numericInputs[1], '12');
+    fireEvent.changeText(numericInputs[2], '4');
+    fireEvent.changeText(numericInputs[3], '18');
+    fireEvent.press(await findByText('plan.modal.addItem'));
+
+    await waitFor(() => {
+      expect(onConfirm).toHaveBeenCalledWith(
+        expect.objectContaining({
+          name: 'Full Manual',
+          calories: 110,
+          macros: expect.objectContaining({
+            protein_g: 12,
+            fat_g: 4,
+            carbs_g: 18,
+          }),
+        })
+      );
+    });
+  });
+
+  it('alerts when search fails', async () => {
+    const onConfirm = jest.fn();
+    const onClose = jest.fn();
+
+    getProductByBarcodeMock.mockRejectedValueOnce(new Error('not found'));
+
+    const { findByPlaceholderText, findByText } = render(
+      <CustomizeModal
+        visible
+        onClose={onClose}
+        onConfirm={onConfirm}
+        mealType="Snack"
+        translateMealName={(name) => name}
+      />
+    );
+
+    fireEvent.changeText(await findByPlaceholderText('scanner.manual.placeholder'), '000');
+    fireEvent.press(await findByText('plan.modal.searchProduct'));
+
+    await waitFor(() => {
+      expect(alertSpy).toHaveBeenCalledWith(
+        'common.error',
+        'Could not find product. Try manual entry instead.'
+      );
+    });
+  });
+
+  it('shows validation alert when manual name is missing', async () => {
+    const onConfirm = jest.fn();
+    const onClose = jest.fn();
+
+    const { findByText } = render(
+      <CustomizeModal
+        visible
+        onClose={onClose}
+        onConfirm={onConfirm}
+        mealType="Dinner"
+        translateMealName={(name) => name}
+      />
+    );
+
+    fireEvent.press(await findByText('plan.modal.manual', { exact: false }));
+    fireEvent.press(await findByText('plan.modal.addItem'));
+
+    expect(alertSpy).toHaveBeenCalled();
+    expect(onConfirm).not.toHaveBeenCalled();
+  });
+
 });

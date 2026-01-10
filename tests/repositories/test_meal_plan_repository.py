@@ -374,6 +374,69 @@ class TestMealPlanRepository:
         assert repo.get_table_name() == "meal_plans"
 
     @pytest.mark.asyncio
+    async def test_deactivate_plans_for_user(self, meal_plan_repo):
+        """Test deactivating all plans for a user."""
+        repo, conn_mgr = meal_plan_repo
+
+        user_id = "user_active"
+        plan_active = MealPlan(
+            user_id=user_id,
+            plan_data={"active": True},
+            bmr=1500.0,
+            tdee=2250.0,
+            daily_calorie_target=1800.0,
+            is_active=True
+        )
+        plan_inactive = MealPlan(
+            user_id=user_id,
+            plan_data={"active": False},
+            bmr=1600.0,
+            tdee=2400.0,
+            daily_calorie_target=1900.0,
+            is_active=True
+        )
+
+        created_active = await repo.create(plan_active)
+        created_inactive = await repo.create(plan_inactive)
+
+        await repo.deactivate_plans_for_user(user_id)
+
+        plans = await repo.get_by_user_id(user_id, limit=10)
+        assert len(plans) == 2
+        assert all(plan.is_active is False for plan in plans)
+
+    @pytest.mark.asyncio
+    async def test_get_active_plan_for_user(self, meal_plan_repo):
+        """Test retrieving only the active plan for a user."""
+        repo, conn_mgr = meal_plan_repo
+
+        user_id = "user_active_plan"
+        inactive_plan = MealPlan(
+            user_id=user_id,
+            plan_data={"active": False},
+            bmr=1500.0,
+            tdee=2250.0,
+            daily_calorie_target=1800.0,
+            is_active=False
+        )
+        await repo.create(inactive_plan)
+
+        active_plan = MealPlan(
+            user_id=user_id,
+            plan_data={"active": True},
+            bmr=1600.0,
+            tdee=2300.0,
+            daily_calorie_target=1900.0,
+            is_active=True
+        )
+        created_active = await repo.create(active_plan)
+
+        result = await repo.get_active_plan_for_user(user_id)
+        assert result is not None
+        assert result.id == created_active.id
+        assert result.is_active is True
+
+    @pytest.mark.asyncio
     async def test_meal_plan_timestamps(self, meal_plan_repo):
         """Test created_at timestamp is set - Task 2.1.1.1"""
         repo, conn_mgr = meal_plan_repo

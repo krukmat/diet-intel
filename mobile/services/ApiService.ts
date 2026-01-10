@@ -191,6 +191,14 @@ class ApiService {
     return this.post('/plan/add-product', data);
   }
 
+  public async getUserPlans() {
+    return this.get('/plan/user');
+  }
+
+  public async setPlanActive(planId: string, isActive: boolean) {
+    return this.put(`/plan/${planId}/activate`, { is_active: isActive });
+  }
+
   // Tracking endpoints - FASE 4.2
   public async getDashboard(): Promise<AxiosResponse<DashboardData>> {
     return this.get<DashboardData>('/track/dashboard');
@@ -204,8 +212,13 @@ class ApiService {
     return this.get('/track/active-plan');
   }
 
-  public async consumePlanItem(itemId: string): Promise<AxiosResponse<ConsumePlanItemResponse>> {
-    return this.post<ConsumePlanItemResponse>(`/track/plan-item/${itemId}/consume`);
+  public async consumePlanItem(
+    itemId: string,
+    consumedAt?: string
+  ): Promise<AxiosResponse<ConsumePlanItemResponse>> {
+    return this.post<ConsumePlanItemResponse>(`/track/plan-item/${itemId}/consume`, {
+      consumed_at: consumedAt,
+    });
   }
 
   public async getMealHistory(limit: number = 50): Promise<AxiosResponse<any>> {

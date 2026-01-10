@@ -43,8 +43,6 @@ class TestConsumePlanItem:
         )
         
         mock_repository = MagicMock()
-        mock_repository.cache.get = AsyncMock(return_value=[])
-        mock_repository.cache.set = AsyncMock()
         
         service = TrackingService(repository=mock_repository)
         

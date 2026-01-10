@@ -9,6 +9,12 @@ from unittest.mock import AsyncMock, MagicMock
 from httpx import AsyncClient
 import httpx
 
+# Ensure a writable DB path is available before importing services that
+# instantiate RecipeDatabaseService at import time.
+_TEST_DB_FD, _TEST_DB_PATH = tempfile.mkstemp(suffix=".db", prefix="dietintel_test_")
+os.close(_TEST_DB_FD)
+os.environ.setdefault("DIETINTEL_DB_PATH", _TEST_DB_PATH)
+
 # Lazy import of FastAPI to avoid Pydantic v2 compatibility issues
 try:
     from fastapi.testclient import TestClient
@@ -86,8 +92,7 @@ from app.services import auth as auth_module
 @pytest.fixture(scope="session", autouse=True)
 def use_temp_database_for_tests():
     """Route db_service to a temporary SQLite database for the test session."""
-    fd, db_path = tempfile.mkstemp(suffix=".db", prefix="dietintel_test_")
-    os.close(fd)
+    db_path = os.environ.get("DIETINTEL_DB_PATH", _TEST_DB_PATH)
 
     # Re-point the shared db_service to the temp DB while keeping references intact.
     db_service.db_path = db_path

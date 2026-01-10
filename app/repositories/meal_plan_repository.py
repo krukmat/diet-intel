@@ -25,7 +25,8 @@ class MealPlan:
     """Data class for meal plan"""
     def __init__(self, user_id: str, plan_data: Dict[str, Any], bmr: float, tdee: float,
                  daily_calorie_target: float, flexibility_used: bool = False,
-                 optional_products_used: int = 0, created_at: Optional[datetime] = None,
+                 optional_products_used: int = 0, is_active: bool = False,
+                 created_at: Optional[datetime] = None,
                  expires_at: Optional[datetime] = None, id: Optional[str] = None):
         self.id = id
         self.user_id = user_id
@@ -35,6 +36,7 @@ class MealPlan:
         self.daily_calorie_target = daily_calorie_target
         self.flexibility_used = flexibility_used
         self.optional_products_used = optional_products_used
+        self.is_active = is_active
         self.created_at = created_at or datetime.now()
         self.expires_at = expires_at
 
@@ -68,6 +70,7 @@ class MealPlanRepository(Repository[MealPlan]):
             daily_calorie_target=row.get("daily_calorie_target", 0),
             flexibility_used=bool(row.get("flexibility_used", 0)),
             optional_products_used=int(row.get("optional_products_used", 0)),
+            is_active=bool(row.get("is_active", 0)),
             created_at=datetime.fromisoformat(row["created_at"]) if isinstance(row.get("created_at"), str) else row.get("created_at"),
             expires_at=datetime.fromisoformat(row["expires_at"]) if isinstance(row.get("expires_at"), str) else row.get("expires_at")
         )
@@ -82,6 +85,7 @@ class MealPlanRepository(Repository[MealPlan]):
             "daily_calorie_target": entity.daily_calorie_target,
             "flexibility_used": int(entity.flexibility_used),
             "optional_products_used": entity.optional_products_used,
+            "is_active": int(entity.is_active),
             "expires_at": entity.expires_at.isoformat() if entity.expires_at else None
         }
 
@@ -95,15 +99,30 @@ class MealPlanRepository(Repository[MealPlan]):
             row = cursor.fetchone()
             return self.row_to_entity(dict(row)) if row else None
 
-    async def get_by_user_id(self, user_id: str, limit: int = 10) -> List[MealPlan]:
+    async def get_by_user_id(self, user_id: str, limit: int = 10, offset: int = 0) -> List[MealPlan]:
         """Get all meal plans for a user"""
         async with connection_manager.get_connection() as conn:
             cursor = conn.execute(
-                "SELECT * FROM meal_plans WHERE user_id = ? LIMIT ?",
-                (user_id, limit)
+                "SELECT * FROM meal_plans WHERE user_id = ? ORDER BY created_at DESC LIMIT ? OFFSET ?",
+                (user_id, limit, offset)
             )
             rows = cursor.fetchall()
             return [self.row_to_entity(dict(row)) for row in rows]
+
+    async def get_active_plan_for_user(self, user_id: str) -> Optional[MealPlan]:
+        """Return the most recent active meal plan for a user."""
+        async with connection_manager.get_connection() as conn:
+            cursor = conn.execute(
+                """
+                SELECT * FROM meal_plans
+                WHERE user_id = ? AND is_active = 1
+                ORDER BY created_at DESC
+                LIMIT 1
+                """,
+                (user_id,)
+            )
+            row = cursor.fetchone()
+            return self.row_to_entity(dict(row)) if row else None
 
     async def create(self, plan: MealPlan) -> MealPlan:
         """Create new meal plan - Task: Use DateTimeEncoder for datetime serialization"""
@@ -116,8 +135,8 @@ class MealPlanRepository(Repository[MealPlan]):
             cursor = conn.execute(
                 """
                 INSERT INTO meal_plans
-                (id, user_id, plan_data, bmr, tdee, daily_calorie_target, flexibility_used, optional_products_used, expires_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                (id, user_id, plan_data, bmr, tdee, daily_calorie_target, flexibility_used, optional_products_used, is_active, expires_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     plan_id,
@@ -128,6 +147,7 @@ class MealPlanRepository(Repository[MealPlan]):
                     plan.daily_calorie_target,
                     int(plan.flexibility_used),
                     plan.optional_products_used,
+                    int(plan.is_active),
                     plan.expires_at.isoformat() if plan.expires_at else None
                 )
             )
@@ -160,6 +180,14 @@ class MealPlanRepository(Repository[MealPlan]):
             self.logger.info(f"Meal plan updated: {plan_id}")
 
         return await self.get_by_id(plan_id)
+
+    async def deactivate_plans_for_user(self, user_id: str) -> None:
+        """Set is_active = 0 for all plans of a user"""
+        async with connection_manager.get_connection() as conn:
+            conn.execute(
+                "UPDATE meal_plans SET is_active = 0 WHERE user_id = ?",
+                (user_id,)
+            )
 
     async def delete(self, plan_id: str) -> bool:
         """Delete meal plan"""

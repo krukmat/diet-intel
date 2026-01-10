@@ -1,5 +1,9 @@
 import logging
+from typing import List
+
 from fastapi import APIRouter, HTTPException, status, Request
+from pydantic import BaseModel
+
 from app.models.meal_plan import (
     MealPlanRequest, MealPlanResponse, PlanCustomizationRequest,
     CustomizedPlanResponse, ChangeLogEntry, AddProductRequest, AddProductResponse, ManualAddition
@@ -15,6 +19,10 @@ from app.utils.auth_context import get_session_user_id
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
+
+
+class PlanActivationRequest(BaseModel):
+    is_active: bool
 
 
 def _validate_user_profile(profile) -> None:
@@ -110,7 +118,8 @@ async def generate_meal_plan(request: MealPlanRequest, req: Request):
         plan = await meal_planner.generate_plan(request)
 
         # Store the plan for future customization
-        plan_id = await plan_storage.store_plan(plan, user_id=user_id)
+        plan.is_active = True
+        plan_id = await plan_storage.store_plan(plan, user_id=user_id, activate=True)
         logger.info(f"Plan Storage Debug - Generated plan_id: {plan_id}")
 
         # Include the plan ID in the response
@@ -141,6 +150,37 @@ async def generate_meal_plan(request: MealPlanRequest, req: Request):
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Error generating meal plan"
         )
+
+
+@router.get(
+    "/user",
+    response_model=List[MealPlanResponse]
+)
+async def list_user_plans(req: Request, limit: int = 10, offset: int = 0):
+    user_id = await get_session_user_id(req)
+    plans = await plan_storage.get_user_plans(user_id, limit=limit, offset=offset)
+    return plans
+
+
+@router.put(
+    "/{plan_id}/activate",
+    response_model=MealPlanResponse,
+    responses={
+        404: {"model": ErrorResponse, "description": "Plan not found or not owned by user"},
+        400: {"model": ErrorResponse, "description": "Invalid activation request"}
+    }
+)
+async def set_plan_activation(plan_id: str, body: PlanActivationRequest, req: Request):
+    user_id = await get_session_user_id(req)
+    plan = await plan_storage.set_plan_active_state(user_id, plan_id, body.is_active)
+
+    if not plan:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Meal plan {plan_id} not found or does not belong to you"
+        )
+
+    return plan
 
 
 @router.get("/config")

@@ -41,11 +41,13 @@ const mockAxiosResponse = (data: any) => ({
 // Mock the API service
 jest.mock('../../services/ApiService', () => ({
   apiService: {
+    getDashboard: jest.fn(),
     get: jest.fn(),
     post: jest.fn(),
     put: jest.fn(),
     delete: jest.fn(),
-    patch: jest.fn()
+    patch: jest.fn(),
+    consumePlanItem: jest.fn()
   }
 }));
 
@@ -70,6 +72,47 @@ describe('TrackScreen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+
+    mockApiService.getDashboard.mockResolvedValue(
+      mockAxiosResponse({
+        consumed_meals: [],
+        active_plan: {
+          plan_id: 'plan-123',
+          daily_calorie_target: 2000,
+          created_at: '2026-01-01T00:00:00Z',
+          meals: [
+            {
+              id: 'item-1',
+              barcode: '1234567890123',
+              name: 'Oatmeal',
+              serving: '1 bowl',
+              calories: 300,
+              macros: { protein_g: 8, fat_g: 6, carbs_g: 55 },
+              meal_type: 'breakfast',
+              is_consumed: false
+            },
+            {
+              id: 'item-2',
+              barcode: '9876543210987',
+              name: 'Yogurt',
+              serving: '150g',
+              calories: 180,
+              macros: { protein_g: 15, fat_g: 10, carbs_g: 8 },
+              meal_type: 'breakfast',
+              is_consumed: false
+            }
+          ]
+        },
+        progress: {
+          calories: { consumed: 0, planned: 2000, percentage: 0 },
+          protein: { consumed: 0, planned: 120, percentage: 0 },
+          fat: { consumed: 0, planned: 60, percentage: 0 },
+          carbs: { consumed: 0, planned: 200, percentage: 0 }
+        },
+        consumed_items: [],
+        date: '2026-01-01'
+      })
+    );
     
     // Mock successful API responses
     mockApiService.get.mockImplementation((endpoint) => {
@@ -98,6 +141,7 @@ describe('TrackScreen', () => {
     });
 
     mockApiService.post.mockResolvedValue(mockAxiosResponse({ success: true }));
+    mockApiService.consumePlanItem.mockResolvedValue(mockAxiosResponse({ success: true }));
 
     // Mock image picker
     mockImagePicker.requestCameraPermissionsAsync.mockResolvedValue({ 
@@ -234,6 +278,67 @@ describe('TrackScreen', () => {
       expect(tree).toBeTruthy();
       expect(treeString.length).toBeGreaterThan(300);
     });
+
+    it('should render lunch and dinner meal headers', async () => {
+      mockApiService.getDashboard.mockResolvedValueOnce(
+        mockAxiosResponse({
+          consumed_meals: [],
+          active_plan: {
+            plan_id: 'plan-456',
+            daily_calorie_target: 2200,
+            created_at: '2026-01-02T00:00:00Z',
+            meals: [
+              {
+                id: 'item-breakfast',
+                barcode: '111',
+                name: 'Toast',
+                serving: '2 slices',
+                calories: 250,
+                macros: { protein_g: 9, fat_g: 5, carbs_g: 40 },
+                meal_type: 'breakfast',
+                is_consumed: false
+              },
+              {
+                id: 'item-lunch',
+                barcode: '222',
+                name: 'Chicken Salad',
+                serving: '1 bowl',
+                calories: 450,
+                macros: { protein_g: 35, fat_g: 18, carbs_g: 22 },
+                meal_type: 'lunch',
+                is_consumed: false
+              },
+              {
+                id: 'item-dinner',
+                barcode: '333',
+                name: 'Salmon',
+                serving: '1 fillet',
+                calories: 520,
+                macros: { protein_g: 40, fat_g: 22, carbs_g: 5 },
+                meal_type: 'dinner',
+                is_consumed: false
+              }
+            ]
+          },
+          progress: {
+            calories: { consumed: 0, planned: 2200, percentage: 0 },
+            protein: { consumed: 0, planned: 140, percentage: 0 },
+            fat: { consumed: 0, planned: 70, percentage: 0 },
+            carbs: { consumed: 0, planned: 240, percentage: 0 }
+          },
+          consumed_items: [],
+          date: '2026-01-02'
+        })
+      );
+
+      const component = TestRenderer.create(
+        <TrackScreen onBackPress={mockOnBackPress} />
+      );
+
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      expect(component.toJSON()).toBeTruthy();
+    });
   });
 
   describe('Weight Tracking', () => {
@@ -365,6 +470,17 @@ describe('TrackScreen', () => {
   });
 
   describe('API Integration', () => {
+    it('should call dashboard API on load', async () => {
+      const component = TestRenderer.create(
+        <TrackScreen onBackPress={mockOnBackPress} />
+      );
+
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      expect(component.toJSON()).toBeTruthy();
+      expect(mockApiService.getDashboard).toHaveBeenCalled();
+    });
+
     it('should call weight history API on load', async () => {
       const component = TestRenderer.create(
         <TrackScreen onBackPress={mockOnBackPress} />
@@ -392,6 +508,7 @@ describe('TrackScreen', () => {
     });
 
     it('should handle API errors gracefully', async () => {
+      mockApiService.getDashboard.mockRejectedValueOnce(new Error('Network error'));
       mockApiService.get.mockRejectedValue(new Error('Network error'));
       
       const component = TestRenderer.create(
@@ -405,6 +522,7 @@ describe('TrackScreen', () => {
     });
 
     it('should use fallback data when API fails', async () => {
+      mockApiService.getDashboard.mockRejectedValueOnce(new Error('API Error'));
       mockApiService.get.mockRejectedValue(new Error('API Error'));
       
       const component = TestRenderer.create(
@@ -415,17 +533,33 @@ describe('TrackScreen', () => {
       
       expect(component.toJSON()).toBeTruthy();
     });
-  });
 
-  describe('Modal Components', () => {
-    it('should render MarkMealEatenModal when closed', () => {
+    it('should handle missing active plan', async () => {
+      mockApiService.getDashboard.mockResolvedValueOnce(
+        mockAxiosResponse({
+          consumed_meals: [],
+          active_plan: null,
+          progress: {
+            calories: { consumed: 0, planned: 2000, percentage: 0 },
+            protein: { consumed: 0, planned: 120, percentage: 0 },
+            fat: { consumed: 0, planned: 60, percentage: 0 },
+            carbs: { consumed: 0, planned: 200, percentage: 0 }
+          },
+          consumed_items: [],
+          date: '2026-01-01'
+        })
+      );
+
       const component = TestRenderer.create(
         <TrackScreen onBackPress={mockOnBackPress} />
       );
-      
+
+      await new Promise(resolve => setTimeout(resolve, 100));
       expect(component.toJSON()).toBeTruthy();
     });
+  });
 
+  describe('Modal Components', () => {
     it('should render WeighInModal when closed', () => {
       const component = TestRenderer.create(
         <TrackScreen onBackPress={mockOnBackPress} />
@@ -445,7 +579,7 @@ describe('TrackScreen', () => {
   });
 
   describe('Modal Actions', () => {
-    it('marks a meal as eaten and stores photo logs', async () => {
+    it('consumes a plan item and updates UI state', async () => {
       const component = TestRenderer.create(
         <TrackScreen onBackPress={mockOnBackPress} />
       );
@@ -454,28 +588,21 @@ describe('TrackScreen', () => {
         await flushPromises();
       });
 
-      const markModal = component.root.findAll((node: any) =>
-        typeof node.props?.onConfirm === 'function' && node.props?.meal !== undefined
-      )[0];
-      expect(markModal).toBeTruthy();
-
+      const consumeButton = findButtonByText(component, 'track.markAsEaten');
+      expect(consumeButton).toBeTruthy();
       await TestRenderer.act(async () => {
-        await markModal?.props.onConfirm('meal-photo-uri');
+        consumeButton?.props.onPress();
       });
 
-      expect(mockApiService.post).toHaveBeenCalledWith(
-        '/track/meal',
-        expect.objectContaining({ photo: 'meal-photo-uri' })
-      );
-      expect(AsyncStorage.setItem).toHaveBeenCalledWith(
-        'photo_logs',
+      expect(mockApiService.consumePlanItem).toHaveBeenCalledWith(
+        'item-1',
         expect.any(String)
       );
       expect(Alert.alert).toHaveBeenCalled();
     });
 
-    it('handles meal tracking errors', async () => {
-      mockApiService.post.mockRejectedValueOnce(new Error('Meal tracking error'));
+    it('handles plan item consume errors', async () => {
+      mockApiService.consumePlanItem.mockRejectedValueOnce(new Error('Consume error'));
       const component = TestRenderer.create(
         <TrackScreen onBackPress={mockOnBackPress} />
       );
@@ -484,20 +611,14 @@ describe('TrackScreen', () => {
         await flushPromises();
       });
 
-      const markModal = component.root.findAll((node: any) =>
-        typeof node.props?.onConfirm === 'function' && node.props?.meal !== undefined
-      )[0];
-      expect(markModal).toBeTruthy();
+      const consumeButton = findButtonByText(component, 'track.markAsEaten');
+      expect(consumeButton).toBeTruthy();
 
       await TestRenderer.act(async () => {
-        await markModal?.props.onConfirm('meal-photo-uri');
+        consumeButton?.props.onPress();
       });
 
       expect(Alert.alert).toHaveBeenCalled();
-      expect(AsyncStorage.setItem).not.toHaveBeenCalledWith(
-        'photo_logs',
-        expect.any(String)
-      );
     });
 
     it('records weigh-in and stores history', async () => {
@@ -574,7 +695,8 @@ describe('TrackScreen', () => {
       );
     });
 
-    it('marks a meal as eaten without photo logs', async () => {
+    it('handles weigh-in API errors', async () => {
+      mockApiService.post.mockRejectedValueOnce(new Error('Weight recording error'));
       const component = TestRenderer.create(
         <TrackScreen onBackPress={mockOnBackPress} />
       );
@@ -583,21 +705,38 @@ describe('TrackScreen', () => {
         await flushPromises();
       });
 
-      const markModal = component.root.findAll((node: any) =>
-        typeof node.props?.onConfirm === 'function' && node.props?.meal !== undefined
+      const weighModal = component.root.findAll((node: any) =>
+        typeof node.props?.onConfirm === 'function' &&
+        node.props?.meal === undefined &&
+        node.props?.visible !== undefined
       )[0];
-      expect(markModal).toBeTruthy();
+      expect(weighModal).toBeTruthy();
 
       await TestRenderer.act(async () => {
-        await markModal?.props.onConfirm();
+        await weighModal?.props.onConfirm(72, 'weigh-photo-uri');
       });
 
-      expect(mockApiService.post).toHaveBeenCalledWith(
-        '/track/meal',
-        expect.objectContaining({ photo: undefined })
+      expect(Alert.alert).toHaveBeenCalled();
+    });
+
+    it('consumes a plan item without photo logs', async () => {
+      const component = TestRenderer.create(
+        <TrackScreen onBackPress={mockOnBackPress} />
       );
-      expect(AsyncStorage.setItem).not.toHaveBeenCalledWith(
-        'photo_logs',
+
+      await TestRenderer.act(async () => {
+        await flushPromises();
+      });
+
+      const consumeButton = findButtonByText(component, 'track.markAsEaten');
+      expect(consumeButton).toBeTruthy();
+
+      await TestRenderer.act(async () => {
+        consumeButton?.props.onPress();
+      });
+
+      expect(mockApiService.consumePlanItem).toHaveBeenCalledWith(
+        'item-1',
         expect.any(String)
       );
     });
@@ -690,6 +829,94 @@ describe('TrackScreen', () => {
         'permissions.cameraRequired'
       );
     });
+
+    it('closes weigh-in modal via close button', async () => {
+      const component = TestRenderer.create(
+        <TrackScreen onBackPress={mockOnBackPress} />
+      );
+
+      await TestRenderer.act(async () => {
+        await flushPromises();
+      });
+
+      const weighButton = findButtonByText(component, 'track.weighIn');
+      await TestRenderer.act(async () => {
+        weighButton?.props.onPress();
+      });
+
+      const closeButton = findButtonByText(component, '✕');
+      expect(closeButton).toBeTruthy();
+      await TestRenderer.act(async () => {
+        closeButton?.props.onPress();
+      });
+
+      expect(component.toJSON()).toBeTruthy();
+    });
+
+    it('removes photo preview after taking a weigh-in photo', async () => {
+      const component = TestRenderer.create(
+        <TrackScreen onBackPress={mockOnBackPress} />
+      );
+
+      await TestRenderer.act(async () => {
+        await flushPromises();
+      });
+
+      const weighButton = findButtonByText(component, 'track.weighIn');
+      await TestRenderer.act(async () => {
+        weighButton?.props.onPress();
+      });
+
+      const takePhotoButton = findButtonByText(component, 'track.modal.takePhoto');
+      expect(takePhotoButton).toBeTruthy();
+      await TestRenderer.act(async () => {
+        takePhotoButton?.props.onPress();
+        await flushPromises();
+      });
+
+      const removePhotoButton = findButtonByText(component, 'track.modal.removePhoto');
+      expect(removePhotoButton).toBeTruthy();
+      await TestRenderer.act(async () => {
+        removePhotoButton?.props.onPress();
+      });
+
+      const takePhotoButtonAfter = findButtonByText(component, 'track.modal.takePhoto');
+      expect(takePhotoButtonAfter).toBeTruthy();
+    });
+
+    it('saves weigh-in using modal confirm button', async () => {
+      const component = TestRenderer.create(
+        <TrackScreen onBackPress={mockOnBackPress} />
+      );
+
+      await TestRenderer.act(async () => {
+        await flushPromises();
+      });
+
+      const weighButton = findButtonByText(component, 'track.weighIn');
+      await TestRenderer.act(async () => {
+        weighButton?.props.onPress();
+      });
+
+      const weightInput = component.root.findAllByType(TextInput).find(input =>
+        String(input.props.placeholder).includes('scanner.input.weightPlaceholder')
+      );
+      await TestRenderer.act(async () => {
+        weightInput?.props.onChangeText('72');
+      });
+
+      const saveButton = findButtonByText(component, 'track.modal.saveWeight');
+      expect(saveButton).toBeTruthy();
+      await TestRenderer.act(async () => {
+        saveButton?.props.onPress();
+        await flushPromises();
+      });
+
+      expect(mockApiService.post).toHaveBeenCalledWith(
+        '/track/weight',
+        expect.objectContaining({ weight: 72 })
+      );
+    });
   });
 
   describe('User Interactions', () => {
@@ -766,7 +993,7 @@ describe('TrackScreen', () => {
     });
 
     it('should handle meal tracking errors', async () => {
-      mockApiService.post.mockRejectedValue(new Error('Meal tracking error'));
+      mockApiService.consumePlanItem.mockRejectedValue(new Error('Meal tracking error'));
       
       const component = TestRenderer.create(
         <TrackScreen onBackPress={mockOnBackPress} />

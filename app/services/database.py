@@ -457,6 +457,7 @@ class DatabaseService:
                     daily_calorie_target REAL NOT NULL,
                     flexibility_used BOOLEAN DEFAULT FALSE,
                     optional_products_used INTEGER DEFAULT 0,
+                    is_active BOOLEAN DEFAULT FALSE,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     expires_at TIMESTAMP
                 )
