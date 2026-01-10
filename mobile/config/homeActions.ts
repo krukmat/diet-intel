@@ -5,6 +5,7 @@ export type HomeActionGroup = 'primary' | 'secondary' | 'tool';
 export interface HomeActionDefinition {
   id: string;
   labelKey: string;
+  subtitleKey?: string;
   group: HomeActionGroup;
   target: string;
   icon?: string;
@@ -16,6 +17,7 @@ export const HOME_ACTIONS: HomeActionDefinition[] = [
   {
     id: 'logMeal',
     labelKey: 'home.actions.logMeal',
+    subtitleKey: 'home.actionSubtitles.logMeal',
     group: 'primary',
     target: 'upload',
     icon: '📷',
@@ -25,6 +27,7 @@ export const HOME_ACTIONS: HomeActionDefinition[] = [
   {
     id: 'aiPlan',
     labelKey: 'home.actions.aiPlan',
+    subtitleKey: 'home.actionSubtitles.aiPlan',
     group: 'primary',
     target: 'recommendations',
     icon: '🤖',
@@ -32,17 +35,19 @@ export const HOME_ACTIONS: HomeActionDefinition[] = [
     featureMode: 'all',
   },
   {
-    id: 'progress',
-    labelKey: 'home.actions.progress',
+    id: 'plan',
+    labelKey: 'home.actions.plan',
+    subtitleKey: 'home.actionSubtitles.plan',
     group: 'primary',
-    target: 'track',
-    icon: '📊',
-    featureFlags: ['trackingFeature'],
+    target: 'plan',
+    icon: '📋',
+    featureFlags: ['mealPlanFeature'],
     featureMode: 'all',
   },
   {
     id: 'weight',
     labelKey: 'home.actions.weight',
+    subtitleKey: 'home.actionSubtitles.weight',
     group: 'primary',
     target: 'weight',
     icon: '⚖️',
@@ -50,6 +55,7 @@ export const HOME_ACTIONS: HomeActionDefinition[] = [
   {
     id: 'photos',
     labelKey: 'home.actions.photos',
+    subtitleKey: 'home.actionSubtitles.photos',
     group: 'primary',
     target: 'photos',
     icon: '🖼️',
@@ -57,13 +63,25 @@ export const HOME_ACTIONS: HomeActionDefinition[] = [
   {
     id: 'recipes',
     labelKey: 'navigation.recipes',
+    subtitleKey: 'home.actionSubtitles.recipes',
     group: 'secondary',
     target: 'recipes',
     icon: '📖',
   },
   {
+    id: 'progress',
+    labelKey: 'home.actions.progress',
+    subtitleKey: 'home.actionSubtitles.progress',
+    group: 'secondary',
+    target: 'track',
+    icon: '📊',
+    featureFlags: ['trackingFeature'],
+    featureMode: 'all',
+  },
+  {
     id: 'uploadLabel',
     labelKey: 'home.actions.uploadLabel',
+    subtitleKey: 'home.actionSubtitles.uploadLabel',
     group: 'secondary',
     target: 'upload',
     icon: '🏷️',
@@ -73,6 +91,7 @@ export const HOME_ACTIONS: HomeActionDefinition[] = [
   {
     id: 'vision',
     labelKey: 'navigation.vision',
+    subtitleKey: 'home.actionSubtitles.vision',
     group: 'secondary',
     target: 'vision',
     icon: '👁️',
@@ -80,6 +99,7 @@ export const HOME_ACTIONS: HomeActionDefinition[] = [
   {
     id: 'explore',
     labelKey: 'home.actions.explore',
+    subtitleKey: 'home.actionSubtitles.explore',
     group: 'secondary',
     target: 'discover-feed',
     icon: '🌍',
@@ -87,6 +107,7 @@ export const HOME_ACTIONS: HomeActionDefinition[] = [
   {
     id: 'profile',
     labelKey: 'home.actions.profile',
+    subtitleKey: 'home.actionSubtitles.profile',
     group: 'secondary',
     target: 'profile',
     icon: '👤',

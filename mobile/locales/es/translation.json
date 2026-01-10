@@ -47,14 +47,39 @@
       "progress": "Progreso"
     },
     "actions": {
-      "logMeal": "🍽️ Registrar comida",
-      "weight": "⚖️ Peso",
-      "photos": "🖼️ Fotos",
-      "aiPlan": "🤖 Plan IA",
-      "progress": "📈 Progreso",
-      "explore": "🧭 Explorar",
-      "profile": "👤 Perfil",
-      "gamification": "🏆 Recompensas"
+      "logMeal": "Registrar comida",
+      "weight": "Peso",
+      "photos": "Fotos",
+      "aiPlan": "Plan IA",
+      "plan": "Plan",
+      "progress": "Progreso",
+      "uploadLabel": "Subir etiqueta",
+      "explore": "Explorar",
+      "profile": "Perfil",
+      "gamification": "Recompensas"
+    },
+    "actionSubtitles": {
+      "logMeal": "Escanear o subir",
+      "aiPlan": "Sugerencias IA",
+      "plan": "Elige tu plan",
+      "weight": "Registrar peso",
+      "photos": "Fotos de avance",
+      "recipes": "Ideas rapidas",
+      "progress": "Ver hoy",
+      "uploadLabel": "Desde etiqueta",
+      "vision": "Detectar alimentos",
+      "explore": "Descubrir feeds",
+      "profile": "Tu cuenta"
+    },
+    "hero": {
+      "dailyCalories": "Calorías diarias",
+      "todayProgress": "Hoy",
+      "planStatus": "Estado del plan",
+      "planActive": "Activo",
+      "planInactive": "Inactivo",
+      "planUnknown": "Sin datos",
+      "noCalories": "Sin objetivo",
+      "noProgress": "Sin datos"
     },
     "progress": {
       "description": "Resumen rápido de tu seguimiento y plan"
@@ -122,6 +147,13 @@
     "weightProgress": "Progreso de Peso",
     "weighIn": "⚖️ Pesarse",
     "currentWeight": "Peso Actual",
+    "weightSummary": {
+      "noData": "Sin datos",
+      "noDelta": "Sin cambios previos",
+      "up": "+{{value}} kg desde el último",
+      "down": "-{{value}} kg desde el último",
+      "steady": "Sin cambios desde el último"
+    },
     "photoLogs": "Registro Fotográfico",
     "loading": "Cargando datos de seguimiento...",
     "chartPlaceholder": "¡Gráfico de peso próximamente! 📈",
@@ -146,6 +178,24 @@
       "weighIn": "Pesaje"
     },
     "weight": "Peso"
+  },
+  "weight": {
+    "stats": {
+      "current": "Actual",
+      "start": "Inicio",
+      "delta": "Diferencia"
+    },
+    "sections": {
+      "add": "Agregar peso",
+      "history": "Historial"
+    },
+    "input": {
+      "placeholder": "Peso (kg)"
+    },
+    "actions": {
+      "add": "Agregar"
+    },
+    "empty": "Sin registros aún"
   },
   "scanner": {
     "status": {

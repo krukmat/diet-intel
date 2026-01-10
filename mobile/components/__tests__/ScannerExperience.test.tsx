@@ -23,14 +23,9 @@ describe('ScannerExperience', () => {
     hasPermission: true as boolean | null,
     showCamera: false,
     scanned: false,
-    manualBarcode: '1234567890123',
-    loading: false,
     onStartCamera: jest.fn(),
     onStopCamera: jest.fn(),
     onBarcodeScanned: jest.fn(),
-    onManualBarcodeChange: jest.fn(),
-    onSubmit: jest.fn(),
-    onReset: jest.fn(),
   };
 
   beforeEach(() => {
@@ -49,12 +44,6 @@ describe('ScannerExperience', () => {
     fireEvent.press(getByText('📷 Start Camera'));
 
     expect(baseProps.onStartCamera).toHaveBeenCalled();
-  });
-
-  it('disables reset while loading', () => {
-    const { getByTestId } = render(<ScannerExperience {...baseProps} loading />);
-
-    expect(getByTestId('scanner-reset').props.disabled).toBe(true);
   });
 
   it('renders camera view and closes it', () => {

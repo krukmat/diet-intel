@@ -17,12 +17,14 @@ import {
 } from 'react-native';
 import { useWeight } from '../hooks/useWeight';
 import { WeightEntry } from '../types/weight';
+import { useTranslation } from 'react-i18next';
 
 interface WeightScreenProps {
   onBackPress?: () => void;
 }
 
 export function WeightScreen({ onBackPress }: WeightScreenProps): JSX.Element {
+  const { t } = useTranslation();
   const {
     entries,
     stats,
@@ -81,28 +83,31 @@ export function WeightScreen({ onBackPress }: WeightScreenProps): JSX.Element {
       {stats && (
         <View style={styles.statsContainer}>
           <View style={styles.statCard}>
-            <Text style={styles.statLabel}>Actual</Text>
+            <Text style={styles.statLabel}>{t('weight.stats.current')}</Text>
             <Text style={styles.statValue}>{stats.currentWeight.toFixed(1)} kg</Text>
           </View>
           <View style={styles.statCard}>
-            <Text style={styles.statLabel}>Inicio</Text>
+            <Text style={styles.statLabel}>{t('weight.stats.start')}</Text>
             <Text style={styles.statValue}>{stats.startingWeight.toFixed(1)} kg</Text>
           </View>
           <View style={styles.statCard}>
-            <Text style={styles.statLabel}>Perdido</Text>
+            <Text style={styles.statLabel}>{t('weight.stats.delta')}</Text>
             <Text style={[styles.statValue, stats.totalLost > 0 ? styles.positive : styles.neutral]}>
-              {stats.totalLost > 0 ? `-${stats.totalLost.toFixed(1)}` : '+${(-stats.totalLost).toFixed(1)'} kg</Text>
+              {stats.totalLost > 0
+                ? `-${stats.totalLost.toFixed(1)} kg`
+                : `+${Math.abs(stats.totalLost).toFixed(1)} kg`}
+            </Text>
           </View>
         </View>
       )}
 
       {/* Add Weight Form */}
       <View style={styles.addContainer}>
-        <Text style={styles.sectionTitle}>Agregar Peso</Text>
+        <Text style={styles.sectionTitle}>{t('weight.sections.add')}</Text>
         <View style={styles.inputRow}>
           <TextInput
             style={styles.input}
-            placeholder="Peso (kg)"
+            placeholder={t('weight.input.placeholder')}
             placeholderTextColor="#999"
             keyboardType="numeric"
             value={weightInput}
@@ -116,7 +121,7 @@ export function WeightScreen({ onBackPress }: WeightScreenProps): JSX.Element {
             {isAdding ? (
               <ActivityIndicator color="#fff" />
             ) : (
-              <Text style={styles.addButtonText}>Agregar</Text>
+              <Text style={styles.addButtonText}>{t('weight.actions.add')}</Text>
             )}
           </TouchableOpacity>
         </View>
@@ -124,14 +129,14 @@ export function WeightScreen({ onBackPress }: WeightScreenProps): JSX.Element {
 
       {/* History List */}
       <View style={styles.historyContainer}>
-        <Text style={styles.sectionTitle}>Historial</Text>
+        <Text style={styles.sectionTitle}>{t('weight.sections.history')}</Text>
         
         {loading && !isAdding && entries.length === 0 ? (
           <ActivityIndicator size="large" color="#4CAF50" style={styles.loader} />
         ) : error ? (
           <Text style={styles.errorText}>{error}</Text>
         ) : entries.length === 0 ? (
-          <Text style={styles.emptyText}>Sin registros aún</Text>
+          <Text style={styles.emptyText}>{t('weight.empty')}</Text>
         ) : (
           <ScrollView style={styles.list}>
             {entries.map((entry: WeightEntry) => (

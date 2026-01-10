@@ -47,12 +47,39 @@
       "progress": "Progress"
     },
     "actions": {
-      "logMeal": "🍽️ Log Meal",
-      "aiPlan": "🤖 AI Plan",
-      "progress": "📈 Progress",
-      "explore": "🧭 Explore",
-      "profile": "👤 Profile",
-      "gamification": "🏆 Rewards"
+      "logMeal": "Log meal",
+      "weight": "Weight",
+      "photos": "Photos",
+      "aiPlan": "AI plan",
+      "plan": "Plan",
+      "progress": "Progress",
+      "uploadLabel": "Upload label",
+      "explore": "Explore",
+      "profile": "Profile",
+      "gamification": "Rewards"
+    },
+    "actionSubtitles": {
+      "logMeal": "Scan or upload",
+      "aiPlan": "AI suggestions",
+      "plan": "Pick your plan",
+      "weight": "Track weight",
+      "photos": "Progress shots",
+      "recipes": "Quick ideas",
+      "progress": "See today",
+      "uploadLabel": "From a label",
+      "vision": "Detect foods",
+      "explore": "Discover feeds",
+      "profile": "Your settings"
+    },
+    "hero": {
+      "dailyCalories": "Daily calories",
+      "todayProgress": "Today",
+      "planStatus": "Plan status",
+      "planActive": "Active",
+      "planInactive": "Inactive",
+      "planUnknown": "Unknown",
+      "noCalories": "No target",
+      "noProgress": "No data"
     },
     "progress": {
       "description": "Quick overview of your tracking and plan"
@@ -120,6 +147,13 @@
     "weightProgress": "Weight Progress",
     "weighIn": "⚖️ Weigh-in",
     "currentWeight": "Current Weight",
+    "weightSummary": {
+      "noData": "No data",
+      "noDelta": "No change data",
+      "up": "+{{value}} kg since last",
+      "down": "-{{value}} kg since last",
+      "steady": "No change since last"
+    },
     "photoLogs": "Photo Logs",
     "loading": "Loading tracking data...",
     "chartPlaceholder": "Weight chart coming soon! 📈",
@@ -144,6 +178,24 @@
       "weighIn": "Weigh-in"
     },
     "weight": "Weight"
+  },
+  "weight": {
+    "stats": {
+      "current": "Current",
+      "start": "Start",
+      "delta": "Difference"
+    },
+    "sections": {
+      "add": "Add Weight",
+      "history": "History"
+    },
+    "input": {
+      "placeholder": "Weight (kg)"
+    },
+    "actions": {
+      "add": "Add"
+    },
+    "empty": "No entries yet"
   },
   "scanner": {
     "status": {

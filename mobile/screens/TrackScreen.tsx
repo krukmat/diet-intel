@@ -480,6 +480,21 @@ export default function TrackScreen({ onBackPress }: TrackScreenProps) {
     );
   };
 
+  const latestWeight = weightHistory.length > 0 ? weightHistory[weightHistory.length - 1].weight : null;
+  const previousWeight = weightHistory.length > 1 ? weightHistory[weightHistory.length - 2].weight : null;
+  const weightDelta =
+    latestWeight !== null && previousWeight !== null ? latestWeight - previousWeight : null;
+  const weightSummary =
+    latestWeight !== null ? `${latestWeight.toFixed(1)} kg` : t('track.weightSummary.noData');
+  const weightDeltaText =
+    weightDelta === null
+      ? t('track.weightSummary.noDelta')
+      : weightDelta > 0
+        ? t('track.weightSummary.up', { value: weightDelta.toFixed(1) })
+        : weightDelta < 0
+          ? t('track.weightSummary.down', { value: Math.abs(weightDelta).toFixed(1) })
+          : t('track.weightSummary.steady');
+
   if (loading) {
     return (
       <SafeAreaView style={styles.container}>
@@ -557,7 +572,14 @@ export default function TrackScreen({ onBackPress }: TrackScreenProps) {
         {/* Weight Tracking */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>{t('track.weightProgress')}</Text>
+            <View>
+              <Text style={[styles.sectionTitle, styles.weightSectionTitle]}>
+                {t('track.weightProgress')}
+              </Text>
+              <Text style={styles.sectionSubtitle}>
+                {weightSummary} • {weightDeltaText}
+              </Text>
+            </View>
             <TouchableOpacity
               style={styles.weighInButton}
               onPress={() => setWeighInModal({ visible: true })}
@@ -681,7 +703,15 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
     color: '#333',
-    marginBottom: 15,
+    marginBottom: 2,
+  },
+  weightSectionTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  sectionSubtitle: {
+    fontSize: 12,
+    color: '#6B7280',
   },
   mealCard: {
     borderWidth: 1,

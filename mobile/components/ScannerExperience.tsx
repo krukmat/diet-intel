@@ -4,9 +4,6 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  TextInput,
-  ActivityIndicator,
-  Platform,
 } from 'react-native';
 import { BarCodeScanner } from 'expo-barcode-scanner';
 
@@ -17,14 +14,9 @@ interface ScannerExperienceProps {
   hasPermission: boolean | null;
   showCamera: boolean;
   scanned: boolean;
-  manualBarcode: string;
-  loading: boolean;
   onStartCamera: () => void;
   onStopCamera: () => void;
   onBarcodeScanned: (event: { type: string; data: string }) => void;
-  onManualBarcodeChange: (value: string) => void;
-  onSubmit: () => void;
-  onReset: () => void;
 }
 
 const renderCameraSection = ({
@@ -79,14 +71,9 @@ export default function ScannerExperience({
   hasPermission,
   showCamera,
   scanned,
-  manualBarcode,
-  loading,
   onStartCamera,
   onStopCamera,
   onBarcodeScanned,
-  onManualBarcodeChange,
-  onSubmit,
-  onReset,
 }: ScannerExperienceProps) {
   return (
     <>
@@ -99,48 +86,6 @@ export default function ScannerExperience({
           onStartCamera,
           onStopCamera,
         })}
-      </View>
-
-      <View style={styles.inputSection}>
-        <Text style={styles.inputTitle}>{t('scanner.input.title')}</Text>
-
-        <TextInput
-          style={styles.input}
-          placeholder={t('scanner.input.placeholder')}
-          value={manualBarcode}
-          onChangeText={onManualBarcodeChange}
-          keyboardType="numeric"
-          maxLength={13}
-          editable={!loading}
-        />
-
-        <View style={styles.buttonRow}>
-          <TouchableOpacity
-            style={[
-              styles.button,
-              styles.primaryButton,
-              (!manualBarcode.trim() || loading) && styles.buttonDisabled,
-            ]}
-            onPress={onSubmit}
-            disabled={!manualBarcode.trim() || loading}
-            testID="scanner-submit"
-          >
-            {loading ? (
-              <ActivityIndicator size="small" color="white" />
-            ) : (
-              <Text style={styles.primaryButtonText}>{t('scanner.input.lookUp')}</Text>
-            )}
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.button, styles.secondaryButton]}
-            onPress={onReset}
-            disabled={loading}
-            testID="scanner-reset"
-          >
-            <Text style={styles.secondaryButtonText}>{t('scanner.input.reset')}</Text>
-          </TouchableOpacity>
-        </View>
       </View>
 
       <View style={styles.footer}>
@@ -233,74 +178,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     textAlign: 'center',
-  },
-  inputSection: {
-    backgroundColor: 'white',
-    padding: 25,
-    borderTopLeftRadius: 25,
-    borderTopRightRadius: 25,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 10,
-    elevation: 10,
-  },
-  inputTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#333',
-    marginBottom: 20,
-    textAlign: 'center',
-  },
-  input: {
-    borderWidth: 2,
-    borderColor: '#E3F2FD',
-    borderRadius: 15,
-    paddingHorizontal: 20,
-    paddingVertical: 18,
-    fontSize: 16,
-    marginBottom: 20,
-    backgroundColor: '#F8F9FA',
-    fontFamily: Platform.OS === 'android' ? 'monospace' : 'Courier',
-    textAlign: 'center',
-  },
-  buttonRow: {
-    flexDirection: 'row',
-    gap: 15,
-  },
-  button: {
-    flex: 1,
-    paddingVertical: 18,
-    borderRadius: 15,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  primaryButton: {
-    backgroundColor: '#007AFF',
-    shadowColor: '#007AFF',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 6,
-  },
-  secondaryButton: {
-    backgroundColor: 'transparent',
-    borderWidth: 2,
-    borderColor: '#007AFF',
-  },
-  buttonDisabled: {
-    backgroundColor: '#BDC3C7',
-    shadowColor: 'transparent',
-  },
-  primaryButtonText: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  secondaryButtonText: {
-    color: '#007AFF',
-    fontSize: 16,
-    fontWeight: '700',
   },
   footer: {
     backgroundColor: 'rgba(0,0,0,0.95)',

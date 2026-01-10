@@ -46,6 +46,14 @@ jest.mock('../hooks/useHomeActions', () => ({
   }),
 }));
 
+jest.mock('../hooks/useHomeHero', () => ({
+  useHomeHero: () => ({
+    dailyCalories: null,
+    planActive: null,
+    loading: false,
+  }),
+}));
+
 jest.mock('../hooks/useBarcodeFlow', () => ({
   useBarcodeFlow: () => mockUseBarcodeFlow(),
 }));

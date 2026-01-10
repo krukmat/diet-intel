@@ -7,6 +7,17 @@ import { apiService } from '../../services/ApiService';
 import * as ImagePicker from 'expo-image-picker';
 import * as ImageManipulator from 'expo-image-manipulator';
 
+jest.mock('react-i18next', () => ({
+  useTranslation: () => ({
+    t: (key: string, fallback?: string | Record<string, any>) =>
+      typeof fallback === 'string' ? fallback : key,
+  }),
+}));
+
+jest.mock('../../utils/foodTranslation', () => ({
+  translateFoodNameSync: (name: string) => name,
+}));
+
 const flushPromises = () => new Promise(resolve => setTimeout(resolve, 0));
 
 const findButtonByText = (component: any, targetText: string) => {

@@ -12,6 +12,7 @@ import HomeDashboard from './components/HomeDashboard';
 import ScannerExperience from './components/ScannerExperience';
 import { useHomeActions } from './hooks/useHomeActions';
 import { useBarcodeFlow } from './hooks/useBarcodeFlow';
+import { useHomeHero } from './hooks/useHomeHero';
 import { useNotifications } from './hooks/useNotifications';
 import { resolveScreenTarget } from './core/navigation/ScreenRegistry';
 import type { ScreenType, NavigationContext } from './core/navigation/NavigationTypes';
@@ -93,22 +94,25 @@ function MainApp({ user, onLogout }: { user: any; onLogout: () => void }) {
   const [developerConfig, setDeveloperConfig] = useState<DeveloperConfig>(DEFAULT_DEVELOPER_CONFIG);
   const [featureToggles, setFeatureToggles] = useState<FeatureToggle>(DEFAULT_FEATURE_TOGGLES);
   const { primaryActions, secondaryActions, toolActions } = useHomeActions(featureToggles);
+  const orderedActions = (() => {
+    const allActions = [...primaryActions, ...secondaryActions];
+    const photos = allActions.find(action => action.id === 'photos');
+    const recipes = allActions.find(action => action.id === 'recipes');
+    const rest = allActions.filter(action => action.id !== 'photos' && action.id !== 'recipes');
+    return [photos, recipes, ...rest].filter(Boolean);
+  })();
+  const { dailyCalories, consumedCalories, planActive } = useHomeHero();
   
   // Debug logging
   console.log('Current screen:', currentScreen);
   
   const {
-    manualBarcode,
-    setManualBarcode,
-    loading,
     hasPermission,
     scanned,
     showCamera,
     currentProduct,
     showProductDetail,
     handleBarCodeScanned,
-    handleSubmit,
-    resetInput,
     startCamera,
     stopCamera,
     closeProductDetail,
@@ -174,26 +178,24 @@ function MainApp({ user, onLogout }: { user: any; onLogout: () => void }) {
         title={t('app.title')}
         subtitle={t('auth.welcome', { name: getWelcomeName(user) })}
         version={t('app.version')}
+        heroDailyCalories={dailyCalories}
+        heroConsumedCalories={consumedCalories}
+        heroPlanActive={planActive}
         toolActions={toolActions.map(action => ({
           id: action.id,
           label: t(action.labelKey),
+          subtitle: action.subtitleKey ? t(action.subtitleKey) : undefined,
           icon: action.icon,
           onPress: () => handleHomeActionPress(action),
         }))}
-        primaryActions={primaryActions.map(action => ({
+        primaryActions={orderedActions.map(action => ({
           id: action.id,
           label: t(action.labelKey),
+          subtitle: action.subtitleKey ? t(action.subtitleKey) : undefined,
           icon: action.icon,
           onPress: () => handleHomeActionPress(action),
         }))}
-        secondaryActions={secondaryActions.map(action => ({
-          id: action.id,
-          label: t(action.labelKey),
-          icon: action.icon,
-          onPress: () => handleHomeActionPress(action),
-        }))}
-        progressTitle={t('home.sections.progress', 'Progress')}
-        progressDescription={t('home.progress.description', 'Quick overview of your tracking and plan')}
+        secondaryActions={[]}
         showDeveloperSettings={getDeveloperModeVisible(user, developerConfig)}
         showNotifications={getNotificationsVisible(featureToggles)}
         onLogout={onLogout}
@@ -207,14 +209,9 @@ function MainApp({ user, onLogout }: { user: any; onLogout: () => void }) {
         hasPermission={hasPermission}
         showCamera={showCamera}
         scanned={scanned}
-        manualBarcode={manualBarcode}
-        loading={loading}
         onStartCamera={startCamera}
         onStopCamera={stopCamera}
         onBarcodeScanned={handleBarCodeScanned}
-        onManualBarcodeChange={setManualBarcode}
-        onSubmit={handleSubmit}
-        onReset={resetInput}
       />
 
       <HomeModals

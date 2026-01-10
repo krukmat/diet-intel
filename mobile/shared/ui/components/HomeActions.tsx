@@ -4,6 +4,8 @@ import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 export interface HomeActionItem {
   id: string;
   label: string;
+  icon?: string;
+  subtitle?: string;
   onPress: () => void;
 }
 
@@ -27,18 +29,25 @@ interface HomeProgressCardProps {
 }
 
 export const HomePrimaryActions: React.FC<HomePrimaryActionsProps> = ({ title, actions }) => {
+  const hasTitle = Boolean(title.trim());
   return (
     <View style={styles.section}>
-      <Text style={styles.sectionTitle}>{title}</Text>
-      <View style={styles.primaryGrid}>
+      {hasTitle && <Text style={styles.sectionTitle}>{title}</Text>}
+      <View style={styles.actionGrid}>
         {actions.map(action => (
           <TouchableOpacity
             key={action.id}
-            style={styles.primaryCard}
+            style={styles.actionCard}
             onPress={action.onPress}
             testID={`home-primary-${action.id}`}
           >
-            <Text style={styles.primaryLabel}>{action.label}</Text>
+            {action.icon && (
+              <View style={styles.iconBadge}>
+                <Text style={styles.iconText}>{action.icon}</Text>
+              </View>
+            )}
+            <Text style={styles.actionLabel}>{action.label}</Text>
+            {action.subtitle && <Text style={styles.actionSubtitle}>{action.subtitle}</Text>}
           </TouchableOpacity>
         ))}
       </View>
@@ -47,18 +56,25 @@ export const HomePrimaryActions: React.FC<HomePrimaryActionsProps> = ({ title, a
 };
 
 export const HomeSecondaryActions: React.FC<HomeSecondaryActionsProps> = ({ title, actions }) => {
+  const hasTitle = Boolean(title.trim());
   return (
     <View style={styles.section}>
-      <Text style={styles.sectionTitle}>{title}</Text>
-      <View style={styles.secondaryList}>
+      {hasTitle && <Text style={styles.sectionTitle}>{title}</Text>}
+      <View style={styles.actionGrid}>
         {actions.map(action => (
           <TouchableOpacity
             key={action.id}
-            style={styles.secondaryItem}
+            style={styles.actionCard}
             onPress={action.onPress}
             testID={`home-secondary-${action.id}`}
           >
-            <Text style={styles.secondaryLabel}>{action.label}</Text>
+            {action.icon && (
+              <View style={styles.iconBadge}>
+                <Text style={styles.iconText}>{action.icon}</Text>
+              </View>
+            )}
+            <Text style={styles.actionLabel}>{action.label}</Text>
+            {action.subtitle && <Text style={styles.actionSubtitle}>{action.subtitle}</Text>}
           </TouchableOpacity>
         ))}
       </View>
@@ -96,7 +112,7 @@ export const HomeProgressCard: React.FC<HomeProgressCardProps> = ({ title, descr
 
 const styles = StyleSheet.create({
   section: {
-    marginBottom: 16,
+    marginBottom: 12,
   },
   sectionTitle: {
     fontSize: 16,
@@ -104,43 +120,44 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     color: '#1C1C1E',
   },
-  primaryGrid: {
+  actionGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 12,
+    gap: 10,
   },
-  primaryCard: {
+  actionCard: {
     flexBasis: '48%',
-    paddingVertical: 16,
+    paddingVertical: 14,
     paddingHorizontal: 12,
-    borderRadius: 12,
+    borderRadius: 10,
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
     borderColor: '#E5E5EA',
-    alignItems: 'center',
+    alignItems: 'flex-start',
+    minHeight: 96,
+    justifyContent: 'flex-start',
   },
-  primaryLabel: {
+  actionLabel: {
     fontSize: 14,
     fontWeight: '600',
     color: '#111827',
-    textAlign: 'center',
+    marginBottom: 2,
   },
-  secondaryList: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#E5E5EA',
-    overflow: 'hidden',
+  actionSubtitle: {
+    fontSize: 11,
+    color: '#6B7280',
   },
-  secondaryItem: {
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F2F2F7',
+  iconBadge: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: '#EFF6FF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 6,
   },
-  secondaryLabel: {
-    fontSize: 14,
-    color: '#1C1C1E',
+  iconText: {
+    fontSize: 16,
   },
   toolRow: {
     flexDirection: 'row',
