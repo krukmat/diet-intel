@@ -10,16 +10,37 @@ export interface NutritionProgress {
   percentage: number;
 }
 
+export interface DashboardMealItem {
+  id: string;
+  barcode: string;
+  name: string;
+  serving: string;
+  calories: number;
+  macros?: Record<string, number>;
+  meal_type: string;
+  is_consumed?: boolean;
+}
+
+export interface DashboardActivePlan {
+  plan_id: string;
+  created_at: string;
+  daily_calorie_target: number;
+  meals: DashboardMealItem[];
+}
+
+export interface DashboardProgress {
+  calories: NutritionProgress;
+  protein: NutritionProgress;
+  fat: NutritionProgress;
+  carbs: NutritionProgress;
+}
+
 export interface DashboardData {
   consumed_meals: any[];
-  active_plan: any | null;
-  progress: {
-    calories: NutritionProgress;
-    protein: NutritionProgress;
-    fat: NutritionProgress;
-    carbs: NutritionProgress;
-  };
+  active_plan: DashboardActivePlan | null;
+  progress: DashboardProgress;
   consumed_items: string[];
+  date?: string;
 }
 
 export interface ConsumePlanItemResponse {

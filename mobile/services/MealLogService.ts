@@ -30,27 +30,30 @@ export class MealLogService {
    */
   async getMeals(userId: string, filters?: MealLogFilters): Promise<MealEntry[]> {
     try {
-      const response = await apiService.get<{ meals: any[]; count: number }>(
-        `/track/meals?limit=50`
-      );
+      const params = new URLSearchParams({ user_id: userId });
 
-      return response.data.meals.map(meal => ({
-        id: meal.id,
-        userId: meal.userId,
-        name: meal.meal_name || '',
-        description: '',
-        calories: meal.total_calories || 0,
-        protein_g: meal.items?.[0]?.macros?.protein || 0,
-        fat_g: meal.items?.[0]?.macros?.fat || 0,
-        carbs_g: meal.items?.[0]?.macros?.carbs || 0,
-        mealType: 'breakfast',
-        timestamp: new Date(meal.timestamp || meal.created_at),
-        photoUrl: meal.photo_url,
-        barcode: meal.items?.[0]?.barcode,
-        source: 'manual',
-        createdAt: new Date(meal.created_at),
-        updatedAt: new Date(meal.created_at)
-      }));
+      if (filters) {
+        if (filters.date) {
+          params.append('date', filters.date.toISOString().split('T')[0]);
+        }
+        if (filters.mealType) {
+          params.append('meal_type', filters.mealType);
+        }
+        if (filters.source) {
+          params.append('source', filters.source);
+        }
+        if (filters.minCalories !== undefined) {
+          params.append('min_calories', filters.minCalories.toString());
+        }
+        if (filters.maxCalories !== undefined) {
+          params.append('max_calories', filters.maxCalories.toString());
+        }
+      }
+
+      const url = `/meals?${params.toString()}`;
+      const response = await apiService.get<MealEntry[]>(url);
+
+      return response.data;
     } catch (error) {
       console.error('MealLogService.getMeals failed:', error);
       throw new Error('Failed to load meals');
@@ -63,40 +66,13 @@ export class MealLogService {
   async createMeal(mealData: CreateMealRequest): Promise<MealEntry> {
     try {
       const payload = {
-        meal_name: mealData.name,
-        items: [{
-          barcode: mealData.barcode || '',
-          name: mealData.name,
-          serving: '1 serving',
-          calories: mealData.calories,
-          macros: {
-            protein: mealData.protein_g,
-            fat: mealData.fat_g,
-            carbs: mealData.carbs_g
-          }
-        }],
+        ...mealData,
         timestamp: new Date().toISOString(),
       };
 
-      const response = await apiService.post<any>(`/track/meal`, payload);
+      const response = await apiService.post<MealEntry>('/meals', payload);
 
-      return {
-        id: response.data.id,
-        userId: response.data.userId,
-        name: response.data.meal_name || '',
-        description: '',
-        calories: response.data.total_calories || 0,
-        protein_g: response.data.items?.[0]?.macros?.protein || 0,
-        fat_g: response.data.items?.[0]?.macros?.fat || 0,
-        carbs_g: response.data.items?.[0]?.macros?.carbs || 0,
-        mealType: 'breakfast',
-        timestamp: new Date(response.data.timestamp || response.data.created_at),
-        photoUrl: response.data.photo_url,
-        barcode: response.data.items?.[0]?.barcode,
-        source: 'manual',
-        createdAt: new Date(response.data.created_at),
-        updatedAt: new Date(response.data.created_at)
-      };
+      return response.data;
     } catch (error) {
       console.error('MealLogService.createMeal failed:', error);
       throw new Error('Failed to create meal');
@@ -108,7 +84,7 @@ export class MealLogService {
    */
   async updateMeal(id: string, mealData: UpdateMealRequest): Promise<void> {
     try {
-      await apiService.put(`/track/meal/${id}`, mealData);
+      await apiService.put(`/meals/${id}`, mealData);
     } catch (error) {
       console.error('MealLogService.updateMeal failed:', error);
       throw new Error('Failed to update meal');
@@ -120,7 +96,7 @@ export class MealLogService {
    */
   async deleteMeal(id: string): Promise<void> {
     try {
-      await apiService.delete(`/track/meal/${id}`);
+      await apiService.delete(`/meals/${id}`);
     } catch (error) {
       console.error('MealLogService.deleteMeal failed:', error);
       throw new Error('Failed to delete meal');
@@ -322,8 +298,22 @@ export class MealLogService {
     const errors: string[] = [];
     if (!data.name?.trim()) errors.push('Name is required');
     else if (data.name.length > 100) errors.push('Name must be less than 100 characters');
-    if (data.calories !== undefined && (data.calories < 0 || data.calories > 5000)) {
-      errors.push('Calories must be between 0 and 5000');
+    if (data.calories !== undefined) {
+      if (data.calories < 0) errors.push('Calories cannot be negative');
+      else if (data.calories > 5000) errors.push('Calories cannot exceed 5000');
+    }
+    if (data.protein_g !== undefined) {
+      if (data.protein_g < 0) {
+        errors.push('Protein cannot be negative');
+      } else if (data.protein_g > 500) {
+        errors.push('Protein cannot exceed 500g');
+      }
+    }
+    if (data.fat_g !== undefined && data.fat_g < 0) {
+      errors.push('Fat cannot be negative');
+    }
+    if (data.carbs_g !== undefined && data.carbs_g > 1000) {
+      errors.push('Carbs cannot exceed 1000g');
     }
     if (data.barcode && !/^\d{8,18}$/.test(data.barcode)) {
       errors.push('Barcode must be 8-18 digits');

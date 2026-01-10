@@ -23,7 +23,7 @@ import { translateFoodNameSync } from '../utils/foodTranslation';
 // import { LineChart } from 'react-native-chart-kit';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { apiService } from '../services/ApiService';
-import type { DashboardData } from '../services/ApiService';
+import type { DashboardActivePlan, DashboardData } from '../services/ApiService';
 
 interface MealItem {
   id: string;
@@ -59,16 +59,7 @@ interface DailyPlan {
   };
 }
 
-interface PlanMealItem {
-  id: string;
-  barcode: string;
-  name: string;
-  serving: string;
-  calories: number;
-  macros: Record<string, number>;
-  meal_type: string;
-  is_consumed?: boolean;
-}
+type PlanMealItem = DashboardActivePlan['meals'][number];
 
 type RawMacroInput = Partial<{
   protein_g: number;
@@ -79,12 +70,7 @@ type RawMacroInput = Partial<{
   carbs: number;
 }>;
 
-interface PlanProgress {
-  plan_id: string;
-  daily_calorie_target: number;
-  meals: PlanMealItem[];
-  created_at: string;
-}
+type PlanProgress = DashboardActivePlan;
 
 interface WeightEntry {
   date: string;
@@ -345,8 +331,8 @@ export default function TrackScreen({ onBackPress }: TrackScreenProps) {
     try {
       const response = await apiService.getDashboard();
       const dashboard: DashboardData = response.data;
-      const activePlan = dashboard.active_plan as PlanProgress | null;
-      const consumed = dashboard.consumed_items || [];
+      const activePlan = dashboard.active_plan;
+      const consumed = dashboard.consumed_items ?? [];
       setConsumedItems(consumed);
 
       if (!activePlan) {

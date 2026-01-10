@@ -67,6 +67,11 @@ export const rewardsScreenStyles = StyleSheet.create({
     color: colors.text.primary,
     marginBottom: spacing.md
   },
+  sectionSubtitle: {
+    ...typography.body,
+    color: colors.text.secondary,
+    marginBottom: spacing.md
+  },
   statItem: {
     ...typography.body,
     color: colors.text.secondary,

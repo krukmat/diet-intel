@@ -62,6 +62,15 @@ export const HOME_ACTIONS: HomeActionDefinition[] = [
     icon: '📖',
   },
   {
+    id: 'uploadLabel',
+    labelKey: 'home.actions.uploadLabel',
+    group: 'secondary',
+    target: 'upload',
+    icon: '🏷️',
+    featureFlags: ['uploadLabelFeature'],
+    featureMode: 'all',
+  },
+  {
     id: 'vision',
     labelKey: 'navigation.vision',
     group: 'secondary',

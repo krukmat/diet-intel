@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Platform } from 'react-native';
-import { HomePrimaryActions, HomeSecondaryActions, HomeToolActions } from '../shared/ui/components';
+import { HomePrimaryActions, HomeSecondaryActions, HomeToolActions, HomeProgressCard } from '../shared/ui/components';
 import { LanguageToggle } from './LanguageSwitcher';
 
 interface ActionItem {
@@ -70,6 +70,10 @@ export default function HomeDashboard({
         </View>
       </View>
 
+      <View style={styles.progressSection}>
+        <HomeProgressCard title={progressTitle} description={progressDescription} />
+      </View>
+
       <View style={styles.navigationSection}>
         <HomePrimaryActions title=" " actions={primaryActions} />
         <HomeSecondaryActions title=" " actions={secondaryActions} />
@@ -132,6 +136,13 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     flexDirection: 'column',
     gap: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E0E0E0',
+  },
+  progressSection: {
+    backgroundColor: '#F9F9F9',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
     borderBottomWidth: 1,
     borderBottomColor: '#E0E0E0',
   },

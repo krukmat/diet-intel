@@ -74,7 +74,7 @@ def handle_track_error(operation: str, error: Exception) -> None:
     logger.error(f"Unexpected error during {operation}: {str(error)}")
     raise HTTPException(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-        detail=f"Failed to {operation}: {str(error)}"
+        detail=f"Error: Failed to {operation}: {str(error)}"
     )
 
 

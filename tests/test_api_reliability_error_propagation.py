@@ -20,6 +20,9 @@ from main import app
 from app.services.cache import cache_service
 from app.services.database import db_service
 from app.routes import track as track_routes
+import importlib
+
+track_router_module = importlib.import_module("app.routes.track.router")
 
 
 @pytest.fixture
@@ -142,7 +145,7 @@ class TestDatabaseFailureResilience:
         }
 
         # Mock database write failure after first operation
-        with patch.object(track_routes.tracking_service, 'track_meal') as mock_create:
+        with patch.object(track_router_module.tracking_service, 'track_meal') as mock_create:
             mock_create.side_effect = Exception("Database write failed")
 
             response = client.post("/track/meal", json=meal_request)
@@ -155,7 +158,7 @@ class TestDatabaseFailureResilience:
     def test_database_read_failure_fallback(self, client):
         """Test fallback behavior when database reads fail"""
         # Mock database read failure
-        with patch.object(track_routes.tracking_service, 'get_user_meals', side_effect=Exception("Database read failed")):
+        with patch.object(track_router_module.tracking_service, 'get_user_meals', side_effect=Exception("Database read failed")):
             # Try to get meal history
             response = client.get("/track/meals")
 
