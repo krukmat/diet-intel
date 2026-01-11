@@ -106,7 +106,7 @@ describe('RewardsScreen Navigation Integration', () => {
       </AuthProvider>
     );
 
-    const backButton = getByText('← Volver');
+    const backButton = getByText('🏠');
     expect(backButton).toBeTruthy();
     
     fireEvent.press(backButton);

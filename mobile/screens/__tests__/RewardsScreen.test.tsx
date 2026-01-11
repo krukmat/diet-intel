@@ -202,7 +202,7 @@ describe('RewardsScreen', () => {
 
       renderWithProviders(<RewardsScreen navigation={mockNavigation} />);
       
-      const backButton = screen.getByText('← Volver');
+      const backButton = screen.getByText('🏠');
       expect(backButton).toBeTruthy();
     });
 
@@ -218,7 +218,7 @@ describe('RewardsScreen', () => {
 
       renderWithProviders(<RewardsScreen navigation={mockNavigation} />);
       
-      const backButton = screen.getByText('← Volver');
+      const backButton = screen.getByText('🏠');
       fireEvent.press(backButton);
       
       expect(mockGoBack).toHaveBeenCalledTimes(1);
@@ -233,7 +233,7 @@ describe('RewardsScreen', () => {
 
       renderWithProviders(<RewardsScreen />);
       
-      expect(screen.queryByText('← Volver')).toBeNull();
+      expect(screen.queryByText('🏠')).toBeNull();
     });
   });
 

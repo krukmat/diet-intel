@@ -10,6 +10,11 @@ import { NavigationProvider, useNavigation, useSafeNavigation, ScreenRenderer } 
 import * as ScreenRegistry from '../ScreenRegistry';
 import { ScreenType } from '../NavigationTypes';
 
+jest.mock('react-i18next', () => {
+  const { createTranslationMock } = require('../../testUtils');
+  return createTranslationMock();
+});
+
 // Mock screen components for testing
 const MockScreen: React.FC<{ navigationContext?: any }> = ({ navigationContext }) => (
   <View testID="mock-screen">

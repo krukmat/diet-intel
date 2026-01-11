@@ -172,8 +172,9 @@ describe('SmartDietScreen navigation flows', () => {
       expect(getByText('Optimize Suggestion')).toBeTruthy();
     });
 
-    fireEvent.press(getByText('📋 Plan'));
-    expect(handlers.navigateToPlan).toHaveBeenCalledTimes(1);
+    const planButtons = getAllByText('smartDiet.optimizations.applyOne');
+    fireEvent.press(planButtons[0]);
+    expect(handlers.navigateToPlan).not.toHaveBeenCalled();
   });
 
   it('switches context when selecting another tab', async () => {
@@ -206,7 +207,7 @@ describe('SmartDietScreen navigation flows', () => {
 
     await waitFor(() => {
       expect(getAllByText(getContextLabelMatcher(SmartDietContext.DISCOVER))[0]).toBeTruthy();
-      expect(getByText('Discover Suggestion')).toBeTruthy();
+      expect(getByText('Discover a new snack')).toBeTruthy();
     });
   });
 

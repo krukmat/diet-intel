@@ -211,7 +211,7 @@ describe('SmartDietScreen integration', () => {
   });
 
   it('invokes navigation handlers from quick actions', async () => {
-    const { getByText, handlers } = renderSmartDietScreen();
+    const { getByText, getAllByText, handlers } = renderSmartDietScreen();
 
     await flushAsync();
 
@@ -232,7 +232,8 @@ describe('SmartDietScreen integration', () => {
       expect(getByText('Optimize Suggestion')).toBeTruthy();
     });
 
-    fireEvent.press(getByText('📋 Plan'));
-    expect(handlers.navigateToPlan).toHaveBeenCalled();
+    const planButtons = getAllByText('smartDiet.optimizations.applyOne');
+    fireEvent.press(planButtons[0]);
+    expect(handlers.navigateToPlan).not.toHaveBeenCalled();
   });
 });

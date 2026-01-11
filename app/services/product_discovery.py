@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 
 FALLBACK_PRODUCT_DATA = [
     {
-        "barcode": "0000000000001",
+        "barcode": "FALLBACK_001",
         "source": "Fallback",
         "name": "Banana",
         "brand": "DietIntel",
@@ -36,7 +36,7 @@ FALLBACK_PRODUCT_DATA = [
         },
     },
     {
-        "barcode": "0000000000002",
+        "barcode": "FALLBACK_002",
         "source": "Fallback",
         "name": "Plain Greek Yogurt",
         "brand": "DietIntel",
@@ -53,7 +53,7 @@ FALLBACK_PRODUCT_DATA = [
         },
     },
     {
-        "barcode": "0000000000003",
+        "barcode": "FALLBACK_003",
         "source": "Fallback",
         "name": "Brown Rice",
         "brand": "DietIntel",
@@ -681,10 +681,32 @@ class ProductDiscoveryService:
                     product = await self._convert_db_row_to_product(row)
                     if product:
                         products.append(product)
-                return products
+                if products:
+                    return products
         except Exception as exc:
             logger.error(f"Emergency fallback failed: {exc}")
-            return []
+        logger.info("Returning embedded fallback products for emergency fallback")
+        return self._build_embedded_fallback_products()
+
+    def _build_embedded_fallback_products(self) -> List[ProductResponse]:
+        """Convert static fallback constants into product responses."""
+        fallback_products: List[ProductResponse] = []
+        fetched_at = datetime.utcnow()
+        for entry in FALLBACK_PRODUCT_DATA:
+            nutriments = Nutriments(**entry["nutriments"])
+            fallback_products.append(
+                ProductResponse(
+                    source=entry.get("source", "Fallback"),
+                    barcode=entry["barcode"],
+                    name=entry.get("name"),
+                    brand=entry.get("brand"),
+                    image_url=entry.get("image_url"),
+                    serving_size=entry.get("serving_size"),
+                    nutriments=nutriments,
+                    fetched_at=fetched_at,
+                )
+            )
+        return fallback_products
 
 
 # Global service instance
