@@ -704,13 +704,28 @@ export default function SmartDietScreen({ onBackPress, navigationContext, naviga
   };
 
   const visibleSuggestions = useMemo(() => {
-    if (!smartData?.suggestions) return [];
-    return smartData.suggestions
-      .filter((suggestion) => suggestion.suggestion_type !== 'insight')
-      .filter((suggestion) => hasCompleteNutrition(extractNutrition(suggestion)))
+    if (!smartData) return [];
+    const pool = [
+      ...(smartData.suggestions || []),
+      ...(Array.isArray(smartData.optimizations) ? smartData.optimizations : []),
+      ...(Array.isArray(smartData.discoveries) ? smartData.discoveries : []),
+    ];
+    const seen = new Set<string>();
+    return pool
+      .filter((suggestion) => suggestion && suggestion.suggestion_type !== 'insight')
+      .filter((suggestion) => {
+        if (suggestion.suggestion_type === 'optimization') return true;
+        return hasCompleteNutrition(extractNutrition(suggestion));
+      })
       .filter((suggestion) =>
         isReadableName(suggestion.title) || isReadableName(suggestion.suggested_item?.name)
-      );
+      )
+      .filter((suggestion) => {
+        const key = suggestion.id ?? `${suggestion.title}-${suggestion.category}`;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
   }, [smartData]);
 
   const renderSuggestion = (suggestion: ExtendedSmartSuggestion, index?: number) => (
@@ -719,28 +734,30 @@ export default function SmartDietScreen({ onBackPress, navigationContext, naviga
         <View style={styles.suggestionInfo}>
           <Text style={styles.suggestionTitle}>{translateFoodNameSync(suggestion.title)}</Text>
           <View style={styles.suggestionMetaRow}>
-            <Text style={styles.suggestionCategory}>
-              {suggestion.suggestion_type === 'optimization'
-                ? 'SWAP'
-                : suggestion.suggestion_type === 'recommendation'
-                  ? 'DISCOVERY'
-                  : 'INFO'}
-            </Text>
-            <View style={[
-              styles.suggestionTypeBadge,
-              suggestion.suggestion_type === 'optimization'
-                ? styles.suggestionTypeBadgeSwap
-                : suggestion.suggestion_type === 'recommendation'
-                  ? styles.suggestionTypeBadgeDiscovery
-                  : styles.suggestionTypeBadgeInfo,
-            ]}>
-              <Text style={styles.suggestionTypeBadgeText}>
-                {typeof suggestion.category === 'string' 
-                  ? suggestion.category.replace('_', ' ').toUpperCase()
-                  : suggestion.meal_context?.toUpperCase() || 'RECOMMENDATION'
-                }
-              </Text>
-            </View>
+            {suggestion.suggestion_type === 'optimization' && (
+              <Text style={styles.suggestionCategory}>SWAP</Text>
+            )}
+            {(suggestion.suggestion_type === 'recommendation' ||
+              suggestion.suggestion_type === 'optimization') && (
+              <View
+                style={[
+                  styles.suggestionTypeBadge,
+                  suggestion.suggestion_type === 'optimization'
+                    ? styles.suggestionTypeBadgeSwap
+                    : styles.suggestionTypeBadgeDiscovery,
+                ]}
+              >
+                <Text style={styles.suggestionTypeBadgeText}>
+                  {suggestion.suggestion_type === 'optimization'
+                    ? suggestion.meal_context?.toUpperCase() ||
+                      suggestion.category?.replace('_', ' ').toUpperCase() ||
+                      'OPTIMIZE'
+                    : typeof suggestion.category === 'string'
+                      ? suggestion.category.replace('_', ' ').toUpperCase()
+                      : 'DISCOVERY'}
+                </Text>
+              </View>
+            )}
           </View>
         </View>
         <View style={styles.confidenceContainer}>

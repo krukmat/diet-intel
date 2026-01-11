@@ -379,7 +379,7 @@ export class SmartDietService {
       const params = new URLSearchParams({
         context: context,
         max_suggestions: request.max_suggestions?.toString() || '10',
-        include_history: request.include_optimizations?.toString() || 'true',
+        include_optimizations: request.include_optimizations?.toString() || 'true',
         ...(request.user_id && { user_id: request.user_id }),
         ...(request.lang && { lang: request.lang }),
         ...(request.meal_context && { meal_context: request.meal_context }),

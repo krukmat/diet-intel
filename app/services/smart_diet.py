@@ -30,6 +30,7 @@ from app.services.plan_storage import plan_storage
 from app.services.product_discovery import product_discovery_service
 from app.services.database import db_service
 from app.services.translation_service import get_translation_service
+from app.services.openfoodfacts import openfoodfacts_service
 
 logger = logging.getLogger(__name__)
 
@@ -159,6 +160,12 @@ class OptimizationEngine:
         except Exception as exc:
             logger.warning(f"Product lookup by name failed for {name}: {exc}")
 
+        try:
+            return await openfoodfacts_service.search_product_by_name(cleaned)
+        except Exception as exc:
+            logger.warning(f"OpenFoodFacts search failed for {name}: {exc}")
+            return None
+
         return None
 
     def _nutrition_from_product(self, product: Optional[ProductResponse]) -> Optional[Dict[str, float]]:
@@ -222,13 +229,18 @@ class OptimizationEngine:
         
         try:
             for item in meal.items:
-                nutrition["calories"] += item.macros.calories
-                nutrition["protein_g"] += item.macros.protein_g
-                nutrition["fat_g"] += item.macros.fat_g
-                nutrition["carbs_g"] += item.macros.carbs_g
-                # fiber_g might not be available in all items
-                if hasattr(item.macros, 'fiber_g'):
-                    nutrition["fiber_g"] += item.macros.fiber_g or 0
+                macros = getattr(item, "macros", None)
+                calories = getattr(item, "calories", None)
+                if calories is None and macros is not None:
+                    calories = getattr(macros, "calories", 0)
+                nutrition["calories"] += calories or 0
+                if macros is not None:
+                    nutrition["protein_g"] += getattr(macros, "protein_g", 0) or 0
+                    nutrition["fat_g"] += getattr(macros, "fat_g", 0) or 0
+                    nutrition["carbs_g"] += getattr(macros, "carbs_g", 0) or 0
+                    # fiber_g might not be available in all items
+                    if hasattr(macros, "fiber_g"):
+                        nutrition["fiber_g"] += getattr(macros, "fiber_g", 0) or 0
         except Exception as e:
             logger.warning(f"Error calculating meal nutrition: {e}")
         
@@ -630,7 +642,7 @@ class SmartDietEngine:
                 "insights": 0.6
             }
         }
-        self.cache_version = "v2"
+        self.cache_version = "v3"
     
     def _generate_request_hash(self, user_id: str, request: SmartDietRequest) -> str:
         """Generate hash for cache key based on request parameters"""

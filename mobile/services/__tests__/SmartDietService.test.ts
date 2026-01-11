@@ -297,7 +297,7 @@ describe('SmartDietService', () => {
       expect(params.get('context')).toBe(SmartDietContext.OPTIMIZE);
       expect(params.get('user_id')).toBe(testUserId);
       expect(params.get('max_suggestions')).toBe('5');
-      expect(params.get('include_history')).toBe('false');
+      expect(params.get('include_optimizations')).toBe('false');
       expect(params.get('include_recommendations')).toBe('false');
       expect(params.get('meal_context')).toBe('lunch');
       expect(params.get('current_meal_plan_id')).toBe('plan_42');

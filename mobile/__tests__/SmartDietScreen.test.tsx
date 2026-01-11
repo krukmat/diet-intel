@@ -249,6 +249,25 @@ describe('SmartDietScreen', () => {
     expect(await findByText('Greek Yogurt with Berries')).toBeTruthy();
   });
 
+  it('shows loading state initially', async () => {
+    const { getByText } = renderScreen();
+    expect(getByText('Loading recommendations...')).toBeTruthy();
+  });
+
+  it('includes expected query params for initial fetch', async () => {
+    renderScreen();
+
+    await waitFor(() => {
+      expect(mockedApi.get).toHaveBeenCalled();
+    });
+
+    const callArgs = mockedApi.get.mock.calls[0]?.[0] as string;
+    expect(callArgs).toContain('context=today');
+    expect(callArgs).toContain('max_suggestions=10');
+    expect(callArgs).toContain('include_optimizations=true');
+    expect(callArgs).toContain('lang=en');
+  });
+
   it('switches to optimize context and calls API with proper query params', async () => {
     const { findAllByText } = renderScreen();
 
@@ -263,6 +282,22 @@ describe('SmartDietScreen', () => {
       expect(mockedApi.get).toHaveBeenCalledWith(expect.stringContaining('context=optimize'));
       expect(mockedMealPlan.getCurrentMealPlanId).toHaveBeenCalled();
     });
+  });
+
+  it('handles slow responses and shows empty state', async () => {
+    let resolvePromise: (value: any) => void;
+    const delayedPromise = new Promise(resolve => {
+      resolvePromise = resolve;
+    });
+
+    mockedApi.get.mockReturnValueOnce(delayedPromise as any);
+
+    const { getByText, findByText } = renderScreen();
+
+    expect(getByText('Loading recommendations...')).toBeTruthy();
+    resolvePromise!({ data: buildSmartDietResponse('today', { suggestions: [] }) });
+
+    expect(await findByText('No suggestions available at the moment.')).toBeTruthy();
   });
 
   it('refreshes suggestions when the user taps refresh button', async () => {
@@ -416,7 +451,7 @@ describe('SmartDietScreen', () => {
     const { findByText } = renderScreen();
 
     await findByText('Greek Yogurt with Berries');
-    fireEvent.press(await findByText('Add to breakfast'));
+    fireEvent.press(await findByText('Add to plan'));
 
     expect(alertSpy).toHaveBeenCalledWith(
       'Cannot Add to Plan',
@@ -439,7 +474,7 @@ describe('SmartDietScreen', () => {
     const { findByText } = renderScreen();
 
     await findByText('Greek Yogurt with Berries');
-    fireEvent.press(await findByText('Add to breakfast'));
+    fireEvent.press(await findByText('Add to plan'));
 
     expect(alertSpy).toHaveBeenCalledWith(
       'Sign In Required',
@@ -466,7 +501,7 @@ describe('SmartDietScreen', () => {
     const { findByText } = renderScreen();
 
     await findByText('Greek Yogurt with Berries');
-    fireEvent.press(await findByText('Apply Optimization'));
+    fireEvent.press(await findByText('Apply optimization'));
 
     expect(alertSpy).toHaveBeenCalled();
     alertSpy.mockRestore();
