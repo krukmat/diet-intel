@@ -184,6 +184,7 @@
     "title": "📊 Track Progress",
     "subtitle": "Today's Meals & Weight",
     "todaysPlannedMeals": "Today's Planned Meals",
+    "itemConsumed": "✓ Consumed",
     "markAsEaten": "✓ Mark as Eaten",
     "weightProgress": "Weight Progress",
     "weighIn": "⚖️ Weigh-in",

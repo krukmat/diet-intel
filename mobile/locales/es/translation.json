@@ -181,9 +181,10 @@
     "error": "Error"
   },
   "track": {
-    "title": "📊 Seguimiento de Progreso", 
+    "title": "📊 Seguimiento de Progreso",
     "subtitle": "Comidas y Peso de Hoy",
     "todaysPlannedMeals": "Comidas Planificadas de Hoy",
+    "itemConsumed": "✓ Consumida",
     "markAsEaten": "✓ Marcar como Consumida",
     "weightProgress": "Progreso de Peso",
     "weighIn": "⚖️ Pesarse",

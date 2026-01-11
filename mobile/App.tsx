@@ -98,7 +98,7 @@ function MainApp({ user, onLogout }: { user: any; onLogout: () => void }) {
     const allActions = [...primaryActions, ...secondaryActions];
     const photos = allActions.find(action => action.id === 'photos');
     const recipes = allActions.find(action => action.id === 'recipes');
-    const rest = allActions.filter(action => action.id !== 'photos' && action.id !== 'recipes');
+    const rest = allActions.filter(action => action.id !== 'photos' && action.id !== 'recipes' && action.id !== 'vision' && action.id !== 'explore' && action.id !== 'profile' && action.id !== 'uploadLabel');
     return [photos, recipes, ...rest].filter(Boolean);
   })();
   const { dailyCalories, plannedCalories, consumedCalories, planActive } = useHomeHero(user?.id);
