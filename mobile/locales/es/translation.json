@@ -73,6 +73,7 @@
     },
     "hero": {
       "dailyCalories": "Calorías diarias",
+      "planCalories": "Plan: {{calories}} kcal",
       "todayProgress": "Hoy",
       "planStatus": "Estado del plan",
       "planActive": "Activo",
@@ -96,6 +97,9 @@
     "plannedMeals": "Comidas Planificadas",
     "generateNewPlan": "🔄 Generar Nuevo Plan",
     "customize": "🔧 Personalizar",
+    "customizeSuccess": "Elemento agregado al plan!",
+    "removeConfirm": "¿Quitar {{item}} de tu plan?",
+    "removeError": "No se pudo quitar el elemento del plan.",
     "list": {
       "title": "Selecciona un plan",
       "subtitle": "Elige el plan que quieras optimizar.",

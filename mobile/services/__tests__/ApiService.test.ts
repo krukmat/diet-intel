@@ -251,14 +251,14 @@ describe('ApiService', () => {
       await service.getProductByBarcode('123');
       await service.searchProduct('chicken & rice');
       await service.generateMealPlan({ calories: 2000 });
-      await service.customizeMealPlan({ meal_type: 'lunch' });
+      await service.customizeMealPlan('plan-1', { meal_type: 'lunch' });
       await service.getMealPlanConfig();
       await service.addProductToPlan({ barcode: '123', meal_type: 'breakfast' });
 
       expect(mockAxiosInstance.get).toHaveBeenCalledWith('/product/by-barcode/123', undefined);
       expect(mockAxiosInstance.get).toHaveBeenCalledWith('/product/search?q=chicken%20%26%20rice', undefined);
       expect(mockAxiosInstance.post).toHaveBeenCalledWith('/plan/generate', { calories: 2000 }, undefined);
-      expect(mockAxiosInstance.put).toHaveBeenCalledWith('/plan/customize', { meal_type: 'lunch' }, undefined);
+      expect(mockAxiosInstance.put).toHaveBeenCalledWith('/plan/customize/plan-1', { meal_type: 'lunch' }, undefined);
       expect(mockAxiosInstance.get).toHaveBeenCalledWith('/plan/config', undefined);
       expect(mockAxiosInstance.post).toHaveBeenCalledWith('/plan/add-product', { barcode: '123', meal_type: 'breakfast' }, undefined);
     });

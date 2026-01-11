@@ -683,6 +683,37 @@ class SmartDietEngine:
             "fat": float(fat),
             "carbs": float(carbs),
         }
+
+    def _dedupe_suggestions_by_name(self, suggestions: List[SmartSuggestion]) -> List[SmartSuggestion]:
+        def name_key(suggestion: SmartSuggestion) -> str:
+            raw = (suggestion.title or (suggestion.suggested_item.name if suggestion.suggested_item else "")).strip()
+            return raw.lower()
+
+        def nutrition_score(suggestion: SmartSuggestion) -> int:
+            nutrition = suggestion.nutritional_benefit or {}
+            return sum(
+                1
+                for key in ("calories", "protein", "fat", "carbs")
+                if nutrition.get(key) is not None
+            )
+
+        deduped: Dict[str, SmartSuggestion] = {}
+        for suggestion in suggestions:
+            key = name_key(suggestion)
+            if not key:
+                continue
+            existing = deduped.get(key)
+            if not existing:
+                deduped[key] = suggestion
+                continue
+            score_new = nutrition_score(suggestion)
+            score_existing = nutrition_score(existing)
+            if score_new > score_existing:
+                deduped[key] = suggestion
+            elif score_new == score_existing and (suggestion.confidence_score or 0) > (existing.confidence_score or 0):
+                deduped[key] = suggestion
+
+        return list(deduped.values())
     
     async def get_smart_suggestions(
         self, 
@@ -747,6 +778,10 @@ class SmartDietEngine:
             response.nutritional_summary = await self._generate_nutritional_summary(
                 response.suggestions, request
             )
+
+            # Deduplicate by normalized name before metrics
+            response.suggestions = self._dedupe_suggestions_by_name(response.suggestions)
+            response.discoveries = self._dedupe_suggestions_by_name(response.discoveries)
             
             # Calculate metrics
             response.total_suggestions = len(response.suggestions)

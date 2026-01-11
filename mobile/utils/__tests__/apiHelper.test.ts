@@ -205,7 +205,7 @@ describe('ApiHelper', () => {
 
     await expect(helper.generateMealPlan({ age: 30, sex: 'male', height_cm: 170, weight_kg: 70, activity_level: 2, goal: 'maintain' }))
       .resolves.toEqual({ id: 'plan' });
-    await expect(helper.customizeMealPlan({ meal_type: 'lunch', action: 'add', item: { barcode: '1', name: 'Item', serving_size: '1', calories_per_serving: 100, protein_g: 10, fat_g: 2, carbs_g: 5 } }))
+    await expect(helper.customizeMealPlan('plan-1', { meal_type: 'lunch', action: 'add', item: { barcode: '1', name: 'Item', serving_size: '1', calories_per_serving: 100, protein_g: 10, fat_g: 2, carbs_g: 5 } }))
       .resolves.toEqual({ id: 'plan-updated' });
     await expect(helper.addProductToPlan({ barcode: '1', meal_type: 'lunch' }))
       .resolves.toEqual({ success: true, message: 'Added' });

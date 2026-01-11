@@ -123,36 +123,37 @@ export const useMealPlan = ({ t, userProfile }: UseMealPlanProps): UseMealPlanRe
   }, [t, userProfile]);
 
   const customizeMeal = useCallback(async (mealType: string, action: string, item: MealItem) => {
-    if (!dailyPlan) return;
+    if (!dailyPlan || !currentPlanId) return;
 
     try {
-      const customizeData = {
-        meal_type: mealType.toLowerCase(),
-        action,
-        item,
-      };
+      const customizeData = action === 'add'
+        ? {
+            add_manual: {
+              barcode: item.barcode,
+              name: item.name,
+              calories: item.calories,
+              protein_g: item.macros.protein_g,
+              fat_g: item.macros.fat_g,
+              carbs_g: item.macros.carbs_g,
+              sugars_g: item.macros.sugars_g,
+              salt_g: item.macros.salt_g,
+              serving: item.serving,
+            },
+          }
+        : {};
 
-      await apiService.customizeMealPlan(customizeData);
+      const response = await apiService.customizeMealPlan(currentPlanId, customizeData);
 
       // Update local state
-      const updatedPlan = { ...dailyPlan };
-      const mealIndex = updatedPlan.meals.findIndex(m => m.name.toLowerCase() === mealType.toLowerCase());
-
-      if (mealIndex >= 0) {
-        const meal = updatedPlan.meals[mealIndex];
-        if (action === 'add') {
-          meal.items.push(item);
-        }
-        // Recalculate totals
-        meal.actual_calories = meal.items.reduce((sum, item) => sum + item.calories, 0);
-        setDailyPlan(updatedPlan);
+      if (response.data?.plan) {
+        setDailyPlan(response.data.plan);
       }
 
       Alert.alert(t('common.success'), 'Item added to meal plan!');
     } catch (error) {
       Alert.alert(t('common.error'), 'Failed to customize meal plan.');
     }
-  }, [dailyPlan, t]);
+  }, [currentPlanId, dailyPlan, t]);
 
   return {
     dailyPlan,

@@ -236,7 +236,7 @@ describe('PlanScreen', () => {
   });
 
   it('customizes a meal and calls the API', async () => {
-    customizeMealPlanMock.mockResolvedValueOnce({ data: {} });
+    customizeMealPlanMock.mockResolvedValueOnce({ data: { plan: sampleDailyPlan } });
 
     const { findAllByText, findByPlaceholderText, findByText } = render(
       <PlanScreen onBackPress={jest.fn()} />
@@ -253,10 +253,11 @@ describe('PlanScreen', () => {
 
     await waitFor(() => {
       expect(customizeMealPlanMock).toHaveBeenCalledWith(
+        'plan-abc123',
         expect.objectContaining({
-          meal_type: 'breakfast',
-          action: 'add',
-          item: expect.objectContaining({ name: 'Extra Item' }),
+          add_manual: expect.objectContaining({
+            name: 'Extra Item',
+          }),
         })
       );
     });
@@ -281,6 +282,42 @@ describe('PlanScreen', () => {
     await waitFor(() => {
       expect(alertSpy).toHaveBeenCalledWith('common.error', 'Failed to customize meal plan.');
     });
+  });
+
+  it('removes a meal item and calls the API', async () => {
+    customizeMealPlanMock.mockResolvedValueOnce({ data: { plan: sampleDailyPlan } });
+
+    const { findByText, findAllByText } = render(
+      <PlanScreen onBackPress={jest.fn()} />
+    );
+
+    fireEvent.press(await findByText('plan.generateNewPlan', { exact: false }));
+    await findByText(/Breakfast/);
+
+    const removeButtons = await findAllByText('common.remove');
+    alertSpy.mockImplementation((_title, _message, buttons) => {
+      const confirm = buttons?.[1];
+      if (confirm && typeof confirm.onPress === 'function') {
+        confirm.onPress();
+      }
+    });
+
+    fireEvent.press(removeButtons[0]);
+
+    await waitFor(() => {
+      expect(customizeMealPlanMock).toHaveBeenCalledWith(
+        'plan-abc123',
+        {
+          remove: {
+            barcode: 'item-1',
+            meal_name: 'Breakfast',
+            item_index: 0,
+          },
+        }
+      );
+    });
+
+    alertSpy.mockImplementation(() => {});
   });
 
   it('supports back navigation and regenerate actions', async () => {

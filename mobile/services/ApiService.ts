@@ -233,8 +233,8 @@ class ApiService {
     return this.post('/plan/generate', planRequest);
   }
 
-  public async customizeMealPlan(customizeData: any) {
-    return this.put('/plan/customize', customizeData);
+  public async customizeMealPlan(planId: string, customizeData: any) {
+    return this.put(`/plan/customize/${planId}`, customizeData);
   }
 
   public async getMealPlanConfig() {

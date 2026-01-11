@@ -177,6 +177,11 @@ const planScreenStyles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#F0F0F0',
   },
+  itemRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
   itemInfo: {
     flex: 1,
   },
@@ -194,6 +199,19 @@ const planScreenStyles = StyleSheet.create({
   itemServing: {
     fontSize: 12,
     color: '#999',
+  },
+  removeButton: {
+    borderWidth: 1,
+    borderColor: '#F5C2C7',
+    backgroundColor: '#FFF5F5',
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 10,
+  },
+  removeButtonText: {
+    color: '#C62828',
+    fontSize: 12,
+    fontWeight: '600',
   },
   customizeButton: {
     backgroundColor: '#F0F8FF',

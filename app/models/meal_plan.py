@@ -135,6 +135,8 @@ class SwapOperation(BaseModel):
 
 class RemoveOperation(BaseModel):
     barcode: str = Field(..., description="Barcode of item to remove")
+    meal_name: Optional[str] = Field(default=None, description="Meal name for precise removal")
+    item_index: Optional[int] = Field(default=None, ge=0, description="Item index within the meal")
 
 
 class ManualAddition(BaseModel):

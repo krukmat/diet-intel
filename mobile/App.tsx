@@ -101,7 +101,7 @@ function MainApp({ user, onLogout }: { user: any; onLogout: () => void }) {
     const rest = allActions.filter(action => action.id !== 'photos' && action.id !== 'recipes');
     return [photos, recipes, ...rest].filter(Boolean);
   })();
-  const { dailyCalories, consumedCalories, planActive } = useHomeHero();
+  const { dailyCalories, plannedCalories, consumedCalories, planActive } = useHomeHero(user?.id);
   
   // Debug logging
   console.log('Current screen:', currentScreen);
@@ -179,6 +179,7 @@ function MainApp({ user, onLogout }: { user: any; onLogout: () => void }) {
         subtitle={t('auth.welcome', { name: getWelcomeName(user) })}
         version={t('app.version')}
         heroDailyCalories={dailyCalories}
+        heroPlannedCalories={plannedCalories}
         heroConsumedCalories={consumedCalories}
         heroPlanActive={planActive}
         toolActions={toolActions.map(action => ({

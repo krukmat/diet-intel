@@ -49,6 +49,7 @@ jest.mock('../hooks/useHomeActions', () => ({
 jest.mock('../hooks/useHomeHero', () => ({
   useHomeHero: () => ({
     dailyCalories: null,
+    plannedCalories: null,
     planActive: null,
     loading: false,
   }),

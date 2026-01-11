@@ -578,31 +578,73 @@ export default function PlanScreen({
   };
 
   const handleCustomizeConfirm = async (newItem: MealItem) => {
-    if (!dailyPlan) return;
+    if (!dailyPlan || !currentPlanId) return;
 
     try {
       const customizeData = {
-        meal_type: customizeModal.mealType.toLowerCase(),
-        action: 'add',
-        item: newItem,
+        add_manual: {
+          barcode: newItem.barcode,
+          name: newItem.name,
+          calories: newItem.calories,
+          protein_g: newItem.macros.protein_g,
+          fat_g: newItem.macros.fat_g,
+          carbs_g: newItem.macros.carbs_g,
+          sugars_g: newItem.macros.sugars_g,
+          salt_g: newItem.macros.salt_g,
+          serving: newItem.serving,
+        },
       };
 
-      await apiService.customizeMealPlan(customizeData);
-      
-      // Update local state
-      const updatedPlan = { ...dailyPlan };
-      const meal = updatedPlan.meals[customizeModal.mealIndex];
-      meal.items.push(newItem);
-      
-      // Recalculate totals
-      meal.actual_calories = meal.items.reduce((sum, item) => sum + item.calories, 0);
-      
-      setDailyPlan(updatedPlan);
-      Alert.alert(t('common.success'), 'Item added to meal plan!');
+      const response = await apiService.customizeMealPlan(currentPlanId, customizeData);
+
+      if (response.data?.plan) {
+        setDailyPlan(response.data.plan);
+        await fetchPlans();
+      }
+      Alert.alert(t('common.success'), t('plan.customizeSuccess'));
     } catch (error) {
       Alert.alert(t('common.error'), 'Failed to customize meal plan.');
     }
   };
+
+  const handleRemoveItem = useCallback(
+    (mealName: string, itemIndex: number, item: MealItem) => {
+      if (!currentPlanId) {
+        Alert.alert(t('common.error'), t('plan.optimize.noPlan'));
+        return;
+      }
+
+      Alert.alert(
+        t('common.remove'),
+        t('plan.removeConfirm', { item: translateFoodNameSync(item.name) }),
+        [
+          { text: t('common.cancel'), style: 'cancel' },
+          {
+            text: t('common.remove'),
+            style: 'destructive',
+            onPress: async () => {
+              try {
+                const response = await apiService.customizeMealPlan(currentPlanId, {
+                  remove: {
+                    barcode: item.barcode,
+                    meal_name: mealName,
+                    item_index: itemIndex,
+                  },
+                });
+                if (response.data?.plan) {
+                  setDailyPlan(response.data.plan);
+                  await fetchPlans();
+                }
+              } catch (error) {
+                Alert.alert(t('common.error'), t('plan.removeError'));
+              }
+            },
+          },
+        ]
+      );
+    },
+    [currentPlanId, fetchPlans, t]
+  );
 
   const renderProgressBar = (current: number, target: number, color: string) => {
     const percentage = Math.min((current / target) * 100, 100);
@@ -635,10 +677,18 @@ export default function PlanScreen({
 
       {meal.items.map((item, itemIndex) => (
         <View key={itemIndex} style={styles.mealItem}>
-          <View style={styles.itemInfo}>
-            <Text style={styles.itemName}>{translateFoodNameSync(item.name)}</Text>
-            <Text style={styles.itemServing}>{item.serving} • {Math.round(item.calories)} kcal</Text>
-            <Text style={styles.macroText}>P: {Math.round(item.macros.protein_g)}g F: {Math.round(item.macros.fat_g)}g C: {Math.round(item.macros.carbs_g)}g</Text>
+          <View style={styles.itemRow}>
+            <View style={styles.itemInfo}>
+              <Text style={styles.itemName}>{translateFoodNameSync(item.name)}</Text>
+              <Text style={styles.itemServing}>{item.serving} • {Math.round(item.calories)} kcal</Text>
+              <Text style={styles.macroText}>P: {Math.round(item.macros.protein_g)}g F: {Math.round(item.macros.fat_g)}g C: {Math.round(item.macros.carbs_g)}g</Text>
+            </View>
+            <TouchableOpacity
+              style={styles.removeButton}
+              onPress={() => handleRemoveItem(meal.name, itemIndex, item)}
+            >
+              <Text style={styles.removeButtonText}>{t('common.remove')}</Text>
+            </TouchableOpacity>
           </View>
         </View>
       ))}

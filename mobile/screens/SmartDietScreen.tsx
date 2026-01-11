@@ -705,13 +705,32 @@ export default function SmartDietScreen({ onBackPress, navigationContext, naviga
 
   const visibleSuggestions = useMemo(() => {
     if (!smartData) return [];
+    const hasDiscoveries = Array.isArray(smartData.discoveries) && smartData.discoveries.length > 0;
+    const discoveryNames = hasDiscoveries
+      ? new Set(
+          smartData.discoveries
+            .map((item) => (item.title || item.suggested_item?.name || '').trim().toLowerCase())
+            .filter(Boolean)
+        )
+      : new Set<string>();
     const pool = [
-      ...(smartData.suggestions || []),
+      ...(smartData.suggestions || []).filter((suggestion) => {
+        if (hasDiscoveries && suggestion?.category === 'discovery') return false;
+        const name = (suggestion?.title || suggestion?.suggested_item?.name || '').trim().toLowerCase();
+        return !(hasDiscoveries && name && discoveryNames.has(name));
+      }),
       ...(Array.isArray(smartData.optimizations) ? smartData.optimizations : []),
       ...(Array.isArray(smartData.discoveries) ? smartData.discoveries : []),
     ];
+    const hideInlineOptimizations =
+      selectedContext === SmartDietContext.OPTIMIZE &&
+      smartData.optimizations &&
+      !Array.isArray(smartData.optimizations);
     const seen = new Set<string>();
     return pool
+      .filter((suggestion) =>
+        hideInlineOptimizations ? suggestion.suggestion_type !== 'optimization' : true
+      )
       .filter((suggestion) => suggestion && suggestion.suggestion_type !== 'insight')
       .filter((suggestion) => {
         if (suggestion.suggestion_type === 'optimization') return true;
@@ -721,12 +740,21 @@ export default function SmartDietScreen({ onBackPress, navigationContext, naviga
         isReadableName(suggestion.title) || isReadableName(suggestion.suggested_item?.name)
       )
       .filter((suggestion) => {
-        const key = suggestion.id ?? `${suggestion.title}-${suggestion.category}`;
+        const title = (suggestion.title || suggestion.suggested_item?.name || '').trim().toLowerCase();
+        const category = typeof suggestion.category === 'string' ? suggestion.category : '';
+        const barcode = suggestion.suggested_item?.barcode || suggestion.current_item?.barcode || '';
+        const keyParts = [
+          suggestion.suggestion_type,
+          title,
+          category,
+          barcode,
+        ];
+        const key = keyParts.filter(Boolean).join('|') || suggestion.id || `${suggestion.title}-${suggestion.category}`;
         if (seen.has(key)) return false;
         seen.add(key);
         return true;
       });
-  }, [smartData]);
+  }, [smartData, selectedContext]);
 
   const renderSuggestion = (suggestion: ExtendedSmartSuggestion, index?: number) => (
     <View key={`suggestion_${suggestion.id}_${index || 0}`} style={styles.suggestionCard}>
@@ -737,24 +765,17 @@ export default function SmartDietScreen({ onBackPress, navigationContext, naviga
             {suggestion.suggestion_type === 'optimization' && (
               <Text style={styles.suggestionCategory}>SWAP</Text>
             )}
-            {(suggestion.suggestion_type === 'recommendation' ||
-              suggestion.suggestion_type === 'optimization') && (
+            {suggestion.suggestion_type === 'recommendation' && (
               <View
                 style={[
                   styles.suggestionTypeBadge,
-                  suggestion.suggestion_type === 'optimization'
-                    ? styles.suggestionTypeBadgeSwap
-                    : styles.suggestionTypeBadgeDiscovery,
+                  styles.suggestionTypeBadgeDiscovery,
                 ]}
               >
                 <Text style={styles.suggestionTypeBadgeText}>
-                  {suggestion.suggestion_type === 'optimization'
-                    ? suggestion.meal_context?.toUpperCase() ||
-                      suggestion.category?.replace('_', ' ').toUpperCase() ||
-                      'OPTIMIZE'
-                    : typeof suggestion.category === 'string'
-                      ? suggestion.category.replace('_', ' ').toUpperCase()
-                      : 'DISCOVERY'}
+                  {typeof suggestion.category === 'string'
+                    ? suggestion.category.replace('_', ' ').toUpperCase()
+                    : 'DISCOVERY'}
                 </Text>
               </View>
             )}
@@ -1155,8 +1176,27 @@ export default function SmartDietScreen({ onBackPress, navigationContext, naviga
 
     const optimizations = smartData.optimizations;
     if (Array.isArray(optimizations)) return null;
+    const uniqueMealSwaps = (() => {
+      const seen = new Set<string>();
+      return (optimizations.meal_swaps ?? []).filter((swap) => {
+        const key = [
+          swap.from_food,
+          swap.to_food,
+          swap.from_barcode,
+          swap.to_barcode,
+        ]
+          .filter(Boolean)
+          .join('|')
+          .toLowerCase();
+        if (!key) return true;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+    })();
+
     const totalOptimizations =
-      (optimizations.meal_swaps?.length ?? 0) +
+      uniqueMealSwaps.length +
       (optimizations.macro_adjustments?.length ?? 0);
     const excludedCount = Object.values(excludedOptimizations).filter(Boolean).length;
     const selectedCount = Math.max(totalOptimizations - excludedCount, 0);
@@ -1166,11 +1206,11 @@ export default function SmartDietScreen({ onBackPress, navigationContext, naviga
         <Text style={styles.optimizationsTitle}>{t('smartDiet.optimizations.title')}</Text>
         <Text style={styles.optimizationsSubtitle}>{t('smartDiet.optimizations.subtitle')}</Text>
 
-        {optimizations.meal_swaps && optimizations.meal_swaps.length > 0 && (
+        {uniqueMealSwaps.length > 0 && (
           <View style={styles.optimizationSection}>
             <Text style={styles.optimizationSectionTitle}>{t('smartDiet.optimizations.mealSwaps')}</Text>
-            {optimizations.meal_swaps.map((swap, index) => {
-              const key = `swap_${swap.from_food}_${swap.to_food}_${index}`;
+            {uniqueMealSwaps.map((swap, index) => {
+              const key = `swap_${swap.from_food}_${swap.to_food}_${swap.from_barcode || ''}_${swap.to_barcode || ''}_${index}`;
               const excluded = Boolean(excludedOptimizations[key]);
 
               return (

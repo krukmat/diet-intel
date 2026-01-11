@@ -73,6 +73,7 @@
     },
     "hero": {
       "dailyCalories": "Daily calories",
+      "planCalories": "Plan: {{calories}} kcal",
       "todayProgress": "Today",
       "planStatus": "Plan status",
       "planActive": "Active",
@@ -96,6 +97,9 @@
     "plannedMeals": "Planned Meals",
     "generateNewPlan": "🔄 Generate New Plan",
     "customize": "🔧 Customize",
+    "customizeSuccess": "Item added to meal plan!",
+    "removeConfirm": "Remove {{item}} from your plan?",
+    "removeError": "Could not remove item from meal plan.",
     "list": {
       "title": "Select a plan",
       "subtitle": "Choose the plan you want to optimize.",

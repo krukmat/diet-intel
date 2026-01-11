@@ -3,14 +3,16 @@ import { apiService } from '../services/ApiService';
 
 export interface HomeHeroState {
   dailyCalories: number | null;
+  plannedCalories: number | null;
   consumedCalories: number | null;
   planActive: boolean | null;
   loading: boolean;
 }
 
-export const useHomeHero = (): HomeHeroState => {
+export const useHomeHero = (userId?: string | null): HomeHeroState => {
   const [state, setState] = useState<HomeHeroState>({
     dailyCalories: null,
+    plannedCalories: null,
     consumedCalories: null,
     planActive: null,
     loading: true,
@@ -24,11 +26,23 @@ export const useHomeHero = (): HomeHeroState => {
         const response = await apiService.getDashboard();
         const activePlan = response.data?.active_plan ?? null;
         const consumedCalories = response.data?.progress?.calories?.consumed ?? null;
+        let fallbackPlan = activePlan;
+        if (!fallbackPlan) {
+          try {
+            const plansResponse = await apiService.getUserPlans();
+            const plans = plansResponse.data || [];
+            fallbackPlan = plans.find((plan: any) => plan.is_active) ?? null;
+          } catch (error) {
+            console.warn('Home hero plan fallback failed:', error);
+          }
+        }
+
         if (!isMounted) return;
         setState({
-          dailyCalories: activePlan?.daily_calorie_target ?? null,
+          dailyCalories: fallbackPlan?.daily_calorie_target ?? null,
+          plannedCalories: fallbackPlan?.metrics?.total_calories ?? null,
           consumedCalories,
-          planActive: Boolean(activePlan),
+          planActive: Boolean(fallbackPlan),
           loading: false,
         });
       } catch (error) {
@@ -36,6 +50,7 @@ export const useHomeHero = (): HomeHeroState => {
         console.warn('Home hero load failed:', error);
         setState({
           dailyCalories: null,
+          plannedCalories: null,
           consumedCalories: null,
           planActive: null,
           loading: false,
@@ -48,7 +63,7 @@ export const useHomeHero = (): HomeHeroState => {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [userId]);
 
   return state;
 };

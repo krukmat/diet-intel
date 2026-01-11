@@ -146,25 +146,36 @@ class PlanCustomizerService:
         """
         Remove an item from the meal plan.
         """
-        # Find the item to remove
         target_meal = None
         target_item_index = None
-        
+
+        def matches_target(meal: Meal, index: int, item: MealItem) -> bool:
+            if remove.meal_name and meal.name.lower() != remove.meal_name.lower():
+                return False
+            if remove.item_index is not None and index != remove.item_index:
+                return False
+            return item.barcode == remove.barcode
+
         for meal in plan.meals:
             for i, item in enumerate(meal.items):
-                if item.barcode == remove.barcode:
+                if matches_target(meal, i, item):
                     target_meal = meal
                     target_item_index = i
                     break
             if target_meal:
                 break
-        
+
         if not target_meal or target_item_index is None:
-            logger.warning(f"Item to remove not found: {remove.barcode}")
+            logger.warning(
+                "Item to remove not found: %s (meal=%s, index=%s)",
+                remove.barcode,
+                remove.meal_name,
+                remove.item_index,
+            )
             change_log.append(ChangeLogEntry(
                 change_type="remove_failed",
                 description=f"Item with barcode {remove.barcode} not found in plan",
-                meal_affected=None
+                meal_affected=remove.meal_name
             ))
             return
         
@@ -456,10 +467,17 @@ class PlanCustomizerService:
         
         # For remove operations, check if item exists
         if customization.remove:
+            def matches_removal(meal: Meal, index: int, item: MealItem) -> bool:
+                if customization.remove.meal_name and meal.name.lower() != customization.remove.meal_name.lower():
+                    return False
+                if customization.remove.item_index is not None and index != customization.remove.item_index:
+                    return False
+                return item.barcode == customization.remove.barcode
+
             item_exists = any(
-                item.barcode == customization.remove.barcode
+                matches_removal(meal, index, item)
                 for meal in plan.meals
-                for item in meal.items
+                for index, item in enumerate(meal.items)
             )
             # If item doesn't exist, removing it is idempotent
             return not item_exists

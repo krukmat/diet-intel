@@ -260,9 +260,9 @@ class ApiHelper {
     }
   }
 
-  async customizeMealPlan(customizeRequest: CustomizeRequest): Promise<DailyPlan> {
+  async customizeMealPlan(planId: string, customizeRequest: CustomizeRequest): Promise<DailyPlan> {
     try {
-      const response = await this.client.put('/plan/customize', customizeRequest);
+      const response = await this.client.put(`/plan/customize/${planId}`, customizeRequest);
       return response.data;
     } catch (error) {
       throw this.transformError(error as AxiosError);

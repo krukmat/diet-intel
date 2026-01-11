@@ -16,6 +16,7 @@ interface HomeDashboardProps {
   subtitle: string;
   version: string;
   heroDailyCalories?: number | null;
+  heroPlannedCalories?: number | null;
   heroConsumedCalories?: number | null;
   heroPlanActive?: boolean | null;
   toolActions: ActionItem[];
@@ -34,6 +35,7 @@ export default function HomeDashboard({
   subtitle,
   version,
   heroDailyCalories,
+  heroPlannedCalories,
   heroConsumedCalories,
   heroPlanActive,
   toolActions,
@@ -51,6 +53,10 @@ export default function HomeDashboard({
     heroDailyCalories !== null && heroDailyCalories !== undefined
       ? `${Math.round(heroDailyCalories)} kcal`
       : t('home.hero.noCalories');
+  const plannedCaloriesText =
+    heroPlannedCalories !== null && heroPlannedCalories !== undefined
+      ? t('home.hero.planCalories', { calories: Math.round(heroPlannedCalories) })
+      : null;
   const progressText =
     heroConsumedCalories !== null && heroConsumedCalories !== undefined
       ? `${Math.round(heroConsumedCalories)}`
@@ -99,6 +105,9 @@ export default function HomeDashboard({
             <View style={styles.heroStat}>
               <Text style={styles.heroStatLabel}>{t('home.hero.dailyCalories')}</Text>
               <Text style={styles.heroStatValue}>{caloriesText}</Text>
+              {plannedCaloriesText && (
+                <Text style={styles.heroStatSubValue}>{plannedCaloriesText}</Text>
+              )}
             </View>
             <View style={styles.heroStat}>
               <Text style={styles.heroStatLabel}>{t('home.hero.todayProgress')}</Text>
@@ -199,6 +208,12 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '700',
     marginTop: 6,
+  },
+  heroStatSubValue: {
+    color: '#C7D2FE',
+    fontSize: 12,
+    fontWeight: '600',
+    marginTop: 4,
   },
   navigationSection: {
     backgroundColor: 'white',

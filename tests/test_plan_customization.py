@@ -200,6 +200,60 @@ class TestPlanCustomizerService:
         # Should have failure log
         assert len(change_log) == 1
         assert change_log[0].change_type == "remove_failed"
+
+    @pytest.mark.asyncio
+    async def test_remove_operation_by_meal_and_index(self, sample_meal_plan):
+        """Test removing a specific item by meal name and index"""
+        customizer = PlanCustomizerService()
+
+        second_item = MealItem(
+            barcode="000000000010",
+            name="Test Apples",
+            serving="100g",
+            calories=52.0,
+            macros=MealItemMacros(
+                protein_g=0.3,
+                fat_g=0.2,
+                carbs_g=14.0,
+                sugars_g=10.0,
+                salt_g=0.0
+            )
+        )
+        sample_meal_plan.meals[0].items.append(second_item)
+
+        remove_request = PlanCustomizationRequest(
+            remove=RemoveOperation(
+                barcode="000000000010",
+                meal_name="Breakfast",
+                item_index=1
+            )
+        )
+
+        updated_plan, change_log = await customizer.customize_plan(sample_meal_plan, remove_request)
+
+        assert len(updated_plan.meals[0].items) == 1
+        assert updated_plan.meals[0].items[0].barcode == "000000000001"
+        assert len(change_log) == 1
+        assert change_log[0].change_type == "remove"
+        assert change_log[0].meal_affected == "Breakfast"
+
+    @pytest.mark.asyncio
+    async def test_remove_operation_by_index_out_of_range(self, sample_meal_plan):
+        """Test remove operation when item index is out of range"""
+        customizer = PlanCustomizerService()
+
+        remove_request = PlanCustomizationRequest(
+            remove=RemoveOperation(
+                barcode="000000000001",
+                meal_name="Breakfast",
+                item_index=3
+            )
+        )
+
+        updated_plan, change_log = await customizer.customize_plan(sample_meal_plan, remove_request)
+
+        assert len(updated_plan.meals[0].items) == 1
+        assert change_log[0].change_type == "remove_failed"
     
     @pytest.mark.asyncio
     async def test_manual_addition_success(self, sample_meal_plan):
