@@ -429,41 +429,48 @@ describe('SmartDietService', () => {
   });
 
   describe('optimizeMealPlan', () => {
-    const mockOptimizations = [
-      {
-        id: 'opt_1',
-        optimization_type: 'food_swap',
-        target_improvement: { protein: 10, calories: -50 }
-      }
-    ];
+    const mockApplyResponse = {
+      success: true,
+      applied: 1,
+      plan: { plan_id: 'plan_123', meals: [] }
+    };
 
     it('should optimize meal plan successfully', async () => {
       mockedApiService.post.mockResolvedValue({
-        data: { optimizations: mockOptimizations }
+        data: mockApplyResponse
       });
 
-      const result = await service.optimizeMealPlan('plan_123');
+      const result = await service.optimizeMealPlan('plan_123', [
+        { change_type: 'meal_swap', old_barcode: '111', new_barcode: '222' }
+      ]);
 
-      expect(result).toEqual(mockOptimizations);
+      expect(result).toEqual(mockApplyResponse);
       expect(mockedApiService.post).toHaveBeenCalledWith(
-        expect.stringContaining('/smart-diet/apply-optimization'),
-        { suggestion_id: 'plan_123' }
+        expect.stringContaining('/smart-diet/optimizations/apply'),
+        {
+          plan_id: 'plan_123',
+          changes: [{ change_type: 'meal_swap', old_barcode: '111', new_barcode: '222' }]
+        }
       );
     });
 
     it('should handle empty optimization response', async () => {
       mockedApiService.post.mockResolvedValue({ data: {} });
 
-      const result = await service.optimizeMealPlan('plan_123');
+      const result = await service.optimizeMealPlan('plan_123', [
+        { change_type: 'meal_swap', old_barcode: '111', new_barcode: '222' }
+      ]);
 
-      expect(result).toEqual([]);
+      expect(result).toEqual({});
     });
 
     it('should handle optimization errors', async () => {
       mockedApiService.post.mockRejectedValue(new Error('Optimization failed'));
 
       await expect(
-        service.optimizeMealPlan('plan_123')
+        service.optimizeMealPlan('plan_123', [
+          { change_type: 'meal_swap', old_barcode: '111', new_barcode: '222' }
+        ])
       ).rejects.toThrow('Failed to optimize meal plan');
     });
   });

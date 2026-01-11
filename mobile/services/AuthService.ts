@@ -6,7 +6,7 @@ import {
   AuthTokens,
   TokenStorage,
 } from '../types/auth';
-import { API_BASE_URL } from '../config/environment';
+import { getEnvironmentConfig, DEFAULT_ENVIRONMENT } from '../config/environments';
 
 type AsyncStorageLike = Pick<typeof AsyncStorage, 'getItem' | 'setItem' | 'removeItem'>;
 
@@ -22,6 +22,15 @@ export const resetAuthServiceStorage = () => {
 
 export class AuthService {
   private readonly STORAGE_KEY = '@dietintel_auth';
+  private currentEnvironment = DEFAULT_ENVIRONMENT;
+
+  setEnvironment(environment: string): void {
+    this.currentEnvironment = environment;
+  }
+
+  private getApiBaseUrl(): string {
+    return getEnvironmentConfig(this.currentEnvironment).apiBaseUrl;
+  }
 
   private get storage(): AsyncStorageLike {
     return storageClient;
@@ -31,7 +40,7 @@ export class AuthService {
     credentials: LoginCredentials,
   ): Promise<{ user: User; tokens: AuthTokens }> {
     try {
-      const response = await fetch(`${API_BASE_URL}/auth/login`, {
+      const response = await fetch(`${this.getApiBaseUrl()}/auth/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -61,7 +70,7 @@ export class AuthService {
     data: RegisterData,
   ): Promise<{ user: User; tokens: AuthTokens }> {
     try {
-      const response = await fetch(`${API_BASE_URL}/auth/register`, {
+      const response = await fetch(`${this.getApiBaseUrl()}/auth/register`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -91,7 +100,7 @@ export class AuthService {
     refreshToken: string,
   ): Promise<{ user: User; tokens: AuthTokens }> {
     try {
-      const response = await fetch(`${API_BASE_URL}/auth/refresh`, {
+      const response = await fetch(`${this.getApiBaseUrl()}/auth/refresh`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -120,7 +129,7 @@ export class AuthService {
   async logout(refreshToken?: string): Promise<void> {
     try {
       if (refreshToken) {
-        await fetch(`${API_BASE_URL}/auth/logout`, {
+        await fetch(`${this.getApiBaseUrl()}/auth/logout`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -137,7 +146,7 @@ export class AuthService {
 
   async getCurrentUser(accessToken: string): Promise<User> {
     try {
-      const response = await fetch(`${API_BASE_URL}/auth/me`, {
+      const response = await fetch(`${this.getApiBaseUrl()}/auth/me`, {
         method: 'GET',
         headers: {
           Authorization: `Bearer ${accessToken}`,

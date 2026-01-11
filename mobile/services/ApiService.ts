@@ -62,6 +62,7 @@ class ApiService {
   constructor(environment?: string) {
     this.currentEnvironment = environment || 'android_dev';
     this.axiosInstance = this.createAxiosInstance();
+    authService.setEnvironment(this.currentEnvironment);
   }
 
   private createAxiosInstance(): AxiosInstance {
@@ -78,10 +79,18 @@ class ApiService {
     // Request interceptor for logging and attaching auth tokens when available
     instance.interceptors.request.use(
       async (config) => {
-        console.log(`API Request: ${config.method?.toUpperCase()} ${config.url}`, {
-          environment: this.currentEnvironment,
-          baseURL: this.axiosInstance.defaults.baseURL
-        });
+        const isOptimizationApply = config.url?.includes('/smart-diet/optimizations/apply');
+        if (isOptimizationApply) {
+          const headers = AxiosHeaders.from(config.headers ?? {});
+          console.log('API Request: Smart diet apply auth header present before token attach:', {
+            hasAuthHeader: Boolean(headers.get('Authorization'))
+          });
+        } else {
+          console.log(`API Request: ${config.method?.toUpperCase()} ${config.url}`, {
+            environment: this.currentEnvironment,
+            baseURL: this.axiosInstance.defaults.baseURL
+          });
+        }
 
         try {
           const storedTokens = await authService.getStoredTokens();
@@ -98,6 +107,12 @@ class ApiService {
           const headers = AxiosHeaders.from(config.headers ?? {});
           headers.set('Authorization', `Bearer ${accessToken}`);
           config.headers = headers;
+
+          if (isOptimizationApply) {
+            console.log('API Request: Smart diet apply auth header attached:', {
+              hasAuthHeader: Boolean(headers.get('Authorization'))
+            });
+          }
         } catch (error) {
           console.warn('API Request Token Attach Error:', error);
         }
@@ -116,13 +131,30 @@ class ApiService {
         console.log(`API Response: ${response.status} ${response.config.url}`);
         return response;
       },
-      (error) => {
+      async (error) => {
         console.error('API Response Error:', {
           status: error.response?.status,
           message: error.message,
           url: error.config?.url,
           environment: this.currentEnvironment
         });
+
+        if (error.response?.status === 401 && error.config && !error.config._retry) {
+          error.config._retry = true;
+          try {
+            const storedTokens = await authService.getStoredTokens();
+            if (storedTokens?.refresh_token) {
+              const refreshed = await authService.refreshToken(storedTokens.refresh_token);
+              const headers = AxiosHeaders.from(error.config.headers ?? {});
+              headers.set('Authorization', `Bearer ${refreshed.tokens.access_token}`);
+              error.config.headers = headers;
+              return instance.request(error.config as AxiosRequestConfig);
+            }
+          } catch (refreshError) {
+            console.warn('Token refresh failed after 401:', refreshError);
+          }
+        }
+
         return Promise.reject(error);
       }
     );
@@ -135,6 +167,7 @@ class ApiService {
     console.log(`Switching API environment from '${this.currentEnvironment}' to '${environment}'`);
     this.currentEnvironment = environment;
     this.axiosInstance = this.createAxiosInstance();
+    authService.setEnvironment(environment);
   }
 
   // Get current environment info
@@ -301,7 +334,23 @@ class ApiService {
   }
 
   public async applySmartDietOptimization(optimizationData: any) {
-    return this.post('/smart-diet/apply-optimization', optimizationData);
+    let config: AxiosRequestConfig | undefined;
+    try {
+      const storedTokens = await authService.getStoredTokens();
+      if (storedTokens?.access_token) {
+        config = {
+          headers: {
+            Authorization: `Bearer ${storedTokens.access_token}`,
+          },
+        };
+      } else {
+        console.warn('applySmartDietOptimization: missing access token in storage');
+      }
+    } catch (error) {
+      console.warn('Failed to attach auth token for optimization:', error);
+    }
+
+    return this.post('/smart-diet/optimizations/apply', optimizationData, config);
   }
 
   public async getSmartDietMetrics(userId?: string, days?: number) {

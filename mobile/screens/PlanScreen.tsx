@@ -2,7 +2,6 @@ import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
-  StyleSheet,
   ScrollView,
   TouchableOpacity,
   ActivityIndicator,
@@ -10,7 +9,6 @@ import {
   Modal,
   TextInput,
   SafeAreaView,
-  Platform,
 } from 'react-native';
 import { StatusBar as ExpoStatusBar } from 'expo-status-bar';
 import { useTranslation } from 'react-i18next';
@@ -18,6 +16,7 @@ import { apiService } from '../services/ApiService';
 import { translateFoodNameSync } from '../utils/foodTranslation';
 import { storeCurrentMealPlanId } from '../utils/mealPlanUtils';
 import { PlanSelectionList, PlanSummary } from '../components/plan/PlanSelectionList';
+import { planScreenStyles as styles } from '../shared/ui/styles';
 
 interface UserProfile {
   age: number;
@@ -357,6 +356,7 @@ export default function PlanScreen({ onBackPress, onViewPlan, navigateToSmartDie
   const [currentPlanId, setCurrentPlanId] = useState<string | null>(null);
   const [planList, setPlanList] = useState<PlanSummary[]>([]);
   const [plansLoading, setPlansLoading] = useState(false);
+  const [optimizeModalVisible, setOptimizeModalVisible] = useState(false);
   
   // Helper function to translate meal names
   const translateMealName = (mealName: string): string => {
@@ -458,7 +458,7 @@ export default function PlanScreen({ onBackPress, onViewPlan, navigateToSmartDie
 
   const handleOptimizePlan = () => {
     if (navigateToSmartDiet && currentPlanId) {
-      navigateToSmartDiet({ planId: currentPlanId });
+      setOptimizeModalVisible(true);
     } else {
       Alert.alert(
         t('plan.optimize.title'),
@@ -467,6 +467,20 @@ export default function PlanScreen({ onBackPress, onViewPlan, navigateToSmartDie
       );
     }
   };
+
+  const handleConfirmOptimize = () => {
+    if (!currentPlanId) {
+      setOptimizeModalVisible(false);
+      return;
+    }
+    setOptimizeModalVisible(false);
+    navigateToSmartDiet?.({ planId: currentPlanId, targetContext: 'optimize' });
+  };
+
+  const activePlanSummary = planList.find((plan) => plan.planId === currentPlanId);
+  const activePlanDate = activePlanSummary?.createdAt
+    ? new Date(activePlanSummary.createdAt).toLocaleDateString()
+    : null;
 
   const generatePlan = async () => {
     setLoading(true);
@@ -616,11 +630,29 @@ export default function PlanScreen({ onBackPress, onViewPlan, navigateToSmartDie
         onViewPlan={onViewPlan}
       />
 
+      <View style={styles.activePlanSummary}>
+        <Text style={styles.activePlanLabel}>
+          {currentPlanId ? t('plan.optimize.activePlanLabel') : t('plan.optimize.noActiveHelper')}
+        </Text>
+        {currentPlanId ? (
+          <Text style={styles.activePlanMeta}>
+            {activePlanDate ?? t('plan.optimize.dateUnknown')} •{' '}
+            {activePlanSummary?.dailyCalorieTarget
+              ? `${Math.round(activePlanSummary.dailyCalorieTarget)} kcal`
+              : t('plan.optimize.caloriesUnknown')}
+          </Text>
+        ) : (
+          <TouchableOpacity style={styles.inlineCta} onPress={generatePlan}>
+            <Text style={styles.inlineCtaText}>{t('plan.optimize.ctaGenerate')}</Text>
+          </TouchableOpacity>
+        )}
+      </View>
+
       <View style={styles.actionButtonsContainer}>
         <TouchableOpacity
           style={[styles.actionButton, styles.optimizeButton, !currentPlanId && styles.disabledButton]}
           onPress={handleOptimizePlan}
-          disabled={!currentPlanId}
+          accessibilityState={{ disabled: !currentPlanId }}
         >
           <Text style={[styles.actionButtonText, styles.optimizeButtonText]}>
             ⚡ {t('plan.optimize.button')}
@@ -692,385 +724,41 @@ export default function PlanScreen({ onBackPress, onViewPlan, navigateToSmartDie
         mealType={customizeModal.mealType}
         translateMealName={translateMealName}
       />
+
+      <Modal transparent visible={optimizeModalVisible} animationType="fade">
+        <View style={styles.optimizeModalOverlay}>
+          <View style={styles.optimizeModalCard}>
+            <Text style={styles.optimizeModalTitle}>{t('plan.optimize.confirmTitle')}</Text>
+            <Text style={styles.optimizeModalSubtitle}>{t('plan.optimize.confirmSubtitle')}</Text>
+            <View style={styles.optimizeModalSummary}>
+              <Text style={styles.optimizeModalSummaryLabel}>{t('plan.optimize.summaryPlan')}</Text>
+              <Text style={styles.optimizeModalSummaryValue}>
+                {currentPlanId ?? t('plan.optimize.planUnknown')}
+              </Text>
+              <Text style={styles.optimizeModalSummaryLabel}>{t('plan.optimize.summaryCalories')}</Text>
+              <Text style={styles.optimizeModalSummaryValue}>
+                {activePlanSummary?.dailyCalorieTarget
+                  ? `${Math.round(activePlanSummary.dailyCalorieTarget)} kcal`
+                  : t('plan.optimize.caloriesUnknown')}
+              </Text>
+            </View>
+            <View style={styles.optimizeModalActions}>
+              <TouchableOpacity
+                style={[styles.optimizeModalButton, styles.optimizeModalCancel]}
+                onPress={() => setOptimizeModalVisible(false)}
+              >
+                <Text style={styles.optimizeModalCancelText}>{t('plan.optimize.confirmCancel')}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.optimizeModalButton, styles.optimizeModalConfirm]}
+                onPress={handleConfirmOptimize}
+              >
+                <Text style={styles.optimizeModalConfirmText}>{t('plan.optimize.confirmCta')}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#F8F9FA',
-  },
-  header: {
-    backgroundColor: '#007AFF',
-    paddingVertical: 20,
-    paddingHorizontal: 20,
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingTop: Platform.OS === 'android' ? 40 : 20,
-  },
-  backButton: {
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    minWidth: 40,
-    alignItems: 'center',
-  },
-  backButtonText: {
-    color: 'white',
-    fontSize: 20,
-    fontWeight: 'bold',
-  },
-  headerContent: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  headerSpacer: {
-    width: 60, // Same width as back button to center content
-  },
-  title: {
-    color: 'white',
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginBottom: 5,
-  },
-  subtitle: {
-    color: 'rgba(255,255,255,0.8)',
-    fontSize: 14,
-  },
-  content: {
-    flex: 1,
-    paddingHorizontal: 20,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loadingText: {
-    marginTop: 15,
-    fontSize: 16,
-    color: '#666',
-  },
-  errorContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 40,
-  },
-  errorText: {
-    fontSize: 18,
-    color: '#666',
-    textAlign: 'center',
-    marginBottom: 20,
-  },
-  retryButton: {
-    backgroundColor: '#007AFF',
-    paddingHorizontal: 30,
-    paddingVertical: 15,
-    borderRadius: 12,
-  },
-  retryButtonText: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  progressSection: {
-    backgroundColor: 'white',
-    borderRadius: 15,
-    padding: 20,
-    marginTop: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 15,
-  },
-  progressItem: {
-    marginBottom: 15,
-  },
-  progressLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 8,
-  },
-  progressBarContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  progressBar: {
-    flex: 1,
-    height: 8,
-    borderRadius: 4,
-    overflow: 'hidden',
-  },
-  progressFill: {
-    height: '100%',
-    borderRadius: 4,
-  },
-  progressText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#666',
-    minWidth: 60,
-    textAlign: 'right',
-  },
-  mealsSection: {
-    marginTop: 20,
-    marginBottom: 20,
-  },
-  mealCard: {
-    backgroundColor: 'white',
-    borderRadius: 15,
-    padding: 20,
-    marginBottom: 15,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  mealHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 10,
-  },
-  mealTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#333',
-  },
-  mealCalories: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#007AFF',
-  },
-  macroSummary: {
-    flexDirection: 'row',
-    gap: 15,
-    marginBottom: 15,
-    paddingBottom: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E0E0E0',
-  },
-  macroText: {
-    fontSize: 14,
-    color: '#666',
-    fontWeight: '500',
-  },
-  mealItem: {
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F0F0F0',
-  },
-  itemInfo: {
-    flex: 1,
-  },
-  itemName: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 2,
-  },
-  itemBrand: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 2,
-  },
-  itemServing: {
-    fontSize: 12,
-    color: '#999',
-  },
-  customizeButton: {
-    backgroundColor: '#F0F8FF',
-    borderWidth: 1,
-    borderColor: '#007AFF',
-    paddingVertical: 10,
-    paddingHorizontal: 15,
-    borderRadius: 10,
-    alignItems: 'center',
-    marginTop: 10,
-  },
-  customizeButtonText: {
-    color: '#007AFF',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  actionButtonsContainer: {
-    flexDirection: 'row',
-    gap: 12,
-    marginBottom: 30,
-    paddingHorizontal: 5,
-  },
-  actionButton: {
-    flex: 1,
-    paddingVertical: 15,
-    paddingHorizontal: 20,
-    borderRadius: 12,
-    alignItems: 'center',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 6,
-  },
-  optimizeButton: {
-    backgroundColor: '#FF9500',
-    shadowColor: '#FF9500',
-  },
-  regenerateButton: {
-    backgroundColor: '#007AFF',
-    shadowColor: '#007AFF',
-  },
-  disabledButton: {
-    backgroundColor: '#BDC3C7',
-    shadowColor: 'transparent',
-    elevation: 0,
-  },
-  actionButtonText: {
-    fontSize: 16,
-    fontWeight: '700',
-    textAlign: 'center',
-  },
-  optimizeButtonText: {
-    color: 'white',
-  },
-  regenerateButtonText: {
-    color: 'white',
-  },
-  modalContainer: {
-    flex: 1,
-    backgroundColor: '#F8F9FA',
-  },
-  modalHeader: {
-    backgroundColor: '#007AFF',
-    paddingVertical: 20,
-    paddingHorizontal: 20,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingTop: Platform.OS === 'android' ? 40 : 20,
-  },
-  modalTitle: {
-    color: 'white',
-    fontSize: 20,
-    fontWeight: 'bold',
-  },
-  closeButton: {
-    padding: 5,
-  },
-  closeButtonText: {
-    color: 'white',
-    fontSize: 20,
-    fontWeight: 'bold',
-  },
-  modalContent: {
-    flex: 1,
-    paddingHorizontal: 20,
-    paddingTop: 20,
-  },
-  modeSelector: {
-    flexDirection: 'row',
-    backgroundColor: 'white',
-    marginHorizontal: 20,
-    marginTop: 10,
-    borderRadius: 12,
-    padding: 5,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  modeButton: {
-    flex: 1,
-    paddingVertical: 12,
-    paddingHorizontal: 15,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  modeButtonActive: {
-    backgroundColor: '#007AFF',
-  },
-  modeButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#666',
-  },
-  modeButtonTextActive: {
-    color: 'white',
-  },
-  searchTypeSelector: {
-    flexDirection: 'row',
-    gap: 10,
-    marginBottom: 20,
-  },
-  searchTypeButton: {
-    flex: 1,
-    paddingVertical: 10,
-    paddingHorizontal: 15,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
-    alignItems: 'center',
-    backgroundColor: 'white',
-  },
-  searchTypeButtonActive: {
-    borderColor: '#007AFF',
-    backgroundColor: '#F0F8FF',
-  },
-  searchTypeButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#333',
-  },
-  searchInput: {
-    backgroundColor: 'white',
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
-    borderRadius: 12,
-    paddingHorizontal: 15,
-    paddingVertical: 12,
-    fontSize: 16,
-    marginBottom: 20,
-  },
-  buttonDisabled: {
-    backgroundColor: '#BDC3C7',
-    shadowColor: 'transparent',
-  },
-  inputGroup: {
-    marginBottom: 20,
-  },
-  inputLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 8,
-  },
-  textInput: {
-    backgroundColor: 'white',
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
-    borderRadius: 10,
-    paddingHorizontal: 15,
-    paddingVertical: 12,
-    fontSize: 16,
-  },
-  macroRow: {
-    flexDirection: 'row',
-    gap: 10,
-    marginBottom: 20,
-  },
-  macroInput: {
-    flex: 1,
-  },
-});

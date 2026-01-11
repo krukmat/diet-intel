@@ -2,6 +2,12 @@ import React from 'react';
 import { fireEvent, render } from '@testing-library/react-native';
 import { PlanSelectionList, PlanSummary } from '../PlanSelectionList';
 
+jest.mock('react-i18next', () => ({
+  useTranslation: () => ({
+    t: (key: string) => key,
+  }),
+}));
+
 describe('PlanSelectionList', () => {
   const samplePlans: PlanSummary[] = [
     {
@@ -23,11 +29,11 @@ describe('PlanSelectionList', () => {
       <PlanSelectionList plans={samplePlans} loading={false} onToggleActive={jest.fn()} />
     );
 
-    expect(getByText('Planes guardados')).toBeTruthy();
+    expect(getByText('plan.list.title')).toBeTruthy();
     expect(getByText('Plan plan-abc123')).toBeTruthy();
     expect(getByText('Plan plan-def456')).toBeTruthy();
-    expect(getByText('Activo • Desactivar')).toBeTruthy();
-    expect(getByText('Activar')).toBeTruthy();
+    expect(getByText('plan.list.deactivate')).toBeTruthy();
+    expect(getByText('plan.list.activate')).toBeTruthy();
   });
 
   it('calls onToggleActive when button pressed', () => {
@@ -36,10 +42,10 @@ describe('PlanSelectionList', () => {
       <PlanSelectionList plans={samplePlans} loading={false} onToggleActive={toggleMock} />
     );
 
-    fireEvent.press(getByText('Activo • Desactivar'));
+    fireEvent.press(getByText('plan.list.deactivate'));
     expect(toggleMock).toHaveBeenCalledWith('plan-abc123', true);
 
-    fireEvent.press(getByText('Activar'));
+    fireEvent.press(getByText('plan.list.activate'));
     expect(toggleMock).toHaveBeenCalledWith('plan-def456', false);
   });
 
@@ -54,7 +60,7 @@ describe('PlanSelectionList', () => {
       />
     );
 
-    fireEvent.press(getAllByText('Ver')[0]);
+    fireEvent.press(getAllByText('plan.list.view')[0]);
     expect(viewMock).toHaveBeenCalledWith('plan-abc123');
   });
 });

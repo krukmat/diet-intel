@@ -22,7 +22,9 @@ jest.mock('axios', () => ({
 jest.mock('../AuthService', () => ({
   authService: {
     getStoredTokens: jest.fn(),
-    isTokenExpired: jest.fn()
+    isTokenExpired: jest.fn(),
+    refreshToken: jest.fn(),
+    setEnvironment: jest.fn()
   }
 }));
 
@@ -290,7 +292,7 @@ describe('ApiService', () => {
       expect(mockAxiosInstance.get).toHaveBeenCalledWith('/smart-diet/suggestions?context=today', undefined);
       expect(mockAxiosInstance.post).toHaveBeenCalledWith('/smart-diet/feedback', { id: 'sd1' }, undefined);
       expect(mockAxiosInstance.get).toHaveBeenCalledWith('/smart-diet/insights?user_id=user-1&days=14', undefined);
-      expect(mockAxiosInstance.post).toHaveBeenCalledWith('/smart-diet/apply-optimization', { id: 'opt1' }, undefined);
+      expect(mockAxiosInstance.post).toHaveBeenCalledWith('/smart-diet/optimizations/apply', { id: 'opt1' }, undefined);
       expect(mockAxiosInstance.get).toHaveBeenCalledWith('/smart-diet/metrics?user_id=user-1&days=7', undefined);
     });
 

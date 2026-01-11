@@ -5,6 +5,7 @@
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getCurrentLanguage } from '../i18n/config';
+import { API_BASE_URL } from '../config/environment';
 
 interface TranslationResponse {
   original_text: string;
@@ -37,6 +38,7 @@ export class TranslationService {
   private cachePrefix = '@dietintel_translation_';
   private cacheTTL = 7 * 24 * 60 * 60 * 1000; // 7 days in milliseconds
   private requestTimeout = 10000; // 10 seconds
+  private batchRequestTimeout = 20000; // 20 seconds
   
   // Fallback translations for offline mode
   private fallbackTranslations: Record<string, Record<string, string>> = {
@@ -76,7 +78,7 @@ export class TranslationService {
 
   private constructor() {
     // Use environment variable or default to host machine IP for Android emulator
-    this.baseUrl = process.env.EXPO_PUBLIC_API_URL || 'http://192.168.1.136:8000';
+    this.baseUrl = process.env.EXPO_PUBLIC_API_URL || API_BASE_URL;
   }
 
   static getInstance(): TranslationService {
@@ -91,6 +93,21 @@ export class TranslationService {
    */
   private getCacheKey(text: string, sourceLang: string, targetLang: string): string {
     return `${this.cachePrefix}${sourceLang}_${targetLang}_${text.toLowerCase().trim()}`;
+  }
+
+  private async fetchWithTimeout(url: string, options: RequestInit, timeoutMs: number): Promise<Response> {
+    if (typeof AbortController === 'undefined') {
+      return fetch(url, options);
+    }
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+    try {
+      return await fetch(url, { ...options, signal: controller.signal });
+    } finally {
+      clearTimeout(timeoutId);
+    }
   }
 
   /**
@@ -155,7 +172,7 @@ export class TranslationService {
       return text;
     }
 
-    const source = sourceLang || 'en';
+    const source = sourceLang || 'auto';
     const target = targetLang || getCurrentLanguage();
 
     // Return original if same language
@@ -171,7 +188,7 @@ export class TranslationService {
       }
 
       // Make API request
-      const response = await fetch(`${this.baseUrl}/translate/food`, {
+      const response = await this.fetchWithTimeout(`${this.baseUrl}/translate/food`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -181,8 +198,7 @@ export class TranslationService {
           source_lang: source,
           target_lang: target,
         }),
-        signal: AbortSignal.timeout(this.requestTimeout),
-      });
+      }, this.requestTimeout);
 
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
@@ -199,7 +215,7 @@ export class TranslationService {
       throw new Error(data.error_message || 'Translation failed');
 
     } catch (error) {
-      console.warn(`Translation API failed for "${text}":`, error);
+      console.debug(`Translation API failed for "${text}":`, error);
 
       // Try fallback translation
       const fallback = this.getFallbackTranslation(text, target);
@@ -230,7 +246,7 @@ export class TranslationService {
       return {};
     }
 
-    const source = sourceLang || 'en';
+    const source = sourceLang || 'auto';
     const target = targetLang || getCurrentLanguage();
     const result: Record<string, string> = {};
 
@@ -264,7 +280,7 @@ export class TranslationService {
 
       // Translate uncached texts via API
       if (uncachedTexts.length > 0) {
-        const response = await fetch(`${this.baseUrl}/translate/batch/foods`, {
+        const response = await this.fetchWithTimeout(`${this.baseUrl}/translate/batch/foods`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -274,8 +290,7 @@ export class TranslationService {
             source_lang: source,
             target_lang: target,
           }),
-          signal: AbortSignal.timeout(this.requestTimeout * 2), // Longer timeout for batch
-        });
+        }, this.batchRequestTimeout);
 
         if (response.ok) {
           const data: BatchTranslationResponse = await response.json();
@@ -298,7 +313,7 @@ export class TranslationService {
       }
 
     } catch (error) {
-      console.warn('Batch translation error:', error);
+      console.debug('Batch translation error:', error);
 
       // Fallback to individual translations for remaining texts
       const remainingTexts = texts.filter(text => !result[text]);
@@ -316,9 +331,11 @@ export class TranslationService {
    */
   async getSupportedLanguages(): Promise<Record<string, string> | null> {
     try {
-      const response = await fetch(`${this.baseUrl}/translate/languages`, {
-        signal: AbortSignal.timeout(this.requestTimeout),
-      });
+      const response = await this.fetchWithTimeout(
+        `${this.baseUrl}/translate/languages`,
+        {},
+        this.requestTimeout
+      );
 
       if (response.ok) {
         const data: SupportedLanguagesResponse = await response.json();
@@ -327,7 +344,7 @@ export class TranslationService {
 
       throw new Error(`Failed to get languages: ${response.status}`);
     } catch (error) {
-      console.warn('Error getting supported languages:', error);
+      console.debug('Error getting supported languages:', error);
       return null;
     }
   }
@@ -337,9 +354,11 @@ export class TranslationService {
    */
   async isServiceAvailable(): Promise<boolean> {
     try {
-      const response = await fetch(`${this.baseUrl}/translate/health`, {
-        signal: AbortSignal.timeout(5000), // Short timeout for health check
-      });
+      const response = await this.fetchWithTimeout(
+        `${this.baseUrl}/translate/health`,
+        {},
+        5000
+      );
 
       return response.ok;
     } catch (error) {
@@ -359,7 +378,7 @@ export class TranslationService {
         await AsyncStorage.multiRemove(translationKeys);
       }
     } catch (error) {
-      console.warn('Error clearing translation cache:', error);
+      console.debug('Error clearing translation cache:', error);
     }
   }
 }

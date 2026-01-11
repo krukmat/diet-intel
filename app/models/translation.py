@@ -21,9 +21,12 @@ class TranslationRequest(BaseModel):
     
     @validator('source_lang', 'target_lang')
     def validate_language_codes(cls, v):
-        if not v or len(v) != 2:
-            raise ValueError("Language code must be exactly 2 characters")
-        return v.lower()
+        if not v:
+            raise ValueError("Language code is required")
+        normalized = v.lower()
+        if normalized != "auto" and len(normalized) != 2:
+            raise ValueError("Language code must be 2 characters or 'auto'")
+        return normalized
 
 
 class FoodTranslationRequest(TranslationRequest):
@@ -57,9 +60,12 @@ class BatchTranslationRequest(BaseModel):
     
     @validator('source_lang', 'target_lang')
     def validate_language_codes(cls, v):
-        if not v or len(v) != 2:
-            raise ValueError("Language code must be exactly 2 characters")
-        return v.lower()
+        if not v:
+            raise ValueError("Language code is required")
+        normalized = v.lower()
+        if normalized != "auto" and len(normalized) != 2:
+            raise ValueError("Language code must be 2 characters or 'auto'")
+        return normalized
 
 
 class BatchFoodTranslationRequest(BaseModel):
@@ -87,9 +93,12 @@ class BatchFoodTranslationRequest(BaseModel):
     
     @validator('source_lang', 'target_lang')
     def validate_language_codes(cls, v):
-        if not v or len(v) != 2:
-            raise ValueError("Language code must be exactly 2 characters")
-        return v.lower()
+        if not v:
+            raise ValueError("Language code is required")
+        normalized = v.lower()
+        if normalized != "auto" and len(normalized) != 2:
+            raise ValueError("Language code must be 2 characters or 'auto'")
+        return normalized
 
 
 class TranslationResponse(BaseModel):

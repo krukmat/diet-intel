@@ -24,6 +24,7 @@ class TranslationService:
     
     # Supported language codes
     SUPPORTED_LANGUAGES = {
+        'auto': 'Auto Detect',
         'en': 'English',
         'es': 'Spanish',
         'fr': 'French',

@@ -11,6 +11,7 @@ from app.models.smart_diet import (
     SuggestionFeedback, SmartDietContext, SuggestionType, SuggestionCategory,
     SmartDietInsights
 )
+from app.models.meal_plan import MealPlanResponse, Meal, MealItem, MealItemMacros, DailyMacros, ChangeLogEntry
 
 @pytest.mark.integration
 class TestSmartDietAPI:
@@ -226,6 +227,86 @@ class TestSmartDietAPI:
 
             # Domain validation enforces 400 for mismatch
             assert response.status_code == 400
+
+    @patch('app.utils.auth_context.get_session_user_id')
+    @patch('app.routes.smart_diet.plan_storage.update_plan', new_callable=AsyncMock)
+    @patch('app.routes.smart_diet.plan_storage.get_plan', new_callable=AsyncMock)
+    @patch('app.routes.smart_diet.plan_customizer.customize_plan', new_callable=AsyncMock)
+    def test_apply_optimizations_swap_success(
+        self,
+        mock_customize_plan,
+        mock_get_plan,
+        mock_update_plan,
+        mock_auth,
+        client
+    ):
+        """Test applying a swap optimization to a plan."""
+        mock_auth.return_value = "test_user_123"
+
+        plan = MealPlanResponse(
+            bmr=1500,
+            tdee=2000,
+            daily_calorie_target=1800,
+            meals=[
+                Meal(
+                    name="Breakfast",
+                    target_calories=500,
+                    actual_calories=400,
+                    items=[
+                        MealItem(
+                            barcode="old_123",
+                            name="Old Item",
+                            serving="1 serving",
+                            calories=200,
+                            macros=MealItemMacros(
+                                protein_g=10,
+                                fat_g=5,
+                                carbs_g=20
+                            ),
+                        )
+                    ],
+                )
+            ],
+            metrics=DailyMacros(
+                total_calories=1800,
+                protein_g=100,
+                fat_g=60,
+                carbs_g=200,
+                sugars_g=20,
+                salt_g=5,
+                protein_percent=20,
+                fat_percent=30,
+                carbs_percent=50,
+            ),
+            plan_id="plan_123",
+            flexibility_used=False,
+            optional_products_used=0,
+            is_active=True,
+        )
+
+        mock_get_plan.return_value = plan
+        mock_update_plan.return_value = True
+        mock_customize_plan.return_value = (
+            plan,
+            [ChangeLogEntry(change_type="swap", description="Swapped item")]
+        )
+
+        response = client.post("/smart-diet/optimizations/apply", json={
+            "plan_id": "plan_123",
+            "changes": [
+                {
+                    "change_type": "meal_swap",
+                    "old_barcode": "old_123",
+                    "new_barcode": "new_456"
+                }
+            ]
+        })
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["success"] is True
+        assert data["applied"] == 1
+        assert len(data["change_log"]) == 1
     
     def test_submit_smart_diet_feedback_invalid_data(self, client):
         """Test Smart Diet feedback with invalid data."""

@@ -4,6 +4,7 @@ Replaces meal plan-related functions from database.py
 """
 import logging
 import json
+import sqlite3
 from typing import Optional, List, Dict, Any
 from datetime import datetime
 from app.repositories.base import Repository
@@ -47,6 +48,41 @@ class MealPlanRepository(Repository[MealPlan]):
     def __init__(self):
         """Initialize MealPlanRepository (uses connection_manager, not db_path)"""
         self.logger = logging.getLogger(self.__class__.__name__)
+        self._ensure_schema()
+
+    def _ensure_schema(self) -> None:
+        """Ensure meal_plans table exists with required columns."""
+        conn = None
+        try:
+            conn = sqlite3.connect(connection_manager.db_path)
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                CREATE TABLE IF NOT EXISTS meal_plans (
+                    id TEXT PRIMARY KEY,
+                    user_id TEXT,
+                    plan_data TEXT NOT NULL,
+                    bmr REAL NOT NULL,
+                    tdee REAL NOT NULL,
+                    daily_calorie_target REAL NOT NULL,
+                    flexibility_used BOOLEAN DEFAULT FALSE,
+                    optional_products_used INTEGER DEFAULT 0,
+                    is_active BOOLEAN DEFAULT FALSE,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    expires_at TIMESTAMP
+                )
+                """
+            )
+            cursor.execute("PRAGMA table_info(meal_plans)")
+            columns = {row[1] for row in cursor.fetchall()}
+            if "is_active" not in columns:
+                cursor.execute("ALTER TABLE meal_plans ADD COLUMN is_active BOOLEAN DEFAULT FALSE")
+            conn.commit()
+        except Exception as exc:
+            self.logger.warning(f"Failed to ensure meal_plans schema: {exc}")
+        finally:
+            if conn:
+                conn.close()
 
     def get_table_name(self) -> str:
         """Return table name"""

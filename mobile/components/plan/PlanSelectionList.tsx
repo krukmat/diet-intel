@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, ActivityIndicator, StyleSheet } from 'react-native';
+import { useTranslation } from 'react-i18next';
 
 export interface PlanSummary {
   planId: string;
@@ -21,25 +22,28 @@ export const PlanSelectionList: React.FC<PlanSelectionListProps> = ({
   onToggleActive,
   onViewPlan,
 }) => {
+  const { t } = useTranslation();
+
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Planes guardados</Text>
+      <Text style={styles.title}>{t('plan.list.title')}</Text>
+      <Text style={styles.subtitle}>{t('plan.list.subtitle')}</Text>
 
       {loading && (
         <View style={styles.loadingRow}>
           <ActivityIndicator size="small" color="#007AFF" />
-          <Text style={styles.loadingText}>Actualizando planes...</Text>
+          <Text style={styles.loadingText}>{t('plan.list.loading')}</Text>
         </View>
       )}
 
       {!loading && plans.length === 0 && (
-        <Text style={styles.emptyText}>No hay planes guardados</Text>
+        <Text style={styles.emptyText}>{t('plan.list.empty')}</Text>
       )}
 
       {!loading &&
         plans.map((plan) => {
           const isActive = plan.isActive;
-          const buttonLabel = isActive ? 'Activo • Desactivar' : 'Activar';
+          const buttonLabel = isActive ? t('plan.list.deactivate') : t('plan.list.activate');
           const buttonStyle = isActive ? styles.activeButton : styles.activateButton;
           const buttonTextStyle = isActive ? styles.activeButtonText : styles.activateButtonText;
 
@@ -57,7 +61,7 @@ export const PlanSelectionList: React.FC<PlanSelectionListProps> = ({
                     style={[styles.actionButton, styles.viewButton]}
                     onPress={() => onViewPlan(plan.planId)}
                   >
-                    <Text style={[styles.toggleText, styles.viewButtonText]}>Ver</Text>
+                    <Text style={[styles.toggleText, styles.viewButtonText]}>{t('plan.list.view')}</Text>
                   </TouchableOpacity>
                 )}
                 <TouchableOpacity
@@ -93,6 +97,11 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     color: '#333',
+    marginBottom: 4,
+  },
+  subtitle: {
+    fontSize: 12,
+    color: '#6B7280',
     marginBottom: 10,
   },
   loadingRow: {

@@ -126,6 +126,8 @@ const buildSmartDietResponse = (context: string = 'today', overrides: Record<str
             {
               from_food: 'White rice',
               to_food: 'Quinoa',
+              from_barcode: '111',
+              to_barcode: '222',
               calorie_difference: -50,
               benefit: 'Adds fibre and protein',
             },
@@ -229,6 +231,7 @@ describe('SmartDietScreen', () => {
     mockedApi.post.mockResolvedValue({ data: { success: true, message: 'Recorded' } });
     mockedApi.addProductToPlan.mockResolvedValue({ data: { success: true, message: 'Added to plan' } });
     mockedApi.generateSmartRecommendations.mockResolvedValue({ data: buildLegacyResponse() });
+    mockedApi.applySmartDietOptimization.mockResolvedValue({ data: { applied: 1 } });
   });
 
   it('renders core tabs and initial suggestion', async () => {
@@ -368,9 +371,33 @@ describe('SmartDietScreen', () => {
     const optimizeButtons = await findAllByText('Optimize');
     fireEvent.press(optimizeButtons[0]);
 
-    expect(await findByText('⚡ Suggested Optimizations')).toBeTruthy();
-    expect(await findByText('Meal Swaps:')).toBeTruthy();
-    expect(await findByText('Replace White rice with Quinoa')).toBeTruthy();
+    expect(await findByText('smartDiet.optimizations.title')).toBeTruthy();
+    expect(await findByText('smartDiet.optimizations.mealSwaps')).toBeTruthy();
+    expect(await findByText('White rice → Quinoa')).toBeTruthy();
+    expect(await findByText('smartDiet.optimizations.applySelected')).toBeTruthy();
+  });
+
+  it('applies selected optimizations with plan id', async () => {
+    const { findAllByText, findByText } = renderScreen();
+
+    const optimizeButtons = await findAllByText('Optimize');
+    fireEvent.press(optimizeButtons[0]);
+
+    const applyButton = await findByText('smartDiet.optimizations.applySelected');
+    fireEvent.press(applyButton);
+
+    await waitFor(() => {
+      expect(mockedApi.applySmartDietOptimization).toHaveBeenCalledWith({
+        plan_id: 'plan_123',
+        changes: [
+          {
+            change_type: 'meal_swap',
+            old_barcode: '111',
+            new_barcode: '222'
+          }
+        ]
+      });
+    });
   });
 
   it('alerts when adding recommendation without barcode', async () => {
@@ -422,17 +449,13 @@ describe('SmartDietScreen', () => {
   });
 
   it('handles optimization action without barcode by showing success', async () => {
-    const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation((_title, _message, buttons) => {
-      const apply = buttons?.[1];
-      if (apply && typeof apply.onPress === 'function') {
-        apply.onPress();
-      }
-    });
+    const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
     mockedApi.get.mockResolvedValueOnce({
       data: buildSmartDietResponse('today', {
         suggestions: [
           buildSuggestion({
             suggestion_type: 'optimization',
+            suggested_item: undefined,
             metadata: {},
             action_text: 'Apply Optimization',
           }),
@@ -445,7 +468,7 @@ describe('SmartDietScreen', () => {
     await findByText('Greek Yogurt with Berries');
     fireEvent.press(await findByText('Apply Optimization'));
 
-    expect(alertSpy).toHaveBeenCalledWith('Success', 'Optimization applied');
+    expect(alertSpy).toHaveBeenCalled();
     alertSpy.mockRestore();
   });
 

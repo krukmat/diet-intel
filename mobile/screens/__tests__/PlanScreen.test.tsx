@@ -128,17 +128,17 @@ describe('PlanScreen', () => {
   it('renders plan list with active state', async () => {
     const { findByText } = render(<PlanScreen onBackPress={jest.fn()} />);
 
-    expect(await findByText('Planes guardados')).toBeTruthy();
+    expect(await findByText('plan.list.title')).toBeTruthy();
     expect(await findByText('Plan plan-abc123')).toBeTruthy();
     expect(await findByText('Plan plan-def456')).toBeTruthy();
-    expect(await findByText('Activo • Desactivar')).toBeTruthy();
-    expect(await findByText('Activar')).toBeTruthy();
+    expect(await findByText('plan.list.deactivate')).toBeTruthy();
+    expect(await findByText('plan.list.activate')).toBeTruthy();
   });
 
   it('activates an inactive plan via API', async () => {
     const { findByText } = render(<PlanScreen onBackPress={jest.fn()} />);
 
-    const activateButton = await findByText('Activar');
+    const activateButton = await findByText('plan.list.activate');
     fireEvent.press(activateButton);
 
     await waitFor(() => {
@@ -156,7 +156,7 @@ describe('PlanScreen', () => {
 
     const { findByText } = render(<PlanScreen onBackPress={jest.fn()} />);
 
-    const deactivateButton = await findByText('Activo • Desactivar');
+    const deactivateButton = await findByText('plan.list.deactivate');
     fireEvent.press(deactivateButton);
 
     await waitFor(() => {
@@ -208,7 +208,12 @@ describe('PlanScreen', () => {
     const optimizeButton = await findByText('plan.optimize.button', { exact: false });
     fireEvent.press(optimizeButton);
 
-    expect(navigateToSmartDiet).toHaveBeenCalledWith({ planId: 'plan-abc123' });
+    fireEvent.press(await findByText('plan.optimize.confirmCta'));
+
+    expect(navigateToSmartDiet).toHaveBeenCalledWith({
+      planId: 'plan-abc123',
+      targetContext: 'optimize',
+    });
   });
 
   it('alerts when optimizing without a plan id', async () => {
@@ -309,7 +314,7 @@ describe('PlanScreen', () => {
     setPlanActiveMock.mockRejectedValueOnce(new Error('toggle failed'));
 
     const { findByText } = render(<PlanScreen onBackPress={jest.fn()} />);
-    fireEvent.press(await findByText('Activar'));
+    fireEvent.press(await findByText('plan.list.activate'));
 
     await waitFor(() => {
       expect(alertSpy).toHaveBeenCalledWith('common.error', 'No se pudo cambiar el estado del plan.');

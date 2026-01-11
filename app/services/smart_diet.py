@@ -110,6 +110,73 @@ class OptimizationEngine:
             "vegetables": ["spinach", "broccoli", "carrots", "tomatoes", "onions"],
             "fruits": ["apple", "banana", "orange", "berries", "grapes"]
         }
+
+    async def _resolve_product_for_name(self, name: str) -> Optional[ProductResponse]:
+        """Resolve a product by name from DB, with emergency fallback."""
+        cleaned = (name or "").strip().lower()
+        if not cleaned:
+            return None
+
+        try:
+            with db_service.get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute(
+                    """
+                    SELECT * FROM products
+                    WHERE lower(name) LIKE ?
+                    ORDER BY access_count DESC, last_updated DESC
+                    LIMIT 1
+                    """,
+                    (f"%{cleaned}%",)
+                )
+                row = cursor.fetchone()
+                if row:
+                    try:
+                        import json as _json
+                        from app.models.product import Nutriments
+
+                        nutriments_data = _json.loads(row["nutriments"])
+                        nutriments = Nutriments(
+                            energy_kcal_per_100g=nutriments_data.get("energy_kcal_per_100g"),
+                            protein_g_per_100g=nutriments_data.get("protein_g_per_100g"),
+                            fat_g_per_100g=nutriments_data.get("fat_g_per_100g"),
+                            carbs_g_per_100g=nutriments_data.get("carbs_g_per_100g"),
+                            sugars_g_per_100g=nutriments_data.get("sugars_g_per_100g"),
+                            salt_g_per_100g=nutriments_data.get("salt_g_per_100g"),
+                        )
+                        return ProductResponse(
+                            source=row["source"] or "Database",
+                            barcode=row["barcode"],
+                            name=row["name"],
+                            brand=row["brand"],
+                            image_url=row["image_url"],
+                            serving_size=row["serving_size"],
+                            nutriments=nutriments,
+                            fetched_at=datetime.fromisoformat(row["last_updated"]),
+                        )
+                    except Exception as exc:
+                        logger.warning(f"Failed to build product from DB row for {name}: {exc}")
+        except Exception as exc:
+            logger.warning(f"Product lookup by name failed for {name}: {exc}")
+
+        return None
+
+    def _nutrition_from_product(self, product: Optional[ProductResponse]) -> Optional[Dict[str, float]]:
+        """Extract a complete macro snapshot from a ProductResponse."""
+        if not product or not product.nutriments:
+            return None
+        calories = product.nutriments.energy_kcal_per_100g
+        protein = product.nutriments.protein_g_per_100g
+        fat = product.nutriments.fat_g_per_100g
+        carbs = product.nutriments.carbs_g_per_100g
+        if any(value is None for value in (calories, protein, fat, carbs)):
+            return None
+        return {
+            "calories": float(calories),
+            "protein": float(protein),
+            "fat": float(fat),
+            "carbs": float(carbs),
+        }
     
     async def analyze_meal_plan(
         self, 
@@ -227,24 +294,38 @@ class OptimizationEngine:
                 swap_info = suggestion_def["swap"]
                 to_info = suggestion_def["to"]
                 benefit = suggestion_def.get("benefit", {})
-                
+
+                suggested_product = None
+                suggested_barcode = to_info.get("barcode")
+                if not suggested_barcode or not suggested_barcode.isdigit():
+                    suggested_product = await self._resolve_product_for_name(to_info.get("name", ""))
+                    if suggested_product:
+                        suggested_barcode = suggested_product.barcode
+                nutrition = self._nutrition_from_product(suggested_product)
+                benefit_payload = {**benefit}
+                if nutrition:
+                    benefit_payload.update(nutrition)
+                if not suggested_barcode or not str(suggested_barcode).isdigit() or not nutrition:
+                    return None
+
                 return OptimizationSuggestion(
                     id=suggestion_id,
                     suggestion_type=SuggestionType.OPTIMIZATION,
                     category=SuggestionCategory.FOOD_SWAP,
                     optimization_type="swap",
-                    title=f"Swap to {to_info['name']}",
-                    description=f"Replace {swap_info.get('pattern', 'current item')} with {to_info['name']}",
+                    title=f"Swap to {suggested_product.name if suggested_product else to_info['name']}",
+                    description=f"Replace {swap_info.get('pattern', 'current item')} with {suggested_product.name if suggested_product else to_info['name']}",
                     reasoning=suggestion_def.get("reasoning", "Improves nutritional profile"),
                     current_item={
                         "type": swap_info.get("type"),
                         "pattern": swap_info.get("pattern")
                     },
                     suggested_item={
-                        "name": to_info["name"],
-                        "barcode": to_info["barcode"]
+                        "name": suggested_product.name if suggested_product else to_info["name"],
+                        "barcode": suggested_barcode or to_info.get("barcode"),
+                        "nutrition": nutrition,
                     },
-                    nutritional_benefit=benefit,
+                    nutritional_benefit=benefit_payload,
                     target_improvement=benefit,
                     confidence_score=0.75,
                     planning_context=SmartDietContext.OPTIMIZE
@@ -254,21 +335,35 @@ class OptimizationEngine:
                 # Addition optimization
                 add_info = suggestion_def["add"]
                 benefit = suggestion_def.get("benefit", {})
-                
+
+                suggested_product = None
+                suggested_barcode = add_info.get("barcode")
+                if not suggested_barcode or not suggested_barcode.isdigit():
+                    suggested_product = await self._resolve_product_for_name(add_info.get("name", ""))
+                    if suggested_product:
+                        suggested_barcode = suggested_product.barcode
+                nutrition = self._nutrition_from_product(suggested_product)
+                benefit_payload = {**benefit}
+                if nutrition:
+                    benefit_payload.update(nutrition)
+                if not suggested_barcode or not str(suggested_barcode).isdigit() or not nutrition:
+                    return None
+
                 return OptimizationSuggestion(
                     id=suggestion_id,
                     suggestion_type=SuggestionType.OPTIMIZATION,
                     category=SuggestionCategory.MEAL_ADDITION,
                     optimization_type="add",
-                    title=f"Add {add_info['name']}",
-                    description=f"Add {add_info['amount']} of {add_info['name']} to boost nutrition",
+                    title=f"Add {suggested_product.name if suggested_product else add_info['name']}",
+                    description=f"Add {add_info['amount']} of {suggested_product.name if suggested_product else add_info['name']} to boost nutrition",
                     reasoning=suggestion_def.get("reasoning", "Enhances meal nutritional value"),
                     suggested_item={
-                        "name": add_info["name"],
-                        "barcode": add_info["barcode"],
+                        "name": suggested_product.name if suggested_product else add_info["name"],
+                        "barcode": suggested_barcode or add_info.get("barcode"),
+                        "nutrition": nutrition,
                         "amount": add_info["amount"]
                     },
-                    nutritional_benefit=benefit,
+                    nutritional_benefit=benefit_payload,
                     target_improvement=benefit,
                     confidence_score=0.70,
                     planning_context=SmartDietContext.OPTIMIZE
@@ -375,6 +470,9 @@ class OptimizationEngine:
                     SELECT * FROM products p
                     {where_clause}
                     AND json_extract(p.nutriments, '$.energy_kcal_per_100g') IS NOT NULL
+                    AND json_extract(p.nutriments, '$.protein_g_per_100g') IS NOT NULL
+                    AND json_extract(p.nutriments, '$.fat_g_per_100g') IS NOT NULL
+                    AND json_extract(p.nutriments, '$.carbs_g_per_100g') IS NOT NULL
                     ORDER BY p.access_count DESC
                     LIMIT ?
                 """, params)
@@ -390,7 +488,8 @@ class OptimizationEngine:
                         alt_calories = nutriments.get('energy_kcal_per_100g', 0) or 0
                         alt_protein = nutriments.get('protein_g_per_100g', 0) or 0
                         alt_fat = nutriments.get('fat_g_per_100g', 0) or 0
-                        
+                        alt_carbs = nutriments.get('carbs_g_per_100g', 0) or 0
+
                         # Determine if this is a better alternative
                         improvements = {}
                         reasoning_parts = []
@@ -412,6 +511,12 @@ class OptimizationEngine:
                             alternatives.append({
                                 "name": row['name'],
                                 "barcode": row['barcode'],
+                                "nutrition": {
+                                    "calories": alt_calories,
+                                    "protein": alt_protein,
+                                    "fat": alt_fat,
+                                    "carbs": alt_carbs,
+                                },
                                 "benefits": improvements,
                                 "confidence": min(0.9, 0.6 + len(improvements) * 0.1),
                                 "reasoning": f"Better choice with {', '.join(reasoning_parts)}"
@@ -435,6 +540,12 @@ class OptimizationEngine:
         """Create an intelligent swap suggestion based on database analysis"""
         try:
             suggestion_id = str(uuid.uuid4())
+            nutrition = alternative.get("nutrition") or {}
+            benefit_payload = {**alternative.get("benefits", {})}
+            if nutrition:
+                benefit_payload.update(nutrition)
+            if not nutrition:
+                return None
             
             return OptimizationSuggestion(
                 id=suggestion_id,
@@ -452,9 +563,10 @@ class OptimizationEngine:
                 suggested_item={
                     "name": alternative["name"],
                     "barcode": alternative["barcode"],
-                    "source": "Database Analysis"
+                    "source": "Database Analysis",
+                    "nutrition": nutrition,
                 },
-                nutritional_benefit=alternative.get("benefits", {}),
+                nutritional_benefit=benefit_payload,
                 target_improvement=alternative.get("benefits", {}),
                 confidence_score=alternative.get("confidence", 0.75),
                 planning_context=SmartDietContext.OPTIMIZE
@@ -518,6 +630,7 @@ class SmartDietEngine:
                 "insights": 0.6
             }
         }
+        self.cache_version = "v2"
     
     def _generate_request_hash(self, user_id: str, request: SmartDietRequest) -> str:
         """Generate hash for cache key based on request parameters"""
@@ -535,12 +648,29 @@ class SmartDietEngine:
             'include_optimizations': request.include_optimizations,
             'include_recommendations': request.include_recommendations,
             'current_meal_plan_id': request.current_meal_plan_id,
-            'meal_context': request.meal_context
+            'meal_context': request.meal_context,
+            'schema_version': self.cache_version,
         }
         
         # Convert to JSON string and hash
         hash_string = json.dumps(hash_data, sort_keys=True)
         return hashlib.md5(hash_string.encode()).hexdigest()[:16]  # First 16 chars
+
+    def _nutrition_from_product(self, product: Optional[ProductResponse]) -> Optional[Dict[str, float]]:
+        if not product or not product.nutriments:
+            return None
+        calories = product.nutriments.energy_kcal_per_100g
+        protein = product.nutriments.protein_g_per_100g
+        fat = product.nutriments.fat_g_per_100g
+        carbs = product.nutriments.carbs_g_per_100g
+        if any(value is None for value in (calories, protein, fat, carbs)):
+            return None
+        return {
+            "calories": float(calories),
+            "protein": float(protein),
+            "fat": float(fat),
+            "carbs": float(carbs),
+        }
     
     async def get_smart_suggestions(
         self, 
@@ -657,30 +787,67 @@ class SmartDietEngine:
                 min_confidence=request.min_confidence
             )
             
-            # Generate legacy recommendations
-            legacy_response = await self.recommendation_engine.generate_recommendations(legacy_request)
-            
-            # Convert to Smart Diet format
-            suggestions = []
-            
-            # Convert meal recommendations
-            for meal_rec in legacy_response.meal_recommendations:
-                for item in meal_rec.recommendations:
+            suggestions: List[SmartSuggestion] = []
+            legacy_response = None
+            if self.recommendation_engine:
+                legacy_response = await self.recommendation_engine.generate_recommendations(legacy_request)
+
+            if legacy_response and legacy_response.total_recommendations:
+                # Convert to Smart Diet format
+                for meal_rec in legacy_response.meal_recommendations:
+                    for item in meal_rec.recommendations:
+                        suggestion = LegacyMigrationHelper.convert_legacy_recommendation(item)
+                        suggestion.meal_context = meal_rec.meal_name.lower()
+                        suggestions.append(suggestion)
+                
+                for item in legacy_response.daily_additions:
                     suggestion = LegacyMigrationHelper.convert_legacy_recommendation(item)
-                    suggestion.meal_context = meal_rec.meal_name.lower()
+                    suggestion.category = SuggestionCategory.MEAL_ADDITION
                     suggestions.append(suggestion)
-            
-            # Convert daily additions
-            for item in legacy_response.daily_additions:
-                suggestion = LegacyMigrationHelper.convert_legacy_recommendation(item)
-                suggestion.category = SuggestionCategory.MEAL_ADDITION
-                suggestions.append(suggestion)
-            
-            # Convert snack recommendations
-            for item in legacy_response.snack_recommendations:
-                suggestion = LegacyMigrationHelper.convert_legacy_recommendation(item)
-                suggestion.meal_context = "snack"
-                suggestions.append(suggestion)
+                
+                for item in legacy_response.snack_recommendations:
+                    suggestion = LegacyMigrationHelper.convert_legacy_recommendation(item)
+                    suggestion.meal_context = "snack"
+                    suggestions.append(suggestion)
+
+            if suggestions:
+                return suggestions[:request.max_suggestions // 2]
+
+            products = await product_discovery_service.discover_products_for_recommendations(
+                user_id=user_id,
+                dietary_restrictions=request.dietary_restrictions,
+                cuisine_preferences=request.cuisine_preferences,
+                max_products=request.max_suggestions
+            )
+
+            for idx, product in enumerate(products):
+                nutrition = self._nutrition_from_product(product)
+                if not nutrition:
+                    continue
+                suggestions.append(SmartSuggestion(
+                    id=f"discover_{product.barcode}_{idx}_{int(datetime.now().timestamp())}",
+                    suggestion_type=SuggestionType.RECOMMENDATION,
+                    category=SuggestionCategory.DISCOVERY,
+                    title=product.name or "Suggested food",
+                    description=f"{product.brand + ' - ' if product.brand else ''}{nutrition['calories']:.0f} kcal per 100g",
+                    reasoning="Suggested based on your preferences and nutritional goals",
+                    suggested_item={
+                        "barcode": product.barcode,
+                        "name": product.name,
+                        "brand": product.brand,
+                        "serving_size": product.serving_size,
+                        "nutrition": nutrition,
+                    },
+                    nutritional_benefit=nutrition,
+                    calorie_impact=int(nutrition["calories"]),
+                    macro_impact={},
+                    confidence_score=0.72,
+                    priority_score=0.5,
+                    meal_context=request.meal_context,
+                    planning_context=request.context_type,
+                    implementation_complexity="simple",
+                    tags=[],
+                ))
             
             return suggestions[:request.max_suggestions // 2]
             

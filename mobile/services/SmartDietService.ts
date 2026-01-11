@@ -349,10 +349,12 @@ export class SmartDietService {
       const normalizedOptions = normalizeOptions(mergedOptions);
 
       // Try cache first for performance
-      const cachedResponse = await this.getCachedSuggestions(context, userId);
-      if (cachedResponse) {
-        console.log(`🎯 Smart Diet cache hit for context: ${context}`);
-        return cachedResponse;
+      if (!normalizedOptions.forceRefresh) {
+        const cachedResponse = await this.getCachedSuggestions(context, userId);
+        if (cachedResponse) {
+          console.log(`🎯 Smart Diet cache hit for context: ${context}`);
+          return cachedResponse;
+        }
       }
 
       // Build request with defaults
@@ -479,16 +481,20 @@ export class SmartDietService {
   /**
    * Optimize meal plan with Smart Diet suggestions
    */
-  async optimizeMealPlan(planId: string): Promise<OptimizationSuggestion[]> {
+  async optimizeMealPlan(
+    planId: string,
+    changes: Array<Record<string, any>>
+  ): Promise<Record<string, any>> {
     try {
       console.log(`🎯 Optimizing meal plan: ${planId}`);
       
-      const response = await apiService.post(`${this.baseURL}/apply-optimization`, {
-        suggestion_id: planId
+      const response = await apiService.post(`${this.baseURL}/optimizations/apply`, {
+        plan_id: planId,
+        changes
       });
 
       console.log('✅ Meal plan optimization completed');
-      return response.data.optimizations || [];
+      return response.data || {};
 
     } catch (error) {
       console.error('❌ Error optimizing meal plan:', error);

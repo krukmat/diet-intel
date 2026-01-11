@@ -2,13 +2,11 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
-  StyleSheet,
   ScrollView,
   TouchableOpacity,
   ActivityIndicator,
   Alert,
   SafeAreaView,
-  Platform,
   Modal,
   FlatList,
 } from 'react-native';
@@ -20,7 +18,8 @@ import {
   type SmartDietResponse,
   type SmartDietRequest,
   type SmartSuggestion,
-  type SmartDietInsights
+  type SmartDietInsights,
+  type SmartDietOptimizations
 } from '../services/SmartDietService';
 
 // Extended SmartSuggestion interface to include legacy properties for backward compatibility
@@ -29,10 +28,11 @@ interface ExtendedSmartSuggestion extends SmartSuggestion {
   metadata?: Record<string, any>;
 }
 import { apiService } from '../services/ApiService';
-import { translateFoodNameSync, translateFoodName } from '../utils/foodTranslation';
+import { translateFoodNameSync, translateFoodName, translateFoodNames } from '../utils/foodTranslation';
 import { getCurrentMealPlanId } from '../utils/mealPlanUtils';
 import { notificationService, NotificationConfig } from '../services/NotificationService';
 import { useAuth } from '../contexts/AuthContext';
+import { smartDietScreenStyles as styles } from '../shared/ui/styles';
 
 // Legacy interfaces for backward compatibility
 interface LegacySmartSuggestion {
@@ -93,6 +93,18 @@ interface SmartDietScreenProps {
   navigateToPlan?: () => void;
 }
 
+interface OptimizationChangePayload {
+  change_type: 'meal_swap' | 'macro_adjustment';
+  old_barcode?: string;
+  new_barcode?: string;
+  meal_name?: string;
+  new_target?: number;
+  nutrient?: string;
+  current?: number;
+  target?: number;
+  suggestion?: string;
+}
+
 // Performance-optimized context configuration with SmartDietContext enum
 const CONTEXT_CONFIG = Object.freeze({
   [SmartDietContext.TODAY]: {
@@ -132,10 +144,25 @@ export default function SmartDietScreen({ onBackPress, navigationContext, naviga
   const [smartData, setSmartData] = useState<SmartDietResponse | null>(null);
   const [legacyData, setLegacyData] = useState<LegacySmartDietResponse | null>(null);
   const [loading, setLoading] = useState(false);
-  const [selectedContext, setSelectedContext] = useState<SmartDietContext>(SmartDietContext.TODAY);
+  const resolveInitialContext = () => {
+    if (navigationContext?.targetContext) {
+      return navigationContext.targetContext as SmartDietContext;
+    }
+    if (navigationContext?.planId || navigationContext?.sourceScreen === 'plan') {
+      return SmartDietContext.OPTIMIZE;
+    }
+    return SmartDietContext.TODAY;
+  };
+
+  const [selectedContext, setSelectedContext] = useState<SmartDietContext>(resolveInitialContext);
   const [preferencesModal, setPreferencesModal] = useState(false);
+  const [excludedOptimizations, setExcludedOptimizations] = useState<Record<string, boolean>>({});
   const [error, setError] = useState<string | null>(null);
   const [cacheStatus, setCacheStatus] = useState<'fresh' | 'cached' | 'stale' | 'none'>('none');
+  const [swapPickerVisible, setSwapPickerVisible] = useState(false);
+  const [swapCandidates, setSwapCandidates] = useState<Array<{ id: string; barcode: string; name: string; meal: string }>>([]);
+  const [swapTarget, setSwapTarget] = useState<Record<string, any> | null>(null);
+  const [selectedSwapId, setSelectedSwapId] = useState<string | null>(null);
   const [preferences, setPreferences] = useState({
     dietaryRestrictions: [] as string[],
     cuisinePreferences: [] as string[],
@@ -178,7 +205,68 @@ export default function SmartDietScreen({ onBackPress, navigationContext, naviga
     loadNotificationConfig();
   }, []);
 
-  const generateSmartSuggestions = async () => {
+  const translateSuggestionNames = useCallback(async (data: SmartDietResponse) => {
+    if (!data?.suggestions?.length) {
+      return data;
+    }
+
+    if (i18n.language === 'en') {
+      return data;
+    }
+
+    const nameSet = new Set<string>();
+    data.suggestions.forEach((suggestion) => {
+      if (suggestion.suggestion_type === 'insight') return;
+      if (suggestion.title) nameSet.add(suggestion.title);
+      if (suggestion.suggested_item?.name) nameSet.add(suggestion.suggested_item.name);
+    });
+
+    const names = Array.from(nameSet);
+    if (names.length === 0) {
+      return data;
+    }
+
+    try {
+      const translations = await translateFoodNames(names);
+      const translationMap = new Map<string, string>();
+      names.forEach((name, index) => {
+        translationMap.set(name, translations[index] || name);
+      });
+
+      const applyTranslations = (suggestions: SmartSuggestion[]) =>
+        suggestions.map((suggestion) => {
+          if (suggestion.suggestion_type === 'insight') return suggestion;
+          const translatedTitle = translationMap.get(suggestion.title) || suggestion.title;
+          const translatedSuggestedName =
+            suggestion.suggested_item?.name && (translationMap.get(suggestion.suggested_item.name) || suggestion.suggested_item.name);
+          return {
+            ...suggestion,
+            title: translatedTitle,
+            suggested_item: suggestion.suggested_item
+              ? {
+                  ...suggestion.suggested_item,
+                  name: translatedSuggestedName,
+                }
+              : suggestion.suggested_item,
+          };
+        });
+
+      return {
+        ...data,
+        suggestions: applyTranslations(data.suggestions),
+        discoveries: applyTranslations(data.discoveries),
+        optimizations: Array.isArray(data.optimizations)
+          ? applyTranslations(data.optimizations)
+          : data.optimizations,
+        today_highlights: applyTranslations(data.today_highlights),
+      };
+    } catch (error) {
+      console.warn('Food name translation failed:', error);
+      return data;
+    }
+  }, [i18n.language]);
+
+  const generateSmartSuggestions = async (forceRefresh = false) => {
     setLoading(true);
     setError(null);
     
@@ -192,7 +280,8 @@ export default function SmartDietScreen({ onBackPress, navigationContext, naviga
         include_optimizations: preferences.includeHistory,
         include_recommendations: true,
         min_confidence: 0.3,
-        lang: i18n.language
+        lang: i18n.language,
+        forceRefresh
       };
 
       // Add meal plan ID for optimize context
@@ -218,7 +307,8 @@ export default function SmartDietScreen({ onBackPress, navigationContext, naviga
         options
       );
       
-      setSmartData(response);
+      const translatedResponse = await translateSuggestionNames(response);
+      setSmartData(translatedResponse);
       setCacheStatus(response.generated_at ? 'fresh' : 'cached');
     } catch (error) {
       console.error('Smart Diet generation failed:', error);
@@ -433,25 +523,25 @@ export default function SmartDietScreen({ onBackPress, navigationContext, naviga
           ]
         );
       } else if (suggestion.suggestion_type === 'optimization') {
+        const suggestedBarcode =
+          suggestion.suggested_item?.barcode ||
+          suggestion.metadata?.suggested_item?.barcode ||
+          suggestion.metadata?.barcode ||
+          suggestion.metadata?.product?.barcode ||
+          null;
+
+        if (suggestedBarcode) {
+          handleSwapApply({
+            new_barcode: suggestedBarcode,
+            to_food: suggestion.title,
+          });
+          return;
+        }
+
         Alert.alert(
           t('smartDiet.actions.applyOptimization'),
-          `${suggestion.description}\n\nWould you like to apply this optimization?`,
-          [
-            { text: t('common.cancel'), style: 'cancel' },
-            {
-              text: t('common.apply'),
-              onPress: () => {
-                // Check if optimization has actionable barcode data
-                if (suggestion.metadata?.suggested_item?.barcode || 
-                    suggestion.metadata?.barcode ||
-                    suggestion.metadata?.product?.barcode) {
-                  addRecommendationToPlan(suggestion);
-                } else {
-                  Alert.alert(t('common.success'), t('smartDiet.alerts.optimizationSuccess'));
-                }
-              }
-            }
-          ]
+          `${suggestion.description}\n\n${t('smartDiet.optimizations.applyEmptyBody')}`,
+          [{ text: t('common.ok') }]
         );
       } else {
         Alert.alert(t('smartDiet.alerts.information'), suggestion.description);
@@ -565,17 +655,93 @@ export default function SmartDietScreen({ onBackPress, navigationContext, naviga
     </View>
   );
 
+  const extractNutrition = (suggestion: ExtendedSmartSuggestion) => {
+    const suggestedNutrition = suggestion.suggested_item?.nutrition || {};
+    const metaNutrition = suggestion.metadata?.nutrition || {};
+    const benefitNutrition = suggestion.nutritional_benefit || {};
+    const nutrition = {
+      ...suggestedNutrition,
+      ...metaNutrition,
+      ...benefitNutrition,
+    };
+
+    return {
+      calories:
+        nutrition.calories ??
+        nutrition.energy_kcal_per_100g ??
+        nutrition.calories_per_serving ??
+        suggestion.suggested_item?.calories ??
+        suggestion.suggested_item?.calories_per_serving ??
+        suggestion.suggested_item?.energy_kcal_per_100g,
+      protein:
+        nutrition.protein ??
+        nutrition.protein_g ??
+        nutrition.protein_g_per_100g ??
+        suggestion.suggested_item?.protein_g ??
+        suggestion.suggested_item?.protein_g_per_100g,
+      fat:
+        nutrition.fat ??
+        nutrition.fat_g ??
+        nutrition.fat_g_per_100g ??
+        suggestion.suggested_item?.fat_g ??
+        suggestion.suggested_item?.fat_g_per_100g,
+      carbs:
+        nutrition.carbs ??
+        nutrition.carbs_g ??
+        nutrition.carbs_g_per_100g ??
+        suggestion.suggested_item?.carbs_g ??
+        suggestion.suggested_item?.carbs_g_per_100g,
+    };
+  };
+
+  const hasCompleteNutrition = (nutrition: ReturnType<typeof extractNutrition>) =>
+    ['calories', 'protein', 'fat', 'carbs'].every((key) => typeof nutrition[key as keyof typeof nutrition] === 'number');
+
+  const isReadableName = (name?: string | null) => {
+    if (!name) return false;
+    const letters = name.match(/[A-Za-zÁÉÍÓÚáéíóúÑñ]/g)?.length ?? 0;
+    return letters >= 2;
+  };
+
+  const visibleSuggestions = useMemo(() => {
+    if (!smartData?.suggestions) return [];
+    return smartData.suggestions
+      .filter((suggestion) => suggestion.suggestion_type !== 'insight')
+      .filter((suggestion) => hasCompleteNutrition(extractNutrition(suggestion)))
+      .filter((suggestion) =>
+        isReadableName(suggestion.title) || isReadableName(suggestion.suggested_item?.name)
+      );
+  }, [smartData]);
+
   const renderSuggestion = (suggestion: ExtendedSmartSuggestion, index?: number) => (
     <View key={`suggestion_${suggestion.id}_${index || 0}`} style={styles.suggestionCard}>
       <View style={styles.suggestionHeader}>
         <View style={styles.suggestionInfo}>
           <Text style={styles.suggestionTitle}>{translateFoodNameSync(suggestion.title)}</Text>
-          <Text style={styles.suggestionCategory}>
-            {typeof suggestion.category === 'string' 
-              ? suggestion.category.replace('_', ' ').toUpperCase()
-              : suggestion.meal_context?.toUpperCase() || 'RECOMMENDATION'
-            }
-          </Text>
+          <View style={styles.suggestionMetaRow}>
+            <Text style={styles.suggestionCategory}>
+              {suggestion.suggestion_type === 'optimization'
+                ? 'SWAP'
+                : suggestion.suggestion_type === 'recommendation'
+                  ? 'DISCOVERY'
+                  : 'INFO'}
+            </Text>
+            <View style={[
+              styles.suggestionTypeBadge,
+              suggestion.suggestion_type === 'optimization'
+                ? styles.suggestionTypeBadgeSwap
+                : suggestion.suggestion_type === 'recommendation'
+                  ? styles.suggestionTypeBadgeDiscovery
+                  : styles.suggestionTypeBadgeInfo,
+            ]}>
+              <Text style={styles.suggestionTypeBadgeText}>
+                {typeof suggestion.category === 'string' 
+                  ? suggestion.category.replace('_', ' ').toUpperCase()
+                  : suggestion.meal_context?.toUpperCase() || 'RECOMMENDATION'
+                }
+              </Text>
+            </View>
+          </View>
         </View>
         <View style={styles.confidenceContainer}>
           <Text style={styles.confidenceScore}>
@@ -587,16 +753,20 @@ export default function SmartDietScreen({ onBackPress, navigationContext, naviga
 
       <Text style={styles.suggestionDescription}>{translateFoodNameSync(suggestion.description)}</Text>
 
-      {(suggestion.nutritional_benefit || suggestion.metadata?.nutrition) && (
-        <View style={styles.nutritionInfo}>
-          <Text style={styles.nutritionText}>
-            📊 {Math.round(suggestion.nutritional_benefit?.calories || suggestion.metadata?.nutrition?.calories || 0)} kcal • 
-            P: {Math.round(suggestion.nutritional_benefit?.protein || suggestion.metadata?.nutrition?.protein || 0)}g • 
-            F: {Math.round(suggestion.nutritional_benefit?.fat || suggestion.metadata?.nutrition?.fat || 0)}g • 
-            C: {Math.round(suggestion.nutritional_benefit?.carbs || suggestion.metadata?.nutrition?.carbs || 0)}g
-          </Text>
-        </View>
-      )}
+      {(() => {
+        const nutrition = extractNutrition(suggestion);
+        if (!hasCompleteNutrition(nutrition)) return null;
+        return (
+          <View style={styles.nutritionInfo}>
+            <Text style={styles.nutritionText}>
+              📊 {Math.round(nutrition.calories || 0)} kcal • 
+              P: {Math.round(nutrition.protein || 0)}g • 
+              F: {Math.round(nutrition.fat || 0)}g • 
+              C: {Math.round(nutrition.carbs || 0)}g
+            </Text>
+          </View>
+        );
+      })()}
 
       {(suggestion.tags?.length > 0 || suggestion.metadata?.reasons) && (
         <View style={styles.reasonsContainer}>
@@ -612,16 +782,29 @@ export default function SmartDietScreen({ onBackPress, navigationContext, naviga
       )}
 
       <View style={styles.actionButtons}>
-        {(suggestion.action_text || suggestion.implementation_notes) && (
-          <TouchableOpacity 
-            style={styles.primaryButton}
-            onPress={() => handleSuggestionAction(suggestion)}
-          >
-            <Text style={styles.primaryButtonText}>
-              {suggestion.action_text || suggestion.implementation_notes || 'Apply'}
-            </Text>
-          </TouchableOpacity>
-        )}
+        {(() => {
+          let label: string | null = null;
+          if (suggestion.suggestion_type === 'recommendation') {
+            label = t('smartDiet.actions.addToPlan');
+          } else if (suggestion.suggestion_type === 'optimization') {
+            label = t('smartDiet.actions.applyOptimization');
+          } else if (suggestion.action_text || suggestion.implementation_notes) {
+            label = suggestion.action_text || suggestion.implementation_notes || null;
+          }
+
+          if (!label) return null;
+
+          return (
+            <TouchableOpacity 
+              style={styles.primaryButton}
+              onPress={() => handleSuggestionAction(suggestion)}
+            >
+              <Text style={styles.primaryButtonText}>
+                {label}
+              </Text>
+            </TouchableOpacity>
+          );
+        })()}
         
         <View style={styles.feedbackButtons}>
           {/* Cross-navigation buttons */}
@@ -637,9 +820,38 @@ export default function SmartDietScreen({ onBackPress, navigationContext, naviga
           {suggestion.suggestion_type === 'optimization' && navigateToPlan && (
             <TouchableOpacity 
               style={[styles.feedbackButton, styles.navigationActionButton]}
-              onPress={() => navigateToPlan()}
+              onPress={() => {
+                if (selectedContext === SmartDietContext.OPTIMIZE) {
+                  const suggestedBarcode =
+                    suggestion.suggested_item?.barcode ||
+                    suggestion.metadata?.suggested_item?.barcode ||
+                    suggestion.metadata?.barcode ||
+                    suggestion.metadata?.product?.barcode ||
+                    null;
+
+                  if (suggestedBarcode) {
+                    handleSwapApply({
+                      new_barcode: suggestedBarcode,
+                      to_food: suggestion.title,
+                    });
+                    return;
+                  }
+
+                  Alert.alert(
+                    t('smartDiet.optimizations.applyEmptyTitle'),
+                    t('smartDiet.optimizations.applyEmptyBody')
+                  );
+                  return;
+                }
+
+                navigateToPlan();
+              }}
             >
-              <Text style={styles.navigationActionText}>📋 Plan</Text>
+              <Text style={styles.navigationActionText}>
+                {selectedContext === SmartDietContext.OPTIMIZE
+                  ? t('smartDiet.optimizations.applyOne')
+                  : '📋 Plan'}
+              </Text>
             </TouchableOpacity>
           )}
           
@@ -661,7 +873,8 @@ export default function SmartDietScreen({ onBackPress, navigationContext, naviga
   );
 
   const renderInsights = () => {
-    if (!smartData?.nutritional_summary && selectedContext !== 'insights') return null;
+    if (selectedContext !== 'insights') return null;
+    if (!smartData?.nutritional_summary) return null;
 
     const nutritionalSummary = smartData?.nutritional_summary;
     if (!nutritionalSummary) return null;
@@ -713,44 +926,323 @@ export default function SmartDietScreen({ onBackPress, navigationContext, naviga
     );
   };
 
+  const toggleOptimizationExcluded = (key: string) => {
+    setExcludedOptimizations((prev) => ({ ...prev, [key]: !prev[key] }));
+  };
+
+  const resolvePlanId = async () => {
+    const navigationPlanId = navigationContext?.planId;
+    const storedPlanId = await getCurrentMealPlanId();
+    return navigationPlanId ?? storedPlanId ?? null;
+  };
+
+  const loadPlanItems = async (planId: string) => {
+    const response = await apiService.getUserPlans();
+    const plan = (response.data || []).find((entry: any) =>
+      entry.plan_id === planId || entry.planId === planId
+    );
+    const meals = plan?.meals ?? [];
+    const items = meals.flatMap((meal: any) =>
+      (meal.items ?? []).map((item: any, index: number) => ({
+        id: `${meal.name}-${item.barcode}-${index}`,
+        barcode: item.barcode,
+        name: item.name,
+        meal: meal.name,
+      }))
+    );
+    setSwapCandidates(items);
+  };
+
+  const buildSwapChange = (swap: Record<string, any>): OptimizationChangePayload | null => {
+    const oldBarcode =
+      swap.old_barcode ??
+      swap.from_barcode ??
+      swap.fromBarcode ??
+      swap.metadata?.old_barcode ??
+      swap.metadata?.from_barcode ??
+      null;
+    const newBarcode =
+      swap.new_barcode ??
+      swap.to_barcode ??
+      swap.toBarcode ??
+      swap.metadata?.new_barcode ??
+      swap.metadata?.to_barcode ??
+      null;
+
+    if (!oldBarcode || !newBarcode) return null;
+
+    return {
+      change_type: 'meal_swap',
+      old_barcode: oldBarcode,
+      new_barcode: newBarcode
+    };
+  };
+
+  const buildMacroChange = (adjustment: Record<string, any>): OptimizationChangePayload | null => {
+    const mealName = adjustment.meal_name ?? adjustment.mealName ?? null;
+    const newTarget = adjustment.new_target ?? adjustment.target ?? null;
+
+    if (!mealName || newTarget === null || newTarget === undefined) return null;
+
+    return {
+      change_type: 'macro_adjustment',
+      meal_name: mealName,
+      new_target: newTarget,
+      nutrient: adjustment.nutrient,
+      current: adjustment.current,
+      target: adjustment.target,
+      suggestion: adjustment.suggestion
+    };
+  };
+
+  const buildOptimizationChanges = (optimizations: SmartDietOptimizations) => {
+    const changes: OptimizationChangePayload[] = [];
+
+    optimizations.meal_swaps?.forEach((swap, index) => {
+      const key = `swap_${swap.from_food}_${swap.to_food}_${index}`;
+      if (excludedOptimizations[key]) return;
+
+      const change = buildSwapChange(swap as Record<string, any>);
+      if (change) {
+        changes.push(change);
+      }
+    });
+
+    optimizations.macro_adjustments?.forEach((adjustment, index) => {
+      const key = `adj_${adjustment.nutrient}_${adjustment.current}_${index}`;
+      if (excludedOptimizations[key]) return;
+
+      const change = buildMacroChange(adjustment as Record<string, any>);
+      if (change) {
+        changes.push(change);
+      }
+    });
+
+    return changes;
+  };
+
+  const applyOptimizations = async (changes: OptimizationChangePayload[]) => {
+    if (!user?.id) {
+      Alert.alert('Sign In Required', 'Please log in to apply optimizations.');
+      return;
+    }
+
+    const planId = await resolvePlanId();
+    if (!planId) {
+      Alert.alert(
+        t('smartDiet.optimizations.applyMissingPlanTitle'),
+        t('smartDiet.optimizations.applyMissingPlanBody')
+      );
+      return;
+    }
+
+    if (changes.length === 0) {
+      Alert.alert(
+        t('smartDiet.optimizations.applyEmptyTitle'),
+        t('smartDiet.optimizations.applyEmptyBody')
+      );
+      return;
+    }
+
+    try {
+      const response = await apiService.applySmartDietOptimization({
+        plan_id: planId,
+        changes
+      });
+      const appliedCount = response?.data?.applied ?? 0;
+
+      Alert.alert(
+        t('smartDiet.optimizations.applySuccessTitle'),
+        t('smartDiet.optimizations.applySuccessBody', { count: appliedCount })
+      );
+
+      setExcludedOptimizations({});
+      await generateSmartSuggestions(true);
+    } catch (error) {
+      console.error('Apply optimizations failed:', error);
+      Alert.alert(
+        t('smartDiet.optimizations.applyErrorTitle'),
+        t('smartDiet.optimizations.applyErrorBody')
+      );
+    }
+  };
+
+  const handleApplySelected = async () => {
+    if (!smartData?.optimizations || Array.isArray(smartData.optimizations)) return;
+    const changes = buildOptimizationChanges(smartData.optimizations);
+    if (changes.length === 0 && (smartData.optimizations.meal_swaps?.length ?? 0) > 0) {
+      Alert.alert(
+        t('smartDiet.optimizations.applyManualTitle'),
+        t('smartDiet.optimizations.applyManualBody')
+      );
+      return;
+    }
+    await applyOptimizations(changes);
+  };
+
+  const handleSwapApply = async (swap: Record<string, any>) => {
+    const planId = await resolvePlanId();
+    if (!planId) {
+      Alert.alert(
+        t('smartDiet.optimizations.applyMissingPlanTitle'),
+        t('smartDiet.optimizations.applyMissingPlanBody')
+      );
+      return;
+    }
+
+    const newBarcode =
+      swap.new_barcode ??
+      swap.to_barcode ??
+      swap.toBarcode ??
+      swap.metadata?.new_barcode ??
+      swap.metadata?.to_barcode ??
+      null;
+
+    if (!newBarcode) {
+      Alert.alert(
+        t('smartDiet.optimizations.applyEmptyTitle'),
+        t('smartDiet.optimizations.applyEmptyBody')
+      );
+      return;
+    }
+
+    try {
+      await loadPlanItems(planId);
+      setSwapTarget({ ...swap, planId, new_barcode: newBarcode });
+      setSelectedSwapId(null);
+      setSwapPickerVisible(true);
+    } catch (error) {
+      console.error('Failed to load plan items:', error);
+      Alert.alert(
+        t('smartDiet.optimizations.applyErrorTitle'),
+        t('smartDiet.optimizations.applyErrorBody')
+      );
+    }
+  };
+
+  const confirmSwapSelection = async () => {
+    if (!swapTarget || !selectedSwapId) return;
+    const selectedItem = swapCandidates.find((item) => item.id === selectedSwapId);
+    if (!selectedItem) return;
+    const change: OptimizationChangePayload = {
+      change_type: 'meal_swap',
+      old_barcode: selectedItem.barcode,
+      new_barcode: swapTarget.new_barcode,
+    };
+    setSwapPickerVisible(false);
+    await applyOptimizations([change]);
+  };
+
   const renderOptimizations = () => {
     if (!smartData?.optimizations || selectedContext !== 'optimize') return null;
 
     const optimizations = smartData.optimizations;
     if (Array.isArray(optimizations)) return null;
+    const totalOptimizations =
+      (optimizations.meal_swaps?.length ?? 0) +
+      (optimizations.macro_adjustments?.length ?? 0);
+    const excludedCount = Object.values(excludedOptimizations).filter(Boolean).length;
+    const selectedCount = Math.max(totalOptimizations - excludedCount, 0);
 
     return (
       <View style={styles.optimizationsCard}>
-        <Text style={styles.optimizationsTitle}>⚡ Suggested Optimizations</Text>
+        <Text style={styles.optimizationsTitle}>{t('smartDiet.optimizations.title')}</Text>
+        <Text style={styles.optimizationsSubtitle}>{t('smartDiet.optimizations.subtitle')}</Text>
 
         {optimizations.meal_swaps && optimizations.meal_swaps.length > 0 && (
           <View style={styles.optimizationSection}>
-            <Text style={styles.optimizationSectionTitle}>Meal Swaps:</Text>
-            {optimizations.meal_swaps.map((swap, index) => (
-              <View key={`swap_${swap.from_food}_${swap.to_food}_${index}`} style={styles.swapItem}>
-                <Text style={styles.swapText}>
-                  Replace {swap.from_food} with {swap.to_food}
-                </Text>
-                <Text style={styles.swapBenefit}>
-                  {swap.calorie_difference > 0 ? '+' : ''}{swap.calorie_difference} kcal • {swap.benefit}
-                </Text>
-              </View>
-            ))}
+            <Text style={styles.optimizationSectionTitle}>{t('smartDiet.optimizations.mealSwaps')}</Text>
+            {optimizations.meal_swaps.map((swap, index) => {
+              const key = `swap_${swap.from_food}_${swap.to_food}_${index}`;
+              const excluded = Boolean(excludedOptimizations[key]);
+
+              return (
+                <View key={key} style={styles.swapItem}>
+                  <Text style={styles.swapText}>
+                    {swap.from_food} → {swap.to_food}
+                  </Text>
+                  <Text style={styles.swapBenefit}>
+                    {swap.calorie_difference > 0 ? '+' : ''}{swap.calorie_difference} kcal • {swap.benefit}
+                  </Text>
+                  <View style={styles.optimizationActions}>
+                    <TouchableOpacity
+                      style={styles.optimizationCta}
+                      onPress={() => handleSwapApply(swap as Record<string, any>)}
+                    >
+                      <Text style={styles.optimizationCtaText}>
+                        {t('smartDiet.optimizations.applyOne')}
+                      </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.optimizationCta, excluded && styles.optimizationCtaExcluded]}
+                      onPress={() => toggleOptimizationExcluded(key)}
+                    >
+                      <Text
+                        style={[styles.optimizationCtaText, excluded && styles.optimizationCtaTextExcluded]}
+                      >
+                        {t('smartDiet.optimizations.exclude')}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              );
+            })}
           </View>
         )}
 
         {optimizations.macro_adjustments && optimizations.macro_adjustments.length > 0 && (
           <View style={styles.optimizationSection}>
-            <Text style={styles.optimizationSectionTitle}>Macro Adjustments:</Text>
-            {optimizations.macro_adjustments.map((adj, index) => (
-              <View key={`adj_${adj.nutrient}_${adj.current}_${index}`} style={styles.adjustmentItem}>
-                <Text style={styles.adjustmentNutrient}>{adj.nutrient}:</Text>
-                <Text style={styles.adjustmentValues}>
-                  {adj.current}g → {adj.target}g
-                </Text>
-                <Text style={styles.adjustmentSuggestion}>{adj.suggestion}</Text>
-              </View>
-            ))}
+            <Text style={styles.optimizationSectionTitle}>{t('smartDiet.optimizations.macroAdjustments')}</Text>
+            <Text style={styles.optimizationSectionHint}>
+              {t('smartDiet.optimizations.macroAdjustmentsHint')}
+            </Text>
+            {optimizations.macro_adjustments.map((adj, index) => {
+              const key = `adj_${adj.nutrient}_${adj.current}_${index}`;
+              const excluded = Boolean(excludedOptimizations[key]);
+
+              return (
+                <View key={key} style={styles.adjustmentItem}>
+                  <Text style={styles.adjustmentNutrient}>{adj.nutrient}:</Text>
+                  <Text style={styles.adjustmentValues}>
+                    {adj.current}g → {adj.target}g
+                  </Text>
+                  <Text style={styles.adjustmentSuggestion}>{adj.suggestion}</Text>
+                  <View style={styles.optimizationActions}>
+                    <TouchableOpacity style={[styles.optimizationCta, styles.optimizationCtaDisabled]}>
+                      <Text style={[styles.optimizationCtaText, styles.optimizationCtaTextDisabled]}>
+                        {t('smartDiet.optimizations.infoOnly')}
+                      </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.optimizationCta, excluded && styles.optimizationCtaExcluded]}
+                      onPress={() => toggleOptimizationExcluded(key)}
+                    >
+                      <Text
+                        style={[styles.optimizationCtaText, excluded && styles.optimizationCtaTextExcluded]}
+                      >
+                        {t('smartDiet.optimizations.exclude')}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              );
+            })}
+          </View>
+        )}
+
+        {totalOptimizations > 0 && (
+          <View style={styles.optimizationSummaryRow}>
+            <Text style={styles.optimizationSummaryText}>
+              {t('smartDiet.optimizations.selectionCount', { count: selectedCount })}
+            </Text>
+            <TouchableOpacity
+              style={styles.optimizationApplyButton}
+              onPress={handleApplySelected}
+            >
+              <Text style={styles.optimizationApplyText}>
+                {t('smartDiet.optimizations.applySelected')}
+              </Text>
+            </TouchableOpacity>
           </View>
         )}
       </View>
@@ -851,7 +1343,7 @@ export default function SmartDietScreen({ onBackPress, navigationContext, naviga
             style={styles.applyButton}
             onPress={() => {
               setPreferencesModal(false);
-              generateSmartSuggestions();
+              generateSmartSuggestions(true);
             }}
           >
             <Text style={styles.applyButtonText}>{t('smartDiet.preferences.apply')}</Text>
@@ -875,6 +1367,10 @@ export default function SmartDietScreen({ onBackPress, navigationContext, naviga
   }
 
   const contextConfig = CONTEXT_CONFIG[selectedContext];
+  const headerTitle =
+    selectedContext === SmartDietContext.OPTIMIZE
+      ? t('smartDiet.contexts.optimize')
+      : t('smartDiet.title');
 
   return (
     <SafeAreaView style={styles.container}>
@@ -885,8 +1381,10 @@ export default function SmartDietScreen({ onBackPress, navigationContext, naviga
           <Text style={styles.backButtonText}>🏠</Text>
         </TouchableOpacity>
         <View style={styles.headerContent}>
-          <Text style={styles.title}>{contextConfig.emoji} {t('smartDiet.title')}</Text>
-          <Text style={styles.subtitle}>{t(`smartDiet.contexts.${selectedContext}`)}</Text>
+          <Text style={styles.title}>{contextConfig.emoji} {headerTitle}</Text>
+          {selectedContext !== SmartDietContext.OPTIMIZE && (
+            <Text style={styles.subtitle}>{t(`smartDiet.contexts.${selectedContext}`)}</Text>
+          )}
         </View>
         <View style={styles.headerActions}>
           {navigationContext?.sourceScreen && (
@@ -920,18 +1418,20 @@ export default function SmartDietScreen({ onBackPress, navigationContext, naviga
         {renderOptimizations()}
 
         {/* Main suggestions */}
-        {smartData?.suggestions && smartData.suggestions.length > 0 && (
+        {visibleSuggestions.length > 0 && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>
               {contextConfig.emoji} {contextConfig.title}
             </Text>
-            {smartData.suggestions.map((suggestion, index) => 
+            {visibleSuggestions.map((suggestion, index) => 
               renderSuggestion(suggestion, index)
             )}
           </View>
         )}
 
-        {(!smartData || smartData.suggestions.length === 0) && !loading && (
+        {selectedContext !== SmartDietContext.OPTIMIZE &&
+          (!smartData || visibleSuggestions.length === 0) &&
+          !loading && (
           <View style={styles.emptyState}>
             <Text style={styles.emptyStateEmoji}>🤔</Text>
             <Text style={styles.emptyStateTitle}>{t('smartDiet.noSuggestions')}</Text>
@@ -941,542 +1441,61 @@ export default function SmartDietScreen({ onBackPress, navigationContext, naviga
           </View>
         )}
 
-        <TouchableOpacity style={styles.regenerateButton} onPress={generateSmartSuggestions}>
+        <TouchableOpacity style={styles.regenerateButton} onPress={() => generateSmartSuggestions(true)}>
           <Text style={styles.regenerateButtonText}>🔄 Refresh Suggestions</Text>
         </TouchableOpacity>
       </ScrollView>
 
       <PreferencesModal />
+
+      <Modal transparent visible={swapPickerVisible} animationType="fade">
+        <View style={styles.swapModalOverlay}>
+          <View style={styles.swapModalCard}>
+            <Text style={styles.swapModalTitle}>{t('smartDiet.optimizations.swapSelectTitle')}</Text>
+            <Text style={styles.swapModalSubtitle}>
+              {t('smartDiet.optimizations.swapSelectSubtitle')}
+            </Text>
+            <ScrollView style={styles.swapModalList}>
+              {swapCandidates.map((item) => {
+                const selected = selectedSwapId === item.id;
+                return (
+                  <TouchableOpacity
+                    key={item.id}
+                    style={[styles.swapModalItem, selected && styles.swapModalItemSelected]}
+                    onPress={() => setSelectedSwapId(item.id)}
+                  >
+                    <Text style={[styles.swapModalItemName, selected && styles.swapModalItemNameSelected]}>
+                      {translateFoodNameSync(item.name)}
+                    </Text>
+                    <Text style={[styles.swapModalItemMeta, selected && styles.swapModalItemMetaSelected]}>
+                      {item.meal}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+            <View style={styles.swapModalActions}>
+              <TouchableOpacity
+                style={[styles.swapModalButton, styles.swapModalCancel]}
+                onPress={() => setSwapPickerVisible(false)}
+              >
+                <Text style={styles.swapModalCancelText}>{t('common.cancel')}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.swapModalButton,
+                  styles.swapModalConfirm,
+                  !selectedSwapId && styles.swapModalButtonDisabled,
+                ]}
+                onPress={confirmSwapSelection}
+                disabled={!selectedSwapId}
+              >
+                <Text style={styles.swapModalConfirmText}>{t('smartDiet.optimizations.swapSelectConfirm')}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#F8F9FA',
-  },
-  header: {
-    backgroundColor: '#007AFF',
-    paddingVertical: 20,
-    paddingHorizontal: 20,
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingTop: Platform.OS === 'android' ? 40 : 20,
-  },
-  backButton: {
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    minWidth: 40,
-    alignItems: 'center',
-  },
-  backButtonText: {
-    color: 'white',
-    fontSize: 20,
-    fontWeight: 'bold',
-  },
-  headerContent: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  title: {
-    color: 'white',
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginBottom: 5,
-  },
-  subtitle: {
-    color: 'rgba(255,255,255,0.8)',
-    fontSize: 14,
-  },
-  headerActions: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  navigationButton: {
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.3)',
-    minWidth: 40,
-    alignItems: 'center',
-  },
-  navigationButtonText: {
-    color: 'white',
-    fontSize: 20,
-    fontWeight: 'bold',
-  },
-  preferencesButton: {
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    minWidth: 40,
-    alignItems: 'center',
-  },
-  preferencesButtonText: {
-    color: 'white',
-    fontSize: 20,
-    fontWeight: 'bold',
-  },
-  content: {
-    flex: 1,
-    paddingHorizontal: 20,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loadingText: {
-    marginTop: 15,
-    fontSize: 16,
-    color: '#666',
-  },
-  contextSelector: {
-    marginTop: 15,
-  },
-  contextButton: {
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    marginRight: 10,
-    borderRadius: 20,
-    backgroundColor: 'white',
-    alignItems: 'center',
-    minWidth: 100,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  contextButtonActive: {
-    backgroundColor: '#007AFF',
-  },
-  contextEmoji: {
-    fontSize: 20,
-    marginBottom: 4,
-  },
-  contextButtonText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#666',
-    textAlign: 'center',
-  },
-  contextButtonTextActive: {
-    color: 'white',
-  },
-  insightsCard: {
-    backgroundColor: 'white',
-    borderRadius: 15,
-    padding: 20,
-    marginTop: 15,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  insightsTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 15,
-  },
-  insightRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 10,
-  },
-  insightLabel: {
-    fontSize: 14,
-    color: '#666',
-    fontWeight: '600',
-  },
-  insightValue: {
-    fontSize: 14,
-    color: '#333',
-    fontWeight: 'bold',
-  },
-  macroDistribution: {
-    marginBottom: 15,
-  },
-  macroRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 8,
-  },
-  macroText: {
-    fontSize: 12,
-    color: '#666',
-    flex: 1,
-    textAlign: 'center',
-  },
-  improvementAreas: {
-    marginBottom: 15,
-  },
-  improvementText: {
-    fontSize: 14,
-    color: '#FF9800',
-    marginBottom: 5,
-  },
-  healthBenefits: {
-    marginTop: 10,
-  },
-  benefitText: {
-    fontSize: 14,
-    color: '#4CAF50',
-    marginBottom: 5,
-  },
-  optimizationsCard: {
-    backgroundColor: 'white',
-    borderRadius: 15,
-    padding: 20,
-    marginTop: 15,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  optimizationsTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 15,
-  },
-  optimizationSection: {
-    marginBottom: 20,
-  },
-  optimizationSectionTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 10,
-  },
-  swapItem: {
-    backgroundColor: '#FFF3E0',
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 8,
-  },
-  swapText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 4,
-  },
-  swapBenefit: {
-    fontSize: 12,
-    color: '#FF9800',
-  },
-  adjustmentItem: {
-    backgroundColor: '#E3F2FD',
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 8,
-  },
-  adjustmentNutrient: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#333',
-  },
-  adjustmentValues: {
-    fontSize: 14,
-    color: '#1976D2',
-    fontWeight: 'bold',
-    marginTop: 2,
-  },
-  adjustmentSuggestion: {
-    fontSize: 12,
-    color: '#666',
-    marginTop: 4,
-  },
-  section: {
-    marginTop: 20,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 15,
-  },
-  suggestionCard: {
-    backgroundColor: 'white',
-    borderRadius: 15,
-    padding: 20,
-    marginBottom: 15,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  suggestionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 10,
-  },
-  suggestionInfo: {
-    flex: 1,
-  },
-  suggestionTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 4,
-  },
-  suggestionCategory: {
-    fontSize: 12,
-    color: '#666',
-    backgroundColor: '#F5F5F5',
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 10,
-    alignSelf: 'flex-start',
-  },
-  confidenceContainer: {
-    alignItems: 'center',
-  },
-  confidenceScore: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#007AFF',
-  },
-  confidenceLabel: {
-    fontSize: 12,
-    color: '#666',
-  },
-  suggestionDescription: {
-    fontSize: 14,
-    color: '#333',
-    marginBottom: 12,
-    lineHeight: 20,
-  },
-  nutritionInfo: {
-    marginBottom: 12,
-  },
-  nutritionText: {
-    fontSize: 14,
-    color: '#666',
-    backgroundColor: '#F8F9FA',
-    padding: 8,
-    borderRadius: 8,
-  },
-  reasonsContainer: {
-    marginBottom: 15,
-  },
-  reasonsLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 8,
-  },
-  reasonTags: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  reasonTag: {
-    backgroundColor: '#E3F2FD',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
-  },
-  reasonTagText: {
-    fontSize: 12,
-    color: '#1976D2',
-    fontWeight: '500',
-  },
-  actionButtons: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  primaryButton: {
-    backgroundColor: '#4CAF50',
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    borderRadius: 8,
-    flex: 1,
-    marginRight: 10,
-  },
-  primaryButtonText: {
-    color: 'white',
-    fontSize: 14,
-    fontWeight: '600',
-    textAlign: 'center',
-  },
-  feedbackButtons: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  feedbackButton: {
-    backgroundColor: '#F5F5F5',
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 8,
-  },
-  feedbackButtonText: {
-    fontSize: 16,
-  },
-  navigationActionButton: {
-    backgroundColor: '#007AFF',
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-  },
-  navigationActionText: {
-    color: 'white',
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  emptyState: {
-    alignItems: 'center',
-    paddingVertical: 40,
-  },
-  emptyStateEmoji: {
-    fontSize: 48,
-    marginBottom: 16,
-  },
-  emptyStateTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 8,
-  },
-  emptyStateText: {
-    fontSize: 14,
-    color: '#666',
-    textAlign: 'center',
-    paddingHorizontal: 20,
-  },
-  regenerateButton: {
-    backgroundColor: '#007AFF',
-    paddingVertical: 15,
-    paddingHorizontal: 25,
-    borderRadius: 12,
-    alignItems: 'center',
-    marginTop: 20,
-    marginBottom: 30,
-    shadowColor: '#007AFF',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 6,
-  },
-  regenerateButtonText: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  modalContainer: {
-    flex: 1,
-    backgroundColor: '#F8F9FA',
-  },
-  modalHeader: {
-    backgroundColor: '#007AFF',
-    paddingVertical: 20,
-    paddingHorizontal: 20,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingTop: Platform.OS === 'android' ? 40 : 20,
-  },
-  modalTitle: {
-    color: 'white',
-    fontSize: 20,
-    fontWeight: 'bold',
-  },
-  closeButton: {
-    color: 'white',
-    fontSize: 20,
-    fontWeight: 'bold',
-  },
-  modalContent: {
-    flex: 1,
-    paddingHorizontal: 20,
-    paddingTop: 20,
-  },
-  preferenceSection: {
-    marginBottom: 30,
-  },
-  tagContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    marginTop: 10,
-  },
-  preferenceTag: {
-    backgroundColor: 'white',
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 20,
-  },
-  preferenceTagActive: {
-    backgroundColor: '#007AFF',
-    borderColor: '#007AFF',
-  },
-  preferenceTagText: {
-    fontSize: 14,
-    color: '#666',
-    fontWeight: '500',
-  },
-  preferenceTagTextActive: {
-    color: 'white',
-  },
-  notificationRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  notificationTimeRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingLeft: 12,
-    opacity: 0.8,
-  },
-  notificationLabel: {
-    fontSize: 14,
-    color: '#333',
-    fontWeight: '500',
-  },
-  notificationToggle: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: '#E0E0E0',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  notificationToggleActive: {
-    backgroundColor: '#4CAF50',
-  },
-  notificationToggleText: {
-    fontSize: 20,
-  },
-  notificationTime: {
-    fontSize: 14,
-    color: '#007AFF',
-    fontWeight: '600',
-    fontFamily: Platform.OS === 'android' ? 'monospace' : 'Courier',
-  },
-  applyButton: {
-    backgroundColor: '#4CAF50',
-    paddingVertical: 15,
-    borderRadius: 12,
-    alignItems: 'center',
-    marginBottom: 30,
-  },
-  applyButtonText: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-});

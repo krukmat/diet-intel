@@ -63,6 +63,7 @@ const renderTrack: ScreenRenderer = ({ setCurrentScreen }) => (
 
 const renderRecommendations: ScreenRenderer = ({ setCurrentScreen, navigateToScreen, navigationContext }) => (
   <SmartDietScreen
+    key={navigationContext?.targetContext ?? navigationContext?.planId ?? 'smart-diet'}
     onBackPress={() => setCurrentScreen('scanner')}
     navigationContext={navigationContext}
     navigateToTrack={() =>

@@ -23,22 +23,14 @@ const resetServiceInstance = () => {
 };
 
 const originalFetch = global.fetch;
-const originalAbortSignal = global.AbortSignal;
 const mockGetCurrentLanguage = getCurrentLanguage as jest.Mock;
 
 beforeAll(() => {
   global.fetch = fetchMock as any;
-
-  if (!global.AbortSignal || typeof global.AbortSignal.timeout !== 'function') {
-    global.AbortSignal = {
-      timeout: jest.fn(() => 'timeout'),
-    } as any;
-  }
 });
 
 afterAll(() => {
   global.fetch = originalFetch;
-  global.AbortSignal = originalAbortSignal;
 });
 
 beforeEach(() => {
