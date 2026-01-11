@@ -13,7 +13,7 @@ const baseToggles: FeatureToggle = {
 describe('homeActions config', () => {
   it('returns primary actions when toggles allow', () => {
     const actions = getHomeActions('primary', baseToggles).map(action => action.id);
-    expect(actions).toEqual(expect.arrayContaining(['logMeal', 'aiPlan', 'progress']));
+    expect(actions).toEqual(expect.arrayContaining(['logMeal', 'aiPlan', 'plan']));
   });
 
   it('hides logMeal when both scanner and upload are disabled', () => {

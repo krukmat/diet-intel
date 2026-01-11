@@ -8,6 +8,7 @@ Task: Phase 2 Tarea 5 - Recipe Database Refactoring
 """
 
 import logging
+import os
 from typing import Optional, List, Dict, Any
 
 from app.services.database import DatabaseService
@@ -367,4 +368,5 @@ class RecipeDatabaseService(DatabaseService):
 
 
 # Global recipe database service instance for backward compatibility
-recipe_db_service = RecipeDatabaseService()
+_recipe_db_path = os.getenv("DIETINTEL_DB_PATH", "dietintel.db")
+recipe_db_service = RecipeDatabaseService(db_path=_recipe_db_path)

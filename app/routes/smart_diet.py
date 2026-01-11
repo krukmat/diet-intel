@@ -9,10 +9,15 @@ from typing import Optional
 
 from app.models.smart_diet import (
     SmartDietRequest, SmartDietResponse, SmartSuggestion, SuggestionFeedback,
-    SmartDietInsights, SmartDietMetrics, SmartDietContext
+    SmartDietInsights, SmartDietMetrics, SmartDietContext,
+    SmartDietOptimizationApplyRequest, SmartDietOptimizationApplyResponse,
+    OptimizationChangeType
 )
+from app.models.meal_plan import PlanCustomizationRequest, SwapOperation, MealCalorieAdjustment, ChangeLogEntry
 from app.models.product import ErrorResponse
 from app.services.smart_diet import smart_diet_engine
+from app.services.plan_storage import plan_storage
+from app.services.plan_customizer import plan_customizer
 from app.utils import auth_context
 
 # Import legacy models for backward compatibility during migration
@@ -273,6 +278,108 @@ async def submit_smart_diet_feedback(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Error processing Smart Diet feedback"
+        )
+
+
+@router.post(
+    "/optimizations/apply",
+    response_model=SmartDietOptimizationApplyResponse,
+    responses={
+        400: {"model": ErrorResponse, "description": "Invalid optimization request"},
+        401: {"model": ErrorResponse, "description": "Authentication required"},
+        404: {"model": ErrorResponse, "description": "Plan not found"},
+        500: {"model": ErrorResponse, "description": "Optimization apply error"},
+    }
+)
+async def apply_smart_diet_optimizations(
+    payload: SmartDietOptimizationApplyRequest,
+    req: Request
+):
+    """
+    Apply Smart Diet optimizations to an existing meal plan.
+
+    Supports swap operations (barcode-based) and meal calorie adjustments.
+    """
+    try:
+        await _require_authenticated_user(req, "Authentication required to apply optimizations")
+
+        if not payload.changes:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="At least one optimization change must be provided"
+            )
+
+        plan = await plan_storage.get_plan(payload.plan_id)
+        if not plan:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Meal plan {payload.plan_id} not found"
+            )
+
+        applied_count = 0
+        change_log: list[ChangeLogEntry] = []
+        updated_plan = plan
+
+        for change in payload.changes:
+            if change.change_type == OptimizationChangeType.MEAL_SWAP:
+                if not change.old_barcode or not change.new_barcode:
+                    change_log.append(ChangeLogEntry(
+                        change_type="swap_failed",
+                        description="Swap requires old_barcode and new_barcode",
+                    ))
+                    continue
+
+                customization = PlanCustomizationRequest(
+                    swap=SwapOperation(
+                        old_barcode=change.old_barcode,
+                        new_barcode=change.new_barcode
+                    )
+                )
+            elif change.change_type == OptimizationChangeType.MACRO_ADJUSTMENT:
+                if not change.meal_name or change.new_target is None:
+                    change_log.append(ChangeLogEntry(
+                        change_type="adjust_calories_failed",
+                        description="Macro adjustment requires meal_name and new_target",
+                        meal_affected=change.meal_name,
+                    ))
+                    continue
+
+                customization = PlanCustomizationRequest(
+                    adjust_meal_calories=MealCalorieAdjustment(
+                        meal_name=change.meal_name,
+                        new_target=change.new_target
+                    )
+                )
+            else:
+                change_log.append(ChangeLogEntry(
+                    change_type="optimization_failed",
+                    description=f"Unsupported change type: {change.change_type}",
+                ))
+                continue
+
+            updated_plan, logs = await plan_customizer.customize_plan(updated_plan, customization)
+            if not await plan_storage.update_plan(payload.plan_id, updated_plan):
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail="Failed to save plan updates"
+                )
+
+            change_log.extend(logs)
+            applied_count += len([log for log in logs if not log.change_type.endswith("_failed")])
+
+        return SmartDietOptimizationApplyResponse(
+            success=True,
+            plan=updated_plan,
+            applied=applied_count,
+            change_log=change_log
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error applying optimizations for plan {payload.plan_id}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error applying optimizations"
         )
 
 

@@ -1,17 +1,26 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Platform } from 'react-native';
-import { HomePrimaryActions, HomeSecondaryActions, HomeToolActions, HomeProgressCard } from '../shared/ui/components';
+import { useTranslation } from 'react-i18next';
+import { HomePrimaryActions, HomeToolActions } from '../shared/ui/components';
 import { LanguageToggle } from './LanguageSwitcher';
+
+interface ActionItem {
+  id: string;
+  label: string;
+  icon?: string;
+  onPress: () => void;
+}
 
 interface HomeDashboardProps {
   title: string;
   subtitle: string;
   version: string;
-  toolActions: Array<{ id: string; label: string; onPress: () => void }>;
-  primaryActions: Array<{ id: string; label: string; onPress: () => void }>;
-  secondaryActions: Array<{ id: string; label: string; onPress: () => void }>;
-  progressTitle: string;
-  progressDescription: string;
+  heroDailyCalories?: number | null;
+  heroConsumedCalories?: number | null;
+  heroPlanActive?: boolean | null;
+  toolActions: ActionItem[];
+  primaryActions: ActionItem[];
+  secondaryActions: ActionItem[];
   showDeveloperSettings: boolean;
   showNotifications: boolean;
   onLogout: () => void;
@@ -24,11 +33,12 @@ export default function HomeDashboard({
   title,
   subtitle,
   version,
+  heroDailyCalories,
+  heroConsumedCalories,
+  heroPlanActive,
   toolActions,
   primaryActions,
   secondaryActions,
-  progressTitle,
-  progressDescription,
   showDeveloperSettings,
   showNotifications,
   onLogout,
@@ -36,6 +46,28 @@ export default function HomeDashboard({
   onShowNotifications,
   onShowLanguageSwitcher,
 }: HomeDashboardProps) {
+  const { t } = useTranslation();
+  const caloriesText =
+    heroDailyCalories !== null && heroDailyCalories !== undefined
+      ? `${Math.round(heroDailyCalories)} kcal`
+      : t('home.hero.noCalories');
+  const progressText =
+    heroConsumedCalories !== null && heroConsumedCalories !== undefined
+      ? `${Math.round(heroConsumedCalories)}`
+      : null;
+  const todayText =
+    progressText && heroDailyCalories !== null && heroDailyCalories !== undefined
+      ? `${progressText} / ${Math.round(heroDailyCalories)} kcal`
+      : progressText
+        ? `${progressText} kcal`
+        : t('home.hero.noProgress');
+  const planText =
+    heroPlanActive === true
+      ? t('home.hero.planActive')
+      : heroPlanActive === false
+        ? t('home.hero.planInactive')
+        : t('home.hero.planUnknown');
+
   return (
     <>
       <View style={styles.header}>
@@ -56,17 +88,32 @@ export default function HomeDashboard({
             </TouchableOpacity>
           )}
         </View>
-        <View style={styles.headerContent}>
-          <Text style={styles.title}>{title}</Text>
-          <Text style={styles.subtitle}>{subtitle}</Text>
-          <Text style={styles.version}>{version}</Text>
+        <View style={styles.hero}>
+          <View style={styles.heroGlow} />
+          <View style={styles.heroContent}>
+            <Text style={styles.heroTitle}>{title}</Text>
+            <Text style={styles.heroSubtitle}>{subtitle}</Text>
+            <Text style={styles.heroVersion}>{version}</Text>
+          </View>
+          <View style={styles.heroMetrics}>
+            <View style={styles.heroStat}>
+              <Text style={styles.heroStatLabel}>{t('home.hero.dailyCalories')}</Text>
+              <Text style={styles.heroStatValue}>{caloriesText}</Text>
+            </View>
+            <View style={styles.heroStat}>
+              <Text style={styles.heroStatLabel}>{t('home.hero.todayProgress')}</Text>
+              <Text style={styles.heroStatValue}>{todayText}</Text>
+            </View>
+            <View style={styles.heroStat}>
+              <Text style={styles.heroStatLabel}>{t('home.hero.planStatus')}</Text>
+              <Text style={styles.heroStatValue}>{planText}</Text>
+            </View>
+          </View>
         </View>
       </View>
 
       <View style={styles.navigationSection}>
-        <HomeProgressCard title={progressTitle} description={progressDescription} />
         <HomePrimaryActions title=" " actions={primaryActions} />
-        <HomeSecondaryActions title=" " actions={secondaryActions} />
       </View>
     </>
   );
@@ -74,14 +121,10 @@ export default function HomeDashboard({
 
 const styles = StyleSheet.create({
   header: {
-    backgroundColor: '#007AFF',
+    backgroundColor: '#070C1A',
     paddingHorizontal: 20,
     paddingTop: Platform.OS === 'android' ? 34 : 26,
-    paddingBottom: 18,
-    gap: 8,
-  },
-  headerContent: {
-    alignItems: 'center',
+    paddingBottom: 24,
   },
   headerButtons: {
     flexDirection: 'row',
@@ -100,32 +143,68 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 16,
   },
-  title: {
-    color: 'white',
-    fontSize: 32,
-    fontWeight: 'bold',
-    marginBottom: 4,
-    textAlign: 'center',
+  hero: {
+    marginTop: 16,
+    borderRadius: 24,
+    backgroundColor: '#0b1f3a',
+    padding: 20,
+    overflow: 'hidden',
+    position: 'relative',
   },
-  subtitle: {
-    color: 'rgba(255,255,255,0.9)',
+  heroGlow: {
+    position: 'absolute',
+    width: 160,
+    height: 160,
+    borderRadius: 100,
+    backgroundColor: 'rgba(59, 130, 246, 0.35)',
+    top: -40,
+    right: -20,
+  },
+  heroContent: {
+    marginBottom: 16,
+  },
+  heroTitle: {
+    color: 'white',
+    fontSize: 28,
+    fontWeight: '700',
+  },
+  heroSubtitle: {
+    color: '#E0E7FF',
     fontSize: 16,
     fontWeight: '600',
-    marginBottom: 2,
-    textAlign: 'center',
+    marginTop: 4,
   },
-  version: {
-    color: 'rgba(255,255,255,0.7)',
-    fontSize: 11,
+  heroVersion: {
+    color: '#93C5FD',
+    fontSize: 12,
     fontStyle: 'italic',
-    textAlign: 'center',
+    marginTop: 4,
+  },
+  heroMetrics: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  heroStat: {
+    flex: 1,
+    minWidth: 0,
+  },
+  heroStatLabel: {
+    color: '#A5B4FC',
+    fontSize: 12,
+    letterSpacing: 0.4,
+    textTransform: 'uppercase',
+  },
+  heroStatValue: {
+    color: 'white',
+    fontSize: 18,
+    fontWeight: '700',
+    marginTop: 6,
   },
   navigationSection: {
     backgroundColor: 'white',
     paddingHorizontal: 16,
     paddingVertical: 16,
     flexDirection: 'column',
-    gap: 12,
     borderBottomWidth: 1,
     borderBottomColor: '#E0E0E0',
   },

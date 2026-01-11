@@ -23,8 +23,10 @@ import { translateFoodNameSync } from '../utils/foodTranslation';
 // import { LineChart } from 'react-native-chart-kit';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { apiService } from '../services/ApiService';
+import type { DashboardActivePlan, DashboardData } from '../services/ApiService';
 
 interface MealItem {
+  id: string;
   barcode: string;
   name: string;
   serving: string;
@@ -36,6 +38,7 @@ interface MealItem {
     sugars_g?: number;
     salt_g?: number;
   };
+  isConsumed?: boolean;
 }
 
 interface Meal {
@@ -56,6 +59,19 @@ interface DailyPlan {
   };
 }
 
+type PlanMealItem = DashboardActivePlan['meals'][number];
+
+type RawMacroInput = Partial<{
+  protein_g: number;
+  protein: number;
+  fat_g: number;
+  fat: number;
+  carbs_g: number;
+  carbs: number;
+}>;
+
+type PlanProgress = DashboardActivePlan;
+
 interface WeightEntry {
   date: string;
   weight: number;
@@ -70,131 +86,92 @@ interface PhotoLog {
   description?: string;
 }
 
-interface MarkMealEatenModalProps {
-  visible: boolean;
-  onClose: () => void;
-  onConfirm: (photo?: string) => void;
-  meal: Meal | null;
-}
-
 const getTranslatedMealName = (t: TFunction, mealName: string): string => {
   const translationKey = `plan.meals.${mealName}`;
   const translatedName = t(translationKey);
   return translatedName !== translationKey ? translatedName : mealName;
 };
 
-const MarkMealEatenModal: React.FC<MarkMealEatenModalProps> = ({
-  visible,
-  onClose,
-  onConfirm,
-  meal,
-}) => {
-  const { t } = useTranslation();
-  const [photo, setPhoto] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
+const normalizeMealTypeLabel = (mealType: string): string => {
+  if (!mealType) return 'Meal';
+  return mealType.charAt(0).toUpperCase() + mealType.slice(1);
+};
 
-  const takePhoto = async () => {
-    const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
-    if (!permissionResult.granted) {
-      Alert.alert(t('permissions.title'), t('permissions.cameraRequired'));
-      return;
-    }
+const buildDailyPlan = (plan: PlanProgress, consumedItems: string[]): DailyPlan => {
+  const mealsByType = new Map<string, Meal>();
 
-    const result = await ImagePicker.launchCameraAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [4, 3],
-      quality: 0.8,
-    });
-
-    if (!result.canceled && result.assets[0]) {
-      const compressedImage = await compressImage(result.assets[0].uri);
-      setPhoto(compressedImage);
-    }
-  };
-
-  const compressImage = async (uri: string) => {
-    const compressed = await ImageManipulator.manipulateAsync(
-      uri,
-      [{ resize: { width: 800 } }],
-      { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG }
-    );
-    return compressed.uri;
-  };
-
-  const handleConfirm = async () => {
-    setLoading(true);
-    try {
-      await onConfirm(photo || undefined);
-      setPhoto(null);
-      onClose();
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleClose = () => {
-    setPhoto(null);
-    onClose();
-  };
-
-  return (
-    <Modal visible={visible} animationType="slide" presentationStyle="pageSheet">
-      <SafeAreaView style={styles.modalContainer}>
-        <View style={styles.modalHeader}>
-          <Text style={styles.modalTitle}>{t('track.modal.markEatenTitle')}</Text>
-          <TouchableOpacity onPress={handleClose} style={styles.closeButton}>
-            <Text style={styles.closeButtonText}>✕</Text>
-          </TouchableOpacity>
-        </View>
-
-        <ScrollView style={styles.modalContent}>
-          {meal && (
-            <View style={styles.mealSummary}>
-              <Text style={styles.mealName}>{getTranslatedMealName(t, meal.name)}</Text>
-              <Text style={styles.mealCalories}>{Math.round(meal.actual_calories)} kcal</Text>
-              {meal.items.map((item, index) => (
-                <Text key={index} style={styles.mealItem}>
-                  • {translateFoodNameSync(item.name)} ({item.serving})
-                </Text>
-              ))}
-            </View>
-          )}
-
-          <View style={styles.photoSection}>
-            <Text style={styles.sectionTitle}>{t('track.modal.addPhotoOptional')}</Text>
-            {photo ? (
-              <View style={styles.photoPreview}>
-                <Image source={{ uri: photo }} style={styles.previewImage} />
-                <TouchableOpacity
-                  style={styles.retakeButton}
-                  onPress={() => setPhoto(null)}
-                >
-                  <Text style={styles.retakeButtonText}>{t('track.modal.removePhoto')}</Text>
-                </TouchableOpacity>
-              </View>
-            ) : (
-              <TouchableOpacity style={styles.photoButton} onPress={takePhoto}>
-                <Text style={styles.photoButtonText}>{t('track.modal.takePhoto')}</Text>
-              </TouchableOpacity>
-            )}
-          </View>
-
-          <TouchableOpacity
-            style={[styles.confirmButton, loading && styles.buttonDisabled]}
-            onPress={handleConfirm}
-            disabled={loading}
-          >
-            {loading ? (
-              <ActivityIndicator size="small" color="white" />
-            ) : (
-              <Text style={styles.confirmButtonText}>{t('track.modal.confirmEaten')}</Text>
-            )}
-          </TouchableOpacity>
-        </ScrollView>
-      </SafeAreaView>
-    </Modal>
+  plan.meals.forEach((item) =>
+    appendPlanMealToGroup(mealsByType, item, consumedItems)
   );
+
+  const meals = Array.from(mealsByType.values());
+  const totalCalories = meals.reduce((sum, meal) => sum + meal.actual_calories, 0);
+  return {
+    daily_calorie_target: plan.daily_calorie_target,
+    meals,
+    metrics: {
+      total_calories: totalCalories,
+      protein_g: 0,
+      fat_g: 0,
+      carbs_g: 0,
+    },
+  };
+};
+
+const addMealItemToGroup = (
+  mealsByType: Map<string, Meal>,
+  label: string,
+  normalizedItem: MealItem
+) => {
+  const existing = mealsByType.get(label);
+  if (existing) {
+    existing.items.push(normalizedItem);
+    existing.actual_calories += normalizedItem.calories;
+    existing.target_calories = existing.actual_calories;
+    return;
+  }
+
+  mealsByType.set(label, {
+    name: label,
+    target_calories: normalizedItem.calories,
+    actual_calories: normalizedItem.calories,
+    items: [normalizedItem],
+  });
+};
+
+const appendPlanMealToGroup = (
+  mealsByType: Map<string, Meal>,
+  item: PlanMealItem,
+  consumedItems: string[]
+) => {
+  const mealType = item.meal_type || 'meal';
+  const label = normalizeMealTypeLabel(mealType);
+  const normalizedItem: MealItem = {
+    id: item.id,
+    barcode: item.barcode,
+    name: item.name,
+    serving: item.serving,
+    calories: item.calories,
+    macros: normalizeMealMacros(item.macros),
+    isConsumed: item.is_consumed || consumedItems.includes(item.id),
+  };
+
+  addMealItemToGroup(mealsByType, label, normalizedItem);
+};
+
+const normalizeMealMacros = (macros?: Record<string, number>) => ({
+  protein_g: getMacroValue(macros, 'protein_g', 'protein'),
+  fat_g: getMacroValue(macros, 'fat_g', 'fat'),
+  carbs_g: getMacroValue(macros, 'carbs_g', 'carbs'),
+});
+
+const getMacroValue = (
+  macros: Record<string, number> | undefined,
+  primary: string,
+  fallback: string
+): number => {
+  const normalized = macros || {};
+  return Number(normalized[primary] ?? normalized[fallback] ?? 0);
 };
 
 interface WeighInModalProps {
@@ -327,12 +304,9 @@ interface TrackScreenProps {
 export default function TrackScreen({ onBackPress }: TrackScreenProps) {
   const { t } = useTranslation();
   const [dailyPlan, setDailyPlan] = useState<DailyPlan | null>(null);
+  const [consumedItems, setConsumedItems] = useState<string[]>([]);
   const [weightHistory, setWeightHistory] = useState<WeightEntry[]>([]);
   const [photoLogs, setPhotoLogs] = useState<PhotoLog[]>([]);
-  const [markMealModal, setMarkMealModal] = useState({
-    visible: false,
-    meal: null as Meal | null,
-  });
   const [weighInModal, setWeighInModal] = useState({ visible: false });
   const [loading, setLoading] = useState(true);
 
@@ -344,7 +318,7 @@ export default function TrackScreen({ onBackPress }: TrackScreenProps) {
     setLoading(true);
     try {
       await Promise.all([
-        loadDailyPlan(),
+        loadDashboard(),
         loadWeightHistory(),
         loadPhotoLogs(),
       ]);
@@ -353,85 +327,23 @@ export default function TrackScreen({ onBackPress }: TrackScreenProps) {
     }
   };
 
-  const loadDailyPlan = async () => {
+  const loadDashboard = async () => {
     try {
-      const mockPlan: DailyPlan = {
-        daily_calorie_target: 2000,
-        meals: [
-          {
-            name: 'Breakfast', // This will be translated in display
-            target_calories: 500,
-            actual_calories: 480,
-            items: [
-              {
-                barcode: '1234567890123',
-                name: 'Oatmeal with Berries',
-                serving: '1 bowl',
-                calories: 300,
-                macros: { protein_g: 8, fat_g: 6, carbs_g: 55 }
-              },
-              {
-                barcode: '9876543210987',
-                name: 'Greek Yogurt',
-                serving: '150g',
-                calories: 180,
-                macros: { protein_g: 15, fat_g: 10, carbs_g: 8 }
-              }
-            ]
-          },
-          {
-            name: 'Lunch', // This will be translated in display
-            target_calories: 700,
-            actual_calories: 680,
-            items: [
-              {
-                barcode: '5432109876543',
-                name: 'Grilled Chicken Salad',
-                serving: '1 portion',
-                calories: 420,
-                macros: { protein_g: 35, fat_g: 18, carbs_g: 12 }
-              },
-              {
-                barcode: '1111222233334',
-                name: 'Whole Wheat Bread',
-                serving: '2 slices',
-                calories: 260,
-                macros: { protein_g: 8, fat_g: 4, carbs_g: 48 }
-              }
-            ]
-          },
-          {
-            name: 'Dinner', // This will be translated in display
-            target_calories: 800,
-            actual_calories: 750,
-            items: [
-              {
-                barcode: '7777888899990',
-                name: 'Salmon with Rice',
-                serving: '1 portion',
-                calories: 550,
-                macros: { protein_g: 40, fat_g: 22, carbs_g: 35 }
-              },
-              {
-                barcode: '4444555566667',
-                name: 'Steamed Vegetables',
-                serving: '1 cup',
-                calories: 200,
-                macros: { protein_g: 8, fat_g: 2, carbs_g: 40 }
-              }
-            ]
-          }
-        ],
-        metrics: {
-          total_calories: 1910,
-          protein_g: 114,
-          fat_g: 62,
-          carbs_g: 198,
-        }
-      };
-      setDailyPlan(mockPlan);
+      const response = await apiService.getDashboard();
+      const dashboard: DashboardData = response.data;
+      const activePlan = dashboard.active_plan;
+      const consumed = dashboard.consumed_items ?? [];
+      setConsumedItems(consumed);
+
+      if (!activePlan) {
+        setDailyPlan(null);
+        return;
+      }
+
+      setDailyPlan(buildDailyPlan(activePlan, consumed));
     } catch (error) {
       console.error('Failed to load daily plan:', error);
+      setDailyPlan(null);
     }
   };
 
@@ -475,31 +387,14 @@ export default function TrackScreen({ onBackPress }: TrackScreenProps) {
     }
   };
 
-  const handleMarkMealEaten = async (photo?: string) => {
+  const handleConsumePlanItem = async (itemId: string) => {
     try {
-      const mealData = {
-        meal_name: markMealModal.meal?.name,
-        items: markMealModal.meal?.items,
-        photo: photo,
-        timestamp: new Date().toISOString(),
-      };
-
-      await apiService.post('/track/meal', mealData);
-
-      if (photo) {
-        const newPhotoLog: PhotoLog = {
-          id: Date.now().toString(),
-          timestamp: new Date().toISOString(),
-          photo: photo,
-          type: 'meal',
-          description: `${markMealModal.meal?.name} - ${Math.round(markMealModal.meal?.actual_calories || 0)} kcal`,
-        };
-
-        const updatedPhotoLogs = [newPhotoLog, ...photoLogs];
-        setPhotoLogs(updatedPhotoLogs);
-        await AsyncStorage.setItem('photo_logs', JSON.stringify(updatedPhotoLogs));
+      const consumedAt = new Date().toISOString();
+      const response = await apiService.consumePlanItem(itemId, consumedAt);
+      if (response.data?.updated_progress) {
+        // Future: update progress widgets when they are shown in TrackScreen.
       }
-
+      setConsumedItems((prev) => (prev.includes(itemId) ? prev : [...prev, itemId]));
       Alert.alert(t('common.success'), t('track.modal.mealMarkedEaten'));
     } catch (error) {
       console.error('Failed to track meal:', error);
@@ -585,6 +480,21 @@ export default function TrackScreen({ onBackPress }: TrackScreenProps) {
     );
   };
 
+  const latestWeight = weightHistory.length > 0 ? weightHistory[weightHistory.length - 1].weight : null;
+  const previousWeight = weightHistory.length > 1 ? weightHistory[weightHistory.length - 2].weight : null;
+  const weightDelta =
+    latestWeight !== null && previousWeight !== null ? latestWeight - previousWeight : null;
+  const weightSummary =
+    latestWeight !== null ? `${latestWeight.toFixed(1)} kg` : t('track.weightSummary.noData');
+  const weightDeltaText =
+    weightDelta === null
+      ? t('track.weightSummary.noDelta')
+      : weightDelta > 0
+        ? t('track.weightSummary.up', { value: weightDelta.toFixed(1) })
+        : weightDelta < 0
+          ? t('track.weightSummary.down', { value: Math.abs(weightDelta).toFixed(1) })
+          : t('track.weightSummary.steady');
+
   if (loading) {
     return (
       <SafeAreaView style={styles.container}>
@@ -615,6 +525,9 @@ export default function TrackScreen({ onBackPress }: TrackScreenProps) {
         {/* Today's Meals */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>{t('track.todaysPlannedMeals')}</Text>
+          {!dailyPlan && (
+            <Text style={styles.emptyPlanText}>{t('track.noActivePlan')}</Text>
+          )}
           {dailyPlan?.meals.map((meal, index) => (
             <View key={meal.name} style={styles.mealCard}>
               <View style={styles.mealHeader}>
@@ -625,21 +538,33 @@ export default function TrackScreen({ onBackPress }: TrackScreenProps) {
                 <Text style={styles.mealCalories}>{Math.round(meal.actual_calories)} kcal</Text>
               </View>
 
-              {meal.items.map((item, itemIndex) => (
-                <View key={itemIndex} style={styles.mealItem}>
-                  <Text style={styles.itemName}>{translateFoodNameSync(item.name)}</Text>
-                  <Text style={styles.itemDetails}>
-                    {item.serving} • {Math.round(item.calories)} kcal
-                  </Text>
-                </View>
-              ))}
-
-              <TouchableOpacity
-                style={styles.markEatenButton}
-                onPress={() => setMarkMealModal({ visible: true, meal })}
-              >
-                <Text style={styles.markEatenButtonText}>{t('track.markAsEaten')}</Text>
-              </TouchableOpacity>
+              {meal.items.map((item, itemIndex) => {
+                const isConsumed = Boolean(item.isConsumed || consumedItems.includes(item.id));
+                return (
+                  <View key={itemIndex} style={styles.mealItem}>
+                    <View style={styles.itemInfo}>
+                      <Text style={styles.itemName}>{translateFoodNameSync(item.name)}</Text>
+                      <Text style={styles.itemDetails}>
+                        {item.serving} • {Math.round(item.calories)} kcal
+                      </Text>
+                    </View>
+                    <TouchableOpacity
+                      style={[styles.consumeItemButton, isConsumed && styles.consumeItemButtonDisabled]}
+                      onPress={() => handleConsumePlanItem(item.id)}
+                      disabled={isConsumed}
+                    >
+                      <Text
+                        style={[
+                          styles.consumeItemButtonText,
+                          isConsumed && styles.consumeItemButtonTextDisabled,
+                        ]}
+                      >
+                        {isConsumed ? t('track.itemConsumed') : t('track.markAsEaten')}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                );
+              })}
             </View>
           ))}
         </View>
@@ -647,7 +572,14 @@ export default function TrackScreen({ onBackPress }: TrackScreenProps) {
         {/* Weight Tracking */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>{t('track.weightProgress')}</Text>
+            <View>
+              <Text style={[styles.sectionTitle, styles.weightSectionTitle]}>
+                {t('track.weightProgress')}
+              </Text>
+              <Text style={styles.sectionSubtitle}>
+                {weightSummary} • {weightDeltaText}
+              </Text>
+            </View>
             <TouchableOpacity
               style={styles.weighInButton}
               onPress={() => setWeighInModal({ visible: true })}
@@ -683,13 +615,6 @@ export default function TrackScreen({ onBackPress }: TrackScreenProps) {
           </View>
         )}
       </ScrollView>
-
-      <MarkMealEatenModal
-        visible={markMealModal.visible}
-        onClose={() => setMarkMealModal({ visible: false, meal: null })}
-        onConfirm={handleMarkMealEaten}
-        meal={markMealModal.meal}
-      />
 
       <WeighInModal
         visible={weighInModal.visible}
@@ -778,7 +703,15 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
     color: '#333',
-    marginBottom: 15,
+    marginBottom: 2,
+  },
+  weightSectionTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  sectionSubtitle: {
+    fontSize: 12,
+    color: '#6B7280',
   },
   mealCard: {
     borderWidth: 1,
@@ -787,6 +720,11 @@ const styles = StyleSheet.create({
     padding: 15,
     marginBottom: 15,
     backgroundColor: '#FAFAFA',
+  },
+  emptyPlanText: {
+    fontSize: 14,
+    color: '#777',
+    marginBottom: 10,
   },
   mealHeader: {
     flexDirection: 'row',
@@ -805,7 +743,14 @@ const styles = StyleSheet.create({
     color: '#007AFF',
   },
   mealItem: {
-    paddingVertical: 5,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 8,
+  },
+  itemInfo: {
+    flex: 1,
+    marginRight: 10,
   },
   itemName: {
     fontSize: 14,
@@ -816,18 +761,22 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#666',
   },
-  markEatenButton: {
+  consumeItemButton: {
     backgroundColor: '#34C759',
-    paddingVertical: 10,
-    paddingHorizontal: 15,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
     borderRadius: 8,
-    alignItems: 'center',
-    marginTop: 10,
   },
-  markEatenButtonText: {
+  consumeItemButtonDisabled: {
+    backgroundColor: '#D0D5DD',
+  },
+  consumeItemButtonText: {
     color: 'white',
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: '600',
+  },
+  consumeItemButtonTextDisabled: {
+    color: '#667085',
   },
   weighInButton: {
     backgroundColor: '#007AFF',

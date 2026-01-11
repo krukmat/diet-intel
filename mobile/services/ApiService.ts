@@ -3,6 +3,58 @@ import { getEnvironmentConfig } from '../config/environments';
 import { authService } from './AuthService';
 import { DiscoverFeedResponse } from '../types/feed';
 
+// Types for tracking API responses
+export interface NutritionProgress {
+  consumed: number;
+  planned: number;
+  percentage: number;
+}
+
+export interface DashboardMealItem {
+  id: string;
+  barcode: string;
+  name: string;
+  serving: string;
+  calories: number;
+  macros?: Record<string, number>;
+  meal_type: string;
+  is_consumed?: boolean;
+}
+
+export interface DashboardActivePlan {
+  plan_id: string;
+  created_at: string;
+  daily_calorie_target: number;
+  meals: DashboardMealItem[];
+}
+
+export interface DashboardProgress {
+  calories: NutritionProgress;
+  protein: NutritionProgress;
+  fat: NutritionProgress;
+  carbs: NutritionProgress;
+}
+
+export interface DashboardData {
+  consumed_meals: any[];
+  active_plan: DashboardActivePlan | null;
+  progress: DashboardProgress;
+  consumed_items: string[];
+  date?: string;
+}
+
+export interface ConsumePlanItemResponse {
+  success: boolean;
+  message: string;
+  item_id: string;
+  updated_progress?: {
+    calories: NutritionProgress;
+    protein: NutritionProgress;
+    fat: NutritionProgress;
+    carbs: NutritionProgress;
+  };
+}
+
 class ApiService {
   private axiosInstance: AxiosInstance;
   private currentEnvironment: string;
@@ -10,6 +62,7 @@ class ApiService {
   constructor(environment?: string) {
     this.currentEnvironment = environment || 'android_dev';
     this.axiosInstance = this.createAxiosInstance();
+    authService.setEnvironment(this.currentEnvironment);
   }
 
   private createAxiosInstance(): AxiosInstance {
@@ -26,10 +79,18 @@ class ApiService {
     // Request interceptor for logging and attaching auth tokens when available
     instance.interceptors.request.use(
       async (config) => {
-        console.log(`API Request: ${config.method?.toUpperCase()} ${config.url}`, {
-          environment: this.currentEnvironment,
-          baseURL: this.axiosInstance.defaults.baseURL
-        });
+        const isOptimizationApply = config.url?.includes('/smart-diet/optimizations/apply');
+        if (isOptimizationApply) {
+          const headers = AxiosHeaders.from(config.headers ?? {});
+          console.log('API Request: Smart diet apply auth header present before token attach:', {
+            hasAuthHeader: Boolean(headers.get('Authorization'))
+          });
+        } else {
+          console.log(`API Request: ${config.method?.toUpperCase()} ${config.url}`, {
+            environment: this.currentEnvironment,
+            baseURL: this.axiosInstance.defaults.baseURL
+          });
+        }
 
         try {
           const storedTokens = await authService.getStoredTokens();
@@ -46,6 +107,12 @@ class ApiService {
           const headers = AxiosHeaders.from(config.headers ?? {});
           headers.set('Authorization', `Bearer ${accessToken}`);
           config.headers = headers;
+
+          if (isOptimizationApply) {
+            console.log('API Request: Smart diet apply auth header attached:', {
+              hasAuthHeader: Boolean(headers.get('Authorization'))
+            });
+          }
         } catch (error) {
           console.warn('API Request Token Attach Error:', error);
         }
@@ -64,13 +131,30 @@ class ApiService {
         console.log(`API Response: ${response.status} ${response.config.url}`);
         return response;
       },
-      (error) => {
+      async (error) => {
         console.error('API Response Error:', {
           status: error.response?.status,
           message: error.message,
           url: error.config?.url,
           environment: this.currentEnvironment
         });
+
+        if (error.response?.status === 401 && error.config && !error.config._retry) {
+          error.config._retry = true;
+          try {
+            const storedTokens = await authService.getStoredTokens();
+            if (storedTokens?.refresh_token) {
+              const refreshed = await authService.refreshToken(storedTokens.refresh_token);
+              const headers = AxiosHeaders.from(error.config.headers ?? {});
+              headers.set('Authorization', `Bearer ${refreshed.tokens.access_token}`);
+              error.config.headers = headers;
+              return instance.request(error.config as AxiosRequestConfig);
+            }
+          } catch (refreshError) {
+            console.warn('Token refresh failed after 401:', refreshError);
+          }
+        }
+
         return Promise.reject(error);
       }
     );
@@ -83,6 +167,7 @@ class ApiService {
     console.log(`Switching API environment from '${this.currentEnvironment}' to '${environment}'`);
     this.currentEnvironment = environment;
     this.axiosInstance = this.createAxiosInstance();
+    authService.setEnvironment(environment);
   }
 
   // Get current environment info
@@ -160,6 +245,56 @@ class ApiService {
     return this.post('/plan/add-product', data);
   }
 
+  public async getUserPlans() {
+    return this.get('/plan/user');
+  }
+
+  public async setPlanActive(planId: string, isActive: boolean) {
+    return this.put(`/plan/${planId}/activate`, { is_active: isActive });
+  }
+
+  // Tracking endpoints - FASE 4.2
+  public async getDashboard(): Promise<AxiosResponse<DashboardData>> {
+    return this.get<DashboardData>('/track/dashboard');
+  }
+
+  public async getDayProgress(): Promise<AxiosResponse<any>> {
+    return this.get('/track/day-progress');
+  }
+
+  public async getActivePlan(): Promise<AxiosResponse<any>> {
+    return this.get('/track/active-plan');
+  }
+
+  public async consumePlanItem(
+    itemId: string,
+    consumedAt?: string
+  ): Promise<AxiosResponse<ConsumePlanItemResponse>> {
+    return this.post<ConsumePlanItemResponse>(`/track/plan-item/${itemId}/consume`, {
+      consumed_at: consumedAt,
+    });
+  }
+
+  public async getMealHistory(limit: number = 50): Promise<AxiosResponse<any>> {
+    return this.get(`/track/meal/history?limit=${limit}`);
+  }
+
+  public async createMeal(data: any): Promise<AxiosResponse<any>> {
+    return this.post('/track/meal', data);
+  }
+
+  public async getWeightHistory(limit: number = 30): Promise<AxiosResponse<any>> {
+    return this.get(`/track/weight/history?limit=${limit}`);
+  }
+
+  public async createWeightEntry(data: any): Promise<AxiosResponse<any>> {
+    return this.post('/track/weight', data);
+  }
+
+  public async getPhotoLogs(limit: number = 50): Promise<AxiosResponse<any>> {
+    return this.get(`/track/photos?limit=${limit}`);
+  }
+
   // Smart recommendations endpoints
   public async generateSmartRecommendations(requestData: any) {
     return this.post('/recommendations/generate', requestData);
@@ -199,7 +334,23 @@ class ApiService {
   }
 
   public async applySmartDietOptimization(optimizationData: any) {
-    return this.post('/smart-diet/apply-optimization', optimizationData);
+    let config: AxiosRequestConfig | undefined;
+    try {
+      const storedTokens = await authService.getStoredTokens();
+      if (storedTokens?.access_token) {
+        config = {
+          headers: {
+            Authorization: `Bearer ${storedTokens.access_token}`,
+          },
+        };
+      } else {
+        console.warn('applySmartDietOptimization: missing access token in storage');
+      }
+    } catch (error) {
+      console.warn('Failed to attach auth token for optimization:', error);
+    }
+
+    return this.post('/smart-diet/optimizations/apply', optimizationData, config);
   }
 
   public async getSmartDietMetrics(userId?: string, days?: number) {

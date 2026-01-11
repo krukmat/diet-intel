@@ -15,6 +15,7 @@ from app.models.recommendation import (
     NutritionalScore,
     RecommendationItem as LegacyRecommendationItem
 )
+from app.models.meal_plan import MealPlanResponse, ChangeLogEntry
 
 
 class SuggestionType(str, Enum):
@@ -125,6 +126,35 @@ class SmartDietRequest(BaseModel):
     
     # Time and freshness
     requested_at: datetime = Field(default_factory=datetime.now, description="Request timestamp")
+
+
+class OptimizationChangeType(str, Enum):
+    MEAL_SWAP = "meal_swap"
+    MACRO_ADJUSTMENT = "macro_adjustment"
+
+
+class SmartDietOptimizationChange(BaseModel):
+    change_type: OptimizationChangeType = Field(..., description="Optimization change type")
+    old_barcode: Optional[str] = Field(None, description="Barcode to replace")
+    new_barcode: Optional[str] = Field(None, description="Replacement barcode")
+    meal_name: Optional[str] = Field(None, description="Meal name for calorie adjustment")
+    new_target: Optional[float] = Field(None, description="New calorie target for meal")
+    nutrient: Optional[str] = Field(None, description="Macro nutrient label")
+    current: Optional[float] = Field(None, description="Current macro value")
+    target: Optional[float] = Field(None, description="Target macro value")
+    suggestion: Optional[str] = Field(None, description="Suggested adjustment details")
+
+
+class SmartDietOptimizationApplyRequest(BaseModel):
+    plan_id: str = Field(..., description="Plan to apply optimizations")
+    changes: List[SmartDietOptimizationChange] = Field(default_factory=list)
+
+
+class SmartDietOptimizationApplyResponse(BaseModel):
+    success: bool = Field(..., description="Whether apply request completed")
+    plan: MealPlanResponse = Field(..., description="Updated plan snapshot")
+    applied: int = Field(..., description="Number of changes applied")
+    change_log: List[ChangeLogEntry] = Field(default_factory=list)
 
 
 class SmartDietResponse(BaseModel):

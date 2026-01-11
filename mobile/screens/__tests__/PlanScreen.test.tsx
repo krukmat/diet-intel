@@ -1,760 +1,601 @@
 import React from 'react';
-import TestRenderer from 'react-test-renderer';
-import { Alert, TextInput, View } from 'react-native';
-import PlanScreen from '../PlanScreen';
+import { Alert } from 'react-native';
+import { fireEvent, render, waitFor } from '@testing-library/react-native';
+import PlanScreen, { CustomizeModal } from '../PlanScreen';
 import { apiService } from '../../services/ApiService';
 import { storeCurrentMealPlanId } from '../../utils/mealPlanUtils';
 
-const flushPromises = () => new Promise(resolve => setTimeout(resolve, 0));
-const flushAllPromises = async () => {
-  await flushPromises();
-  await flushPromises();
-};
-const findPressableByText = (component: any, targetText: string) => {
-  const textNodes = component.root.findAll((node: any) =>
-    Array.isArray(node.children) &&
-    node.children.some((child: any) => typeof child === 'string' && child.includes(targetText))
-  );
-  const match = textNodes[0];
-  let current = match;
-  while (current && !current.props?.onPress && current.parent) {
-    current = current.parent;
-  }
-  return current?.props?.onPress ? current : undefined;
-};
-const findInputByPlaceholder = (component: any, placeholderText: string) =>
-  component.root.findAll((node: any) =>
-    typeof node.props?.placeholder === 'string' &&
-    node.props.placeholder.includes(placeholderText)
-  )[0];
-
-// Mock the API service
 jest.mock('../../services/ApiService', () => ({
   apiService: {
     generateMealPlan: jest.fn(),
+    getUserPlans: jest.fn(),
+    setPlanActive: jest.fn(),
     customizeMealPlan: jest.fn(),
     getProductByBarcode: jest.fn(),
-    searchProduct: jest.fn()
-  }
+    searchProduct: jest.fn(),
+    getDashboard: jest.fn(),
+  },
 }));
 
-// Mock i18next and its plugins to prevent initialization issues
-jest.mock('i18next', () => ({
-  use: jest.fn().mockReturnThis(),
-  init: jest.fn().mockReturnThis(),
-  language: 'en',
-  changeLanguage: jest.fn(),
+jest.mock('../../utils/mealPlanUtils', () => ({
+  storeCurrentMealPlanId: jest.fn(() => Promise.resolve()),
+}));
+
+jest.mock('../../utils/foodTranslation', () => ({
+  translateFoodNameSync: (name: string) => name,
 }));
 
 jest.mock('react-i18next', () => ({
   useTranslation: () => ({
-    t: jest.fn((key: string, options?: any) => {
-      const translations: Record<string, any> = {
-        'plan.title': '🍽️ Daily Meal Plan',
-        'plan.todaysCalories': options?.calories ? `Today's Plan (${options.calories} kcal)` : 'Today\'s Calories',
-        'plan.dailyProgress': 'Daily Progress',
-        'plan.calories': 'Calories',
-        'plan.protein': 'Protein',
-        'plan.fat': 'Fat',
-        'plan.carbs': 'Carbs',
-        'plan.plannedMeals': 'Planned Meals',
-        'plan.customize': 'Customize',
-        'plan.generating': 'Generating plan...',
-        'plan.failed': 'Failed to generate plan',
-        'plan.retry': 'Retry',
-        'plan.generateNewPlan': 'Generate New Plan',
-        'plan.optimize.button': 'Optimize Plan',
-        'plan.optimize.title': 'Optimize Plan',
-        'plan.optimize.noPlan': 'No plan available to optimize',
-        'plan.modal.search': 'Search',
-        'plan.modal.manual': 'Manual',
-        'plan.modal.barcode': 'Barcode',
-        'plan.modal.text': 'Text',
-        'plan.modal.searchProduct': 'Search Product',
-        'plan.modal.addManualItem': 'Add Manual Item',
-        'plan.modal.productName': 'Product Name',
-        'plan.modal.productNamePlaceholder': 'Product name',
-        'plan.modal.brand': 'Brand',
-        'plan.modal.brandPlaceholder': 'Brand name',
-        'plan.modal.servingSize': 'Serving Size',
-        'plan.modal.servingSizePlaceholder': 'Serving size',
-        'plan.modal.caloriesPerServing': 'Calories Per Serving',
-        'plan.modal.proteinG': 'Protein (g)',
-        'plan.modal.fatG': 'Fat (g)',
-        'plan.modal.carbsG': 'Carbs (g)',
-        'plan.modal.addItem': 'Add Item',
-        'scanner.manual.placeholder': 'Enter barcode',
-        'common.error': 'Error',
-        'common.cancel': 'Cancel',
-        'common.ok': 'OK'
-      };
-      return translations[key] || key;
-    }),
-    i18n: {
-      language: 'en',
-      changeLanguage: jest.fn(),
+    t: (key: string, options?: Record<string, any>) => {
+      if (key === 'plan.todaysCalories' && options?.calories != null) {
+        return `Calories ${options.calories}`;
+      }
+      return key;
     },
   }),
-  initReactI18next: jest.fn(),
-}));
-
-// Mock food translation utility
-jest.mock('../../utils/foodTranslation', () => ({
-  translateFoodNameSync: jest.fn((name: string) => name),
-}));
-
-jest.mock('../../utils/mealPlanUtils', () => ({
-  storeCurrentMealPlanId: jest.fn(),
-}));
-
-// Mock AsyncStorage for meal plan storage
-jest.mock('@react-native-async-storage/async-storage', () =>
-  require('@react-native-async-storage/async-storage/jest/async-storage-mock')
-);
-
-// Mock expo-localization
-jest.mock('expo-localization', () => ({
-  locale: 'en-US',
 }));
 
 describe('PlanScreen', () => {
-  const mockOnBackPress = jest.fn();
-  const mockApiService = apiService as jest.Mocked<typeof apiService>;
+  const generateMealPlanMock = apiService.generateMealPlan as jest.Mock;
+  const getUserPlansMock = apiService.getUserPlans as jest.Mock;
+  const setPlanActiveMock = apiService.setPlanActive as jest.Mock;
+  const customizeMealPlanMock = apiService.customizeMealPlan as jest.Mock;
+  const getDashboardMock = apiService.getDashboard as jest.Mock;
+  const storeCurrentMealPlanIdMock = storeCurrentMealPlanId as jest.Mock;
+  const alertSpy = jest.spyOn(Alert, 'alert');
+
+  const sampleDailyPlan = {
+    plan_id: 'plan-abc123',
+    daily_calorie_target: 2000,
+    bmr: 1700,
+    tdee: 2200,
+    meals: [
+      {
+        name: 'Breakfast',
+        target_calories: 500,
+        actual_calories: 450,
+        items: [
+          {
+            barcode: 'item-1',
+            name: 'Eggs',
+            serving: '2 units',
+            calories: 150,
+            macros: {
+              protein_g: 12,
+              fat_g: 10,
+              carbs_g: 1,
+            },
+          },
+        ],
+      },
+    ],
+    metrics: {
+      total_calories: 2000,
+      protein_g: 120,
+      fat_g: 70,
+      carbs_g: 200,
+      sugars_g: 30,
+      salt_g: 5,
+      protein_percent: 24,
+      fat_percent: 31,
+      carbs_percent: 45,
+    },
+    created_at: '2026-01-10T00:00:00Z',
+    flexibility_used: false,
+    optional_products_used: 0,
+  };
 
   beforeEach(() => {
     jest.clearAllMocks();
-    jest.spyOn(Alert, 'alert').mockImplementation(() => {});
-    
-    // Mock successful meal plan generation
-    mockApiService.generateMealPlan.mockResolvedValue({
-      data: {
-        plan_id: 'plan-123',
-        bmr: 1800,
-        tdee: 2200,
-        daily_calorie_target: 2000,
-        meals: [
-          {
-            name: 'Breakfast',           // ✅ Propiedad faltante
-            target_calories: 500,
-            actual_calories: 480,
-            items: [
-              {
-                barcode: '123',
-                name: 'Oatmeal',
-                serving: '100g',
-                calories: 300,
-                macros: {
-                  protein_g: 10,
-                  fat_g: 5,
-                  carbs_g: 50
-                }
-              }
-            ]
-          }
-        ],
-        metrics: {
-          total_calories: 1800,
-          total_protein: 60,
-          total_fat: 40,
-          total_carbs: 200
-        }
-      },
-      status: 200,
-      statusText: 'OK',
-      headers: {} as any,
-      config: { headers: {} as any as any } as any as any,
-    });
-
-    // Mock product search
-    mockApiService.getProductByBarcode.mockResolvedValue({
-      data: {
-        barcode: '123456789',
-        name: 'Test Product',
-        brand: 'Test Brand',
-        nutriments: {
-          energy_kcal_per_100g: 250,
-          protein_g_per_100g: 8,
-          fat_g_per_100g: 12,
-          carbs_g_per_100g: 30
-        }
-      },
-      status: 200,
-      statusText: 'OK',
-      headers: {} as any,
-      config: { headers: {} as any as any } as any as any,
-    });
-
-    mockApiService.searchProduct.mockResolvedValue({
-      data: {
-        name: 'Searched Product',
-        nutriments: {
-          energy_kcal_per_100g: 200,
-          protein_g_per_100g: 6,
-          fat_g_per_100g: 10,
-          carbs_g_per_100g: 25
-        }
-      },
-      status: 200,
-      statusText: 'OK',
-      headers: {} as any,
-      config: { headers: {} as any as any } as any as any,
-    });
-  });
-
-  afterEach(() => {
-    jest.restoreAllMocks();
-  });
-
-  describe('Component Rendering', () => {
-    it('should render PlanScreen without crashing', () => {
-      const component = TestRenderer.create(
-        <PlanScreen onBackPress={mockOnBackPress} />
-      );
-      
-      expect(component.toJSON()).toBeTruthy();
-    });
-
-    it('should have proper screen structure', () => {
-      const component = TestRenderer.create(
-        <PlanScreen onBackPress={mockOnBackPress} />
-      );
-
-      TestRenderer.act(() => {});
-      
-      // Should have multiple UI elements
-      const viewElements = component.root.findAllByType(View);
-      expect(viewElements.length).toBeGreaterThan(0); // Adjusted expectation
-    });
-
-    it('should display loading state initially', () => {
-      const component = TestRenderer.create(
-        <PlanScreen onBackPress={mockOnBackPress} />
-      );
-      
-      const tree = component.toJSON();
-      const treeString = JSON.stringify(tree);
-      
-      // Should render activity indicator or loading text initially
-      expect(tree).toBeTruthy();
-    });
-  });
-
-  describe('Meal Plan Generation', () => {
-    it('should have meal plan generation functionality', () => {
-      const component = TestRenderer.create(
-        <PlanScreen onBackPress={mockOnBackPress} />
-      );
-      
-      expect(component.toJSON()).toBeTruthy();
-      
-      // Should render form elements for meal planning
-      const tree = component.toJSON();
-      expect(tree).toBeTruthy();
-    });
-
-    it('should display user input fields', () => {
-      const component = TestRenderer.create(
-        <PlanScreen onBackPress={mockOnBackPress} />
-      );
-      
-      const tree = component.toJSON();
-      const treeString = JSON.stringify(tree);
-      
-      // Should have input fields for user data
-      expect(treeString.length).toBeGreaterThan(100); // Has substantial content
-    });
-  });
-
-  describe('Plan Actions', () => {
-    it('stores plan id and navigates to smart diet when optimizing', async () => {
-      (storeCurrentMealPlanId as jest.Mock).mockResolvedValue(undefined);
-      const navigateToSmartDiet = jest.fn();
-
-      let component: TestRenderer.ReactTestRenderer | undefined;
-      await TestRenderer.act(async () => {
-        component = TestRenderer.create(
-          <PlanScreen onBackPress={mockOnBackPress} navigateToSmartDiet={navigateToSmartDiet} />
-        );
-      });
-      await TestRenderer.act(async () => {
-        await flushAllPromises();
-      });
-      if (!component) {
-        throw new Error('Component not created');
-      }
-
-      const optimizeButton = findPressableByText(component, 'Optimize Plan');
-
-      expect(optimizeButton).toBeTruthy();
-      expect(storeCurrentMealPlanId).toHaveBeenCalledWith('plan-123');
-      optimizeButton?.props.onPress();
-      expect(navigateToSmartDiet).toHaveBeenCalledWith({ planId: 'plan-123' });
-    });
-
-    it('handles missing plan id on optimize', async () => {
-      mockApiService.generateMealPlan.mockResolvedValueOnce({
-        data: {
-          daily_calorie_target: 2000,
-          meals: [],
-          metrics: { total_calories: 0, total_protein: 0, total_fat: 0, total_carbs: 0 }
+    alertSpy.mockImplementation(() => {});
+    generateMealPlanMock.mockResolvedValue({ data: sampleDailyPlan });
+    storeCurrentMealPlanIdMock.mockResolvedValue(undefined);
+    getUserPlansMock.mockResolvedValue({
+      data: [
+        {
+          plan_id: 'plan-abc123',
+          is_active: true,
+          created_at: '2026-01-01T00:00:00Z',
+          daily_calorie_target: 1800,
         },
-        status: 200,
-        statusText: 'OK',
-        headers: {} as any,
-        config: { headers: {} as any as any } as any as any,
-      });
-
-      let component: TestRenderer.ReactTestRenderer | undefined;
-      await TestRenderer.act(async () => {
-        component = TestRenderer.create(
-          <PlanScreen onBackPress={mockOnBackPress} />
-        );
-      });
-      await TestRenderer.act(async () => {
-        await flushAllPromises();
-      });
-      if (!component) {
-        throw new Error('Component not created');
-      }
-
-      const optimizeButton = findPressableByText(component, 'Optimize Plan');
-
-      expect(optimizeButton).toBeTruthy();
-      optimizeButton?.props.onPress();
-      expect(Alert.alert).toHaveBeenCalled();
+        {
+          plan_id: 'plan-def456',
+          is_active: false,
+          created_at: '2026-01-02T00:00:00Z',
+          daily_calorie_target: 1900,
+        },
+      ],
+    });
+    setPlanActiveMock.mockResolvedValue({
+      data: {
+        plan_id: 'plan-def456',
+        is_active: true,
+      },
+    });
+    getDashboardMock.mockResolvedValue({
+      data: {
+        progress: {
+          calories: { consumed: 900, planned: 1800, percentage: 50 },
+          protein: { consumed: 60, planned: 120, percentage: 50 },
+          fat: { consumed: 30, planned: 60, percentage: 50 },
+          carbs: { consumed: 100, planned: 200, percentage: 50 },
+        },
+      },
     });
   });
 
-  describe('Customize Meal Flow', () => {
-    it('adds an item on customize confirm', async () => {
-      mockApiService.customizeMealPlan.mockResolvedValue({ data: {}, status: 200, statusText: "OK", headers: {} as any, config: { headers: {} as any as any } as any });
-      let component: TestRenderer.ReactTestRenderer | undefined;
-      await TestRenderer.act(async () => {
-        component = TestRenderer.create(
-          <PlanScreen onBackPress={mockOnBackPress} />
-        );
-      });
-      await TestRenderer.act(async () => {
-        await flushAllPromises();
-      });
-      if (!component) {
-        throw new Error('Component not created');
-      }
+  it('renders plan list with active state', async () => {
+    const { findByText } = render(<PlanScreen onBackPress={jest.fn()} />);
 
-      const customizeButton = findPressableByText(component, 'Customize');
+    expect(await findByText('plan.list.title')).toBeTruthy();
+    expect(await findByText('Plan plan-abc123')).toBeTruthy();
+    expect(await findByText('Plan plan-def456')).toBeTruthy();
+    expect(await findByText('plan.list.deactivate')).toBeTruthy();
+    expect(await findByText('plan.list.activate')).toBeTruthy();
+  });
 
-      expect(customizeButton).toBeTruthy();
-      customizeButton?.props.onPress();
+  it('activates an inactive plan via API', async () => {
+    const { findByText } = render(<PlanScreen onBackPress={jest.fn()} />);
 
-      const customizeModal = component.root.findAll((node: any) => node.props?.onConfirm).find((node: any) => node.props?.mealType !== undefined);
-      const newItem = {
-        barcode: 'manual_1',
-        name: 'Manual',
-        serving: '100g',
-        calories: 100,
-        macros: { protein_g: 1, fat_g: 1, carbs_g: 1 },
-      };
+    const activateButton = await findByText('plan.list.activate');
+    fireEvent.press(activateButton);
 
-      await TestRenderer.act(async () => {
-        await customizeModal?.props.onConfirm(newItem);
-      });
-
-      expect(mockApiService.customizeMealPlan).toHaveBeenCalled();
-      expect(Alert.alert).toHaveBeenCalled();
-    });
-
-    it('handles customize errors', async () => {
-      mockApiService.customizeMealPlan.mockRejectedValueOnce(new Error('fail'));
-      const component = TestRenderer.create(
-        <PlanScreen onBackPress={mockOnBackPress} />
-      );
-
-      await TestRenderer.act(async () => {
-        await flushAllPromises();
-      });
-
-      const customizeModal = component.root.findAll((node: any) => node.props?.onConfirm).find((node: any) => node.props?.mealType !== undefined);
-      const newItem = {
-        barcode: 'manual_2',
-        name: 'Manual',
-        serving: '100g',
-        calories: 100,
-        macros: { protein_g: 1, fat_g: 1, carbs_g: 1 },
-      };
-
-      await TestRenderer.act(async () => {
-        await customizeModal?.props.onConfirm(newItem);
-      });
-
-      expect(Alert.alert).toHaveBeenCalled();
-    });
-
-    it('searches by barcode and customizes a meal item', async () => {
-      mockApiService.customizeMealPlan.mockResolvedValue({ data: {}, status: 200, statusText: "OK", headers: {} as any, config: { headers: {} as any as any } as any });
-      let component: TestRenderer.ReactTestRenderer | undefined;
-      await TestRenderer.act(async () => {
-        component = TestRenderer.create(
-          <PlanScreen onBackPress={mockOnBackPress} />
-        );
-      });
-      await TestRenderer.act(async () => {
-        await flushAllPromises();
-      });
-      if (!component) {
-        throw new Error('Component not created');
-      }
-
-      const customizeButton = findPressableByText(component, 'Customize');
-      expect(customizeButton).toBeTruthy();
-      await TestRenderer.act(async () => {
-        customizeButton?.props.onPress();
-      });
-
-      const searchInput = findInputByPlaceholder(component, 'Enter barcode');
-      await TestRenderer.act(async () => {
-        searchInput?.props.onChangeText('123456789');
-      });
-
-      const searchButton = findPressableByText(component, 'Search Product');
-      expect(searchButton).toBeTruthy();
-      await TestRenderer.act(async () => {
-        searchButton?.props.onPress();
-        await flushAllPromises();
-      });
-
-      expect(mockApiService.getProductByBarcode).toHaveBeenCalledWith('123456789');
-      expect(mockApiService.customizeMealPlan).toHaveBeenCalled();
-      expect(Alert.alert).toHaveBeenCalled();
-    });
-
-    it('searches by text and customizes a meal item', async () => {
-      mockApiService.customizeMealPlan.mockResolvedValue({ data: {}, status: 200, statusText: "OK", headers: {} as any, config: { headers: {} as any as any } as any });
-      let component: TestRenderer.ReactTestRenderer | undefined;
-      await TestRenderer.act(async () => {
-        component = TestRenderer.create(
-          <PlanScreen onBackPress={mockOnBackPress} />
-        );
-      });
-      await TestRenderer.act(async () => {
-        await flushAllPromises();
-      });
-      if (!component) {
-        throw new Error('Component not created');
-      }
-
-      const customizeButton = findPressableByText(component, 'Customize');
-      expect(customizeButton).toBeTruthy();
-      await TestRenderer.act(async () => {
-        customizeButton?.props.onPress();
-      });
-
-      const textModeButton = findPressableByText(component, 'Text');
-      expect(textModeButton).toBeTruthy();
-      await TestRenderer.act(async () => {
-        textModeButton?.props.onPress();
-      });
-
-      const searchInput = findInputByPlaceholder(component, 'Search Product');
-      await TestRenderer.act(async () => {
-        searchInput?.props.onChangeText('oatmeal');
-      });
-
-      const searchButton = findPressableByText(component, 'Search Product');
-      expect(searchButton).toBeTruthy();
-      await TestRenderer.act(async () => {
-        searchButton?.props.onPress();
-        await flushAllPromises();
-      });
-
-      expect(mockApiService.searchProduct).toHaveBeenCalledWith('oatmeal');
-      expect(mockApiService.customizeMealPlan).toHaveBeenCalled();
-      expect(Alert.alert).toHaveBeenCalled();
-    });
-
-    it('adds a manual item when provided', async () => {
-      mockApiService.customizeMealPlan.mockResolvedValue({ data: {}, status: 200, statusText: "OK", headers: {} as any, config: { headers: {} as any as any } as any });
-      let component: TestRenderer.ReactTestRenderer | undefined;
-      await TestRenderer.act(async () => {
-        component = TestRenderer.create(
-          <PlanScreen onBackPress={mockOnBackPress} />
-        );
-      });
-      await TestRenderer.act(async () => {
-        await flushAllPromises();
-      });
-      if (!component) {
-        throw new Error('Component not created');
-      }
-
-      const customizeButton = findPressableByText(component, 'Customize');
-      expect(customizeButton).toBeTruthy();
-      await TestRenderer.act(async () => {
-        customizeButton?.props.onPress();
-      });
-
-      const manualModeButton = findPressableByText(component, 'Manual');
-      expect(manualModeButton).toBeTruthy();
-      await TestRenderer.act(async () => {
-        manualModeButton?.props.onPress();
-      });
-
-      const nameInput = findInputByPlaceholder(component, 'Product name');
-      await TestRenderer.act(async () => {
-        nameInput?.props.onChangeText('Manual Item');
-      });
-
-      const addItemButton = findPressableByText(component, 'Add Item');
-      expect(addItemButton).toBeTruthy();
-      await TestRenderer.act(async () => {
-        addItemButton?.props.onPress();
-        await flushAllPromises();
-      });
-
-      expect(mockApiService.customizeMealPlan).toHaveBeenCalled();
-      expect(Alert.alert).toHaveBeenCalled();
-    });
-
-    it('alerts when manual item name is missing', async () => {
-      let component: TestRenderer.ReactTestRenderer | undefined;
-      await TestRenderer.act(async () => {
-        component = TestRenderer.create(
-          <PlanScreen onBackPress={mockOnBackPress} />
-        );
-      });
-      await TestRenderer.act(async () => {
-        await flushAllPromises();
-      });
-      if (!component) {
-        throw new Error('Component not created');
-      }
-
-      const customizeButton = findPressableByText(component, 'Customize');
-      expect(customizeButton).toBeTruthy();
-      await TestRenderer.act(async () => {
-        customizeButton?.props.onPress();
-      });
-
-      const manualModeButton = findPressableByText(component, 'Manual');
-      expect(manualModeButton).toBeTruthy();
-      await TestRenderer.act(async () => {
-        manualModeButton?.props.onPress();
-      });
-
-      const addItemButton = findPressableByText(component, 'Add Item');
-      expect(addItemButton).toBeTruthy();
-      await TestRenderer.act(async () => {
-        addItemButton?.props.onPress();
-      });
-
-      expect(Alert.alert).toHaveBeenCalledWith('Error', expect.any(String));
-    });
-
-    it('alerts when barcode search fails', async () => {
-      mockApiService.getProductByBarcode.mockRejectedValueOnce(new Error('fail'));
-      let component: TestRenderer.ReactTestRenderer | undefined;
-      await TestRenderer.act(async () => {
-        component = TestRenderer.create(
-          <PlanScreen onBackPress={mockOnBackPress} />
-        );
-      });
-      await TestRenderer.act(async () => {
-        await flushAllPromises();
-      });
-      if (!component) {
-        throw new Error('Component not created');
-      }
-
-      const customizeButton = findPressableByText(component, 'Customize');
-      expect(customizeButton).toBeTruthy();
-      await TestRenderer.act(async () => {
-        customizeButton?.props.onPress();
-      });
-
-      const searchInput = findInputByPlaceholder(component, 'Enter barcode');
-      await TestRenderer.act(async () => {
-        searchInput?.props.onChangeText('555');
-      });
-
-      const searchButton = findPressableByText(component, 'Search Product');
-      expect(searchButton).toBeTruthy();
-      await TestRenderer.act(async () => {
-        searchButton?.props.onPress();
-        await flushAllPromises();
-      });
-
-      expect(Alert.alert).toHaveBeenCalledWith('Error', expect.any(String));
-      expect(mockApiService.customizeMealPlan).not.toHaveBeenCalled();
+    await waitFor(() => {
+      expect(setPlanActiveMock).toHaveBeenCalledWith('plan-def456', true);
     });
   });
 
-  describe('Product Search', () => {
-    it('should have product search capabilities', () => {
-      const component = TestRenderer.create(
-        <PlanScreen onBackPress={mockOnBackPress} />
-      );
-      
-      expect(component.toJSON()).toBeTruthy();
-      
-      // Component should render search functionality
-      const tree = component.toJSON();
-      expect(tree).toBeTruthy();
+  it('deactivates the active plan via API', async () => {
+    setPlanActiveMock.mockResolvedValueOnce({
+      data: {
+        plan_id: 'plan-abc123',
+        is_active: false,
+      },
     });
 
-    it('should handle barcode search', () => {
-      const component = TestRenderer.create(
-        <PlanScreen onBackPress={mockOnBackPress} />
-      );
-      
-      const tree = component.toJSON();
-      expect(tree).toBeTruthy();
+    const { findByText } = render(<PlanScreen onBackPress={jest.fn()} />);
+
+    const deactivateButton = await findByText('plan.list.deactivate');
+    fireEvent.press(deactivateButton);
+
+    await waitFor(() => {
+      expect(setPlanActiveMock).toHaveBeenCalledWith('plan-abc123', false);
     });
   });
 
-  describe('Meal Display', () => {
-    it('should render meal plan structure', () => {
-      const component = TestRenderer.create(
-        <PlanScreen onBackPress={mockOnBackPress} />
-      );
-      
-      const tree = component.toJSON();
-      expect(tree).toBeTruthy();
-      
-      // Should have elements for displaying meals
-      const viewElements = component.root.findAllByType(View);
-      expect(viewElements.length).toBeGreaterThan(0);
+  it('shows loading state before plan is ready', async () => {
+    let resolvePlan: (value: { data: typeof sampleDailyPlan }) => void;
+    const pendingPlan = new Promise((resolve) => {
+      resolvePlan = resolve;
     });
 
-    it('should display meal items when plan is generated', () => {
-      const component = TestRenderer.create(
-        <PlanScreen onBackPress={mockOnBackPress} />
-      );
-      
-      // Component should render meal plan content
-      expect(component.toJSON()).toBeTruthy();
+    generateMealPlanMock.mockReturnValueOnce(pendingPlan);
+
+    const { findByText } = render(<PlanScreen onBackPress={jest.fn()} />);
+    fireEvent.press(await findByText('plan.generateNewPlan', { exact: false }));
+    expect(await findByText('plan.generating')).toBeTruthy();
+
+    resolvePlan({ data: sampleDailyPlan });
+
+    await waitFor(() => {
+      expect(storeCurrentMealPlanIdMock).toHaveBeenCalledWith('plan-abc123');
     });
   });
 
-  describe('User Interface Elements', () => {
-    it('should have back button functionality', () => {
-      const component = TestRenderer.create(
-        <PlanScreen onBackPress={mockOnBackPress} />
-      );
-      
-      expect(component.toJSON()).toBeTruthy();
-      
-      // Should render back button element
-      const tree = component.toJSON();
-      expect(tree).toBeTruthy();
-    });
+  it('shows error state and retries on failure', async () => {
+    generateMealPlanMock.mockRejectedValueOnce(new Error('fail'));
+    generateMealPlanMock.mockResolvedValueOnce({ data: sampleDailyPlan });
 
-    it('should display proper navigation structure', () => {
-      const component = TestRenderer.create(
-        <PlanScreen onBackPress={mockOnBackPress} />
-      );
-      
-      const tree = component.toJSON();
-      const treeString = JSON.stringify(tree);
-      
-      expect(tree).toBeTruthy();
-      expect(treeString.length).toBeGreaterThan(50);
+    const { findByText } = render(<PlanScreen onBackPress={jest.fn()} />);
+
+    fireEvent.press(await findByText('plan.generateNewPlan', { exact: false }));
+    const retryButton = await findByText('plan.generateNewPlan', { exact: false });
+    fireEvent.press(retryButton);
+
+    await waitFor(() => {
+      expect(generateMealPlanMock).toHaveBeenCalledTimes(2);
     });
   });
 
-  describe('Form Validation', () => {
-    it('should handle form input validation', () => {
-      const component = TestRenderer.create(
-        <PlanScreen onBackPress={mockOnBackPress} />
-      );
-      
-      expect(component.toJSON()).toBeTruthy();
-    });
+  it('navigates to Smart Diet when optimizing with a plan', async () => {
+    const navigateToSmartDiet = jest.fn();
+    const { findByText } = render(
+      <PlanScreen onBackPress={jest.fn()} navigateToSmartDiet={navigateToSmartDiet} />
+    );
 
-    it('should display form elements correctly', () => {
-      const component = TestRenderer.create(
-        <PlanScreen onBackPress={mockOnBackPress} />
-      );
-      
-      const tree = component.toJSON();
-      expect(tree).toBeTruthy();
-    });
-  });
+    fireEvent.press(await findByText('plan.generateNewPlan', { exact: false }));
+    const optimizeButton = await findByText('plan.optimize.button', { exact: false });
+    fireEvent.press(optimizeButton);
 
-  describe('API Integration', () => {
-    it('should integrate with meal plan API', () => {
-      const component = TestRenderer.create(
-        <PlanScreen onBackPress={mockOnBackPress} />
-      );
-      
-      expect(component.toJSON()).toBeTruthy();
-      expect(mockApiService.generateMealPlan).toBeDefined();
-    });
+    fireEvent.press(await findByText('plan.optimize.confirmCta'));
 
-    it('should handle product search API', () => {
-      const component = TestRenderer.create(
-        <PlanScreen onBackPress={mockOnBackPress} />
-      );
-      
-      expect(component.toJSON()).toBeTruthy();
-      expect(mockApiService.getProductByBarcode).toBeDefined();
-      expect(mockApiService.searchProduct).toBeDefined();
+    expect(navigateToSmartDiet).toHaveBeenCalledWith({
+      planId: 'plan-abc123',
+      targetContext: 'optimize',
     });
   });
 
-  describe('Error Handling', () => {
-    it('should handle API errors gracefully', () => {
-      mockApiService.generateMealPlan.mockRejectedValue(new Error('API Error'));
-      
-      const component = TestRenderer.create(
-        <PlanScreen onBackPress={mockOnBackPress} />
-      );
-      
-      // Should render without crashing even with API errors
-      expect(component.toJSON()).toBeTruthy();
+  it('alerts when optimizing without a plan id', async () => {
+    generateMealPlanMock.mockResolvedValueOnce({
+      data: {
+        ...sampleDailyPlan,
+        plan_id: null,
+      },
     });
 
-    it('should handle empty meal plan responses', () => {
-      mockApiService.generateMealPlan.mockResolvedValue({
-        data: null,
-        status: 200,
-        statusText: 'OK',
-        headers: {} as any,
-        config: { headers: {} as any as any } as any as any
-      });
+    const { findByText } = render(<PlanScreen onBackPress={jest.fn()} />);
+    fireEvent.press(await findByText('plan.generateNewPlan', { exact: false }));
+    const optimizeButton = await findByText('plan.optimize.button', { exact: false });
+    fireEvent.press(optimizeButton);
 
-      const component = TestRenderer.create(
-        <PlanScreen onBackPress={mockOnBackPress} />
+    expect(alertSpy).toHaveBeenCalledWith('plan.optimize.title', 'plan.optimize.noPlan', [
+      { text: 'common.ok' },
+    ]);
+  });
+
+  it('customizes a meal and calls the API', async () => {
+    customizeMealPlanMock.mockResolvedValueOnce({ data: {} });
+
+    const { findAllByText, findByPlaceholderText, findByText } = render(
+      <PlanScreen onBackPress={jest.fn()} />
+    );
+
+    fireEvent.press(await findByText('plan.generateNewPlan', { exact: false }));
+    await findByText(/Breakfast/);
+    const customizeButtons = await findAllByText('plan.customize');
+    fireEvent.press(customizeButtons[0]);
+
+    fireEvent.press(await findByText('plan.modal.manual', { exact: false }));
+    fireEvent.changeText(await findByPlaceholderText('plan.modal.productNamePlaceholder'), 'Extra Item');
+    fireEvent.press(await findByText('plan.modal.addItem'));
+
+    await waitFor(() => {
+      expect(customizeMealPlanMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          meal_type: 'breakfast',
+          action: 'add',
+          item: expect.objectContaining({ name: 'Extra Item' }),
+        })
       );
-
-      expect(component.toJSON()).toBeTruthy();
     });
   });
 
-  describe('Component State Management', () => {
-    it('should maintain consistent state across renders', () => {
-      const component = TestRenderer.create(
-        <PlanScreen onBackPress={mockOnBackPress} />
-      );
-      
-      const firstRender = component.toJSON();
-      
-      // Re-render component
-      component.update(<PlanScreen onBackPress={mockOnBackPress} />);
-      const secondRender = component.toJSON();
-      
-      expect(firstRender).toBeTruthy();
-      expect(secondRender).toBeTruthy();
-    });
+  it('alerts when customizing a meal fails', async () => {
+    customizeMealPlanMock.mockRejectedValueOnce(new Error('customize failed'));
 
-    it('should handle component updates properly', () => {
-      const component = TestRenderer.create(
-        <PlanScreen onBackPress={mockOnBackPress} />
-      );
-      
-      expect(component.toJSON()).toBeTruthy();
-      
-      // Component should handle state changes
-      const tree = component.toJSON();
-      expect(tree).toBeTruthy();
+    const { findAllByText, findByPlaceholderText, findByText } = render(
+      <PlanScreen onBackPress={jest.fn()} />
+    );
+
+    fireEvent.press(await findByText('plan.generateNewPlan', { exact: false }));
+    await findByText(/Breakfast/);
+    const customizeButtons = await findAllByText('plan.customize');
+    fireEvent.press(customizeButtons[0]);
+
+    fireEvent.press(await findByText('plan.modal.manual', { exact: false }));
+    fireEvent.changeText(await findByPlaceholderText('plan.modal.productNamePlaceholder'), 'Fail Item');
+    fireEvent.press(await findByText('plan.modal.addItem'));
+
+    await waitFor(() => {
+      expect(alertSpy).toHaveBeenCalledWith('common.error', 'Failed to customize meal plan.');
     });
   });
+
+  it('supports back navigation and regenerate actions', async () => {
+    const onBackPress = jest.fn();
+    const { findByText } = render(<PlanScreen onBackPress={onBackPress} />);
+
+    fireEvent.press(await findByText('🏠'));
+    expect(onBackPress).toHaveBeenCalled();
+
+    fireEvent.press(await findByText('plan.generateNewPlan', { exact: false }));
+    await waitFor(() => {
+      expect(generateMealPlanMock).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  it('handles plan list fetch errors', async () => {
+    const consoleSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+    getUserPlansMock.mockRejectedValueOnce(new Error('fetch failed'));
+
+    render(<PlanScreen onBackPress={jest.fn()} />);
+
+    await waitFor(() => {
+      expect(consoleSpy).toHaveBeenCalledWith(
+        'Plan list fetch failed:',
+        expect.any(Error)
+      );
+    });
+    consoleSpy.mockRestore();
+  });
+
+  it('alerts when toggling plan state fails', async () => {
+    setPlanActiveMock.mockRejectedValueOnce(new Error('toggle failed'));
+
+    const { findByText } = render(<PlanScreen onBackPress={jest.fn()} />);
+    fireEvent.press(await findByText('plan.list.activate'));
+
+    await waitFor(() => {
+      expect(alertSpy).toHaveBeenCalledWith('common.error', 'No se pudo cambiar el estado del plan.');
+    });
+  });
+
+  it('logs when saving plan id fails', async () => {
+    const consoleSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+    storeCurrentMealPlanIdMock.mockRejectedValueOnce(new Error('store failed'));
+
+    const { findByText } = render(<PlanScreen onBackPress={jest.fn()} />);
+    fireEvent.press(await findByText('plan.generateNewPlan', { exact: false }));
+
+    await waitFor(() => {
+      expect(consoleSpy).toHaveBeenCalledWith(
+        'PlanScreen Debug - Failed to store meal plan ID:',
+        expect.any(Error)
+      );
+    });
+    consoleSpy.mockRestore();
+  });
+
+  it('closes customize modal from the header button', async () => {
+    const { findAllByText, findByText } = render(
+      <PlanScreen onBackPress={jest.fn()} />
+    );
+
+    fireEvent.press(await findByText('plan.generateNewPlan', { exact: false }));
+    const customizeButtons = await findAllByText('plan.customize');
+    fireEvent.press(customizeButtons[0]);
+
+    fireEvent.press(await findByText('✕'));
+    expect(await findByText('plan.title')).toBeTruthy();
+  });
+});
+
+describe('CustomizeModal', () => {
+  const getProductByBarcodeMock = apiService.getProductByBarcode as jest.Mock;
+  const searchProductMock = apiService.searchProduct as jest.Mock;
+  const alertSpy = jest.spyOn(Alert, 'alert');
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    alertSpy.mockImplementation(() => {});
+  });
+
+  it('adds item from barcode search', async () => {
+    const onConfirm = jest.fn();
+    const onClose = jest.fn();
+
+    getProductByBarcodeMock.mockResolvedValueOnce({
+      data: {
+        code: '123',
+        product_name: 'Test Product',
+        serving_size: '100g',
+        nutriments: {
+          energy_kcal_100g: 120,
+          proteins_100g: 8,
+          fat_100g: 5,
+          carbohydrates_100g: 15,
+        },
+      },
+    });
+
+    const { getByPlaceholderText, findByText } = render(
+      <CustomizeModal
+        visible
+        onClose={onClose}
+        onConfirm={onConfirm}
+        mealType="Breakfast"
+        translateMealName={(name) => name}
+      />
+    );
+
+    fireEvent.changeText(getByPlaceholderText('scanner.manual.placeholder'), '123');
+    fireEvent.press(await findByText('plan.modal.searchProduct'));
+
+    await waitFor(() => {
+      expect(onConfirm).toHaveBeenCalledWith(
+        expect.objectContaining({
+          barcode: '123',
+          name: 'Test Product',
+          calories: 120,
+        })
+      );
+    });
+    expect(onClose).toHaveBeenCalled();
+  });
+
+  it('adds item from manual entry', async () => {
+    const onConfirm = jest.fn();
+    const onClose = jest.fn();
+
+    const { getByPlaceholderText, findByText } = render(
+      <CustomizeModal
+        visible
+        onClose={onClose}
+        onConfirm={onConfirm}
+        mealType="Lunch"
+        translateMealName={(name) => name}
+      />
+    );
+
+    fireEvent.press(await findByText('plan.modal.manual', { exact: false }));
+    fireEvent.changeText(getByPlaceholderText('plan.modal.productNamePlaceholder'), 'Manual Food');
+    fireEvent.press(await findByText('plan.modal.addItem'));
+
+    await waitFor(() => {
+      expect(onConfirm).toHaveBeenCalledWith(
+        expect.objectContaining({
+          name: 'Manual Food',
+        })
+      );
+    });
+    expect(onClose).toHaveBeenCalled();
+  });
+
+  it('uses text search when selected', async () => {
+    const onConfirm = jest.fn();
+    const onClose = jest.fn();
+
+    searchProductMock.mockResolvedValueOnce({
+      data: {
+        name: 'Text Result',
+        serving_size: '100g',
+        nutriments: {
+          energy_kcal_100g: 90,
+          proteins_100g: 7,
+          fat_100g: 3,
+          carbohydrates_100g: 12,
+        },
+      },
+    });
+
+    const { findAllByPlaceholderText, findByPlaceholderText, findByText } = render(
+      <CustomizeModal
+        visible
+        onClose={onClose}
+        onConfirm={onConfirm}
+        mealType="Dinner"
+        translateMealName={(name) => name}
+      />
+    );
+
+    fireEvent.press(await findByText('plan.modal.text'));
+    fireEvent.changeText(await findByPlaceholderText('plan.modal.searchProduct'), 'pasta');
+    fireEvent.press(await findByText('plan.modal.searchProduct'));
+
+    await waitFor(() => {
+      expect(searchProductMock).toHaveBeenCalledWith('pasta');
+    });
+    expect(onConfirm).toHaveBeenCalled();
+    expect(onClose).toHaveBeenCalled();
+  });
+
+  it('lets users return to search mode and barcode search', async () => {
+    const onConfirm = jest.fn();
+    const onClose = jest.fn();
+
+    getProductByBarcodeMock.mockResolvedValueOnce({
+      data: {
+        code: '444',
+        product_name: 'Barcode Item',
+        serving_size: '100g',
+        nutriments: {
+          energy_kcal_100g: 80,
+          proteins_100g: 6,
+          fat_100g: 2,
+          carbohydrates_100g: 11,
+        },
+      },
+    });
+
+    const { findByPlaceholderText, findByText } = render(
+      <CustomizeModal
+        visible
+        onClose={onClose}
+        onConfirm={onConfirm}
+        mealType="Snack"
+        translateMealName={(name) => name}
+      />
+    );
+
+    fireEvent.press(await findByText('plan.modal.manual', { exact: false }));
+    fireEvent.press(await findByText('plan.modal.search', { exact: false }));
+    fireEvent.press(await findByText('plan.modal.barcode'));
+    fireEvent.changeText(await findByPlaceholderText('scanner.manual.placeholder'), '444');
+    fireEvent.press(await findByText('plan.modal.searchProduct'));
+
+    await waitFor(() => {
+      expect(getProductByBarcodeMock).toHaveBeenCalledWith('444');
+    });
+    expect(onConfirm).toHaveBeenCalled();
+  });
+
+  it('captures all manual fields before adding', async () => {
+    const onConfirm = jest.fn();
+    const onClose = jest.fn();
+
+    const { findAllByPlaceholderText, findByPlaceholderText, findByText } = render(
+      <CustomizeModal
+        visible
+        onClose={onClose}
+        onConfirm={onConfirm}
+        mealType="Dinner"
+        translateMealName={(name) => name}
+      />
+    );
+
+    fireEvent.press(await findByText('plan.modal.manual', { exact: false }));
+    fireEvent.changeText(await findByPlaceholderText('plan.modal.productNamePlaceholder'), 'Full Manual');
+    fireEvent.changeText(await findByPlaceholderText('plan.modal.brandPlaceholder'), 'Brand');
+    fireEvent.changeText(await findByPlaceholderText('plan.modal.servingSizePlaceholder'), '2 units');
+    const numericInputs = await findAllByPlaceholderText('0');
+    fireEvent.changeText(numericInputs[0], '110');
+    fireEvent.changeText(numericInputs[1], '12');
+    fireEvent.changeText(numericInputs[2], '4');
+    fireEvent.changeText(numericInputs[3], '18');
+    fireEvent.press(await findByText('plan.modal.addItem'));
+
+    await waitFor(() => {
+      expect(onConfirm).toHaveBeenCalledWith(
+        expect.objectContaining({
+          name: 'Full Manual',
+          calories: 110,
+          macros: expect.objectContaining({
+            protein_g: 12,
+            fat_g: 4,
+            carbs_g: 18,
+          }),
+        })
+      );
+    });
+  });
+
+  it('alerts when search fails', async () => {
+    const onConfirm = jest.fn();
+    const onClose = jest.fn();
+
+    getProductByBarcodeMock.mockRejectedValueOnce(new Error('not found'));
+
+    const { findByPlaceholderText, findByText } = render(
+      <CustomizeModal
+        visible
+        onClose={onClose}
+        onConfirm={onConfirm}
+        mealType="Snack"
+        translateMealName={(name) => name}
+      />
+    );
+
+    fireEvent.changeText(await findByPlaceholderText('scanner.manual.placeholder'), '000');
+    fireEvent.press(await findByText('plan.modal.searchProduct'));
+
+    await waitFor(() => {
+      expect(alertSpy).toHaveBeenCalledWith(
+        'common.error',
+        'Could not find product. Try manual entry instead.'
+      );
+    });
+  });
+
+  it('shows validation alert when manual name is missing', async () => {
+    const onConfirm = jest.fn();
+    const onClose = jest.fn();
+
+    const { findByText } = render(
+      <CustomizeModal
+        visible
+        onClose={onClose}
+        onConfirm={onConfirm}
+        mealType="Dinner"
+        translateMealName={(name) => name}
+      />
+    );
+
+    fireEvent.press(await findByText('plan.modal.manual', { exact: false }));
+    fireEvent.press(await findByText('plan.modal.addItem'));
+
+    expect(alertSpy).toHaveBeenCalled();
+    expect(onConfirm).not.toHaveBeenCalled();
+  });
+
 });

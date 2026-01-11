@@ -3,13 +3,16 @@ from typing import List, Optional, Tuple
 from datetime import datetime
 from copy import deepcopy
 
+import json
 from app.models.meal_plan import (
     MealPlanResponse, PlanCustomizationRequest, ChangeLogEntry,
     SwapOperation, RemoveOperation, ManualAddition, MealCalorieAdjustment,
     Meal, MealItem, MealItemMacros, DailyMacros
 )
-from app.models.product import ProductResponse
+from app.models.product import ProductResponse, Nutriments
 from app.services.cache import cache_service
+from app.services.database import db_service
+from app.services.openfoodfacts import openfoodfacts_service
 from app.services.nutrition_calculator import nutrition_calculator
 
 logger = logging.getLogger(__name__)
@@ -304,7 +307,7 @@ class PlanCustomizerService:
     
     async def _get_product_from_cache(self, barcode: str) -> Optional[ProductResponse]:
         """
-        Retrieve a product from cache by barcode.
+        Retrieve a product from cache by barcode or name.
         """
         cache_key = f"product:{barcode}"
         cached_product = await cache_service.get(cache_key)
@@ -315,7 +318,75 @@ class PlanCustomizerService:
             except Exception as e:
                 logger.error(f"Error deserializing cached product {barcode}: {e}")
         
+        if barcode and not barcode.isdigit():
+            product = self._get_product_by_name(barcode)
+            if product:
+                try:
+                    await cache_service.set(cache_key, product.model_dump(), ttl=24 * 3600)
+                except Exception as cache_error:
+                    logger.warning(f"Failed to cache product {barcode}: {cache_error}")
+                return product
+
+        try:
+            product = await openfoodfacts_service.get_product(barcode)
+        except Exception as exc:
+            logger.warning(f"Product lookup failed for {barcode}: {exc}")
+            return None
+
+        if product:
+            try:
+                await cache_service.set(cache_key, product.model_dump(), ttl=24 * 3600)
+            except Exception as cache_error:
+                logger.warning(f"Failed to cache product {barcode}: {cache_error}")
+            return product
+
         return None
+
+    def _get_product_by_name(self, name: str) -> Optional[ProductResponse]:
+        """Fallback lookup by product name when barcode is not usable."""
+        cleaned = name.replace("OPT_", "").replace("_", " ").strip().lower()
+        if not cleaned:
+            return None
+
+        try:
+            with db_service.get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute(
+                    """
+                    SELECT * FROM products
+                    WHERE lower(name) LIKE ?
+                    ORDER BY access_count DESC, last_updated DESC
+                    LIMIT 1
+                    """,
+                    (f"%{cleaned}%",)
+                )
+                row = cursor.fetchone()
+                if not row:
+                    return None
+
+                nutriments_data = json.loads(row["nutriments"])
+                nutriments = Nutriments(
+                    energy_kcal_per_100g=nutriments_data.get("energy_kcal_per_100g"),
+                    protein_g_per_100g=nutriments_data.get("protein_g_per_100g"),
+                    fat_g_per_100g=nutriments_data.get("fat_g_per_100g"),
+                    carbs_g_per_100g=nutriments_data.get("carbs_g_per_100g"),
+                    sugars_g_per_100g=nutriments_data.get("sugars_g_per_100g"),
+                    salt_g_per_100g=nutriments_data.get("salt_g_per_100g"),
+                )
+
+                return ProductResponse(
+                    source=row["source"] or "Database",
+                    barcode=row["barcode"],
+                    name=row["name"],
+                    brand=row["brand"],
+                    image_url=row["image_url"],
+                    serving_size=row["serving_size"],
+                    nutriments=nutriments,
+                    fetched_at=datetime.fromisoformat(row["last_updated"]),
+                )
+        except Exception as exc:
+            logger.warning(f"Product name lookup failed for {name}: {exc}")
+            return None
     
     def check_idempotency(self, plan: MealPlanResponse, customization: PlanCustomizationRequest) -> bool:
         """

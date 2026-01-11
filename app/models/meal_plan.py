@@ -125,6 +125,7 @@ class MealPlanResponse(BaseModel):
     created_at: datetime = Field(default_factory=datetime.now, description="Plan generation timestamp")
     flexibility_used: bool = Field(..., description="Whether flexibility was applied")
     optional_products_used: int = Field(default=0, description="Number of optional products included")
+    is_active: bool = Field(default=False, description="Indicates whether this plan is currently active")
 
 
 class SwapOperation(BaseModel):

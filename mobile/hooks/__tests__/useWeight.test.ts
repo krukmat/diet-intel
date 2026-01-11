@@ -17,6 +17,7 @@ describe('useWeight Hook', () => {
     mockEntries = [
       {
         id: 'w1',
+        userId: 'user1',
         weight: 75.0,
         date: new Date('2026-01-09'),
         createdAt: new Date(),
@@ -54,7 +55,8 @@ describe('useWeight Hook', () => {
 
     it('should calculate stats correctly', async () => {
       const entriesWithMultiple: WeightEntry[] = [
-        { id: 'w1', weight: 75.0, date: new Date(), createdAt: new Date(), updatedAt: new Date() },
+        { id: 'w1',
+        userId: 'user1', weight: 75.0, date: new Date(), createdAt: new Date(), updatedAt: new Date() },
         { id: 'w2', weight: 74.0, date: new Date(), createdAt: new Date(), updatedAt: new Date() },
       ];
       (mealLogService.getWeightHistory as jest.Mock).mockResolvedValue(entriesWithMultiple);
@@ -87,6 +89,7 @@ describe('useWeight Hook', () => {
       (mealLogService.getWeightHistory as jest.Mock).mockResolvedValue([]);
       const newEntry: WeightEntry = {
         id: 'w-new',
+        userId: 'user1',
         weight: 73.5,
         date: new Date(),
         createdAt: new Date(),

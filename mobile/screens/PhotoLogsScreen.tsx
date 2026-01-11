@@ -1,9 +1,9 @@
 /**
  * Photo Logs Screen - FASE 9.4
- * Timeline view of all food and weight photos
+ * Timeline view of all food and weight photos with camera capture
  */
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -12,16 +12,67 @@ import {
   ActivityIndicator,
   Image,
   Dimensions,
+  TouchableOpacity,
+  Alert,
+  Platform,
 } from 'react-native';
 import { usePhotoLogs } from '../hooks/usePhotoLogs';
 import { PhotoLogEntry, PhotoLogType } from '../types/photoLog';
+import * as ImagePicker from 'expo-image-picker';
 
-export function PhotoLogsScreen(): JSX.Element {
+interface PhotoLogsScreenProps {
+  onBackPress?: () => void;
+}
+
+export function PhotoLogsScreen({ onBackPress }: PhotoLogsScreenProps): JSX.Element {
   const { logs, loading, error, getPhotos } = usePhotoLogs();
+  const [takingPhoto, setTakingPhoto] = useState(false);
 
   useEffect(() => {
     getPhotos(50);
   }, [getPhotos]);
+
+  const handleTakePhoto = async () => {
+    const permission = await ImagePicker.requestCameraPermissionsAsync();
+    
+    if (!permission.granted) {
+      Alert.alert('Permission Required', 'Camera permission is needed to take photos');
+      return;
+    }
+
+    const result = await ImagePicker.launchCameraAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      quality: 0.8,
+    });
+
+    if (!result.canceled && result.assets && result.assets.length > 0) {
+      setTakingPhoto(true);
+      // TODO: Upload photo to server
+      Alert.alert('Photo Taken', 'Photo captured! (Upload to be implemented)');
+      setTakingPhoto(false);
+    }
+  };
+
+  const handleSelectFromGallery = async () => {
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    
+    if (!permission.granted) {
+      Alert.alert('Permission Required', 'Photo library permission is needed');
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      quality: 0.8,
+    });
+
+    if (!result.canceled && result.assets && result.assets.length > 0) {
+      // TODO: Upload photo to server
+      Alert.alert('Photo Selected', 'Photo selected! (Upload to be implemented)');
+    }
+  };
 
   const formatDate = (date: Date) => {
     return new Date(date).toLocaleDateString('es-ES', {
@@ -53,11 +104,44 @@ export function PhotoLogsScreen(): JSX.Element {
 
   const screenWidth = Dimensions.get('window').width;
 
+  const navigateBack = () => {
+    // This will be called from parent via props or we use the navigation context
+  };
+
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>Photo Timeline</Text>
-        <Text style={styles.subtitle}>{logs.length} photos</Text>
+        <TouchableOpacity style={styles.backButton} onPress={onBackPress}>
+          <Text style={styles.backButtonText}>🏠</Text>
+        </TouchableOpacity>
+        <Text style={styles.title}>📷 Photos</Text>
+        <View style={styles.placeholder} />
+      </View>
+
+      {/* Actions */}
+      <View style={styles.actionsRow}>
+        <TouchableOpacity 
+          style={styles.actionButton} 
+          onPress={handleTakePhoto}
+          disabled={takingPhoto}
+        >
+          {takingPhoto ? (
+            <ActivityIndicator color="#fff" />
+          ) : (
+            <>
+              <Text style={styles.actionIcon}>📷</Text>
+              <Text style={styles.actionText}>Tomar Foto</Text>
+            </>
+          )}
+        </TouchableOpacity>
+        
+        <TouchableOpacity 
+          style={styles.actionButton} 
+          onPress={handleSelectFromGallery}
+        >
+          <Text style={styles.actionIcon}>🖼️</Text>
+          <Text style={styles.actionText}>Galería</Text>
+        </TouchableOpacity>
       </View>
 
       {loading && logs.length === 0 ? (
@@ -68,8 +152,9 @@ export function PhotoLogsScreen(): JSX.Element {
         </View>
       ) : logs.length === 0 ? (
         <View style={styles.centerContent}>
-          <Text style={styles.emptyText}>No photos yet</Text>
-          <Text style={styles.emptySubtext}>Take photos of your meals and weigh-ins to see them here</Text>
+          <Text style={styles.emptyIcon}>📷</Text>
+          <Text style={styles.emptyText}>Sin fotos aún</Text>
+          <Text style={styles.emptySubtext}>Toma fotos de tus comidas y pesajes para verlas aquí</Text>
         </View>
       ) : (
         <ScrollView style={styles.scroll} contentContainerStyle={styles.list}>
@@ -125,6 +210,48 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#666',
   },
+  backButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#f0f0f0',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  backButtonText: {
+    fontSize: 24,
+    color: '#333',
+    lineHeight: 28,
+  },
+  placeholder: {
+    width: 40,
+  },
+  actionsRow: {
+    flexDirection: 'row',
+    padding: 12,
+    gap: 12,
+    backgroundColor: '#fff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+  },
+  actionButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#007AFF',
+    paddingVertical: 12,
+    borderRadius: 8,
+    gap: 8,
+  },
+  actionIcon: {
+    fontSize: 18,
+  },
+  actionText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
+  },
   loader: {
     marginTop: 32,
   },
@@ -138,6 +265,10 @@ const styles = StyleSheet.create({
     color: '#f44336',
     fontSize: 16,
     textAlign: 'center',
+  },
+  emptyIcon: {
+    fontSize: 48,
+    marginBottom: 16,
   },
   emptyText: {
     fontSize: 18,

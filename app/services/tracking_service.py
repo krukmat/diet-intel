@@ -6,11 +6,12 @@ Coverage Goal: 85%+ (target: 80%+)
 """
 
 from typing import Optional, Dict, List, Any
-from datetime import datetime
+from datetime import datetime, date
 import uuid
 import json
 import logging
 from app.repositories.tracking_repository import TrackingRepository, MealTrackingEntity, WeightTrackingEntity
+from app.services.plan_storage import plan_storage
 
 
 logger = logging.getLogger(__name__)
@@ -38,6 +39,7 @@ class TrackingService:
         Task 2.1.3: Uses TrackingRepository instead of DatabaseService
         """
         self.repository = repository or TrackingRepository()
+        self._consumed_plan_items: Dict[str, List[str]] = {}
 
     # ===== MEAL TRACKING METHODS =====
 
@@ -485,6 +487,294 @@ class TrackingService:
 
         logs.sort(key=lambda entry: entry["timestamp"], reverse=True)
         return logs[:limit]
+
+
+# ============ FASE 1 & 2: Dashboard & Progress Methods ============
+
+    async def get_active_plan(self, user_id: str) -> Optional['PlanProgress']:
+        """Return the user's active meal plan shaped as PlanProgress."""
+        from app.models.tracking import PlanProgress, PlanMealItem
+
+        plan_response = await plan_storage.get_active_plan_for_user(user_id)
+        if not plan_response:
+            return None
+
+        meal_items = []
+        for meal_index, meal in enumerate(plan_response.meals or []):
+            meal_type = (meal.name or "meal").lower()
+            for item_index, item in enumerate(meal.items or []):
+                macros = self._ensure_dict(getattr(item, "macros", {}))
+                identifier = self._build_plan_item_id(
+                    plan_response.plan_id,
+                    meal.name,
+                    item_index,
+                    getattr(item, "barcode", None)
+                )
+                meal_items.append(PlanMealItem(
+                    id=identifier,
+                    barcode=item.barcode,
+                    name=item.name,
+                    serving=item.serving,
+                    calories=item.calories,
+                    macros=macros,
+                    meal_type=meal_type,
+                    is_consumed=False
+                ))
+
+        created_at = plan_response.created_at or datetime.utcnow()
+        return PlanProgress(
+            plan_id=plan_response.plan_id or "",
+            daily_calorie_target=plan_response.daily_calorie_target,
+            meals=meal_items,
+            created_at=created_at
+        )
+
+    async def calculate_day_progress(self, user_id: str) -> 'DayProgressSummary':
+        """
+        Calculate daily nutritional progress.
+        
+        Calculates consumed vs planned macros from meals.
+        Uses the active plan to determine daily targets with fallbacks.
+        
+        Args:
+            user_id: User ID to calculate progress for
+            
+        Returns:
+            DayProgressSummary with calories, protein, fat, carbs progress
+        """
+        from app.models.tracking import DayProgress, DayProgressSummary
+
+        meals = await self.get_user_meals(user_id, limit=50)
+        today = datetime.utcnow().date()
+
+        total_calories, total_protein, total_fat, total_carbs = self._sum_daily_macros(meals, today)
+        plan_response = await plan_storage.get_active_plan_for_user(user_id)
+        target_calories, target_protein, target_fat, target_carbs = self._resolve_plan_targets(plan_response)
+
+        def _percentage(consumed: float, target: float) -> float:
+            if target <= 0:
+                return 0.0
+            return round(consumed / target * 100, 1)
+
+        return DayProgressSummary(
+            calories=DayProgress(
+                consumed=round(total_calories, 1),
+                planned=target_calories,
+                percentage=_percentage(total_calories, target_calories)
+            ),
+            protein=DayProgress(
+                consumed=round(total_protein, 1),
+                planned=target_protein,
+                percentage=_percentage(total_protein, target_protein)
+            ),
+            fat=DayProgress(
+                consumed=round(total_fat, 1),
+                planned=target_fat,
+                percentage=_percentage(total_fat, target_fat)
+            ),
+            carbs=DayProgress(
+                consumed=round(total_carbs, 1),
+                planned=target_carbs,
+                percentage=_percentage(total_carbs, target_carbs)
+            )
+        )
+
+    def _sum_daily_macros(self, meals: List[Dict[str, Any]], today: date) -> tuple[float, float, float, float]:
+        """
+        Iterate through today's meals and accumulate macro totals.
+        """
+        total_calories = total_protein = total_fat = total_carbs = 0.0
+
+        for meal in meals:
+            meal_dict = self._ensure_dict(meal)
+            timestamp = self._parse_datetime(meal_dict.get('timestamp') or meal_dict.get('created_at'))
+            if timestamp.date() != today:
+                continue
+
+            for item in meal_dict.get('items', []):
+                item_dict = self._ensure_dict(item)
+                total_calories += float(item_dict.get('calories') or 0)
+                macros = self._ensure_dict(item_dict.get('macros', {}))
+                total_protein += self._get_macro_value(macros, "protein", "protein_g")
+                total_fat += self._get_macro_value(macros, "fat", "fat_g")
+                total_carbs += self._get_macro_value(macros, "carbs", "carbs_g")
+
+        return total_calories, total_protein, total_fat, total_carbs
+
+    def _resolve_plan_targets(self, plan_response: Optional[Any]) -> tuple[float, float, float, float]:
+        """
+        Determine daily macro targets using the active plan or sensible defaults.
+        """
+        if not plan_response:
+            return 2000.0, 120.0, 65.0, 250.0
+
+        metrics_dict: Dict[str, Any] = {}
+        metrics = getattr(plan_response, "metrics", None)
+        if metrics:
+            metrics_dict = metrics.model_dump() if hasattr(metrics, "model_dump") else {}
+
+        target_calories = float(plan_response.daily_calorie_target or 0) or 2000.0
+        target_protein = float(metrics_dict.get("protein_g") or 120.0)
+        target_fat = float(metrics_dict.get("fat_g") or 65.0)
+        target_carbs = float(metrics_dict.get("carbs_g") or 250.0)
+
+        return target_calories, target_protein, target_fat, target_carbs
+
+    async def get_consumed_plan_items(self, user_id: str) -> List[str]:
+        """
+        Get IDs of plan items that have been consumed.
+        
+        Returns a list of item IDs marked as consumed.
+        This is a placeholder - full implementation in FASE 3.
+        
+        Args:
+            user_id: User ID to get consumed items for
+            
+        Returns:
+            List of consumed item IDs
+        """
+        return list(self._consumed_plan_items.get(user_id, []))
+
+    async def consume_plan_item(
+        self, user_id: str, item_id: str, consumed_at: str
+    ) -> Dict[str, Any]:
+        """
+        Mark a meal plan item as consumed.
+
+        This creates a meal entry from the plan item and updates progress.
+        FASE 3: Full implementation - creates meal and updates progress.
+
+        Args:
+            user_id: User ID
+            item_id: ID of the plan item to mark as consumed
+            consumed_at: ISO timestamp when item was consumed
+
+        Returns:
+            Dict with success status, message, and updated progress
+        """
+        try:
+            # 1. Get the active plan
+            active_plan = await self.get_active_plan(user_id)
+
+            if not active_plan:
+                return {
+                    "success": False,
+                    "message": "No active meal plan found",
+                    "item_id": item_id
+                }
+
+            # 2. Find the item in the plan
+            item_data = None
+            for meal in active_plan.meals:
+                if meal.id == item_id:
+                    item_data = meal
+                    break
+
+            if not item_data:
+                return {
+                    "success": False,
+                    "message": f"Item {item_id} not found in plan",
+                    "item_id": item_id
+                }
+
+            # 3. Check if item was already consumed
+            consumed_items = await self.get_consumed_plan_items(user_id)
+            stored_items = self._consumed_plan_items.setdefault(user_id, [])
+
+            if item_id in consumed_items:
+                return {
+                    "success": False,
+                    "message": f"Item {item_id} already consumed",
+                    "item_id": item_id
+                }
+
+            # 4. Create meal entry from plan item
+            from app.models.tracking import MealItem, MealTrackingRequest
+            
+            meal_item = MealItem(
+                barcode=item_data.barcode,
+                name=item_data.name,
+                serving=item_data.serving,
+                calories=item_data.calories,
+                macros=item_data.macros
+            )
+
+            meal_request = MealTrackingRequest(
+                meal_name=f"Plan: {item_data.name}",
+                items=[meal_item],
+                timestamp=consumed_at
+            )
+
+            # 5. Create the meal in database
+            await self.create_meal(user_id, meal_request)
+
+            # 6. Track consumption locally until full implementation
+            stored_items.append(item_id)
+
+            # 7. Calculate updated progress
+            updated_progress = await self.calculate_day_progress(user_id)
+
+            logger.info(f"User {user_id} consumed plan item {item_id}: {item_data.name}")
+
+            return {
+                "success": True,
+                "message": f"Item '{item_data.name}' marked as consumed",
+                "item_id": item_id,
+                "updated_progress": updated_progress
+            }
+
+        except Exception as e:
+            logger.error(f"Error consuming plan item {item_id} for user {user_id}: {e}")
+            return {
+                "success": False,
+                "message": f"Error: {str(e)}",
+                "item_id": item_id
+            }
+
+    def _ensure_dict(self, value: Any) -> Dict[str, Any]:
+        """Normalize models or dicts into a plain dictionary."""
+        if isinstance(value, dict):
+            return value
+        if hasattr(value, "model_dump"):
+            return value.model_dump()
+        if hasattr(value, "dict"):
+            return value.dict()
+        return {}
+
+    def _parse_datetime(self, value: Any) -> datetime:
+        """Parse timestamps into datetime objects with fallback."""
+        if isinstance(value, datetime):
+            return value
+        if isinstance(value, str):
+            try:
+                return datetime.fromisoformat(value.replace("Z", "+00:00"))
+            except ValueError:
+                return datetime.utcnow()
+        return datetime.utcnow()
+
+    def _get_macro_value(self, macros: Dict[str, Any], *keys: str) -> float:
+        """Extract the first available macro value."""
+        for key in keys:
+            macro_value = macros.get(key)
+            if macro_value is not None:
+                try:
+                    return float(macro_value)
+                except (TypeError, ValueError):
+                    continue
+        return 0.0
+
+    def _build_plan_item_id(
+        self,
+        plan_id: Optional[str],
+        meal_name: Optional[str],
+        index: int,
+        barcode: Optional[str]
+    ) -> str:
+        """Generate a deterministic identifier for plan items."""
+        plan_key = plan_id or "plan"
+        meal_key = (meal_name or "meal").replace(" ", "_").lower()
+        item_key = barcode or f"item{index}"
+        return f"{plan_key}:{meal_key}:{item_key}:{index}"
 
 
 # Global service instance - Phase 2 Batch 8 & Task 2.1.3: TrackingService

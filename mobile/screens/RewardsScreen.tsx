@@ -32,20 +32,23 @@ const RewardsScreen: React.FC<RewardsScreenProps> = ({ navigation }) => {
   // Combinar datos del hook useRewardsData con GamificationContext
   const combinedData = React.useMemo(() => {
     const baseData = data ?? FALLBACK_REWARDS_DATA;
-    
-    // Usar datos del contexto de gamificación para estadísticas en tiempo real
+
+    const pickNumber = (value: number | undefined, fallback: number) =>
+      typeof value === 'number' ? value : fallback;
+
     const syncedData: RewardsScreenData = {
-      totalPoints: gamificationData.totalPoints,
-      currentLevel: gamificationData.currentLevel,
-      levelProgress: gamificationData.levelProgress,
-      pointsToNextLevel: gamificationData.pointsToNextLevel,
-      currentStreak: gamificationData.currentStreak,
-      longestStreak: gamificationData.longestStreak,
+      totalPoints: pickNumber(baseData.totalPoints, gamificationData.totalPoints),
+      currentLevel: pickNumber(baseData.currentLevel, gamificationData.currentLevel),
+      levelProgress: pickNumber(baseData.levelProgress, gamificationData.levelProgress),
+      pointsToNextLevel: pickNumber(baseData.pointsToNextLevel, gamificationData.pointsToNextLevel),
+      currentStreak: pickNumber(baseData.currentStreak, gamificationData.currentStreak),
+      longestStreak: pickNumber(baseData.longestStreak, gamificationData.longestStreak),
       achievements: baseData.achievements ?? [],
-      unlockedAchievements: gamificationData.unlockedAchievements ?? [],
-      achievementPoints: gamificationData.achievementPoints
+      unlockedAchievements:
+        baseData.unlockedAchievements?.length ? baseData.unlockedAchievements : gamificationData.unlockedAchievements ?? [],
+      achievementPoints: pickNumber(baseData.achievementPoints, gamificationData.achievementPoints),
     };
-    
+
     return syncedData;
   }, [data, gamificationData]);
 
@@ -80,12 +83,13 @@ const RewardsScreen: React.FC<RewardsScreenProps> = ({ navigation }) => {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>🏆 Recompensas</Text>
         {navigation?.goBack && (
           <Text style={styles.backButton} onPress={navigation.goBack}>
-            ← Volver
+            🏠
           </Text>
         )}
+        <Text style={styles.headerTitle}>🏆 Recompensas</Text>
+        <Text style={styles.backButtonPlaceholder}> </Text>
       </View>
       
       <View style={styles.content}>
@@ -101,7 +105,8 @@ const RewardsScreen: React.FC<RewardsScreenProps> = ({ navigation }) => {
         </View>
         
         <View style={styles.achievementsSection}>
-          <Text style={styles.sectionTitle}>Logros ({achievementsCount})</Text>
+          <Text style={styles.sectionTitle}>Logros</Text>
+          <Text style={styles.sectionSubtitle}>Logros ({achievementsCount})</Text>
           {achievementsToShow.length > 0 ? (
             achievementsToShow.map((achievement) => (
               <View key={achievement.id} style={styles.achievementItem}>

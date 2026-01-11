@@ -1,6 +1,7 @@
 import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react-native';
 import RewardsScreen from '../RewardsScreen';
+import { GamificationProvider } from '../../contexts/GamificationContext';
 
 // Mock useRewardsData hook
 jest.mock('../../hooks/useRewardsData', () => ({
@@ -44,6 +45,9 @@ const mockRewardsData = {
   achievementPoints: 300
 };
 
+const renderWithProviders = (ui: React.ReactElement) =>
+  render(<GamificationProvider>{ui}</GamificationProvider>);
+
 describe('RewardsScreen', () => {
   const mockUseRewardsData = require('../../hooks/useRewardsData').useRewardsData;
 
@@ -59,7 +63,7 @@ describe('RewardsScreen', () => {
         error: null
       });
 
-      render(<RewardsScreen />);
+      renderWithProviders(<RewardsScreen />);
       expect(screen.getByText('Cargando recompensas...')).toBeTruthy();
     });
 
@@ -70,7 +74,7 @@ describe('RewardsScreen', () => {
         error: null
       });
 
-      render(<RewardsScreen />);
+      renderWithProviders(<RewardsScreen />);
       expect(screen.getByText('Cargando recompensas...')).toBeTruthy();
     });
 
@@ -81,7 +85,7 @@ describe('RewardsScreen', () => {
         error: null
       });
 
-      const { rerender } = render(<RewardsScreen />);
+      const { rerender } = renderWithProviders(<RewardsScreen />);
       expect(screen.getByText('Cargando recompensas...')).toBeTruthy();
     });
   });
@@ -94,7 +98,7 @@ describe('RewardsScreen', () => {
         error: 'Error al cargar datos'
       });
 
-      render(<RewardsScreen />);
+      renderWithProviders(<RewardsScreen />);
       expect(screen.getByText('🏆 Recompensas')).toBeTruthy();
       expect(screen.getByText('Error: Error al cargar datos')).toBeTruthy();
     });
@@ -106,7 +110,7 @@ describe('RewardsScreen', () => {
         error: 'Network error'
       });
 
-      render(<RewardsScreen />);
+      renderWithProviders(<RewardsScreen />);
       expect(screen.getByText('🏆 Recompensas')).toBeTruthy();
       expect(screen.getByText('Error: Network error')).toBeTruthy();
     });
@@ -118,7 +122,7 @@ describe('RewardsScreen', () => {
         error: null
       });
 
-      render(<RewardsScreen />);
+      renderWithProviders(<RewardsScreen />);
       // Should show empty state or loading
       expect(screen.getByText('🏆 Recompensas')).toBeTruthy();
     });
@@ -134,7 +138,7 @@ describe('RewardsScreen', () => {
     });
 
     it('should render with data when loaded successfully', () => {
-      render(<RewardsScreen />);
+      renderWithProviders(<RewardsScreen />);
       
       expect(screen.getByText('🏆 Recompensas')).toBeTruthy();
       expect(screen.getByText('Estadísticas')).toBeTruthy();
@@ -145,7 +149,7 @@ describe('RewardsScreen', () => {
     });
 
     it('should display achievements section', () => {
-      render(<RewardsScreen />);
+      renderWithProviders(<RewardsScreen />);
       
       expect(screen.getByText('Logros (2)')).toBeTruthy();
       expect(screen.getByText('Primera Comida')).toBeTruthy();
@@ -153,7 +157,7 @@ describe('RewardsScreen', () => {
     });
 
     it('should show achievement status correctly', () => {
-      render(<RewardsScreen />);
+      renderWithProviders(<RewardsScreen />);
       
       // First achievement is unlocked
       expect(screen.getByText('✅ Desbloqueado')).toBeTruthy();
@@ -177,7 +181,7 @@ describe('RewardsScreen', () => {
         error: null
       });
 
-      render(<RewardsScreen />);
+      renderWithProviders(<RewardsScreen />);
       
       // Should only show 5 achievements (slice(0, 5))
       expect(screen.queryByText('Achievement 5')).toBeNull();
@@ -196,7 +200,7 @@ describe('RewardsScreen', () => {
         error: null
       });
 
-      render(<RewardsScreen navigation={mockNavigation} />);
+      renderWithProviders(<RewardsScreen navigation={mockNavigation} />);
       
       const backButton = screen.getByText('← Volver');
       expect(backButton).toBeTruthy();
@@ -212,7 +216,7 @@ describe('RewardsScreen', () => {
         error: null
       });
 
-      render(<RewardsScreen navigation={mockNavigation} />);
+      renderWithProviders(<RewardsScreen navigation={mockNavigation} />);
       
       const backButton = screen.getByText('← Volver');
       fireEvent.press(backButton);
@@ -227,7 +231,7 @@ describe('RewardsScreen', () => {
         error: null
       });
 
-      render(<RewardsScreen />);
+      renderWithProviders(<RewardsScreen />);
       
       expect(screen.queryByText('← Volver')).toBeNull();
     });
@@ -241,7 +245,7 @@ describe('RewardsScreen', () => {
         error: null
       });
 
-      render(<RewardsScreen />);
+      renderWithProviders(<RewardsScreen />);
       
       expect(screen.getByText('🏆 Recompensas')).toBeTruthy();
       expect(screen.getByText('Estadísticas')).toBeTruthy();
@@ -260,7 +264,7 @@ describe('RewardsScreen', () => {
         error: null
       });
 
-      render(<RewardsScreen />);
+      renderWithProviders(<RewardsScreen />);
       
       expect(screen.getByText('Logros (0)')).toBeTruthy();
       expect(screen.queryByText('Primera Comida')).toBeNull();
@@ -284,7 +288,7 @@ describe('RewardsScreen', () => {
         error: null
       });
 
-      render(<RewardsScreen />);
+      renderWithProviders(<RewardsScreen />);
       
       expect(screen.getByText('Puntos Totales: 0')).toBeTruthy();
       expect(screen.getByText('Nivel: 1')).toBeTruthy();
@@ -303,26 +307,26 @@ describe('RewardsScreen', () => {
     });
 
     it('should have proper header structure', () => {
-      render(<RewardsScreen />);
+      renderWithProviders(<RewardsScreen />);
       
       const header = screen.getByText('🏆 Recompensas');
       expect(header).toBeTruthy();
     });
 
     it('should have stats section with correct title', () => {
-      render(<RewardsScreen />);
+      renderWithProviders(<RewardsScreen />);
       
       expect(screen.getByText('Estadísticas')).toBeTruthy();
     });
 
     it('should have achievements section with count', () => {
-      render(<RewardsScreen />);
+      renderWithProviders(<RewardsScreen />);
       
       expect(screen.getByText('Logros (2)')).toBeTruthy();
     });
 
     it('should render achievement items with proper structure', () => {
-      render(<RewardsScreen />);
+      renderWithProviders(<RewardsScreen />);
       
       expect(screen.getByText('🍽️')).toBeTruthy();
       expect(screen.getByText('Primera Comida')).toBeTruthy();

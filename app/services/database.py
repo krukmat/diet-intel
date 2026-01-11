@@ -457,10 +457,15 @@ class DatabaseService:
                     daily_calorie_target REAL NOT NULL,
                     flexibility_used BOOLEAN DEFAULT FALSE,
                     optional_products_used INTEGER DEFAULT 0,
+                    is_active BOOLEAN DEFAULT FALSE,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     expires_at TIMESTAMP
                 )
             """)
+            cursor.execute("PRAGMA table_info(meal_plans)")
+            meal_plan_columns = {row[1] for row in cursor.fetchall()}
+            if "is_active" not in meal_plan_columns:
+                cursor.execute("ALTER TABLE meal_plans ADD COLUMN is_active BOOLEAN DEFAULT FALSE")
             
             # Analytics tables for 100% database integration
             # User product lookup analytics

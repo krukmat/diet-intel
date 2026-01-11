@@ -37,8 +37,8 @@
     "track": "📊 Track",
     "smartDiet": "🧠 Smart Diet",
     "intelligentFlow": "🤖 Intelligent Flow",
-    "recipes": "🍳 Recipes",
-    "vision": "👁️ Vision"
+    "recipes": "Recipes",
+    "vision": "Vision"
   },
   "home": {
     "sections": {
@@ -47,12 +47,39 @@
       "progress": "Progress"
     },
     "actions": {
-      "logMeal": "🍽️ Log Meal",
-      "aiPlan": "🤖 AI Plan",
-      "progress": "📈 Progress",
-      "explore": "🧭 Explore",
-      "profile": "👤 Profile",
-      "gamification": "🏆 Rewards"
+      "logMeal": "Log meal",
+      "weight": "Weight",
+      "photos": "Photos",
+      "aiPlan": "AI plan",
+      "plan": "Plan",
+      "progress": "Progress",
+      "uploadLabel": "Upload label",
+      "explore": "Explore",
+      "profile": "Profile",
+      "gamification": "Rewards"
+    },
+    "actionSubtitles": {
+      "logMeal": "Scan or upload",
+      "aiPlan": "AI suggestions",
+      "plan": "Pick your plan",
+      "weight": "Track weight",
+      "photos": "Progress shots",
+      "recipes": "Quick ideas",
+      "progress": "See today",
+      "uploadLabel": "From a label",
+      "vision": "Detect foods",
+      "explore": "Discover feeds",
+      "profile": "Your settings"
+    },
+    "hero": {
+      "dailyCalories": "Daily calories",
+      "todayProgress": "Today",
+      "planStatus": "Plan status",
+      "planActive": "Active",
+      "planInactive": "Inactive",
+      "planUnknown": "Unknown",
+      "noCalories": "No target",
+      "noProgress": "No data"
     },
     "progress": {
       "description": "Quick overview of your tracking and plan"
@@ -69,8 +96,41 @@
     "plannedMeals": "Planned Meals",
     "generateNewPlan": "🔄 Generate New Plan",
     "customize": "🔧 Customize",
+    "list": {
+      "title": "Select a plan",
+      "subtitle": "Choose the plan you want to optimize.",
+      "loading": "Updating plans...",
+      "empty": "No saved plans yet",
+      "view": "View",
+      "activate": "Activate",
+      "deactivate": "Active • Deactivate"
+    },
+    "optimize": {
+      "button": "Optimize active plan",
+      "title": "Optimize plan",
+      "noPlan": "You need an active plan first",
+      "activePlanLabel": "Active plan selected",
+      "noActiveHelper": "No active plan selected",
+      "ctaGenerate": "Generate a plan",
+      "dateUnknown": "Date unavailable",
+      "caloriesUnknown": "Target unavailable",
+      "confirmTitle": "Optimize this plan?",
+      "confirmSubtitle": "We will generate suggestions based on the active plan.",
+      "confirmCta": "Continue",
+      "confirmCancel": "Cancel",
+      "summaryPlan": "Plan",
+      "summaryCalories": "Daily calories",
+      "planUnknown": "Unknown plan"
+    },
     "generating": "Generating your meal plan...",
     "failed": "Failed to load meal plan",
+    "empty": "No plan yet. Generate your first plan.",
+    "emptySubtitle": "Create a plan to get started",
+    "detail": {
+      "subtitle": "Viewing saved plan",
+      "loading": "Loading plan details...",
+      "notFound": "Plan details unavailable"
+    },
     "retry": "Retry",
     "meals": {
       "Breakfast": "Breakfast",
@@ -120,6 +180,13 @@
     "weightProgress": "Weight Progress",
     "weighIn": "⚖️ Weigh-in",
     "currentWeight": "Current Weight",
+    "weightSummary": {
+      "noData": "No data",
+      "noDelta": "No change data",
+      "up": "+{{value}} kg since last",
+      "down": "-{{value}} kg since last",
+      "steady": "No change since last"
+    },
     "photoLogs": "Photo Logs",
     "loading": "Loading tracking data...",
     "chartPlaceholder": "Weight chart coming soon! 📈",
@@ -144,6 +211,24 @@
       "weighIn": "Weigh-in"
     },
     "weight": "Weight"
+  },
+  "weight": {
+    "stats": {
+      "current": "Current",
+      "start": "Start",
+      "delta": "Difference"
+    },
+    "sections": {
+      "add": "Add Weight",
+      "history": "History"
+    },
+    "input": {
+      "placeholder": "Weight (kg)"
+    },
+    "actions": {
+      "add": "Add"
+    },
+    "empty": "No entries yet"
   },
   "scanner": {
     "status": {
@@ -306,8 +391,30 @@
     },
     "optimizations": {
       "title": "Optimization Suggestions",
+      "subtitle": "Proposals (not applied yet)",
+      "applyOne": "Apply",
+      "exclude": "Exclude",
+      "applySelected": "Apply selected",
+      "selectionCount": "{{count}} selected",
+      "applyNoticeTitle": "Apply optimizations",
+      "applyNoticeBody": "We will apply selected suggestions once the backend endpoint is ready.",
+      "applySuccessTitle": "Optimizations applied",
+      "applySuccessBody": "{{count}} changes applied to your active plan.",
+      "applyErrorTitle": "Unable to apply",
+      "applyErrorBody": "We couldn't apply the selected changes. Please try again.",
+      "applyEmptyTitle": "Nothing to apply",
+      "applyEmptyBody": "Select changes that include enough details to update your plan.",
+      "applyMissingPlanTitle": "Plan required",
+      "applyMissingPlanBody": "Generate or select a meal plan before applying optimizations.",
+      "applyManualTitle": "Select items first",
+      "applyManualBody": "Choose items to replace from each swap before applying.",
+      "swapSelectTitle": "Choose item to replace",
+      "swapSelectSubtitle": "Pick the current plan item you want to swap out.",
+      "swapSelectConfirm": "Replace item",
       "mealSwaps": "Meal Swaps:",
       "macroAdjustments": "Macro Adjustments:",
+      "macroAdjustmentsHint": "Informational only (no automatic apply yet).",
+      "infoOnly": "Info",
       "from": "From",
       "to": "To",
       "benefit": "Benefit",

@@ -12,6 +12,8 @@ import { headerStyles } from './header.styles';
 import { statsStyles } from './stats.styles';
 import { achievementsStyles } from './achievements.styles';
 import rewardsScreenStyles from './rewardsScreen.styles';
+import planScreenStyles from './planScreen.styles';
+import smartDietScreenStyles from './smartDietScreen.styles';
 
 // Base design system exports
 export { colors };
@@ -33,6 +35,8 @@ export { shadows as rewardsShadows } from './shadows';
 
 // Combined screen styles for backward compatibility
 export { rewardsScreenStyles };
+export { planScreenStyles };
+export { smartDietScreenStyles };
 
 // Layout patterns
 export const layout = {

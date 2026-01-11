@@ -29,10 +29,17 @@ export const rewardsScreenStyles = StyleSheet.create({
   },
   headerTitle: {
     ...typography.h3,
-    color: colors.text.white
+    color: colors.text.white,
+    textAlign: 'center' as const,
+    flex: 1
   },
   backButton: {
     color: colors.text.white,
+    fontSize: 16,
+    fontWeight: '600' as const
+  },
+  backButtonPlaceholder: {
+    color: 'transparent',
     fontSize: 16,
     fontWeight: '600' as const
   },
@@ -65,6 +72,11 @@ export const rewardsScreenStyles = StyleSheet.create({
   sectionTitle: {
     ...typography.h3,
     color: colors.text.primary,
+    marginBottom: spacing.md
+  },
+  sectionSubtitle: {
+    ...typography.body,
+    color: colors.text.secondary,
     marginBottom: spacing.md
   },
   statItem: {

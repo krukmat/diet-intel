@@ -10,6 +10,16 @@ import { AuthProvider } from '../contexts/AuthContext';
 import { ProfileProvider } from '../contexts/ProfileContext';
 import { GamificationProvider } from '../contexts/GamificationContext';
 
+jest.mock('../hooks/useRewardsData', () => ({
+  useRewardsData: jest.fn(() => ({
+    data: null,
+    loading: false,
+    error: null,
+  })),
+}));
+
+const mockUseRewardsData = require('../hooks/useRewardsData').useRewardsData as jest.Mock;
+
 // Mock de navegación simple
 const mockNavigation = {
   goBack: jest.fn(),
@@ -33,6 +43,11 @@ const mockGamificationData = {
 describe('RewardsScreen Navigation Integration', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockUseRewardsData.mockReturnValue({
+      data: null,
+      loading: false,
+      error: null,
+    });
   });
 
   it('debe renderizar correctamente el RewardsScreen con contexto', () => {
@@ -99,11 +114,16 @@ describe('RewardsScreen Navigation Integration', () => {
   });
 
   it('debe manejar estado de carga', () => {
+    mockUseRewardsData.mockReturnValue({
+      data: null,
+      loading: true,
+      error: null,
+    });
     const { getByText } = render(
       <AuthProvider>
         <ProfileProvider>
           <GamificationProvider>
-            <RewardsScreen navigation={mockNavigation} />
+        <RewardsScreen navigation={mockNavigation} />
           </GamificationProvider>
         </ProfileProvider>
       </AuthProvider>

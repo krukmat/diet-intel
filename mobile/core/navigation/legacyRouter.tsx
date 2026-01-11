@@ -3,6 +3,7 @@ import { Alert } from 'react-native';
 import type { ScreenType, NavigationContext } from './NavigationTypes';
 import UploadLabel from '../../screens/UploadLabel';
 import PlanScreen from '../../screens/PlanScreen';
+import PlanDetailScreen from '../../screens/PlanDetailScreen';
 import TrackScreen from '../../screens/TrackScreen';
 import SmartDietScreen from '../../screens/SmartDietScreen';
 import VisionLogScreen from '../../screens/VisionLogScreen';
@@ -17,6 +18,8 @@ import IntelligentFlowScreen from '../../screens/IntelligentFlowScreen';
 import { ProfileScreen } from '../../screens/ProfileScreen';
 import { ProfileEditScreen } from '../../screens/ProfileEditScreen';
 import { DiscoverFeedScreen } from '../../screens/DiscoverFeedScreen';
+import { WeightScreen } from '../../screens/WeightScreen';
+import { PhotoLogsScreen } from '../../screens/PhotoLogsScreen';
 import RewardsScreen from '../../screens/RewardsScreen';
 
 interface RenderScreenParams {
@@ -36,6 +39,7 @@ const renderUpload: ScreenRenderer = ({ setCurrentScreen }) => (
 const renderPlan: ScreenRenderer = ({ setCurrentScreen, navigateToScreen }) => (
   <PlanScreen
     onBackPress={() => setCurrentScreen('scanner')}
+    onViewPlan={(planId: string) => navigateToScreen('plan-detail', { planId })}
     navigateToSmartDiet={(context?: any) =>
       navigateToScreen('recommendations', {
         targetContext: 'optimize',
@@ -46,12 +50,20 @@ const renderPlan: ScreenRenderer = ({ setCurrentScreen, navigateToScreen }) => (
   />
 );
 
+const renderPlanDetail: ScreenRenderer = ({ setCurrentScreen, navigationContext }) => (
+  <PlanDetailScreen
+    onBackPress={() => setCurrentScreen('plan')}
+    planId={navigationContext.planId}
+  />
+);
+
 const renderTrack: ScreenRenderer = ({ setCurrentScreen }) => (
   <TrackScreen onBackPress={() => setCurrentScreen('scanner')} />
 );
 
 const renderRecommendations: ScreenRenderer = ({ setCurrentScreen, navigateToScreen, navigationContext }) => (
   <SmartDietScreen
+    key={navigationContext?.targetContext ?? navigationContext?.planId ?? 'smart-diet'}
     onBackPress={() => setCurrentScreen('scanner')}
     navigationContext={navigationContext}
     navigateToTrack={() =>
@@ -154,6 +166,21 @@ const renderShoppingOptimization: ScreenRenderer = ({ setCurrentScreen, navigati
   />
 );
 
+
+const renderWeight: ScreenRenderer = ({ setCurrentScreen }) => {
+  const handleBack = () => setCurrentScreen("scanner");
+  return (
+    <WeightScreen onBackPress={handleBack} />
+  );
+};
+
+const renderPhotos: ScreenRenderer = ({ setCurrentScreen }) => {
+  const handleBack = () => setCurrentScreen("scanner");
+  return (
+    <PhotoLogsScreen onBackPress={handleBack} />
+  );
+};
+
 const renderRewards: ScreenRenderer = ({ setCurrentScreen }) => (
   <RewardsScreen navigation={{ goBack: () => setCurrentScreen('scanner') }} />
 );
@@ -161,6 +188,7 @@ const renderRewards: ScreenRenderer = ({ setCurrentScreen }) => (
 const screenRenderers: Partial<Record<ScreenType, ScreenRenderer>> = {
   upload: renderUpload,
   plan: renderPlan,
+  'plan-detail': renderPlanDetail,
   track: renderTrack,
   recommendations: renderRecommendations,
   'intelligent-flow': renderIntelligentFlow,
@@ -175,6 +203,8 @@ const screenRenderers: Partial<Record<ScreenType, ScreenRenderer>> = {
   'recipe-detail': renderRecipeDetail,
   'taste-preferences': renderTastePreferences,
   'shopping-optimization': renderShoppingOptimization,
+  weight: renderWeight,
+  photos: renderPhotos,
   rewards: renderRewards,
 };
 

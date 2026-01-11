@@ -7,6 +7,7 @@ export type ScreenType =
   | 'scanner'
   | 'upload'
   | 'plan'
+  | 'plan-detail'
   | 'track'
   | 'meal-log'
   | 'weight'

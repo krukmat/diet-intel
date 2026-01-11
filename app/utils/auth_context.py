@@ -40,12 +40,18 @@ async def get_user_context(request: Request) -> Optional[str]:
         
         # Decode JWT token (without verification for now to avoid dependency issues)
         try:
-            payload = jwt.decode(token, config.JWT_SECRET, algorithms=["HS256"])
-            user_id = payload.get("sub")
-            
+            secret = getattr(config, "secret_key", None) or getattr(config, "JWT_SECRET", None)
+            if not secret:
+                logger.debug("JWT secret not configured")
+                return "anonymous"
+
+            payload = jwt.decode(token, secret, algorithms=["HS256"])
+            user_id = payload.get("sub") or payload.get("user_id")
+
             if user_id:
                 logger.debug(f"Extracted user ID from JWT: {user_id}")
-                return user_id
+                return str(user_id)
+            return "anonymous"
                 
         except jwt.InvalidTokenError as e:
             logger.debug(f"Invalid JWT token: {e}")
@@ -54,6 +60,8 @@ async def get_user_context(request: Request) -> Optional[str]:
     except Exception as e:
         logger.debug(f"Error extracting user context: {e}")
         return "anonymous"
+
+    return "anonymous"
 
 
 async def get_authenticated_user_id(request: Request) -> str:

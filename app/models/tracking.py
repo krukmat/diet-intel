@@ -174,3 +174,63 @@ class PhotoLogsResponse(BaseModel):
     """Response model for photo logs"""
     logs: List[PhotoLogEntry]
     count: int
+
+
+# ============ FASE 1: Dashboard & Progress Models ============
+
+class DayProgress(BaseModel):
+    """Progress for a single nutrient."""
+    consumed: float = Field(..., ge=0, description="Amount consumed")
+    planned: float = Field(..., ge=0, description="Amount planned")
+    percentage: float = Field(..., ge=0, description="Percentage of goal (can exceed 100% when over-consuming)")
+
+
+class DayProgressSummary(BaseModel):
+    """Summary of daily nutritional progress."""
+    calories: DayProgress
+    protein: DayProgress
+    fat: DayProgress
+    carbs: DayProgress
+
+
+class PlanMealItem(BaseModel):
+    """Meal item from a meal plan."""
+    id: str = Field(..., description="Unique identifier for the item")
+    barcode: str = Field(..., description="Product barcode")
+    name: str = Field(..., description="Food item name")
+    serving: str = Field(..., description="Serving size description")
+    calories: float = Field(..., ge=0, description="Calories per serving")
+    macros: dict = Field(default_factory=dict, description="Macronutrient information")
+    meal_type: str = Field(..., description="Meal type: breakfast, lunch, dinner")
+    is_consumed: bool = Field(default=False, description="Whether the item has been consumed")
+
+
+class PlanProgress(BaseModel):
+    """Progress of a meal plan."""
+    plan_id: str = Field(..., description="ID of the meal plan")
+    daily_calorie_target: float = Field(..., description="Daily calorie target")
+    meals: List[PlanMealItem] = Field(default_factory=list, description="Meal items in the plan")
+    created_at: datetime = Field(default_factory=datetime.now, description="Plan creation timestamp")
+
+
+class DayDashboardResponse(BaseModel):
+    """Response model for the daily dashboard endpoint."""
+    consumed_meals: List[MealTrackingResponse] = Field(default_factory=list, description="Meals consumed today")
+    meal_count: int = Field(default=0, description="Number of meals consumed")
+    active_plan: Optional[PlanProgress] = Field(None, description="User's active meal plan")
+    progress: DayProgressSummary = Field(..., description="Daily nutritional progress")
+    consumed_items: List[str] = Field(default_factory=list, description="IDs of plan items consumed")
+    date: str = Field(default_factory=lambda: datetime.now().strftime("%Y-%m-%d"), description="Date for the dashboard")
+
+
+class ConsumePlanItemRequest(BaseModel):
+    """Request model for consuming a plan item."""
+    consumed_at: str = Field(default_factory=lambda: datetime.now().isoformat(), description="ISO timestamp when item was consumed")
+
+
+class ConsumePlanItemResponse(BaseModel):
+    """Response model for consuming a plan item."""
+    success: bool = Field(..., description="Whether the operation was successful")
+    item_id: str = Field(..., description="ID of the consumed item")
+    message: str = Field(..., description="Human-readable status message")
+    updated_progress: Optional[DayProgressSummary] = Field(None, description="Updated progress after consumption")

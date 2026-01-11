@@ -605,58 +605,32 @@ class ProductDiscoveryService:
         Emergency fallback when all other methods fail.
         Returns a minimal set of basic nutritious foods.
         """
-        logger.warning("Using emergency fallback products")
-        
-        return [
-            ProductResponse(
-                source="Emergency Fallback",
-                barcode="FALLBACK_001",
-                name="Banana",
-                brand="Natural",
-                serving_size="120g",
-                nutriments=Nutriments(
-                    energy_kcal_per_100g=89.0,
-                    protein_g_per_100g=1.1,
-                    fat_g_per_100g=0.3,
-                    carbs_g_per_100g=22.8,
-                    sugars_g_per_100g=12.2,
-                    salt_g_per_100g=0.0
-                ),
-                fetched_at=datetime.now()
-            ),
-            ProductResponse(
-                source="Emergency Fallback",
-                barcode="FALLBACK_002",
-                name="Plain Greek Yogurt",
-                brand="Natural",
-                serving_size="170g",
-                nutriments=Nutriments(
-                    energy_kcal_per_100g=97.0,
-                    protein_g_per_100g=10.0,
-                    fat_g_per_100g=0.4,
-                    carbs_g_per_100g=3.6,
-                    sugars_g_per_100g=3.6,
-                    salt_g_per_100g=0.1
-                ),
-                fetched_at=datetime.now()
-            ),
-            ProductResponse(
-                source="Emergency Fallback",
-                barcode="FALLBACK_003",
-                name="Brown Rice",
-                brand="Natural",
-                serving_size="100g",
-                nutriments=Nutriments(
-                    energy_kcal_per_100g=362.0,
-                    protein_g_per_100g=7.9,
-                    fat_g_per_100g=2.9,
-                    carbs_g_per_100g=72.9,
-                    sugars_g_per_100g=0.7,
-                    salt_g_per_100g=0.0
-                ),
-                fetched_at=datetime.now()
-            )
-        ]
+        logger.warning("Using emergency fallback products from local OpenFoodFacts cache")
+
+        try:
+            with db_service.get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute(
+                    """
+                    SELECT * FROM products
+                    WHERE json_extract(nutriments, '$.energy_kcal_per_100g') IS NOT NULL
+                    AND json_extract(nutriments, '$.protein_g_per_100g') IS NOT NULL
+                    AND json_extract(nutriments, '$.fat_g_per_100g') IS NOT NULL
+                    AND json_extract(nutriments, '$.carbs_g_per_100g') IS NOT NULL
+                    ORDER BY access_count DESC, last_updated DESC
+                    LIMIT 5
+                    """
+                )
+                rows = cursor.fetchall()
+                products: List[ProductResponse] = []
+                for row in rows:
+                    product = await self._convert_db_row_to_product(row)
+                    if product:
+                        products.append(product)
+                return products
+        except Exception as exc:
+            logger.error(f"Emergency fallback failed: {exc}")
+            return []
 
 
 # Global service instance

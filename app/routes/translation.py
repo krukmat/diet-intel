@@ -51,6 +51,12 @@ async def translate_text(
                 detail=f"Source language '{request.source_lang}' is not supported"
             )
         
+        if request.target_lang == "auto":
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Target language cannot be 'auto'"
+            )
+
         if not translation_service.is_language_supported(request.target_lang):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -104,6 +110,12 @@ async def translate_food_name(
                 detail=f"Source language '{request.source_lang}' is not supported"
             )
         
+        if request.target_lang == "auto":
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Target language cannot be 'auto'"
+            )
+
         if not translation_service.is_language_supported(request.target_lang):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -157,6 +169,12 @@ async def batch_translate_texts(
                 detail=f"Source language '{request.source_lang}' is not supported"
             )
         
+        if request.target_lang == "auto":
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Target language cannot be 'auto'"
+            )
+
         if not translation_service.is_language_supported(request.target_lang):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -220,6 +238,12 @@ async def batch_translate_food_names(
                 detail=f"Source language '{request.source_lang}' is not supported"
             )
         
+        if request.target_lang == "auto":
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Target language cannot be 'auto'"
+            )
+
         if not translation_service.is_language_supported(request.target_lang):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,

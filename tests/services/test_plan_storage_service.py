@@ -145,6 +145,23 @@ async def test_store_plan_handles_cache_failure(mock_repository, monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_store_plan_activating_deactivates_others_and_handles_error(mock_repository, monkeypatch):
+    """Test store_plan activates plan and propagates repository errors."""
+    sample_plan = _build_sample_plan()
+    mock_repository.create = AsyncMock(side_effect=RuntimeError("db down"))
+    mock_repository.deactivate_plans_for_user = AsyncMock()
+    cache_set = AsyncMock()
+    monkeypatch.setattr(plan_storage_module.cache_service, "set", cache_set)
+
+    service = PlanStorageService(repository=mock_repository)
+    with pytest.raises(RuntimeError):
+        await service.store_plan(sample_plan, plan_id="active-plan", user_id="user-1", activate=True)
+
+    mock_repository.deactivate_plans_for_user.assert_awaited_once()
+    cache_set.assert_not_awaited()
+
+
+@pytest.mark.asyncio
 async def test_get_plan_reads_from_cache(monkeypatch):
     """Test get_plan reads from cache first"""
     sample_plan = _build_sample_plan()
@@ -186,6 +203,46 @@ async def test_get_plan_falls_back_to_db_and_refreshes_cache(mock_repository, mo
 
 
 @pytest.mark.asyncio
+async def test_get_plan_handles_cache_get_error(mock_repository, monkeypatch):
+    """Test get_plan continues when cache get raises an error."""
+    sample_plan = _build_sample_plan()
+    plan_entity = _build_meal_plan_entity(sample_plan.plan_id)
+
+    cache_get = AsyncMock(side_effect=RuntimeError("cache read failed"))
+    cache_set = AsyncMock()
+    mock_repository.get_by_id = AsyncMock(return_value=plan_entity)
+
+    monkeypatch.setattr(plan_storage_module.cache_service, "get", cache_get)
+    monkeypatch.setattr(plan_storage_module.cache_service, "set", cache_set)
+
+    service = PlanStorageService(repository=mock_repository)
+    plan = await service.get_plan(sample_plan.plan_id)
+
+    assert plan is not None
+    cache_set.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_get_plan_handles_cache_set_error(mock_repository, monkeypatch):
+    """Test get_plan logs when cache set fails after repo read."""
+    sample_plan = _build_sample_plan()
+    plan_entity = _build_meal_plan_entity(sample_plan.plan_id)
+
+    cache_get = AsyncMock(return_value=None)
+    cache_set = AsyncMock(side_effect=RuntimeError("cache write failed"))
+    mock_repository.get_by_id = AsyncMock(return_value=plan_entity)
+
+    monkeypatch.setattr(plan_storage_module.cache_service, "get", cache_get)
+    monkeypatch.setattr(plan_storage_module.cache_service, "set", cache_set)
+
+    service = PlanStorageService(repository=mock_repository)
+    plan = await service.get_plan(sample_plan.plan_id)
+
+    assert plan is not None
+    cache_set.assert_awaited_once()
+
+
+@pytest.mark.asyncio
 async def test_get_plan_returns_none_on_missing(mock_repository, monkeypatch):
     """Test get_plan returns None when plan not found - Task 2.1.2"""
     cache_get = AsyncMock(return_value=None)
@@ -198,6 +255,66 @@ async def test_get_plan_returns_none_on_missing(mock_repository, monkeypatch):
 
     assert plan is None
 
+
+@pytest.mark.asyncio
+async def test_set_plan_active_state_activates_plan(mock_repository):
+    """Test activating a plan sets is_active and deactivates others."""
+    sample_plan = _build_meal_plan_entity("plan-1", "user-1")
+    mock_repository.get_by_id = AsyncMock(return_value=sample_plan)
+    mock_repository.update = AsyncMock(return_value=sample_plan)
+    mock_repository.deactivate_plans_for_user = AsyncMock()
+
+    service = PlanStorageService(repository=mock_repository)
+    result = await service.set_plan_active_state("user-1", "plan-1", True)
+
+    assert result is not None
+    assert result.plan_id == "plan-1"
+    mock_repository.deactivate_plans_for_user.assert_awaited_once()
+    mock_repository.update.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_set_plan_active_state_invalid_user(mock_repository):
+    """Test activation returns None when plan is missing or mismatched."""
+    sample_plan = _build_meal_plan_entity("plan-1", "other-user")
+    mock_repository.get_by_id = AsyncMock(return_value=sample_plan)
+
+    service = PlanStorageService(repository=mock_repository)
+    result = await service.set_plan_active_state("user-1", "plan-1", True)
+
+    assert result is None
+
+
+@pytest.mark.asyncio
+async def test_get_user_plans_returns_list(mock_repository):
+    """Test get_user_plans returns MealPlanResponse list with active flag."""
+    plan_entity = _build_meal_plan_entity("plan-1", "user-1")
+    plan_entity.is_active = True
+    mock_repository.get_by_user_id = AsyncMock(return_value=[plan_entity])
+
+    service = PlanStorageService(repository=mock_repository)
+    plans = await service.get_user_plans("user-1", limit=5, offset=0)
+
+    assert len(plans) == 1
+    assert plans[0].plan_id == "plan-1"
+    assert plans[0].is_active
+
+
+@pytest.mark.asyncio
+async def test_get_active_plan_for_user_returns_active_plan(mock_repository):
+    """Test retrieving only the active plan through plan_storage."""
+    sample_plan = _build_sample_plan()
+    plan_entity = _build_meal_plan_entity(sample_plan.plan_id)
+    plan_entity.is_active = True
+
+    mock_repository.get_active_plan_for_user = AsyncMock(return_value=plan_entity)
+
+    service = PlanStorageService(repository=mock_repository)
+    plan = await service.get_active_plan_for_user("user-1")
+
+    assert plan is not None
+    assert plan.plan_id == sample_plan.plan_id
+    assert plan.is_active
 
 @pytest.mark.asyncio
 async def test_update_plan_refreshes_cache_on_success(mock_repository, monkeypatch):

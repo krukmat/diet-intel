@@ -5,8 +5,10 @@ export type HomeActionGroup = 'primary' | 'secondary' | 'tool';
 export interface HomeActionDefinition {
   id: string;
   labelKey: string;
+  subtitleKey?: string;
   group: HomeActionGroup;
   target: string;
+  icon?: string;
   featureFlags?: Array<keyof FeatureToggle>;
   featureMode?: 'any' | 'all';
 }
@@ -15,70 +17,107 @@ export const HOME_ACTIONS: HomeActionDefinition[] = [
   {
     id: 'logMeal',
     labelKey: 'home.actions.logMeal',
+    subtitleKey: 'home.actionSubtitles.logMeal',
     group: 'primary',
     target: 'upload',
+    icon: '📷',
     featureFlags: ['barcodeScanner', 'uploadLabelFeature'],
     featureMode: 'any',
   },
   {
-    id: 'registerMeal',
-    labelKey: 'home.actions.registerMeal',
-    group: 'primary',
-    target: 'meal-log',
-  },
-  {
     id: 'aiPlan',
     labelKey: 'home.actions.aiPlan',
+    subtitleKey: 'home.actionSubtitles.aiPlan',
     group: 'primary',
     target: 'recommendations',
+    icon: '🤖',
     featureFlags: ['mealPlanFeature'],
     featureMode: 'all',
   },
   {
+    id: 'plan',
+    labelKey: 'home.actions.plan',
+    subtitleKey: 'home.actionSubtitles.plan',
+    group: 'primary',
+    target: 'plan',
+    icon: '📋',
+    featureFlags: ['mealPlanFeature'],
+    featureMode: 'all',
+  },
+  {
+    id: 'weight',
+    labelKey: 'home.actions.weight',
+    subtitleKey: 'home.actionSubtitles.weight',
+    group: 'primary',
+    target: 'weight',
+    icon: '⚖️',
+  },
+  {
+    id: 'photos',
+    labelKey: 'home.actions.photos',
+    subtitleKey: 'home.actionSubtitles.photos',
+    group: 'primary',
+    target: 'photos',
+    icon: '🖼️',
+  },
+  {
+    id: 'recipes',
+    labelKey: 'navigation.recipes',
+    subtitleKey: 'home.actionSubtitles.recipes',
+    group: 'secondary',
+    target: 'recipes',
+    icon: '📖',
+  },
+  {
     id: 'progress',
     labelKey: 'home.actions.progress',
-    group: 'primary',
+    subtitleKey: 'home.actionSubtitles.progress',
+    group: 'secondary',
     target: 'track',
+    icon: '📊',
     featureFlags: ['trackingFeature'],
     featureMode: 'all',
   },
   {
-    id: 'explore',
-    labelKey: 'home.actions.explore',
-    group: 'secondary',
-    target: 'discover-feed',
-  },
-  {
     id: 'uploadLabel',
-    labelKey: 'navigation.uploadLabel',
+    labelKey: 'home.actions.uploadLabel',
+    subtitleKey: 'home.actionSubtitles.uploadLabel',
     group: 'secondary',
     target: 'upload',
+    icon: '🏷️',
     featureFlags: ['uploadLabelFeature'],
     featureMode: 'all',
   },
   {
     id: 'vision',
     labelKey: 'navigation.vision',
+    subtitleKey: 'home.actionSubtitles.vision',
     group: 'secondary',
     target: 'vision',
+    icon: '👁️',
   },
   {
-    id: 'recipes',
-    labelKey: 'navigation.recipes',
+    id: 'explore',
+    labelKey: 'home.actions.explore',
+    subtitleKey: 'home.actionSubtitles.explore',
     group: 'secondary',
-    target: 'recipes',
+    target: 'discover-feed',
+    icon: '🌍',
   },
   {
     id: 'profile',
     labelKey: 'home.actions.profile',
+    subtitleKey: 'home.actionSubtitles.profile',
     group: 'secondary',
     target: 'profile',
+    icon: '👤',
   },
   {
     id: 'gamification',
     labelKey: 'home.actions.gamification',
     group: 'tool',
     target: 'rewards',
+    icon: '🏆',
   },
 ];
 
