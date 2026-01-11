@@ -192,8 +192,17 @@ class PlanCustomizerService:
         # Find meal with lowest actual calories to add the item
         target_meal = min(plan.meals, key=lambda m: m.actual_calories)
         
-        # Generate a unique barcode for manual items
-        manual_barcode = f"manual_{datetime.now().strftime('%Y%m%d_%H%M%S_%f')}"
+        manual_barcode = addition.barcode or f"manual_{datetime.now().strftime('%Y%m%d_%H%M%S_%f')}"
+
+        existing_item = None
+        normalized_name = (addition.name or "").strip().lower()
+        for item in target_meal.items:
+            if addition.barcode and item.barcode == addition.barcode:
+                existing_item = item
+                break
+            if normalized_name and item.name.strip().lower() == normalized_name:
+                existing_item = item
+                break
         
         # Create macros
         macros = MealItemMacros(
@@ -204,17 +213,25 @@ class PlanCustomizerService:
             salt_g=addition.salt_g
         )
         
-        # Create new manual item
-        manual_item = MealItem(
-            barcode=manual_barcode,
-            name=addition.name,
-            serving=addition.serving,
-            calories=addition.calories,
-            macros=macros
-        )
-        
-        # Add to target meal
-        target_meal.items.append(manual_item)
+        if existing_item:
+            existing_item.calories += addition.calories
+            existing_item.macros.protein_g += macros.protein_g
+            existing_item.macros.fat_g += macros.fat_g
+            existing_item.macros.carbs_g += macros.carbs_g
+            if existing_item.macros.sugars_g is not None:
+                existing_item.macros.sugars_g += macros.sugars_g or 0.0
+            if existing_item.macros.salt_g is not None:
+                existing_item.macros.salt_g += macros.salt_g or 0.0
+            existing_item.serving = self._merge_servings(existing_item.serving, addition.serving)
+        else:
+            manual_item = MealItem(
+                barcode=manual_barcode,
+                name=addition.name,
+                serving=addition.serving,
+                calories=addition.calories,
+                macros=macros
+            )
+            target_meal.items.append(manual_item)
         
         # Update meal calories
         target_meal.actual_calories = sum(item.calories for item in target_meal.items)
@@ -224,6 +241,20 @@ class PlanCustomizerService:
             description=f"Added manual item {addition.name} ({addition.calories:.0f} kcal)",
             meal_affected=target_meal.name
         ))
+
+    @staticmethod
+    def _merge_servings(existing: str, incoming: str) -> str:
+        existing = (existing or "").strip()
+        incoming = (incoming or "").strip()
+        if not existing:
+            return incoming
+        if not incoming:
+            return existing
+        if existing == incoming:
+            return f"2 x {existing}"
+        if existing.startswith("2 x "):
+            return f"{existing} + {incoming}"
+        return f"{existing} + {incoming}"
     
     async def _apply_calorie_adjustment(self, plan: MealPlanResponse, adjustment: MealCalorieAdjustment,
                                       change_log: List[ChangeLogEntry]) -> None:
@@ -319,6 +350,18 @@ class PlanCustomizerService:
                 logger.error(f"Error deserializing cached product {barcode}: {e}")
         
         if barcode and not barcode.isdigit():
+            try:
+                product = await openfoodfacts_service.search_product_by_name(barcode)
+            except Exception as exc:
+                logger.warning(f"Product search failed for {barcode}: {exc}")
+                product = None
+            if product:
+                try:
+                    await cache_service.set(cache_key, product.model_dump(), ttl=24 * 3600)
+                except Exception as cache_error:
+                    logger.warning(f"Failed to cache product {barcode}: {cache_error}")
+                return product
+
             product = self._get_product_by_name(barcode)
             if product:
                 try:

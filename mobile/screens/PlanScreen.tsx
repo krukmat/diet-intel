@@ -14,9 +14,10 @@ import { StatusBar as ExpoStatusBar } from 'expo-status-bar';
 import { useTranslation } from 'react-i18next';
 import { apiService } from '../services/ApiService';
 import { translateFoodNameSync } from '../utils/foodTranslation';
-import { storeCurrentMealPlanId } from '../utils/mealPlanUtils';
+import { clearCurrentMealPlanId, storeCurrentMealPlanId } from '../utils/mealPlanUtils';
 import { PlanSelectionList, PlanSummary } from '../components/plan/PlanSelectionList';
 import { planScreenStyles as styles } from '../shared/ui/styles';
+import type { NavigationContext } from '../core/navigation/NavigationTypes';
 
 interface UserProfile {
   age: number;
@@ -347,9 +348,15 @@ interface PlanScreenProps {
   onBackPress: () => void;
   onViewPlan?: (planId: string) => void;
   navigateToSmartDiet?: (context?: { planId?: string }) => void;
+  navigationContext?: NavigationContext;
 }
 
-export default function PlanScreen({ onBackPress, onViewPlan, navigateToSmartDiet }: PlanScreenProps) {
+export default function PlanScreen({
+  onBackPress,
+  onViewPlan,
+  navigateToSmartDiet,
+  navigationContext,
+}: PlanScreenProps) {
   const { t } = useTranslation();
   const [dailyPlan, setDailyPlan] = useState<DailyPlan | null>(null);
   const [loading, setLoading] = useState(false);
@@ -434,6 +441,12 @@ export default function PlanScreen({ onBackPress, onViewPlan, navigateToSmartDie
   useEffect(() => {
     fetchDashboard();
   }, [fetchDashboard, currentPlanId]);
+  
+  useEffect(() => {
+    if (!navigationContext) return;
+    fetchPlans();
+    fetchDashboard();
+  }, [navigationContext, fetchDashboard, fetchPlans]);
 
   const togglePlanActive = useCallback(
     async (planId: string, currentlyActive: boolean) => {
@@ -443,8 +456,10 @@ export default function PlanScreen({ onBackPress, onViewPlan, navigateToSmartDie
         const updated = response.data;
         if (updated?.is_active) {
           setCurrentPlanId(updated.plan_id);
+          await storeCurrentMealPlanId(updated.plan_id);
         } else if (currentPlanId === planId) {
           setCurrentPlanId(null);
+          await clearCurrentMealPlanId();
         }
         await fetchPlans();
       } catch (error) {
@@ -452,6 +467,39 @@ export default function PlanScreen({ onBackPress, onViewPlan, navigateToSmartDie
       } finally {
         setPlansLoading(false);
       }
+    },
+    [currentPlanId, fetchPlans, t]
+  );
+
+  const handleDeletePlan = useCallback(
+    (planId: string, isActive: boolean) => {
+      Alert.alert(
+        t('plan.list.deleteConfirmTitle'),
+        t('plan.list.deleteConfirmBody'),
+        [
+          { text: t('common.cancel'), style: 'cancel' },
+          {
+            text: t('common.delete'),
+            style: 'destructive',
+            onPress: async () => {
+              setPlansLoading(true);
+              try {
+                await apiService.deleteMealPlan(planId);
+                if (isActive && currentPlanId === planId) {
+                  setCurrentPlanId(null);
+                  setDailyPlan(null);
+                  await clearCurrentMealPlanId();
+                }
+                await fetchPlans();
+              } catch (error) {
+                Alert.alert(t('common.error'), t('plan.list.deleteError'));
+              } finally {
+                setPlansLoading(false);
+              }
+            },
+          },
+        ]
+      );
     },
     [currentPlanId, fetchPlans, t]
   );
@@ -627,6 +675,7 @@ export default function PlanScreen({ onBackPress, onViewPlan, navigateToSmartDie
         plans={planList}
         loading={plansLoading}
         onToggleActive={togglePlanActive}
+        onDeletePlan={handleDeletePlan}
         onViewPlan={onViewPlan}
       />
 

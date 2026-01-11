@@ -234,6 +234,33 @@ class TestPlanCustomizerService:
         assert len(change_log) == 1
         assert change_log[0].change_type == "add_manual"
         assert "Added manual item" in change_log[0].description
+
+    @pytest.mark.asyncio
+    async def test_manual_addition_merges_duplicate(self, sample_meal_plan):
+        """Test manual addition merges when same item already exists"""
+        customizer = PlanCustomizerService()
+
+        manual_item = ManualAddition(
+            name="Test Oatmeal",
+            calories=100.0,
+            protein_g=5.0,
+            fat_g=2.0,
+            carbs_g=15.0,
+            serving="50g"
+        )
+
+        add_request = PlanCustomizationRequest(add_manual=manual_item)
+        updated_plan, change_log = await customizer.customize_plan(sample_meal_plan, add_request)
+
+        assert len(updated_plan.meals[0].items) == 1
+        merged_item = updated_plan.meals[0].items[0]
+        assert merged_item.name == "Test Oatmeal"
+        assert merged_item.calories == 275.0
+        assert merged_item.macros.protein_g == 13.5
+        assert merged_item.serving == "2 x 50g"
+
+        assert len(change_log) == 1
+        assert change_log[0].change_type == "add_manual"
     
     @pytest.mark.asyncio
     async def test_calorie_adjustment_success(self, sample_meal_plan):

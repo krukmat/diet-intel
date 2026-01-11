@@ -10,6 +10,7 @@ logger = logging.getLogger(__name__)
 
 class OpenFoodFactsService:
     BASE_URL = "https://world.openfoodfacts.org/api/v0/product"
+    SEARCH_URL = "https://world.openfoodfacts.org/cgi/search.pl"
     TIMEOUT = 10.0
     
     def __init__(self):
@@ -55,6 +56,55 @@ class OpenFoodFactsService:
             logger.error(f"Unexpected error calling OpenFoodFacts API after {latency:.3f}s for barcode {barcode}: {e}")
             # For non-network errors (like JSON parsing), return None to indicate "not found"
             # rather than propagating the exception
+            return None
+
+    async def search_product_by_name(self, name: str) -> Optional[ProductResponse]:
+        if not self.enable_network:
+            return None
+
+        cleaned = (name or "").strip()
+        if not cleaned:
+            return None
+
+        params = {
+            "search_terms": cleaned,
+            "search_simple": 1,
+            "action": "process",
+            "json": 1,
+            "page_size": 1,
+        }
+
+        start_time = datetime.now()
+        try:
+            response = await self.client.get(self.SEARCH_URL, params=params)
+            latency = (datetime.now() - start_time).total_seconds()
+            logger.info(f"OpenFoodFacts search latency: {latency:.3f}s for query: {cleaned}")
+
+            if response.status_code != 200:
+                logger.warning(f"OpenFoodFacts search status {response.status_code} for query: {cleaned}")
+                return None
+
+            data = response.json()
+            products = data.get("products") or []
+            for product in products:
+                barcode = product.get("code")
+                if not barcode:
+                    continue
+                return await self.get_product(str(barcode))
+
+            logger.info(f"No OpenFoodFacts search results for query: {cleaned}")
+            return None
+        except httpx.TimeoutException:
+            latency = (datetime.now() - start_time).total_seconds()
+            logger.error(f"Timeout calling OpenFoodFacts search after {latency:.3f}s for query: {cleaned}")
+            raise
+        except httpx.RequestError as e:
+            latency = (datetime.now() - start_time).total_seconds()
+            logger.error(f"Network error calling OpenFoodFacts search after {latency:.3f}s: {e}")
+            raise
+        except Exception as e:
+            latency = (datetime.now() - start_time).total_seconds()
+            logger.error(f"Unexpected error calling OpenFoodFacts search after {latency:.3f}s for query {cleaned}: {e}")
             return None
     
     def _map_to_product_response(self, product_data: dict, barcode: str) -> ProductResponse:

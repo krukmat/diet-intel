@@ -138,6 +138,7 @@ class RemoveOperation(BaseModel):
 
 
 class ManualAddition(BaseModel):
+    barcode: Optional[str] = Field(default=None, description="Barcode of item when available")
     name: str = Field(..., description="Name of manual item")
     calories: float = Field(..., ge=0, description="Calories for the item")
     protein_g: float = Field(default=0.0, ge=0, description="Protein in grams")

@@ -103,7 +103,11 @@
       "empty": "No hay planes guardados",
       "view": "Ver",
       "activate": "Activar",
-      "deactivate": "Activo • Desactivar"
+      "deactivate": "Activo • Desactivar",
+      "delete": "Eliminar",
+      "deleteConfirmTitle": "¿Eliminar plan?",
+      "deleteConfirmBody": "Esta accion no se puede deshacer.",
+      "deleteError": "No se pudo eliminar el plan."
     },
     "optimize": {
       "button": "Optimizar plan activo",

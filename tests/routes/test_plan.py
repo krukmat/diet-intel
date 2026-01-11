@@ -562,7 +562,9 @@ def test_extract_error_message_from_log():
 
 @pytest.mark.asyncio
 async def test_get_user_meal_plan_invalid_data():
-    with patch("app.routes.plan.MealPlanRepository.get_by_user_id", new_callable=AsyncMock) as mock_get_plans:
-        mock_get_plans.return_value = [SimpleNamespace(id=None)]
-        with pytest.raises(HTTPException):
-            await _get_user_meal_plan("user-1")
+    with patch("app.routes.plan.MealPlanRepository.get_active_plan_for_user", new_callable=AsyncMock) as mock_get_active:
+        with patch("app.routes.plan.MealPlanRepository.get_by_user_id", new_callable=AsyncMock) as mock_get_plans:
+            mock_get_active.return_value = None
+            mock_get_plans.return_value = [SimpleNamespace(id=None)]
+            with pytest.raises(HTTPException):
+                await _get_user_meal_plan("user-1")

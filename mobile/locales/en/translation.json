@@ -103,7 +103,11 @@
       "empty": "No saved plans yet",
       "view": "View",
       "activate": "Activate",
-      "deactivate": "Active • Deactivate"
+      "deactivate": "Active • Deactivate",
+      "delete": "Delete",
+      "deleteConfirmTitle": "Delete plan?",
+      "deleteConfirmBody": "This action cannot be undone.",
+      "deleteError": "Failed to delete the plan."
     },
     "optimize": {
       "button": "Optimize active plan",

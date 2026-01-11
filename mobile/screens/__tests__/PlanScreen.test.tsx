@@ -19,6 +19,7 @@ jest.mock('../../services/ApiService', () => ({
 
 jest.mock('../../utils/mealPlanUtils', () => ({
   storeCurrentMealPlanId: jest.fn(() => Promise.resolve()),
+  clearCurrentMealPlanId: jest.fn(() => Promise.resolve()),
 }));
 
 jest.mock('../../utils/foodTranslation', () => ({

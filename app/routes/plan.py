@@ -419,6 +419,10 @@ async def _get_user_meal_plan(user_id: str):
     Returns: (plan_id, AddProductResponse or None)
     """
     meal_plan_repo = MealPlanRepository()
+    active_plan = await meal_plan_repo.get_active_plan_for_user(user_id)
+    if active_plan and active_plan.id:
+        return active_plan.id, None
+
     user_plans = await meal_plan_repo.get_by_user_id(user_id, limit=1)
 
     # Guard clause: no plans found
@@ -563,6 +567,7 @@ async def add_product_to_plan(request: AddProductRequest, req: Request):
 
         # Convert to ManualAddition format
         manual_item = ManualAddition(
+            barcode=getattr(product, 'barcode', None),
             name=getattr(product, 'name', None) or getattr(product, 'product_name', 'Unknown Product'),
             calories=calories_per_100g,
             protein_g=nutrition_dict['protein_g'],

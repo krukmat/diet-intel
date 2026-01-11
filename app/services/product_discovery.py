@@ -17,6 +17,60 @@ from app.services.cache import cache_service
 
 logger = logging.getLogger(__name__)
 
+FALLBACK_PRODUCT_DATA = [
+    {
+        "barcode": "0000000000001",
+        "source": "Fallback",
+        "name": "Banana",
+        "brand": "DietIntel",
+        "categories": "fruit",
+        "serving_size": "120g",
+        "image_url": None,
+        "nutriments": {
+            "energy_kcal_per_100g": 89.0,
+            "protein_g_per_100g": 1.1,
+            "fat_g_per_100g": 0.3,
+            "carbs_g_per_100g": 22.8,
+            "sugars_g_per_100g": 12.2,
+            "salt_g_per_100g": 0.0,
+        },
+    },
+    {
+        "barcode": "0000000000002",
+        "source": "Fallback",
+        "name": "Plain Greek Yogurt",
+        "brand": "DietIntel",
+        "categories": "dairy",
+        "serving_size": "170g",
+        "image_url": None,
+        "nutriments": {
+            "energy_kcal_per_100g": 97.0,
+            "protein_g_per_100g": 10.0,
+            "fat_g_per_100g": 0.4,
+            "carbs_g_per_100g": 3.6,
+            "sugars_g_per_100g": 3.6,
+            "salt_g_per_100g": 0.1,
+        },
+    },
+    {
+        "barcode": "0000000000003",
+        "source": "Fallback",
+        "name": "Brown Rice",
+        "brand": "DietIntel",
+        "categories": "grain",
+        "serving_size": "100g",
+        "image_url": None,
+        "nutriments": {
+            "energy_kcal_per_100g": 362.0,
+            "protein_g_per_100g": 7.9,
+            "fat_g_per_100g": 2.9,
+            "carbs_g_per_100g": 72.9,
+            "sugars_g_per_100g": 0.7,
+            "salt_g_per_100g": 0.0,
+        },
+    },
+]
+
 
 class ProductDiscoveryService:
     """

@@ -36,10 +36,11 @@ const renderUpload: ScreenRenderer = ({ setCurrentScreen }) => (
   <UploadLabel onBackPress={() => setCurrentScreen('scanner')} />
 );
 
-const renderPlan: ScreenRenderer = ({ setCurrentScreen, navigateToScreen }) => (
+const renderPlan: ScreenRenderer = ({ setCurrentScreen, navigateToScreen, navigationContext }) => (
   <PlanScreen
     onBackPress={() => setCurrentScreen('scanner')}
     onViewPlan={(planId: string) => navigateToScreen('plan-detail', { planId })}
+    navigationContext={navigationContext}
     navigateToSmartDiet={(context?: any) =>
       navigateToScreen('recommendations', {
         targetContext: 'optimize',

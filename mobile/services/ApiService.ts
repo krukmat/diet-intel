@@ -253,6 +253,10 @@ class ApiService {
     return this.put(`/plan/${planId}/activate`, { is_active: isActive });
   }
 
+  public async deleteMealPlan(planId: string) {
+    return this.delete(`/plan/${planId}`);
+  }
+
   // Tracking endpoints - FASE 4.2
   public async getDashboard(): Promise<AxiosResponse<DashboardData>> {
     return this.get<DashboardData>('/track/dashboard');

@@ -13,6 +13,7 @@ interface PlanSelectionListProps {
   plans: PlanSummary[];
   loading?: boolean;
   onToggleActive: (planId: string, isActive: boolean) => void;
+  onDeletePlan?: (planId: string, isActive: boolean) => void;
   onViewPlan?: (planId: string) => void;
 }
 
@@ -20,6 +21,7 @@ export const PlanSelectionList: React.FC<PlanSelectionListProps> = ({
   plans,
   loading = false,
   onToggleActive,
+  onDeletePlan,
   onViewPlan,
 }) => {
   const { t } = useTranslation();
@@ -62,6 +64,14 @@ export const PlanSelectionList: React.FC<PlanSelectionListProps> = ({
                     onPress={() => onViewPlan(plan.planId)}
                   >
                     <Text style={[styles.toggleText, styles.viewButtonText]}>{t('plan.list.view')}</Text>
+                  </TouchableOpacity>
+                )}
+                {onDeletePlan && (
+                  <TouchableOpacity
+                    style={[styles.actionButton, styles.deleteButton]}
+                    onPress={() => onDeletePlan(plan.planId, isActive)}
+                  >
+                    <Text style={[styles.toggleText, styles.deleteButtonText]}>{t('plan.list.delete')}</Text>
                   </TouchableOpacity>
                 )}
                 <TouchableOpacity
@@ -172,5 +182,12 @@ const styles = StyleSheet.create({
   },
   viewButtonText: {
     color: '#3B4CCA',
+  },
+  deleteButton: {
+    borderColor: '#F4C7C7',
+    backgroundColor: '#FFF2F2',
+  },
+  deleteButtonText: {
+    color: '#C62828',
   },
 });

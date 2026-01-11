@@ -31,6 +31,7 @@ describe('PlanScreenContainer', () => {
       {
         onBackPress,
         navigateToSmartDiet,
+        navigationContext: undefined,
       },
       {}
     );

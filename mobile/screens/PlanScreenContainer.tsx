@@ -4,16 +4,21 @@ import PlanScreen from './PlanScreen';
 interface PlanScreenContainerProps {
   onBackPress: () => void;
   navigateToSmartDiet?: (context?: { planId?: string }) => void;
+  navigationContext?: {
+    [key: string]: any;
+  };
 }
 
 export default function PlanScreenContainer({
   onBackPress,
   navigateToSmartDiet,
+  navigationContext,
 }: PlanScreenContainerProps) {
   return (
     <PlanScreen
       onBackPress={onBackPress}
       navigateToSmartDiet={navigateToSmartDiet}
+      navigationContext={navigationContext}
     />
   );
 }
