@@ -42,9 +42,7 @@ const renderCameraSection = ({
           style={styles.camera}
         />
         <View style={styles.scanOverlay}>
-          <View style={styles.scanFrame}>
-            <Text style={styles.scanText}>Position barcode in frame</Text>
-          </View>
+          {/* Scan frame removed - scanner still functional without visual guide */}
         </View>
         <TouchableOpacity style={styles.closeCameraButton} onPress={onStopCamera}>
           <Text style={styles.closeCameraText}>✕ Close Camera</Text>
@@ -138,28 +136,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
   },
-  scanFrame: {
-    width: 300,
-    height: 200,
-    borderWidth: 3,
-    borderColor: '#007AFF',
-    borderRadius: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0,123,255,0.1)',
-    marginBottom: 30,
-    padding: 20,
-  },
-  scanText: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: '600',
-    textAlign: 'center',
-    backgroundColor: 'rgba(0,0,0,0.7)',
-    paddingHorizontal: 15,
-    paddingVertical: 8,
-    borderRadius: 10,
-  },
+
   cameraButton: {
     backgroundColor: '#007AFF',
     paddingVertical: 15,
@@ -178,6 +155,10 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     textAlign: 'center',
+  },
+  buttonDisabled: {
+    backgroundColor: '#BDC3C7',
+    shadowColor: 'transparent',
   },
   footer: {
     backgroundColor: 'rgba(0,0,0,0.95)',
