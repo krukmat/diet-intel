@@ -9,9 +9,7 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { ProfileProvider } from './contexts/ProfileContext';
 import { GamificationProvider } from './contexts/GamificationContext';
 import HomeDashboard from './components/HomeDashboard';
-import ScannerExperience from './components/ScannerExperience';
 import { useHomeActions } from './hooks/useHomeActions';
-import { useBarcodeFlow } from './hooks/useBarcodeFlow';
 import { useHomeHero } from './hooks/useHomeHero';
 import { useNotifications } from './hooks/useNotifications';
 import { resolveScreenTarget } from './core/navigation/ScreenRegistry';
@@ -106,18 +104,6 @@ function MainApp({ user, onLogout }: { user: any; onLogout: () => void }) {
   // Debug logging
   console.log('Current screen:', currentScreen);
   
-  const {
-    hasPermission,
-    scanned,
-    showCamera,
-    currentProduct,
-    showProductDetail,
-    handleBarCodeScanned,
-    startCamera,
-    stopCamera,
-    closeProductDetail,
-  } = useBarcodeFlow(t);
-
   // Navigation helper for cross-feature navigation
   const navigateToScreen = (screen: ScreenType, context?: NavigationContext) => {
     setCurrentScreen(screen);
@@ -138,27 +124,18 @@ function MainApp({ user, onLogout }: { user: any; onLogout: () => void }) {
       setDeveloperConfig(developerSettingsService.getDeveloperConfig());
       setFeatureToggles(developerSettingsService.getFeatureToggles());
     };
-    
+
     initializeDeveloperSettings();
-    
+
     // Subscribe to developer settings changes
     const unsubscribeConfig = developerSettingsService.subscribeToConfigChanges(setDeveloperConfig);
     const unsubscribeFeatures = developerSettingsService.subscribeToFeatureChanges(setFeatureToggles);
-    
+
     return () => {
       unsubscribeConfig();
       unsubscribeFeatures();
     };
   }, []);
-
-  if (showProductDetail && currentProduct) {
-    return (
-      <ProductDetail 
-        product={currentProduct} 
-        onClose={closeProductDetail} 
-      />
-    );
-  }
   const routedScreen = renderScreen({
     currentScreen,
     navigationContext,
@@ -203,16 +180,6 @@ function MainApp({ user, onLogout }: { user: any; onLogout: () => void }) {
         onShowDeveloperSettings={() => setShowDeveloperSettings(true)}
         onShowNotifications={() => setShowReminders(true)}
         onShowLanguageSwitcher={() => setShowLanguageSwitcher(true)}
-      />
-
-      <ScannerExperience
-        t={t}
-        hasPermission={hasPermission}
-        showCamera={showCamera}
-        scanned={scanned}
-        onStartCamera={startCamera}
-        onStopCamera={stopCamera}
-        onBarcodeScanned={handleBarCodeScanned}
       />
 
       <HomeModals

@@ -3,7 +3,6 @@ import { render, fireEvent } from '@testing-library/react-native';
 import App from '../App';
 
 const mockUseAuth = jest.fn();
-const mockUseBarcodeFlow = jest.fn();
 const mockRenderScreen = jest.fn();
 const mockResolveScreenTarget = jest.fn();
 
@@ -55,9 +54,7 @@ jest.mock('../hooks/useHomeHero', () => ({
   }),
 }));
 
-jest.mock('../hooks/useBarcodeFlow', () => ({
-  useBarcodeFlow: () => mockUseBarcodeFlow(),
-}));
+
 
 jest.mock('../hooks/useNotifications', () => ({
   useNotifications: jest.fn(),
@@ -74,10 +71,6 @@ jest.mock('../core/navigation/legacyRouter', () => ({
 jest.mock('../components/HomeDashboard', () => {
   const { Text } = require('react-native');
   return () => <Text>HomeDashboard</Text>;
-});
-jest.mock('../components/ScannerExperience', () => {
-  const { Text } = require('react-native');
-  return () => <Text>ScannerExperience</Text>;
 });
 jest.mock('../components/ProductDetail', () => {
   const { Text } = require('react-native');
@@ -119,22 +112,6 @@ describe('App', () => {
   });
 
   it('renders login and navigates to register', () => {
-    mockUseBarcodeFlow.mockReturnValue({
-      manualBarcode: '',
-      setManualBarcode: jest.fn(),
-      loading: false,
-      hasPermission: true,
-      scanned: false,
-      showCamera: false,
-      currentProduct: null,
-      showProductDetail: false,
-      handleBarCodeScanned: jest.fn(),
-      handleSubmit: jest.fn(),
-      resetInput: jest.fn(),
-      startCamera: jest.fn(),
-      stopCamera: jest.fn(),
-      closeProductDetail: jest.fn(),
-    });
     mockRenderScreen.mockReturnValue(null);
     mockResolveScreenTarget.mockImplementation((target: string) => target);
     mockUseAuth.mockReturnValue({
@@ -152,22 +129,6 @@ describe('App', () => {
   });
 
   it('renders main app when authenticated', () => {
-    mockUseBarcodeFlow.mockReturnValue({
-      manualBarcode: '',
-      setManualBarcode: jest.fn(),
-      loading: false,
-      hasPermission: true,
-      scanned: false,
-      showCamera: false,
-      currentProduct: null,
-      showProductDetail: false,
-      handleBarCodeScanned: jest.fn(),
-      handleSubmit: jest.fn(),
-      resetInput: jest.fn(),
-      startCamera: jest.fn(),
-      stopCamera: jest.fn(),
-      closeProductDetail: jest.fn(),
-    });
     mockRenderScreen.mockReturnValue(null);
     mockResolveScreenTarget.mockImplementation((target: string) => target);
     mockUseAuth.mockReturnValue({
@@ -184,22 +145,6 @@ describe('App', () => {
   });
 
   it('falls back to login after splash completes', () => {
-    mockUseBarcodeFlow.mockReturnValue({
-      manualBarcode: '',
-      setManualBarcode: jest.fn(),
-      loading: false,
-      hasPermission: true,
-      scanned: false,
-      showCamera: false,
-      currentProduct: null,
-      showProductDetail: false,
-      handleBarCodeScanned: jest.fn(),
-      handleSubmit: jest.fn(),
-      resetInput: jest.fn(),
-      startCamera: jest.fn(),
-      stopCamera: jest.fn(),
-      closeProductDetail: jest.fn(),
-    });
     mockRenderScreen.mockReturnValue(null);
     mockResolveScreenTarget.mockImplementation((target: string) => target);
     mockUseAuth.mockReturnValue({
@@ -217,55 +162,9 @@ describe('App', () => {
     expect(getByText('LoginScreen')).toBeTruthy();
   });
 
-  it('renders product detail when barcode flow has product', () => {
-    mockUseBarcodeFlow.mockReturnValue({
-      manualBarcode: '',
-      setManualBarcode: jest.fn(),
-      loading: false,
-      hasPermission: true,
-      scanned: false,
-      showCamera: false,
-      currentProduct: { id: '1' },
-      showProductDetail: true,
-      handleBarCodeScanned: jest.fn(),
-      handleSubmit: jest.fn(),
-      resetInput: jest.fn(),
-      startCamera: jest.fn(),
-      stopCamera: jest.fn(),
-      closeProductDetail: jest.fn(),
-    });
-    mockRenderScreen.mockReturnValue(null);
-    mockResolveScreenTarget.mockImplementation((target: string) => target);
-    mockUseAuth.mockReturnValue({
-      user: { full_name: 'Test' },
-      isLoading: false,
-      isAuthenticated: true,
-      login: jest.fn(),
-      register: jest.fn(),
-      logout: jest.fn(),
-    });
 
-    const { getByText } = render(<App />);
-    expect(getByText('ProductDetail')).toBeTruthy();
-  });
 
   it('renders routed screens when provided', () => {
-    mockUseBarcodeFlow.mockReturnValue({
-      manualBarcode: '',
-      setManualBarcode: jest.fn(),
-      loading: false,
-      hasPermission: true,
-      scanned: false,
-      showCamera: false,
-      currentProduct: null,
-      showProductDetail: false,
-      handleBarCodeScanned: jest.fn(),
-      handleSubmit: jest.fn(),
-      resetInput: jest.fn(),
-      startCamera: jest.fn(),
-      stopCamera: jest.fn(),
-      closeProductDetail: jest.fn(),
-    });
     mockResolveScreenTarget.mockImplementation((target: string) => target);
     mockRenderScreen.mockReturnValue(<></>);
     mockUseAuth.mockReturnValue({
