@@ -31,6 +31,7 @@ interface MockApiService {
   put: jest.Mock;
   delete: jest.Mock;
   patch: jest.Mock;
+  createWeightEntry?: jest.Mock;
   generateSmartRecommendations: jest.Mock;
   addProductToPlan: jest.Mock;
   recordSmartDietFeedback: jest.Mock;

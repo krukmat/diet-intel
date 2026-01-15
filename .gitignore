@@ -37,3 +37,4 @@ manual-user-tests.md
 server.log
 docs/reporte_error_recompensas.md
 mobile/.expo/*
+mobile/coverage-failing-tests/*
