@@ -218,7 +218,8 @@ const styles = StyleSheet.create({
   navigationSection: {
     backgroundColor: 'white',
     paddingHorizontal: 16,
-    paddingVertical: 16,
+    paddingVertical: 24,
+    marginTop: 8,
     flexDirection: 'column',
     borderBottomWidth: 1,
     borderBottomColor: '#E0E0E0',
