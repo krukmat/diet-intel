@@ -10,6 +10,7 @@ module.exports = {
     '@typescript-eslint',
     'react',
     'react-native',
+    'complexity',
   ],
   rules: {
     // Reglas básicas para consistencia según last_sprint.md
@@ -20,5 +21,7 @@ module.exports = {
     'react-native/no-unused-styles': 'warn',
     'react-native/split-platform-components': 'off',
     '@typescript-eslint/no-explicit-any': 'warn',
+    // Análisis de complejidad ciclomática
+    'complexity': ['warn', 10],
   },
 };
