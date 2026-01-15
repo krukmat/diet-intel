@@ -13,18 +13,10 @@ const baseToggles: FeatureToggle = {
 describe('homeActions config', () => {
   it('returns primary actions when toggles allow', () => {
     const actions = getHomeActions('primary', baseToggles).map(action => action.id);
-    expect(actions).toEqual(expect.arrayContaining(['logMeal', 'aiPlan', 'plan']));
+    expect(actions).toEqual(expect.arrayContaining(['aiPlan', 'plan', 'weight', 'photos']));
   });
 
-  it('hides logMeal when both scanner and upload are disabled', () => {
-    const toggles: FeatureToggle = {
-      ...baseToggles,
-      barcodeScanner: false,
-      uploadLabelFeature: false,
-    };
-    const actions = getHomeActions('primary', toggles).map(action => action.id);
-    expect(actions).not.toContain('logMeal');
-  });
+
 
   it('hides aiPlan when meal plan is disabled', () => {
     const toggles: FeatureToggle = { ...baseToggles, mealPlanFeature: false };
