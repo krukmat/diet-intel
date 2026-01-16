@@ -2,6 +2,69 @@
  * Test setup file with comprehensive mocking for React Native/Expo components
  */
 
+// Mock AuthService BEFORE any other imports to prevent initialization issues
+jest.mock('../services/AuthService', () => ({
+  authService: {
+    registerUser: jest.fn(),
+    loginUser: jest.fn(),
+    logoutUser: jest.fn(),
+    getToken: jest.fn(),
+    saveToken: jest.fn(),
+    removeToken: jest.fn(),
+    clearTokens: jest.fn(),
+    isAuthenticated: jest.fn(),
+    setEnvironment: jest.fn(),
+  },
+}));
+
+// Mock SyncManager to prevent auto-start in tests
+jest.mock('../services/SyncManager', () => ({
+  syncManager: {
+    startAutoSync: jest.fn(),
+    stopAutoSync: jest.fn(),
+    cleanupForTests: jest.fn(),
+    addStatusListener: jest.fn(),
+    removeStatusListener: jest.fn(),
+    getStatus: jest.fn(() => ({
+      isOnline: true,
+      lastSync: null,
+      pendingChanges: 0,
+      errors: [],
+      conflicts: []
+    })),
+    updateConfig: jest.fn(),
+    clearSyncQueue: jest.fn(),
+    performSync: jest.fn(),
+    queueRecipeChange: jest.fn(() => Promise.resolve()),
+    forcePullFromServer: jest.fn(() => Promise.reject(new Error('Cannot pull from server while offline'))),
+    forcePushToServer: jest.fn(() => Promise.reject(new Error('Cannot push to server while offline'))),
+    resolveManualConflict: jest.fn(() => Promise.resolve()),
+  },
+  SyncManager: {
+    getInstance: jest.fn(() => ({
+      startAutoSync: jest.fn(),
+      stopAutoSync: jest.fn(),
+      cleanupForTests: jest.fn(),
+      addStatusListener: jest.fn(),
+      removeStatusListener: jest.fn(),
+      getStatus: jest.fn(() => ({
+        isOnline: true,
+        lastSync: null,
+        pendingChanges: 0,
+        errors: [],
+        conflicts: []
+      })),
+      updateConfig: jest.fn(),
+      clearSyncQueue: jest.fn(),
+      performSync: jest.fn(),
+      queueRecipeChange: jest.fn(() => Promise.resolve()),
+      forcePullFromServer: jest.fn(() => Promise.reject(new Error('Cannot pull from server while offline'))),
+      forcePushToServer: jest.fn(() => Promise.reject(new Error('Cannot push to server while offline'))),
+      resolveManualConflict: jest.fn(() => Promise.resolve()),
+    })),
+  },
+}));
+
 // Mock expo-camera completely to avoid native module errors
 jest.mock('expo-camera', () => {
   const React = require('react');
@@ -694,10 +757,18 @@ global.clearInterval = ((intervalId: any) => {
 const globalTestCleanup = () => {
   // Clean up any remaining timers
   for (const timeoutId of activeTimeouts) {
-    originalClearTimeout(timeoutId);
+    try {
+      originalClearTimeout(timeoutId);
+    } catch (error) {
+      // Ignore errors during cleanup
+    }
   }
   for (const intervalId of activeIntervals) {
-    originalClearInterval(intervalId);
+    try {
+      originalClearInterval(intervalId);
+    } catch (error) {
+      // Ignore errors during cleanup
+    }
   }
   activeTimeouts.clear();
   activeIntervals.clear();
@@ -712,6 +783,13 @@ const globalTestCleanup = () => {
     // Ignore errors during cleanup
   }
 };
+
+// Add global afterEach for automatic cleanup
+if (typeof afterEach === 'function') {
+  afterEach(() => {
+    globalTestCleanup();
+  });
+}
 
 // Note: Removed global hook setup to prevent "Hooks cannot be defined inside tests" error
 // Tests should handle their own cleanup if needed

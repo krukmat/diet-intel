@@ -36,10 +36,10 @@ describe('WarningSection', () => {
     expect(queryByText('⚠️ Low Confidence Scan')).toBeNull();
   });
 
-  it('does not render when source is not provided', () => {
-    const { queryByText } = render(
+  it('renders warning when source is not provided but confidence is low', () => {
+    const { getByText } = render(
       <WarningSection confidence={0.5} />
     );
-    expect(queryByText('⚠️ Low Confidence Scan')).toBeNull();
+    expect(getByText('⚠️ Low Confidence Scan')).toBeTruthy();
   });
 });

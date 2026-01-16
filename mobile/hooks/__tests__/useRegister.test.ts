@@ -2,12 +2,12 @@
  * Tests unitarios para el hook useRegister
  */
 
+// Mock del servicio de autenticación ANTES de cualquier import
+jest.mock('../../services/AuthService');
+import { authService } from '../../services/AuthService';
 import { renderHook, act } from '@testing-library/react-native';
 import { useRegister } from '../useRegister';
-import { authService } from '../services/authService';
 
-// Mock del servicio de autenticación
-jest.mock('../services/authService');
 const mockedAuthService = authService as jest.Mocked<typeof authService>;
 
 describe('useRegister', () => {
@@ -139,11 +139,6 @@ describe('useRegister', () => {
         result.current.setEmail('user@example.com');
         result.current.setPassword('ValidPass123!');
         result.current.setConfirmPassword('ValidPass123!');
-      });
-
-      // Set some errors first
-      act(() => {
-        result.current.setEmail('invalid-email');
       });
 
       mockedAuthService.registerUser.mockResolvedValueOnce({

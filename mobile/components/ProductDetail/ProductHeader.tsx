@@ -31,7 +31,7 @@ export const ProductHeader: React.FC<ProductHeaderProps> = ({
           </TouchableOpacity>
         )}
       </View>
-      {source !== 'Product Database' && (
+      {source && source !== 'Product Database' && (
         <Text style={styles.sourceText}>
           Source: {source}
           {confidence &&

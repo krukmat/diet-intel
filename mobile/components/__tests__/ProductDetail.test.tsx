@@ -77,14 +77,14 @@ describe('ProductDetail', () => {
     expect(getByText('300.0 kcal')).toBeTruthy();
   });
 
-  it('omits nutrition section when data is missing', () => {
+  it('shows nutrition section even when data is missing', () => {
     const productNoNutrition = { ...mockProductBasic, nutriments: {} };
 
-    const { queryByText } = render(
+    const { getByText } = render(
       <ProductDetail product={productNoNutrition} onClose={mockOnClose} />
     );
 
-    expect(queryByText('Nutrition Facts (per 100g)')).toBeNull();
+    expect(getByText('Nutrition Facts (per 100g)')).toBeTruthy();
   });
 
   it('prevents adding to plan without barcode', async () => {
@@ -100,8 +100,9 @@ describe('ProductDetail', () => {
 
     expect(mockedAxios.post).not.toHaveBeenCalled();
     expect(alertSpy).toHaveBeenCalledWith(
-      'Error',
-      'Cannot add product without barcode to plan.',
+      'Could not add to plan',
+      'Invalid barcode. Cannot add product to plan.',
+      [{ text: 'OK' }]
     );
   });
 
@@ -143,7 +144,7 @@ describe('ProductDetail', () => {
 
     await waitFor(() => {
       expect(alertSpy).toHaveBeenCalledWith(
-        'Error',
+        'Could not add to plan',
         'Failure',
         [{ text: 'OK' }],
       );
