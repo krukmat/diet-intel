@@ -3,7 +3,7 @@
  */
 
 import { useState } from 'react';
-import { authService, RegisterResult } from '../services/authService';
+import { authService, RegisterResult } from '../services/AuthService';
 import { validateRegistrationForm, FormValidationResult } from '../utils/formValidators';
 
 export interface UseRegisterResult {
