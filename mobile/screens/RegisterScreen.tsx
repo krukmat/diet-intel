@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import { StatusBar as ExpoStatusBar } from 'expo-status-bar';
 import { RegisterData } from '../types/auth';
-import { registerScreenStyles as styles } from './styles/RegisterScreen.styles';
+import { registerScreenStyles as styles } from '../components/styles/RegisterScreen.styles';
 
 interface RegisterScreenProps {
   onRegister: (data: RegisterData) => Promise<void>;
