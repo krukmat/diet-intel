@@ -3,7 +3,7 @@
  */
 
 import { useState } from 'react';
-import { AuthService, RegisterResult } from '../services/AuthService';
+import { authService, RegisterResult } from '../services/authService';
 import { validateRegistrationForm, FormValidationResult } from '../utils/formValidators';
 
 export interface UseRegisterResult {
@@ -66,7 +66,7 @@ export const useRegister = (): UseRegisterResult => {
 
     try {
       // Llamar al servicio de autenticación
-      const result = await AuthService.registerUser(email, password);
+      const result = await authService.registerUser(email, password);
 
       // Si fue exitoso, limpiar el formulario
       if (result.success) {

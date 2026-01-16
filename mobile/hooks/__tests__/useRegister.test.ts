@@ -4,11 +4,11 @@
 
 import { renderHook, act } from '@testing-library/react-native';
 import { useRegister } from '../useRegister';
-import { AuthService } from '../../services/AuthService';
+import { authService } from '../services/authService';
 
 // Mock del servicio de autenticación
-jest.mock('../../services/AuthService');
-const mockedAuthService = AuthService as jest.Mocked<typeof AuthService>;
+jest.mock('../services/authService');
+const mockedAuthService = authService as jest.Mocked<typeof authService>;
 
 describe('useRegister', () => {
   beforeEach(() => {

@@ -1,0 +1,1798 @@
+
+> dietintel-mobile@1.0.0 test
+> jest --watchAll=false --runInBand --detectOpenHandles
+
+FAIL components/__tests__/ProductDetail.test.tsx
+  ● ProductDetail › omits nutrition section when data is missing
+
+    expect(received).toBeNull()
+
+    Received: {"_fiber": {"_debugHookTypes": null, "_debugNeedsRemount": false, "_debugOwner": [FiberNode], "_debugSource": null, "actualDuration": 0, "actualStartTime": -1, "alternate": null, "child": [FiberNode], "childLanes": 0, "deletions": null, "dependencies": null, "elementType": "div", "flags": 0, "index": 0, "key": null, "lanes": 0, "memoizedProps": [Object], "memoizedState": null, "mode": 0, "pendingProps": [Object], "ref": null, "return": [FiberNode], "selfBaseDuration": 0, "sibling": null, "stateNode": [Object], "subtreeFlags": 0, "tag": 5, "treeBaseDuration": 0, "type": "div", "updateQueue": null}}
+
+      85 |     );
+      86 |
+    > 87 |     expect(queryByText('Nutrition Facts (per 100g)')).toBeNull();
+         |                                                       ^
+      88 |   });
+      89 |
+      90 |   it('prevents adding to plan without barcode', async () => {
+
+      at Object.toBeNull (components/__tests__/ProductDetail.test.tsx:87:55)
+
+  ● ProductDetail › prevents adding to plan without barcode
+
+    expect(jest.fn()).toHaveBeenCalledWith(...expected)
+
+    Expected: "Error", "Cannot add product without barcode to plan."
+    Received: "Could not add to plan", "Invalid barcode. Cannot add product to plan.", [{"text": "OK"}]
+
+    Number of calls: 1
+
+      100 |
+      101 |     expect(mockedAxios.post).not.toHaveBeenCalled();
+    > 102 |     expect(alertSpy).toHaveBeenCalledWith(
+          |                      ^
+      103 |       'Error',
+      104 |       'Cannot add product without barcode to plan.',
+      105 |     );
+
+      at Object.toHaveBeenCalledWith (components/__tests__/ProductDetail.test.tsx:102:22)
+      at asyncGeneratorStep (node_modules/@babel/runtime/helpers/asyncToGenerator.js:3:17)
+      at _next (node_modules/@babel/runtime/helpers/asyncToGenerator.js:17:9)
+
+  ● ProductDetail › shows error alert when add to plan fails
+
+    expect(jest.fn()).toHaveBeenCalledWith(...expected)
+
+    - Expected
+    + Received
+
+    - "Error",
+    + "Could not add to plan",
+      "Failure",
+      [{"text": "OK"}],
+
+    Number of calls: 1
+
+      142 |     });
+      143 |
+    > 144 |     await waitFor(() => {
+          |                  ^
+      145 |       expect(alertSpy).toHaveBeenCalledWith(
+      146 |         'Error',
+      147 |         'Failure',
+
+      at Object.<anonymous> (components/__tests__/ProductDetail.test.tsx:144:18)
+      at asyncGeneratorStep (node_modules/@babel/runtime/helpers/asyncToGenerator.js:3:17)
+      at _next (node_modules/@babel/runtime/helpers/asyncToGenerator.js:17:9)
+
+FAIL components/ProductDetail/__tests__/ProductHeader.test.tsx
+  ● ProductHeader › does not render source text when source is not provided
+
+    expect(received).toBeNull()
+
+    Received: {"_fiber": {"_debugHookTypes": null, "_debugNeedsRemount": false, "_debugOwner": [FiberNode], "_debugSource": null, "actualDuration": 0, "actualStartTime": -1, "alternate": null, "child": [FiberNode], "childLanes": 0, "deletions": null, "dependencies": null, "elementType": "div", "flags": 0, "index": 0, "key": null, "lanes": 0, "memoizedProps": [Object], "memoizedState": null, "mode": 0, "pendingProps": [Object], "ref": null, "return": [FiberNode], "selfBaseDuration": 0, "sibling": null, "stateNode": [Object], "subtreeFlags": 1048576, "tag": 5, "treeBaseDuration": 0, "type": "div", "updateQueue": null}}
+
+      43 |   it('does not render source text when source is not provided', () => {
+      44 |     const { queryByText } = render(<ProductHeader />);
+    > 45 |     expect(queryByText(/Source:/)).toBeNull();
+         |                                    ^
+      46 |   });
+      47 | });
+      48 |
+
+      at Object.toBeNull (components/ProductDetail/__tests__/ProductHeader.test.tsx:45:36)
+
+FAIL components/ProductDetail/__tests__/NutritionSection.test.tsx
+  ● NutritionSection › renders energy value
+
+    Unable to find an element with text: 250.0
+
+    [36m<div>[39m
+      [36m<div>[39m
+        [0mNutrition Facts (per 100g)[0m
+      [36m</div>[39m
+      [36m<div>[39m
+        [36m<div>[39m
+          [36m<div>[39m
+            [0mEnergy[0m
+          [36m</div>[39m
+          [36m<div>[39m
+            [0m250.0[0m
+            [0m [0m
+            [0mkcal[0m
+          [36m</div>[39m
+        [36m</div>[39m
+        [36m<div>[39m
+          [36m<div>[39m
+            [0mProtein[0m
+          [36m</div>[39m
+          [36m<div>[39m
+            [0m10.0[0m
+            [0m [0m
+            [0mg[0m
+          [36m</div>[39m
+        [36m</div>[39m
+        [36m<div>[39m
+          [36m<div>[39m
+            [0mFat[0m
+          [36m</div>[39m
+          [36m<div>[39m
+            [0m5.0[0m
+            [0m [0m
+            [0mg[0m
+          [36m</div>[39m
+        [36m</div>[39m
+        [36m<div>[39m
+          [36m<div>[39m
+            [0mCarbohydrates[0m
+          [36m</div>[39m
+          [36m<div>[39m
+            [0m30.0[0m
+            [0m [0m
+            [0mg[0m
+          [36m</div>[39m
+        [36m</div>[39m
+        [36m<div>[39m
+          [36m<div>[39m
+            [0mSugars[0m
+          [36m</div>[39m
+          [36m<div>[39m
+            [0m15.0[0m
+            [0m [0m
+            [0mg[0m
+          [36m</div>[39m
+        [36m</div>[39m
+        [36m<div>[39m
+          [36m<div>[39m
+            [0mSalt[0m
+          [36m</div>[39m
+          [36m<div>[39m
+            [0m1.2[0m
+            [0m [0m
+            [0mg[0m
+          [36m</div>[39m
+        [36m</div>[39m
+        [36m<div>[39m
+          [36m<div>[39m
+            [0mFiber[0m
+          [36m</div>[39m
+          [36m<div>[39m
+            [0m3.0[0m
+            [0m [0m
+            [0mg[0m
+          [36m</div>[39m
+        [36m</div>[39m
+        [36m<div>[39m
+          [36m<div>[39m
+            [0mSodium[0m
+          [36m</div>[39m
+          [36m<div>[39m
+            [0m480.0[0m
+            [0m [0m
+            [0mmg[0m
+          [36m</div>[39m
+        [36m</div>[39m
+      [36m</div>[39m
+    [36m</div>[39m
+
+      26 |   it('renders energy value', () => {
+      27 |     const { getByText } = render(<NutritionSection nutriments={mockNutriments} />);
+    > 28 |     expect(getByText('250.0')).toBeTruthy();
+         |            ^
+      29 |     expect(getByText('kcal')).toBeTruthy();
+      30 |   });
+      31 |
+
+      at Object.getByText (components/ProductDetail/__tests__/NutritionSection.test.tsx:28:12)
+
+  ● NutritionSection › renders protein value
+
+    Unable to find an element with text: 10.0
+
+    [36m<div>[39m
+      [36m<div>[39m
+        [0mNutrition Facts (per 100g)[0m
+      [36m</div>[39m
+      [36m<div>[39m
+        [36m<div>[39m
+          [36m<div>[39m
+            [0mEnergy[0m
+          [36m</div>[39m
+          [36m<div>[39m
+            [0m250.0[0m
+            [0m [0m
+            [0mkcal[0m
+          [36m</div>[39m
+        [36m</div>[39m
+        [36m<div>[39m
+          [36m<div>[39m
+            [0mProtein[0m
+          [36m</div>[39m
+          [36m<div>[39m
+            [0m10.0[0m
+            [0m [0m
+            [0mg[0m
+          [36m</div>[39m
+        [36m</div>[39m
+        [36m<div>[39m
+          [36m<div>[39m
+            [0mFat[0m
+          [36m</div>[39m
+          [36m<div>[39m
+            [0m5.0[0m
+            [0m [0m
+            [0mg[0m
+          [36m</div>[39m
+        [36m</div>[39m
+        [36m<div>[39m
+          [36m<div>[39m
+            [0mCarbohydrates[0m
+          [36m</div>[39m
+          [36m<div>[39m
+            [0m30.0[0m
+            [0m [0m
+            [0mg[0m
+          [36m</div>[39m
+        [36m</div>[39m
+        [36m<div>[39m
+          [36m<div>[39m
+            [0mSugars[0m
+          [36m</div>[39m
+          [36m<div>[39m
+            [0m15.0[0m
+            [0m [0m
+            [0mg[0m
+          [36m</div>[39m
+        [36m</div>[39m
+        [36m<div>[39m
+          [36m<div>[39m
+            [0mSalt[0m
+          [36m</div>[39m
+          [36m<div>[39m
+            [0m1.2[0m
+            [0m [0m
+            [0mg[0m
+          [36m</div>[39m
+        [36m</div>[39m
+        [36m<div>[39m
+          [36m<div>[39m
+            [0mFiber[0m
+          [36m</div>[39m
+          [36m<div>[39m
+            [0m3.0[0m
+            [0m [0m
+            [0mg[0m
+          [36m</div>[39m
+        [36m</div>[39m
+        [36m<div>[39m
+          [36m<div>[39m
+            [0mSodium[0m
+          [36m</div>[39m
+          [36m<div>[39m
+            [0m480.0[0m
+            [0m [0m
+            [0mmg[0m
+          [36m</div>[39m
+        [36m</div>[39m
+      [36m</div>[39m
+    [36m</div>[39m
+
+      32 |   it('renders protein value', () => {
+      33 |     const { getByText } = render(<NutritionSection nutriments={mockNutriments} />);
+    > 34 |     expect(getByText('10.0')).toBeTruthy();
+         |            ^
+      35 |   });
+      36 |
+      37 |   it('renders fat value', () => {
+
+      at Object.getByText (components/ProductDetail/__tests__/NutritionSection.test.tsx:34:12)
+
+  ● NutritionSection › renders fat value
+
+    Unable to find an element with text: 5.0
+
+    [36m<div>[39m
+      [36m<div>[39m
+        [0mNutrition Facts (per 100g)[0m
+      [36m</div>[39m
+      [36m<div>[39m
+        [36m<div>[39m
+          [36m<div>[39m
+            [0mEnergy[0m
+          [36m</div>[39m
+          [36m<div>[39m
+            [0m250.0[0m
+            [0m [0m
+            [0mkcal[0m
+          [36m</div>[39m
+        [36m</div>[39m
+        [36m<div>[39m
+          [36m<div>[39m
+            [0mProtein[0m
+          [36m</div>[39m
+          [36m<div>[39m
+            [0m10.0[0m
+            [0m [0m
+            [0mg[0m
+          [36m</div>[39m
+        [36m</div>[39m
+        [36m<div>[39m
+          [36m<div>[39m
+            [0mFat[0m
+          [36m</div>[39m
+          [36m<div>[39m
+            [0m5.0[0m
+            [0m [0m
+            [0mg[0m
+          [36m</div>[39m
+        [36m</div>[39m
+        [36m<div>[39m
+          [36m<div>[39m
+            [0mCarbohydrates[0m
+          [36m</div>[39m
+          [36m<div>[39m
+            [0m30.0[0m
+            [0m [0m
+            [0mg[0m
+          [36m</div>[39m
+        [36m</div>[39m
+        [36m<div>[39m
+          [36m<div>[39m
+            [0mSugars[0m
+          [36m</div>[39m
+          [36m<div>[39m
+            [0m15.0[0m
+            [0m [0m
+            [0mg[0m
+          [36m</div>[39m
+        [36m</div>[39m
+        [36m<div>[39m
+          [36m<div>[39m
+            [0mSalt[0m
+          [36m</div>[39m
+          [36m<div>[39m
+            [0m1.2[0m
+            [0m [0m
+            [0mg[0m
+          [36m</div>[39m
+        [36m</div>[39m
+        [36m<div>[39m
+          [36m<div>[39m
+            [0mFiber[0m
+          [36m</div>[39m
+          [36m<div>[39m
+            [0m3.0[0m
+            [0m [0m
+            [0mg[0m
+          [36m</div>[39m
+        [36m</div>[39m
+        [36m<div>[39m
+          [36m<div>[39m
+            [0mSodium[0m
+          [36m</div>[39m
+          [36m<div>[39m
+            [0m480.0[0m
+            [0m [0m
+            [0mmg[0m
+          [36m</div>[39m
+        [36m</div>[39m
+      [36m</div>[39m
+    [36m</div>[39m
+
+      37 |   it('renders fat value', () => {
+      38 |     const { getByText } = render(<NutritionSection nutriments={mockNutriments} />);
+    > 39 |     expect(getByText('5.0')).toBeTruthy();
+         |            ^
+      40 |   });
+      41 |
+      42 |   it('renders carbs value', () => {
+
+      at Object.getByText (components/ProductDetail/__tests__/NutritionSection.test.tsx:39:12)
+
+  ● NutritionSection › renders carbs value
+
+    Unable to find an element with text: 30.0
+
+    [36m<div>[39m
+      [36m<div>[39m
+        [0mNutrition Facts (per 100g)[0m
+      [36m</div>[39m
+      [36m<div>[39m
+        [36m<div>[39m
+          [36m<div>[39m
+            [0mEnergy[0m
+          [36m</div>[39m
+          [36m<div>[39m
+            [0m250.0[0m
+            [0m [0m
+            [0mkcal[0m
+          [36m</div>[39m
+        [36m</div>[39m
+        [36m<div>[39m
+          [36m<div>[39m
+            [0mProtein[0m
+          [36m</div>[39m
+          [36m<div>[39m
+            [0m10.0[0m
+            [0m [0m
+            [0mg[0m
+          [36m</div>[39m
+        [36m</div>[39m
+        [36m<div>[39m
+          [36m<div>[39m
+            [0mFat[0m
+          [36m</div>[39m
+          [36m<div>[39m
+            [0m5.0[0m
+            [0m [0m
+            [0mg[0m
+          [36m</div>[39m
+        [36m</div>[39m
+        [36m<div>[39m
+          [36m<div>[39m
+            [0mCarbohydrates[0m
+          [36m</div>[39m
+          [36m<div>[39m
+            [0m30.0[0m
+            [0m [0m
+            [0mg[0m
+          [36m</div>[39m
+        [36m</div>[39m
+        [36m<div>[39m
+          [36m<div>[39m
+            [0mSugars[0m
+          [36m</div>[39m
+          [36m<div>[39m
+            [0m15.0[0m
+            [0m [0m
+            [0mg[0m
+          [36m</div>[39m
+        [36m</div>[39m
+        [36m<div>[39m
+          [36m<div>[39m
+            [0mSalt[0m
+          [36m</div>[39m
+          [36m<div>[39m
+            [0m1.2[0m
+            [0m [0m
+            [0mg[0m
+          [36m</div>[39m
+        [36m</div>[39m
+        [36m<div>[39m
+          [36m<div>[39m
+            [0mFiber[0m
+          [36m</div>[39m
+          [36m<div>[39m
+            [0m3.0[0m
+            [0m [0m
+            [0mg[0m
+          [36m</div>[39m
+        [36m</div>[39m
+        [36m<div>[39m
+          [36m<div>[39m
+            [0mSodium[0m
+          [36m</div>[39m
+          [36m<div>[39m
+            [0m480.0[0m
+            [0m [0m
+            [0mmg[0m
+          [36m</div>[39m
+        [36m</div>[39m
+      [36m</div>[39m
+    [36m</div>[39m
+
+      42 |   it('renders carbs value', () => {
+      43 |     const { getByText } = render(<NutritionSection nutriments={mockNutriments} />);
+    > 44 |     expect(getByText('30.0')).toBeTruthy();
+         |            ^
+      45 |   });
+      46 |
+      47 |   it('renders fiber when > 0', () => {
+
+      at Object.getByText (components/ProductDetail/__tests__/NutritionSection.test.tsx:44:12)
+
+  ● NutritionSection › renders fiber when > 0
+
+    Unable to find an element with text: 3.0
+
+    [36m<div>[39m
+      [36m<div>[39m
+        [0mNutrition Facts (per 100g)[0m
+      [36m</div>[39m
+      [36m<div>[39m
+        [36m<div>[39m
+          [36m<div>[39m
+            [0mEnergy[0m
+          [36m</div>[39m
+          [36m<div>[39m
+            [0m250.0[0m
+            [0m [0m
+            [0mkcal[0m
+          [36m</div>[39m
+        [36m</div>[39m
+        [36m<div>[39m
+          [36m<div>[39m
+            [0mProtein[0m
+          [36m</div>[39m
+          [36m<div>[39m
+            [0m10.0[0m
+            [0m [0m
+            [0mg[0m
+          [36m</div>[39m
+        [36m</div>[39m
+        [36m<div>[39m
+          [36m<div>[39m
+            [0mFat[0m
+          [36m</div>[39m
+          [36m<div>[39m
+            [0m5.0[0m
+            [0m [0m
+            [0mg[0m
+          [36m</div>[39m
+        [36m</div>[39m
+        [36m<div>[39m
+          [36m<div>[39m
+            [0mCarbohydrates[0m
+          [36m</div>[39m
+          [36m<div>[39m
+            [0m30.0[0m
+            [0m [0m
+            [0mg[0m
+          [36m</div>[39m
+        [36m</div>[39m
+        [36m<div>[39m
+          [36m<div>[39m
+            [0mSugars[0m
+          [36m</div>[39m
+          [36m<div>[39m
+            [0m15.0[0m
+            [0m [0m
+            [0mg[0m
+          [36m</div>[39m
+        [36m</div>[39m
+        [36m<div>[39m
+          [36m<div>[39m
+            [0mSalt[0m
+          [36m</div>[39m
+          [36m<div>[39m
+            [0m1.2[0m
+            [0m [0m
+            [0mg[0m
+          [36m</div>[39m
+        [36m</div>[39m
+        [36m<div>[39m
+          [36m<div>[39m
+            [0mFiber[0m
+          [36m</div>[39m
+          [36m<div>[39m
+            [0m3.0[0m
+            [0m [0m
+            [0mg[0m
+          [36m</div>[39m
+        [36m</div>[39m
+        [36m<div>[39m
+          [36m<div>[39m
+            [0mSodium[0m
+          [36m</div>[39m
+          [36m<div>[39m
+            [0m480.0[0m
+            [0m [0m
+            [0mmg[0m
+          [36m</div>[39m
+        [36m</div>[39m
+      [36m</div>[39m
+    [36m</div>[39m
+
+      47 |   it('renders fiber when > 0', () => {
+      48 |     const { getByText } = render(<NutritionSection nutriments={mockNutriments} />);
+    > 49 |     expect(getByText('3.0')).toBeTruthy();
+         |            ^
+      50 |   });
+      51 |
+      52 |   it('renders sodium when > 0', () => {
+
+      at Object.getByText (components/ProductDetail/__tests__/NutritionSection.test.tsx:49:12)
+
+  ● NutritionSection › renders sodium when > 0
+
+    Unable to find an element with text: 480.0
+
+    [36m<div>[39m
+      [36m<div>[39m
+        [0mNutrition Facts (per 100g)[0m
+      [36m</div>[39m
+      [36m<div>[39m
+        [36m<div>[39m
+          [36m<div>[39m
+            [0mEnergy[0m
+          [36m</div>[39m
+          [36m<div>[39m
+            [0m250.0[0m
+            [0m [0m
+            [0mkcal[0m
+          [36m</div>[39m
+        [36m</div>[39m
+        [36m<div>[39m
+          [36m<div>[39m
+            [0mProtein[0m
+          [36m</div>[39m
+          [36m<div>[39m
+            [0m10.0[0m
+            [0m [0m
+            [0mg[0m
+          [36m</div>[39m
+        [36m</div>[39m
+        [36m<div>[39m
+          [36m<div>[39m
+            [0mFat[0m
+          [36m</div>[39m
+          [36m<div>[39m
+            [0m5.0[0m
+            [0m [0m
+            [0mg[0m
+          [36m</div>[39m
+        [36m</div>[39m
+        [36m<div>[39m
+          [36m<div>[39m
+            [0mCarbohydrates[0m
+          [36m</div>[39m
+          [36m<div>[39m
+            [0m30.0[0m
+            [0m [0m
+            [0mg[0m
+          [36m</div>[39m
+        [36m</div>[39m
+        [36m<div>[39m
+          [36m<div>[39m
+            [0mSugars[0m
+          [36m</div>[39m
+          [36m<div>[39m
+            [0m15.0[0m
+            [0m [0m
+            [0mg[0m
+          [36m</div>[39m
+        [36m</div>[39m
+        [36m<div>[39m
+          [36m<div>[39m
+            [0mSalt[0m
+          [36m</div>[39m
+          [36m<div>[39m
+            [0m1.2[0m
+            [0m [0m
+            [0mg[0m
+          [36m</div>[39m
+        [36m</div>[39m
+        [36m<div>[39m
+          [36m<div>[39m
+            [0mFiber[0m
+          [36m</div>[39m
+          [36m<div>[39m
+            [0m3.0[0m
+            [0m [0m
+            [0mg[0m
+          [36m</div>[39m
+        [36m</div>[39m
+        [36m<div>[39m
+          [36m<div>[39m
+            [0mSodium[0m
+          [36m</div>[39m
+          [36m<div>[39m
+            [0m480.0[0m
+            [0m [0m
+            [0mmg[0m
+          [36m</div>[39m
+        [36m</div>[39m
+      [36m</div>[39m
+    [36m</div>[39m
+
+      52 |   it('renders sodium when > 0', () => {
+      53 |     const { getByText } = render(<NutritionSection nutriments={mockNutriments} />);
+    > 54 |     expect(getByText('480.0')).toBeTruthy();
+         |            ^
+      55 |     expect(getByText('mg')).toBeTruthy();
+      56 |   });
+      57 |
+
+      at Object.getByText (components/ProductDetail/__tests__/NutritionSection.test.tsx:54:12)
+
+FAIL components/ProductDetail/__tests__/WarningSection.test.tsx
+  ● WarningSection › does not render when source is not provided
+
+    expect(received).toBeNull()
+
+    Received: {"_fiber": {"_debugHookTypes": null, "_debugNeedsRemount": false, "_debugOwner": [FiberNode], "_debugSource": null, "actualDuration": 0, "actualStartTime": -1, "alternate": null, "child": [FiberNode], "childLanes": 0, "deletions": null, "dependencies": null, "elementType": "div", "flags": 0, "index": 0, "key": null, "lanes": 0, "memoizedProps": [Object], "memoizedState": null, "mode": 0, "pendingProps": [Object], "ref": null, "return": [FiberNode], "selfBaseDuration": 0, "sibling": null, "stateNode": [Object], "subtreeFlags": 0, "tag": 5, "treeBaseDuration": 0, "type": "div", "updateQueue": null}}
+
+      41 |       <WarningSection confidence={0.5} />
+      42 |     );
+    > 43 |     expect(queryByText('⚠️ Low Confidence Scan')).toBeNull();
+         |                                                   ^
+      44 |   });
+      45 | });
+      46 |
+
+      at Object.toBeNull (components/ProductDetail/__tests__/WarningSection.test.tsx:43:51)
+
+PASS __tests__/FollowersList.test.tsx (7.09 s)
+PASS __tests__/ApiConfiguration.e2e.test.tsx (5.631 s)
+PASS core/navigation/__tests__/NavigationCore.test.tsx
+PASS screens/__tests__/PlanScreen.test.tsx
+PASS contexts/__tests__/GamificationContext.test.tsx
+PASS screens/__tests__/UploadLabel.enhancements.test.tsx
+PASS __tests__/SmartDietScreen.test.tsx
+PASS __tests__/BlockedListScreen.test.tsx
+PASS screens/__tests__/FollowingListScreen.test.tsx
+PASS __tests__/BlockedByScreen.test.tsx
+PASS screens/__tests__/ProfileScreen.test.tsx
+PASS hooks/__tests__/useApiRecipes.test.ts
+PASS screens/__tests__/ShoppingOptimizationScreen.test.tsx
+PASS screens/__tests__/RecipeSearchScreen.test.tsx
+PASS hooks/__tests__/useSyncManager.test.ts
+PASS shared/ui/__tests__/SharedUI.test.tsx
+PASS screens/__tests__/RecipeGenerationScreen.test.tsx
+PASS __tests__/hooks/useDiscoverFeed.test.ts
+PASS hooks/__tests__/useTrackData.test.ts
+PASS __tests__/FeedScreen.test.tsx
+PASS components/__tests__/ReminderSnippet.test.tsx
+PASS hooks/__tests__/useMealLog.test.ts
+PASS screens/__tests__/RecommendationsScreen.test.tsx
+PASS screens/__tests__/VisionLogScreen.test.tsx
+PASS hooks/__tests__/useFeed.test.ts
+PASS __tests__/integration/SmartDietIntegration.test.tsx
+PASS screens/__tests__/MyRecipesScreen.test.tsx
+PASS components/__tests__/DeveloperSettingsModal.test.tsx
+PASS hooks/__tests__/useProductDetail.test.ts
+PASS __tests__/flows/SmartDietNavigationFlows.test.tsx
+PASS services/__tests__/ApiClient.test.ts
+PASS services/__tests__/SmartDietService.test.ts
+PASS contexts/__tests__/AuthContext.test.tsx
+PASS hooks/__tests__/useNotifications.test.ts
+PASS components/__tests__/WeightTracker.test.tsx
+PASS screens/__tests__/TastePreferencesScreen.test.tsx
+PASS screens/__tests__/RecipeDetailScreen.test.tsx
+PASS contexts/__tests__/ProfileContext.test.tsx
+PASS shared/ui/components/rewards/__tests__/AchievementsGrid.test.tsx
+PASS components/__tests__/ReminderSnippet.logic.test.tsx
+PASS components/__tests__/RecipeLanguageToggle.test.tsx
+PASS __tests__/ProfileEditScreen.test.tsx
+PASS utils/__tests__/apiHelper.logic.test.ts
+PASS components/__tests__/ProductDetail.logic.test.tsx
+PASS screens/__tests__/DiscoverFeedScreen.test.tsx
+PASS __tests__/RewardsNavigation.test.tsx
+PASS screens/__tests__/PlanDetailScreen.test.tsx
+PASS hooks/__tests__/useGamification.test.ts
+PASS hooks/__tests__/useWeight.test.ts
+PASS shared/ui/hooks/__tests__/useScreenLayout.test.ts
+PASS screens/__tests__/IntelligentFlowScreen.test.tsx
+PASS components/mealLog/__tests__/MealList.test.tsx
+PASS components/__tests__/TrackDashboard.test.tsx
+PASS __tests__/VisionLogScreen.test.tsx
+PASS components/__tests__/LanguageSwitcher.test.tsx
+PASS services/__tests__/MealLogService.test.ts
+PASS services/__tests__/SyncManager.test.ts
+PASS hooks/__tests__/useMealTracking.test.ts
+PASS __tests__/CorrectionModal.test.tsx
+PASS __tests__/App.test.tsx
+PASS shared/ui/components/rewards/__tests__/RewardsStats.test.tsx
+PASS screens/__tests__/LoginScreen.test.tsx
+PASS shared/ui/components/rewards/__tests__/RewardsHeader.test.tsx
+PASS components/__tests__/ApiConfigModal.test.tsx
+PASS services/__tests__/AchievementService.test.ts
+PASS screens/__tests__/RewardsScreen.test.tsx
+PASS components/__tests__/PointsRewardCard.test.tsx
+PASS screens/__tests__/RecipeHomeScreen.test.tsx
+PASS hooks/__tests__/usePhotoLogs.test.ts
+PASS components/__tests__/SyncStatusComponents.test.tsx
+PASS components/__tests__/RecipeSearchComponents.test.tsx
+PASS components/__tests__/AchievementBadge.test.tsx
+PASS services/__tests__/CircuitBreaker.test.ts
+PASS components/__tests__/MealCard.test.tsx
+PASS screens/__tests__/MealLogScreen.test.tsx
+PASS __tests__/VisionLogService.test.ts
+PASS components/__tests__/RecipeDetailComponents.test.tsx
+PASS components/__tests__/RecipeFormComponents.test.tsx
+PASS components/mealLog/__tests__/MealForm.test.tsx
+PASS shared/ui/hooks/__tests__/useThemedStyles.test.ts
+PASS components/__tests__/RecipeLibraryComponents.test.tsx
+PASS components/mealLog/__tests__/MealItem.test.tsx
+PASS __tests__/VisionHistoryScreen.test.tsx
+PASS services/__tests__/translationService.test.ts
+PASS hooks/__tests__/useFormValidation.test.ts
+PASS services/__tests__/RecipeStorageService.test.ts
+PASS components/RegisterScreen/__tests__/RegisterButton.test.tsx
+PASS components/RegisterScreen/__tests__/RegisterFooter.test.tsx
+PASS components/RegisterScreen/__tests__/ConfirmPasswordInput.test.tsx
+PASS components/__tests__/HomeModals.test.tsx
+PASS components/__tests__/HomeDashboard.test.tsx
+PASS components/RegisterScreen/__tests__/PasswordInput.test.tsx
+PASS core/navigation/hooks/__tests__/useNavigation.test.ts
+PASS core/navigation/__tests__/legacyRouter.test.tsx
+PASS screens/__tests__/UploadLabel.test.tsx
+PASS hooks/__tests__/useHomeActions.test.ts
+PASS shared/ui/__tests__/HomeActions.test.tsx
+PASS hooks/__tests__/useToast.test.ts
+PASS __tests__/screens/DiscoverFeedScreen.test.tsx
+PASS hooks/__tests__/useHomeDashboard.test.ts
+PASS services/__tests__/NotificationService.test.ts
+PASS utils/__tests__/permissions.test.ts
+PASS components/HomeDashboard/__tests__/HeroSection.test.tsx
+PASS components/ProductDetail/__tests__/ProductInfo.test.tsx
+PASS components/RegisterScreen/__tests__/EmailInput.test.tsx
+PASS services/__tests__/DeveloperSettings.test.ts
+PASS components/__tests__/VisionAnalysisModal.test.tsx
+PASS components/__tests__/ExerciseSuggestionCard.test.tsx
+PASS components/plan/__tests__/PlanSelectionList.test.tsx
+PASS screens/__tests__/WeightScreen.test.tsx
+PASS core/navigation/__tests__/ScreenRegistryUtils.test.ts
+PASS utils/__tests__/gamificationUtils.test.ts
+PASS components/RegisterScreen/__tests__/RegisterHeader.test.tsx
+PASS components/ProductDetail/__tests__/IngredientsSection.test.tsx
+PASS services/__tests__/ApiService.test.ts
+PASS services/__tests__/RecipeApiService.test.ts
+PASS components/ProductDetail/__tests__/ProductImage.test.tsx
+PASS shared/ui/components/__tests__/index.test.ts
+PASS components/ProductDetail/__tests__/ActionsSection.test.tsx
+PASS config/__tests__/environments.test.ts
+PASS services/__tests__/IntelligentFlowService.test.ts
+PASS __tests__/AsyncStorage.unit.e2e.test.tsx
+PASS types/__tests__/mealLog.test.ts
+PASS types/__tests__/mealForm.test.ts
+PASS screens/__tests__/PlanScreenContainer.test.tsx
+PASS utils/__tests__/apiHelper.test.ts
+PASS types/__tests__/ErrorHandler.test.ts
+PASS utils/__tests__/weightUtils.test.ts
+PASS utils/__tests__/productNormalizers.test.ts
+PASS types/__tests__/ocrMeal.test.ts
+PASS types/__tests__/profile.test.ts
+PASS utils/__tests__/mealUtils.test.ts
+PASS types/__tests__/photoLog.test.ts
+PASS services/__tests__/AnalyticsService.test.ts
+PASS services/__tests__/productPlanService.test.ts
+PASS utils/__tests__/formValidators.test.ts
+PASS utils/__tests__/dataLoadingStrategies.test.ts
+PASS utils/__tests__/homeDashboardFormatters.test.ts
+PASS types/__tests__/feed.test.ts
+PASS types/__tests__/visionLog.test.ts
+PASS utils/__tests__/foodTranslation.test.ts
+PASS i18n/__tests__/config.test.ts
+PASS utils/__tests__/imageUtils.test.ts
+PASS types/__tests__/weight.test.ts
+PASS utils/__tests__/recipeLanguageHelper.test.ts
+PASS utils/__tests__/mealPlanUtils.test.ts
+PASS core/navigation/__tests__/HomeNavigationTargets.test.ts
+PASS core/navigation/__tests__/ScreenRegistry.test.ts
+PASS screens/__tests__/GamificationIntegration.test.tsx
+PASS types/__tests__/auth.test.ts
+PASS utils/__tests__/homeActions.test.ts
+PASS hooks/__tests__/useRewardsData.test.ts
+FAIL hooks/__tests__/useRegister.test.ts
+  ● Test suite failed to run
+
+    Cannot find module '../services/authService' from 'hooks/__tests__/useRegister.test.ts'
+
+       8 |
+       9 | // Mock del servicio de autenticación
+    > 10 | jest.mock('../services/authService');
+         |                                     ^
+      11 | const mockedAuthService = authService as jest.Mocked<typeof authService>;
+      12 |
+      13 | describe('useRegister', () => {
+
+      at Resolver._throwModNotFoundError (node_modules/jest-resolve/build/resolver.js:427:11)
+      at Object.<anonymous> (hooks/__tests__/useRegister.test.ts:10:37)
+
+FAIL screens/__tests__/RegisterScreen.test.tsx
+  ● Test suite failed to run
+
+    TypeError: Cannot read properties of undefined (reading 'setEnvironment')
+
+      63 |     this.currentEnvironment = environment || 'android_dev';
+      64 |     this.axiosInstance = this.createAxiosInstance();
+    > 65 |     authService.setEnvironment(this.currentEnvironment);
+         |                 ^
+      66 |   }
+      67 |
+      68 |   private createAxiosInstance(): AxiosInstance {
+
+      at new setEnvironment (services/ApiService.ts:65:17)
+      at Object.<anonymous> (services/ApiService.ts:521:27)
+      at Object.require (services/SmartDietService.ts:13:1)
+      at Object.require (testUtils.tsx:3:1)
+      at require (src/test-setup.ts:97:34)
+      at Object.require (services/AuthService.ts:7:1)
+      at Object.require (hooks/useRegister.ts:6:1)
+      at Object.require (screens/RegisterScreen.tsx:15:1)
+      at Object.require (screens/__tests__/RegisterScreen.test.tsx:4:1)
+
+Summary of all failing tests
+FAIL components/__tests__/ProductDetail.test.tsx
+  ● ProductDetail › omits nutrition section when data is missing
+
+    expect(received).toBeNull()
+
+    Received: {"_fiber": {"_debugHookTypes": null, "_debugNeedsRemount": false, "_debugOwner": [FiberNode], "_debugSource": null, "actualDuration": 0, "actualStartTime": -1, "alternate": null, "child": [FiberNode], "childLanes": 0, "deletions": null, "dependencies": null, "elementType": "div", "flags": 0, "index": 0, "key": null, "lanes": 0, "memoizedProps": [Object], "memoizedState": null, "mode": 0, "pendingProps": [Object], "ref": null, "return": [FiberNode], "selfBaseDuration": 0, "sibling": null, "stateNode": [Object], "subtreeFlags": 0, "tag": 5, "treeBaseDuration": 0, "type": "div", "updateQueue": null}}
+
+      85 |     );
+      86 |
+    > 87 |     expect(queryByText('Nutrition Facts (per 100g)')).toBeNull();
+         |                                                       ^
+      88 |   });
+      89 |
+      90 |   it('prevents adding to plan without barcode', async () => {
+
+      at Object.toBeNull (components/__tests__/ProductDetail.test.tsx:87:55)
+
+  ● ProductDetail › prevents adding to plan without barcode
+
+    expect(jest.fn()).toHaveBeenCalledWith(...expected)
+
+    Expected: "Error", "Cannot add product without barcode to plan."
+    Received: "Could not add to plan", "Invalid barcode. Cannot add product to plan.", [{"text": "OK"}]
+
+    Number of calls: 1
+
+      100 |
+      101 |     expect(mockedAxios.post).not.toHaveBeenCalled();
+    > 102 |     expect(alertSpy).toHaveBeenCalledWith(
+          |                      ^
+      103 |       'Error',
+      104 |       'Cannot add product without barcode to plan.',
+      105 |     );
+
+      at Object.toHaveBeenCalledWith (components/__tests__/ProductDetail.test.tsx:102:22)
+      at asyncGeneratorStep (node_modules/@babel/runtime/helpers/asyncToGenerator.js:3:17)
+      at _next (node_modules/@babel/runtime/helpers/asyncToGenerator.js:17:9)
+
+  ● ProductDetail › shows error alert when add to plan fails
+
+    expect(jest.fn()).toHaveBeenCalledWith(...expected)
+
+    - Expected
+    + Received
+
+    - "Error",
+    + "Could not add to plan",
+      "Failure",
+      [{"text": "OK"}],
+
+    Number of calls: 1
+
+      142 |     });
+      143 |
+    > 144 |     await waitFor(() => {
+          |                  ^
+      145 |       expect(alertSpy).toHaveBeenCalledWith(
+      146 |         'Error',
+      147 |         'Failure',
+
+      at Object.<anonymous> (components/__tests__/ProductDetail.test.tsx:144:18)
+      at asyncGeneratorStep (node_modules/@babel/runtime/helpers/asyncToGenerator.js:3:17)
+      at _next (node_modules/@babel/runtime/helpers/asyncToGenerator.js:17:9)
+
+FAIL components/ProductDetail/__tests__/ProductHeader.test.tsx
+  ● ProductHeader › does not render source text when source is not provided
+
+    expect(received).toBeNull()
+
+    Received: {"_fiber": {"_debugHookTypes": null, "_debugNeedsRemount": false, "_debugOwner": [FiberNode], "_debugSource": null, "actualDuration": 0, "actualStartTime": -1, "alternate": null, "child": [FiberNode], "childLanes": 0, "deletions": null, "dependencies": null, "elementType": "div", "flags": 0, "index": 0, "key": null, "lanes": 0, "memoizedProps": [Object], "memoizedState": null, "mode": 0, "pendingProps": [Object], "ref": null, "return": [FiberNode], "selfBaseDuration": 0, "sibling": null, "stateNode": [Object], "subtreeFlags": 1048576, "tag": 5, "treeBaseDuration": 0, "type": "div", "updateQueue": null}}
+
+      43 |   it('does not render source text when source is not provided', () => {
+      44 |     const { queryByText } = render(<ProductHeader />);
+    > 45 |     expect(queryByText(/Source:/)).toBeNull();
+         |                                    ^
+      46 |   });
+      47 | });
+      48 |
+
+      at Object.toBeNull (components/ProductDetail/__tests__/ProductHeader.test.tsx:45:36)
+
+FAIL components/ProductDetail/__tests__/NutritionSection.test.tsx
+  ● NutritionSection › renders energy value
+
+    Unable to find an element with text: 250.0
+
+    [36m<div>[39m
+      [36m<div>[39m
+        [0mNutrition Facts (per 100g)[0m
+      [36m</div>[39m
+      [36m<div>[39m
+        [36m<div>[39m
+          [36m<div>[39m
+            [0mEnergy[0m
+          [36m</div>[39m
+          [36m<div>[39m
+            [0m250.0[0m
+            [0m [0m
+            [0mkcal[0m
+          [36m</div>[39m
+        [36m</div>[39m
+        [36m<div>[39m
+          [36m<div>[39m
+            [0mProtein[0m
+          [36m</div>[39m
+          [36m<div>[39m
+            [0m10.0[0m
+            [0m [0m
+            [0mg[0m
+          [36m</div>[39m
+        [36m</div>[39m
+        [36m<div>[39m
+          [36m<div>[39m
+            [0mFat[0m
+          [36m</div>[39m
+          [36m<div>[39m
+            [0m5.0[0m
+            [0m [0m
+            [0mg[0m
+          [36m</div>[39m
+        [36m</div>[39m
+        [36m<div>[39m
+          [36m<div>[39m
+            [0mCarbohydrates[0m
+          [36m</div>[39m
+          [36m<div>[39m
+            [0m30.0[0m
+            [0m [0m
+            [0mg[0m
+          [36m</div>[39m
+        [36m</div>[39m
+        [36m<div>[39m
+          [36m<div>[39m
+            [0mSugars[0m
+          [36m</div>[39m
+          [36m<div>[39m
+            [0m15.0[0m
+            [0m [0m
+            [0mg[0m
+          [36m</div>[39m
+        [36m</div>[39m
+        [36m<div>[39m
+          [36m<div>[39m
+            [0mSalt[0m
+          [36m</div>[39m
+          [36m<div>[39m
+            [0m1.2[0m
+            [0m [0m
+            [0mg[0m
+          [36m</div>[39m
+        [36m</div>[39m
+        [36m<div>[39m
+          [36m<div>[39m
+            [0mFiber[0m
+          [36m</div>[39m
+          [36m<div>[39m
+            [0m3.0[0m
+            [0m [0m
+            [0mg[0m
+          [36m</div>[39m
+        [36m</div>[39m
+        [36m<div>[39m
+          [36m<div>[39m
+            [0mSodium[0m
+          [36m</div>[39m
+          [36m<div>[39m
+            [0m480.0[0m
+            [0m [0m
+            [0mmg[0m
+          [36m</div>[39m
+        [36m</div>[39m
+      [36m</div>[39m
+    [36m</div>[39m
+
+      26 |   it('renders energy value', () => {
+      27 |     const { getByText } = render(<NutritionSection nutriments={mockNutriments} />);
+    > 28 |     expect(getByText('250.0')).toBeTruthy();
+         |            ^
+      29 |     expect(getByText('kcal')).toBeTruthy();
+      30 |   });
+      31 |
+
+      at Object.getByText (components/ProductDetail/__tests__/NutritionSection.test.tsx:28:12)
+
+  ● NutritionSection › renders protein value
+
+    Unable to find an element with text: 10.0
+
+    [36m<div>[39m
+      [36m<div>[39m
+        [0mNutrition Facts (per 100g)[0m
+      [36m</div>[39m
+      [36m<div>[39m
+        [36m<div>[39m
+          [36m<div>[39m
+            [0mEnergy[0m
+          [36m</div>[39m
+          [36m<div>[39m
+            [0m250.0[0m
+            [0m [0m
+            [0mkcal[0m
+          [36m</div>[39m
+        [36m</div>[39m
+        [36m<div>[39m
+          [36m<div>[39m
+            [0mProtein[0m
+          [36m</div>[39m
+          [36m<div>[39m
+            [0m10.0[0m
+            [0m [0m
+            [0mg[0m
+          [36m</div>[39m
+        [36m</div>[39m
+        [36m<div>[39m
+          [36m<div>[39m
+            [0mFat[0m
+          [36m</div>[39m
+          [36m<div>[39m
+            [0m5.0[0m
+            [0m [0m
+            [0mg[0m
+          [36m</div>[39m
+        [36m</div>[39m
+        [36m<div>[39m
+          [36m<div>[39m
+            [0mCarbohydrates[0m
+          [36m</div>[39m
+          [36m<div>[39m
+            [0m30.0[0m
+            [0m [0m
+            [0mg[0m
+          [36m</div>[39m
+        [36m</div>[39m
+        [36m<div>[39m
+          [36m<div>[39m
+            [0mSugars[0m
+          [36m</div>[39m
+          [36m<div>[39m
+            [0m15.0[0m
+            [0m [0m
+            [0mg[0m
+          [36m</div>[39m
+        [36m</div>[39m
+        [36m<div>[39m
+          [36m<div>[39m
+            [0mSalt[0m
+          [36m</div>[39m
+          [36m<div>[39m
+            [0m1.2[0m
+            [0m [0m
+            [0mg[0m
+          [36m</div>[39m
+        [36m</div>[39m
+        [36m<div>[39m
+          [36m<div>[39m
+            [0mFiber[0m
+          [36m</div>[39m
+          [36m<div>[39m
+            [0m3.0[0m
+            [0m [0m
+            [0mg[0m
+          [36m</div>[39m
+        [36m</div>[39m
+        [36m<div>[39m
+          [36m<div>[39m
+            [0mSodium[0m
+          [36m</div>[39m
+          [36m<div>[39m
+            [0m480.0[0m
+            [0m [0m
+            [0mmg[0m
+          [36m</div>[39m
+        [36m</div>[39m
+      [36m</div>[39m
+    [36m</div>[39m
+
+      32 |   it('renders protein value', () => {
+      33 |     const { getByText } = render(<NutritionSection nutriments={mockNutriments} />);
+    > 34 |     expect(getByText('10.0')).toBeTruthy();
+         |            ^
+      35 |   });
+      36 |
+      37 |   it('renders fat value', () => {
+
+      at Object.getByText (components/ProductDetail/__tests__/NutritionSection.test.tsx:34:12)
+
+  ● NutritionSection › renders fat value
+
+    Unable to find an element with text: 5.0
+
+    [36m<div>[39m
+      [36m<div>[39m
+        [0mNutrition Facts (per 100g)[0m
+      [36m</div>[39m
+      [36m<div>[39m
+        [36m<div>[39m
+          [36m<div>[39m
+            [0mEnergy[0m
+          [36m</div>[39m
+          [36m<div>[39m
+            [0m250.0[0m
+            [0m [0m
+            [0mkcal[0m
+          [36m</div>[39m
+        [36m</div>[39m
+        [36m<div>[39m
+          [36m<div>[39m
+            [0mProtein[0m
+          [36m</div>[39m
+          [36m<div>[39m
+            [0m10.0[0m
+            [0m [0m
+            [0mg[0m
+          [36m</div>[39m
+        [36m</div>[39m
+        [36m<div>[39m
+          [36m<div>[39m
+            [0mFat[0m
+          [36m</div>[39m
+          [36m<div>[39m
+            [0m5.0[0m
+            [0m [0m
+            [0mg[0m
+          [36m</div>[39m
+        [36m</div>[39m
+        [36m<div>[39m
+          [36m<div>[39m
+            [0mCarbohydrates[0m
+          [36m</div>[39m
+          [36m<div>[39m
+            [0m30.0[0m
+            [0m [0m
+            [0mg[0m
+          [36m</div>[39m
+        [36m</div>[39m
+        [36m<div>[39m
+          [36m<div>[39m
+            [0mSugars[0m
+          [36m</div>[39m
+          [36m<div>[39m
+            [0m15.0[0m
+            [0m [0m
+            [0mg[0m
+          [36m</div>[39m
+        [36m</div>[39m
+        [36m<div>[39m
+          [36m<div>[39m
+            [0mSalt[0m
+          [36m</div>[39m
+          [36m<div>[39m
+            [0m1.2[0m
+            [0m [0m
+            [0mg[0m
+          [36m</div>[39m
+        [36m</div>[39m
+        [36m<div>[39m
+          [36m<div>[39m
+            [0mFiber[0m
+          [36m</div>[39m
+          [36m<div>[39m
+            [0m3.0[0m
+            [0m [0m
+            [0mg[0m
+          [36m</div>[39m
+        [36m</div>[39m
+        [36m<div>[39m
+          [36m<div>[39m
+            [0mSodium[0m
+          [36m</div>[39m
+          [36m<div>[39m
+            [0m480.0[0m
+            [0m [0m
+            [0mmg[0m
+          [36m</div>[39m
+        [36m</div>[39m
+      [36m</div>[39m
+    [36m</div>[39m
+
+      37 |   it('renders fat value', () => {
+      38 |     const { getByText } = render(<NutritionSection nutriments={mockNutriments} />);
+    > 39 |     expect(getByText('5.0')).toBeTruthy();
+         |            ^
+      40 |   });
+      41 |
+      42 |   it('renders carbs value', () => {
+
+      at Object.getByText (components/ProductDetail/__tests__/NutritionSection.test.tsx:39:12)
+
+  ● NutritionSection › renders carbs value
+
+    Unable to find an element with text: 30.0
+
+    [36m<div>[39m
+      [36m<div>[39m
+        [0mNutrition Facts (per 100g)[0m
+      [36m</div>[39m
+      [36m<div>[39m
+        [36m<div>[39m
+          [36m<div>[39m
+            [0mEnergy[0m
+          [36m</div>[39m
+          [36m<div>[39m
+            [0m250.0[0m
+            [0m [0m
+            [0mkcal[0m
+          [36m</div>[39m
+        [36m</div>[39m
+        [36m<div>[39m
+          [36m<div>[39m
+            [0mProtein[0m
+          [36m</div>[39m
+          [36m<div>[39m
+            [0m10.0[0m
+            [0m [0m
+            [0mg[0m
+          [36m</div>[39m
+        [36m</div>[39m
+        [36m<div>[39m
+          [36m<div>[39m
+            [0mFat[0m
+          [36m</div>[39m
+          [36m<div>[39m
+            [0m5.0[0m
+            [0m [0m
+            [0mg[0m
+          [36m</div>[39m
+        [36m</div>[39m
+        [36m<div>[39m
+          [36m<div>[39m
+            [0mCarbohydrates[0m
+          [36m</div>[39m
+          [36m<div>[39m
+            [0m30.0[0m
+            [0m [0m
+            [0mg[0m
+          [36m</div>[39m
+        [36m</div>[39m
+        [36m<div>[39m
+          [36m<div>[39m
+            [0mSugars[0m
+          [36m</div>[39m
+          [36m<div>[39m
+            [0m15.0[0m
+            [0m [0m
+            [0mg[0m
+          [36m</div>[39m
+        [36m</div>[39m
+        [36m<div>[39m
+          [36m<div>[39m
+            [0mSalt[0m
+          [36m</div>[39m
+          [36m<div>[39m
+            [0m1.2[0m
+            [0m [0m
+            [0mg[0m
+          [36m</div>[39m
+        [36m</div>[39m
+        [36m<div>[39m
+          [36m<div>[39m
+            [0mFiber[0m
+          [36m</div>[39m
+          [36m<div>[39m
+            [0m3.0[0m
+            [0m [0m
+            [0mg[0m
+          [36m</div>[39m
+        [36m</div>[39m
+        [36m<div>[39m
+          [36m<div>[39m
+            [0mSodium[0m
+          [36m</div>[39m
+          [36m<div>[39m
+            [0m480.0[0m
+            [0m [0m
+            [0mmg[0m
+          [36m</div>[39m
+        [36m</div>[39m
+      [36m</div>[39m
+    [36m</div>[39m
+
+      42 |   it('renders carbs value', () => {
+      43 |     const { getByText } = render(<NutritionSection nutriments={mockNutriments} />);
+    > 44 |     expect(getByText('30.0')).toBeTruthy();
+         |            ^
+      45 |   });
+      46 |
+      47 |   it('renders fiber when > 0', () => {
+
+      at Object.getByText (components/ProductDetail/__tests__/NutritionSection.test.tsx:44:12)
+
+  ● NutritionSection › renders fiber when > 0
+
+    Unable to find an element with text: 3.0
+
+    [36m<div>[39m
+      [36m<div>[39m
+        [0mNutrition Facts (per 100g)[0m
+      [36m</div>[39m
+      [36m<div>[39m
+        [36m<div>[39m
+          [36m<div>[39m
+            [0mEnergy[0m
+          [36m</div>[39m
+          [36m<div>[39m
+            [0m250.0[0m
+            [0m [0m
+            [0mkcal[0m
+          [36m</div>[39m
+        [36m</div>[39m
+        [36m<div>[39m
+          [36m<div>[39m
+            [0mProtein[0m
+          [36m</div>[39m
+          [36m<div>[39m
+            [0m10.0[0m
+            [0m [0m
+            [0mg[0m
+          [36m</div>[39m
+        [36m</div>[39m
+        [36m<div>[39m
+          [36m<div>[39m
+            [0mFat[0m
+          [36m</div>[39m
+          [36m<div>[39m
+            [0m5.0[0m
+            [0m [0m
+            [0mg[0m
+          [36m</div>[39m
+        [36m</div>[39m
+        [36m<div>[39m
+          [36m<div>[39m
+            [0mCarbohydrates[0m
+          [36m</div>[39m
+          [36m<div>[39m
+            [0m30.0[0m
+            [0m [0m
+            [0mg[0m
+          [36m</div>[39m
+        [36m</div>[39m
+        [36m<div>[39m
+          [36m<div>[39m
+            [0mSugars[0m
+          [36m</div>[39m
+          [36m<div>[39m
+            [0m15.0[0m
+            [0m [0m
+            [0mg[0m
+          [36m</div>[39m
+        [36m</div>[39m
+        [36m<div>[39m
+          [36m<div>[39m
+            [0mSalt[0m
+          [36m</div>[39m
+          [36m<div>[39m
+            [0m1.2[0m
+            [0m [0m
+            [0mg[0m
+          [36m</div>[39m
+        [36m</div>[39m
+        [36m<div>[39m
+          [36m<div>[39m
+            [0mFiber[0m
+          [36m</div>[39m
+          [36m<div>[39m
+            [0m3.0[0m
+            [0m [0m
+            [0mg[0m
+          [36m</div>[39m
+        [36m</div>[39m
+        [36m<div>[39m
+          [36m<div>[39m
+            [0mSodium[0m
+          [36m</div>[39m
+          [36m<div>[39m
+            [0m480.0[0m
+            [0m [0m
+            [0mmg[0m
+          [36m</div>[39m
+        [36m</div>[39m
+      [36m</div>[39m
+    [36m</div>[39m
+
+      47 |   it('renders fiber when > 0', () => {
+      48 |     const { getByText } = render(<NutritionSection nutriments={mockNutriments} />);
+    > 49 |     expect(getByText('3.0')).toBeTruthy();
+         |            ^
+      50 |   });
+      51 |
+      52 |   it('renders sodium when > 0', () => {
+
+      at Object.getByText (components/ProductDetail/__tests__/NutritionSection.test.tsx:49:12)
+
+  ● NutritionSection › renders sodium when > 0
+
+    Unable to find an element with text: 480.0
+
+    [36m<div>[39m
+      [36m<div>[39m
+        [0mNutrition Facts (per 100g)[0m
+      [36m</div>[39m
+      [36m<div>[39m
+        [36m<div>[39m
+          [36m<div>[39m
+            [0mEnergy[0m
+          [36m</div>[39m
+          [36m<div>[39m
+            [0m250.0[0m
+            [0m [0m
+            [0mkcal[0m
+          [36m</div>[39m
+        [36m</div>[39m
+        [36m<div>[39m
+          [36m<div>[39m
+            [0mProtein[0m
+          [36m</div>[39m
+          [36m<div>[39m
+            [0m10.0[0m
+            [0m [0m
+            [0mg[0m
+          [36m</div>[39m
+        [36m</div>[39m
+        [36m<div>[39m
+          [36m<div>[39m
+            [0mFat[0m
+          [36m</div>[39m
+          [36m<div>[39m
+            [0m5.0[0m
+            [0m [0m
+            [0mg[0m
+          [36m</div>[39m
+        [36m</div>[39m
+        [36m<div>[39m
+          [36m<div>[39m
+            [0mCarbohydrates[0m
+          [36m</div>[39m
+          [36m<div>[39m
+            [0m30.0[0m
+            [0m [0m
+            [0mg[0m
+          [36m</div>[39m
+        [36m</div>[39m
+        [36m<div>[39m
+          [36m<div>[39m
+            [0mSugars[0m
+          [36m</div>[39m
+          [36m<div>[39m
+            [0m15.0[0m
+            [0m [0m
+            [0mg[0m
+          [36m</div>[39m
+        [36m</div>[39m
+        [36m<div>[39m
+          [36m<div>[39m
+            [0mSalt[0m
+          [36m</div>[39m
+          [36m<div>[39m
+            [0m1.2[0m
+            [0m [0m
+            [0mg[0m
+          [36m</div>[39m
+        [36m</div>[39m
+        [36m<div>[39m
+          [36m<div>[39m
+            [0mFiber[0m
+          [36m</div>[39m
+          [36m<div>[39m
+            [0m3.0[0m
+            [0m [0m
+            [0mg[0m
+          [36m</div>[39m
+        [36m</div>[39m
+        [36m<div>[39m
+          [36m<div>[39m
+            [0mSodium[0m
+          [36m</div>[39m
+          [36m<div>[39m
+            [0m480.0[0m
+            [0m [0m
+            [0mmg[0m
+          [36m</div>[39m
+        [36m</div>[39m
+      [36m</div>[39m
+    [36m</div>[39m
+
+      52 |   it('renders sodium when > 0', () => {
+      53 |     const { getByText } = render(<NutritionSection nutriments={mockNutriments} />);
+    > 54 |     expect(getByText('480.0')).toBeTruthy();
+         |            ^
+      55 |     expect(getByText('mg')).toBeTruthy();
+      56 |   });
+      57 |
+
+      at Object.getByText (components/ProductDetail/__tests__/NutritionSection.test.tsx:54:12)
+
+FAIL components/ProductDetail/__tests__/WarningSection.test.tsx
+  ● WarningSection › does not render when source is not provided
+
+    expect(received).toBeNull()
+
+    Received: {"_fiber": {"_debugHookTypes": null, "_debugNeedsRemount": false, "_debugOwner": [FiberNode], "_debugSource": null, "actualDuration": 0, "actualStartTime": -1, "alternate": null, "child": [FiberNode], "childLanes": 0, "deletions": null, "dependencies": null, "elementType": "div", "flags": 0, "index": 0, "key": null, "lanes": 0, "memoizedProps": [Object], "memoizedState": null, "mode": 0, "pendingProps": [Object], "ref": null, "return": [FiberNode], "selfBaseDuration": 0, "sibling": null, "stateNode": [Object], "subtreeFlags": 0, "tag": 5, "treeBaseDuration": 0, "type": "div", "updateQueue": null}}
+
+      41 |       <WarningSection confidence={0.5} />
+      42 |     );
+    > 43 |     expect(queryByText('⚠️ Low Confidence Scan')).toBeNull();
+         |                                                   ^
+      44 |   });
+      45 | });
+      46 |
+
+      at Object.toBeNull (components/ProductDetail/__tests__/WarningSection.test.tsx:43:51)
+
+FAIL hooks/__tests__/useRegister.test.ts
+  ● Test suite failed to run
+
+    Cannot find module '../services/authService' from 'hooks/__tests__/useRegister.test.ts'
+
+       8 |
+       9 | // Mock del servicio de autenticación
+    > 10 | jest.mock('../services/authService');
+         |                                     ^
+      11 | const mockedAuthService = authService as jest.Mocked<typeof authService>;
+      12 |
+      13 | describe('useRegister', () => {
+
+      at Resolver._throwModNotFoundError (node_modules/jest-resolve/build/resolver.js:427:11)
+      at Object.<anonymous> (hooks/__tests__/useRegister.test.ts:10:37)
+
+FAIL screens/__tests__/RegisterScreen.test.tsx
+  ● Test suite failed to run
+
+    TypeError: Cannot read properties of undefined (reading 'setEnvironment')
+
+      63 |     this.currentEnvironment = environment || 'android_dev';
+      64 |     this.axiosInstance = this.createAxiosInstance();
+    > 65 |     authService.setEnvironment(this.currentEnvironment);
+         |                 ^
+      66 |   }
+      67 |
+      68 |   private createAxiosInstance(): AxiosInstance {
+
+      at new setEnvironment (services/ApiService.ts:65:17)
+      at Object.<anonymous> (services/ApiService.ts:521:27)
+      at Object.require (services/SmartDietService.ts:13:1)
+      at Object.require (testUtils.tsx:3:1)
+      at require (src/test-setup.ts:97:34)
+      at Object.require (services/AuthService.ts:7:1)
+      at Object.require (hooks/useRegister.ts:6:1)
+      at Object.require (screens/RegisterScreen.tsx:15:1)
+      at Object.require (screens/__tests__/RegisterScreen.test.tsx:4:1)
+
+
+Test Suites: 6 failed, 152 passed, 158 total
+Tests:       11 failed, 1773 passed, 1784 total
+Snapshots:   0 total
+Time:        39.691 s
+Ran all test suites.
+
+Jest has detected the following 5 open handles potentially keeping Jest from exiting:
+
+  ●  Timeout
+
+      676 |
+      677 | global.setInterval = ((handler: TimerHandler, interval?: number, ...args: any[]) => {
+    > 678 |   const intervalId = originalSetInterval(handler, interval, ...args) as any;
+          |                                         ^
+      679 |   activeIntervals.add(intervalId);
+      680 |   return intervalId;
+      681 | });
+
+      at apply (src/test-setup.ts:678:41)
+      at SyncManager.setInterval [as startAutoSync] (services/SyncManager.ts:111:24)
+      at new startAutoSync (services/SyncManager.ts:70:10)
+      at Function.getInstance (services/SyncManager.ts:75:30)
+      at Object.getInstance (services/SyncManager.ts:550:40)
+      at Object.require (hooks/useApiRecipes.ts:16:1)
+      at Object.require (screens/RecipeGenerationScreen.tsx:21:1)
+      at Object.require (core/navigation/legacyRouter.tsx:11:1)
+      at Object.require (App.tsx:17:1)
+      at Object.require (__tests__/ApiConfiguration.e2e.test.tsx:4:1)
+
+
+  ●  Timeout
+
+      676 |
+      677 | global.setInterval = ((handler: TimerHandler, interval?: number, ...args: any[]) => {
+    > 678 |   const intervalId = originalSetInterval(handler, interval, ...args) as any;
+          |                                         ^
+      679 |   activeIntervals.add(intervalId);
+      680 |   return intervalId;
+      681 | });
+
+      at apply (src/test-setup.ts:678:41)
+      at SyncManager.setInterval [as startAutoSync] (services/SyncManager.ts:111:24)
+      at new startAutoSync (services/SyncManager.ts:70:10)
+      at Function.getInstance (services/SyncManager.ts:75:30)
+      at Object.getInstance (services/SyncManager.ts:550:40)
+      at Object.require (hooks/useSyncManager.ts:6:1)
+      at Object.require (components/SyncStatusComponents.tsx:16:1)
+      at Object.require (screens/RecipeSearchScreen.tsx:17:1)
+      at Object.require (screens/__tests__/RecipeSearchScreen.test.tsx:5:1)
+
+
+  ●  Timeout
+
+      667 |
+      668 | const wrappedSetTimeout = ((handler: TimerHandler, timeout?: number, ...args: any[]) => {
+    > 669 |   const timeoutId = originalSetTimeout(handler, timeout, ...args) as any;
+          |                                       ^
+      670 |   activeTimeouts.add(timeoutId);
+      671 |   return timeoutId;
+      672 | }) as typeof setTimeout;
+
+      at apply (src/test-setup.ts:669:39)
+      at setTimeout (services/CircuitBreaker.ts:167:7)
+      at CircuitBreaker.createTimeoutPromise (services/CircuitBreaker.ts:166:12)
+      at CircuitBreaker.createTimeoutPromise (services/CircuitBreaker.ts:75:14)
+      at asyncGeneratorStep (node_modules/@babel/runtime/helpers/asyncToGenerator.js:3:17)
+      at _next (node_modules/@babel/runtime/helpers/asyncToGenerator.js:17:9)
+      at node_modules/@babel/runtime/helpers/asyncToGenerator.js:22:7
+      at CircuitBreaker.<anonymous> (node_modules/@babel/runtime/helpers/asyncToGenerator.js:14:12)
+      at CircuitBreaker.apply [as execute] (services/CircuitBreaker.ts:57:16)
+      at Object.execute (services/__tests__/CircuitBreaker.test.ts:88:26)
+      at asyncGeneratorStep (node_modules/@babel/runtime/helpers/asyncToGenerator.js:3:17)
+      at _next (node_modules/@babel/runtime/helpers/asyncToGenerator.js:17:9)
+      at node_modules/@babel/runtime/helpers/asyncToGenerator.js:22:7
+      at Object.<anonymous> (node_modules/@babel/runtime/helpers/asyncToGenerator.js:14:12)
+
+
+  ●  Timeout
+
+      667 |
+      668 | const wrappedSetTimeout = ((handler: TimerHandler, timeout?: number, ...args: any[]) => {
+    > 669 |   const timeoutId = originalSetTimeout(handler, timeout, ...args) as any;
+          |                                       ^
+      670 |   activeTimeouts.add(timeoutId);
+      671 |   return timeoutId;
+      672 | }) as typeof setTimeout;
+
+      at apply (src/test-setup.ts:669:39)
+      at setTimeout (services/CircuitBreaker.ts:167:7)
+      at CircuitBreaker.createTimeoutPromise (services/CircuitBreaker.ts:166:12)
+      at CircuitBreaker.createTimeoutPromise (services/CircuitBreaker.ts:75:14)
+      at asyncGeneratorStep (node_modules/@babel/runtime/helpers/asyncToGenerator.js:3:17)
+      at _next (node_modules/@babel/runtime/helpers/asyncToGenerator.js:17:9)
+      at node_modules/@babel/runtime/helpers/asyncToGenerator.js:22:7
+      at CircuitBreaker.<anonymous> (node_modules/@babel/runtime/helpers/asyncToGenerator.js:14:12)
+      at CircuitBreaker.apply [as execute] (services/CircuitBreaker.ts:57:16)
+      at ResilientOperation.execute (services/CircuitBreaker.ts:400:40)
+      at asyncGeneratorStep (node_modules/@babel/runtime/helpers/asyncToGenerator.js:3:17)
+      at _next (node_modules/@babel/runtime/helpers/asyncToGenerator.js:17:9)
+      at node_modules/@babel/runtime/helpers/asyncToGenerator.js:22:7
+      at ResilientOperation.<anonymous> (node_modules/@babel/runtime/helpers/asyncToGenerator.js:14:12)
+      at ResilientOperation.apply [as execute] (services/CircuitBreaker.ts:398:16)
+      at Object.execute (services/__tests__/CircuitBreaker.test.ts:103:21)
+      at asyncGeneratorStep (node_modules/@babel/runtime/helpers/asyncToGenerator.js:3:17)
+      at _next (node_modules/@babel/runtime/helpers/asyncToGenerator.js:17:9)
+      at node_modules/@babel/runtime/helpers/asyncToGenerator.js:22:7
+      at Object.<anonymous> (node_modules/@babel/runtime/helpers/asyncToGenerator.js:14:12)
+
+
+  ●  Timeout
+
+      667 |
+      668 | const wrappedSetTimeout = ((handler: TimerHandler, timeout?: number, ...args: any[]) => {
+    > 669 |   const timeoutId = originalSetTimeout(handler, timeout, ...args) as any;
+          |                                       ^
+      670 |   activeTimeouts.add(timeoutId);
+      671 |   return timeoutId;
+      672 | }) as typeof setTimeout;
+
+      at apply (src/test-setup.ts:669:39)
+      at setTimeout (services/CircuitBreaker.ts:167:7)
+      at CircuitBreaker.createTimeoutPromise (services/CircuitBreaker.ts:166:12)
+      at CircuitBreaker.createTimeoutPromise (services/CircuitBreaker.ts:75:14)
+      at asyncGeneratorStep (node_modules/@babel/runtime/helpers/asyncToGenerator.js:3:17)
+      at _next (node_modules/@babel/runtime/helpers/asyncToGenerator.js:17:9)
+      at node_modules/@babel/runtime/helpers/asyncToGenerator.js:22:7
+      at CircuitBreaker.<anonymous> (node_modules/@babel/runtime/helpers/asyncToGenerator.js:14:12)
+      at CircuitBreaker.apply [as execute] (services/CircuitBreaker.ts:57:16)
+      at ResilientOperation.execute (services/CircuitBreaker.ts:400:40)
+      at asyncGeneratorStep (node_modules/@babel/runtime/helpers/asyncToGenerator.js:3:17)
+      at _next (node_modules/@babel/runtime/helpers/asyncToGenerator.js:17:9)
+      at node_modules/@babel/runtime/helpers/asyncToGenerator.js:22:7
+      at ResilientOperation.<anonymous> (node_modules/@babel/runtime/helpers/asyncToGenerator.js:14:12)
+      at ResilientOperation.apply [as execute] (services/CircuitBreaker.ts:398:16)
+      at Object.execute (services/__tests__/CircuitBreaker.test.ts:112:21)
+      at asyncGeneratorStep (node_modules/@babel/runtime/helpers/asyncToGenerator.js:3:17)
+      at _next (node_modules/@babel/runtime/helpers/asyncToGenerator.js:17:9)
+      at node_modules/@babel/runtime/helpers/asyncToGenerator.js:22:7
+      at Object.<anonymous> (node_modules/@babel/runtime/helpers/asyncToGenerator.js:14:12)
+

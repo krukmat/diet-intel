@@ -142,4 +142,18 @@ export const registerScreenStyles = StyleSheet.create({
     fontSize: 12,
     textAlign: 'center',
   },
+  // Estilos para PasswordInput
+  inputContainer: {
+    position: 'relative',
+  },
+  eyeButton: {
+    position: 'absolute',
+    right: 12,
+    top: '50%',
+    transform: [{ translateY: -10 }],
+    padding: 4,
+  },
+  eyeText: {
+    fontSize: 18,
+  },
 });
