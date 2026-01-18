@@ -135,12 +135,13 @@ export class AuthService {
       );
 
       const { user, tokens, expires_at } = this.normalizeAuthResponse(response.data);
-      if (!user) {
+      const resolvedUser = user ?? (tokens.access_token ? await this.getCurrentUser(tokens.access_token) : undefined);
+      if (!resolvedUser) {
         throw new Error('Missing user data in login response');
       }
 
-      await this.storeTokens(tokens, user, expires_at);
-      return { user, tokens };
+      await this.storeTokens(tokens, resolvedUser, expires_at);
+      return { user: resolvedUser, tokens };
     } catch (error) {
       console.error('AuthService.login error:', error);
       throw error;
@@ -155,12 +156,13 @@ export class AuthService {
       );
 
       const { user, tokens, expires_at } = this.normalizeAuthResponse(response.data);
-      if (!user) {
+      const resolvedUser = user ?? (tokens.access_token ? await this.getCurrentUser(tokens.access_token) : undefined);
+      if (!resolvedUser) {
         throw new Error('Missing user data in registration response');
       }
 
-      await this.storeTokens(tokens, user, expires_at);
-      return { user, tokens };
+      await this.storeTokens(tokens, resolvedUser, expires_at);
+      return { user: resolvedUser, tokens };
     } catch (error) {
       console.error('AuthService.register error:', error);
       throw error;
