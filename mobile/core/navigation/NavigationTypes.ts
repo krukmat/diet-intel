@@ -9,7 +9,6 @@ export type ScreenType =
   | 'plan'
   | 'plan-detail'
   | 'track'
-  | 'meal-log'
   | 'weight'
   | 'photos'
   | 'recommendations'
@@ -28,12 +27,6 @@ export type ScreenType =
   | 'login'
   | 'register'
   | 'splash'
-  | 'feed'
-  | 'followers-list'
-  | 'following-list'
-  | 'blocked-list'
-  | 'blocked-by'
-  | 'vision-history'
   | 'rewards';
 
 export interface NavigationContext {

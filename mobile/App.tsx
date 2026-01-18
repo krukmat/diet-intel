@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { SafeAreaView, StyleSheet } from 'react-native';
 import { StatusBar as ExpoStatusBar } from 'expo-status-bar';
 import { useTranslation } from 'react-i18next';
-import ProductDetail from './components/ProductDetail';
 import HomeModals from './components/HomeModals';
 import { developerSettingsService, DeveloperConfig, FeatureToggle, DEFAULT_DEVELOPER_CONFIG, DEFAULT_FEATURE_TOGGLES } from './services/DeveloperSettings';
 import { AuthProvider, useAuth } from './contexts/AuthContext';

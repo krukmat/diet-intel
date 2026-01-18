@@ -170,48 +170,12 @@ const SCREEN_LAYOUT_CONFIGS: Record<ScreenType, Partial<LayoutConfig>> = {
     headerTitle: 'Vision Analysis',
     contentPadding: 16
   },
-  'vision-history': {
-    showHeader: true,
-    showBackButton: true,
-    headerTitle: 'Vision History',
-    contentPadding: 16
-  },
 
   // Social features
   'discover-feed': {
     showHeader: true,
     showBackButton: true,
     headerTitle: 'Discover',
-    contentPadding: 16
-  },
-  feed: {
-    showHeader: true,
-    showBackButton: true,
-    headerTitle: 'Feed',
-    contentPadding: 16
-  },
-  'followers-list': {
-    showHeader: true,
-    showBackButton: true,
-    headerTitle: 'Followers',
-    contentPadding: 16
-  },
-  'following-list': {
-    showHeader: true,
-    showBackButton: true,
-    headerTitle: 'Following',
-    contentPadding: 16
-  },
-  'blocked-list': {
-    showHeader: true,
-    showBackButton: true,
-    headerTitle: 'Blocked Users',
-    contentPadding: 16
-  },
-  'blocked-by': {
-    showHeader: true,
-    showBackButton: true,
-    headerTitle: 'Blocked By',
     contentPadding: 16
   },
 

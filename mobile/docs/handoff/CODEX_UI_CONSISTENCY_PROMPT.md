@@ -6,8 +6,8 @@ Product Owner. El objetivo es simplificar y unificar la interfaz móvil para que
 ## Contexto actual (fuente: `App.tsx` + `screens/`)
 - La navegación es manual (estado `currentScreen`) y hay una barra extensa de botones en `App.tsx`.
 - Hay solapamientos de funcionalidades:
-  - `DiscoverFeedScreen` vs `FeedScreen`.
-  - `SmartDietScreen` vs `RecommendationsScreen`.
+  - `DiscoverFeedScreen` (reemplaza al retirado `FeedScreen`).
+  - `SmartDietScreen` (fusionado con el antiguo `RecommendationsScreen`).
   - `VisionLogScreen` vs `UploadLabel` vs scanner principal en `App.tsx`.
 - La nomenclatura es inconsistente ("Smart Diet", "Recommendations", "Recipe AI", "Vision").
 - Algunas pantallas usan `onBackPress` y otras usan `useNavigation`, lo que rompe el patrón.
@@ -114,7 +114,7 @@ Tabs
 ### Fase 3: Consolidacion de pantallas
 - Crear el Hub de "Mis Recetas" con modos "Explorar" y "Mis Recetas".
 - Integrar `RecipeDetailScreen` como modal/overlay dentro del hub.
-- Unificar `SmartDietScreen` y `RecommendationsScreen` en una sola pantalla de Recomendaciones.
+- Consolidar `SmartDietScreen` con las funcionalidades del antiguo `RecommendationsScreen` (eliminado) en una sola pantalla de Recomendaciones.
 - Consolidar `UploadLabel` y `VisionLogScreen` como modos dentro de Log.
 
 ### Fase 4: Simplificacion funcional y limpieza
@@ -201,7 +201,7 @@ Nota: rangos de esfuerzo y tiempo son aproximaciones y deben recalibrarse con el
 ### Fase 3: Consolidación de pantallas duplicadas (Semana 5-6)
 **Esfuerzo**: 16-28 horas
 - Unificar SmartDiet/Recommendations: 6-8 horas
-- Elegir DiscoverFeed vs FeedScreen: 4-6 horas
+- Confirmar DiscoverFeed (FeedScreen retirado): 4-6 horas
 - Consolidar Vision/Upload/Scanner: 6-10 horas
 - Testing de flujos consolidados: 4-4 horas
 
@@ -384,18 +384,18 @@ const screenAliases = {
 ## MATRIZ DE DECISIÓN PARA PANTALLAS DUPLICADAS
 
 ### Criterios de Priorización
-| Criterio | Peso | SmartDiet | Recommendations | FeedScreen | DiscoverFeed |
-|----------|------|-----------|-----------------|------------|--------------|
-| Uso actual (30%) | 30% | 8/10 | 6/10 | 7/10 | 9/10 |
-| Features únicas (25%) | 25% | 9/10 | 7/10 | 5/10 | 8/10 |
-| Complejidad migración (20%) | 20% | 6/10 | 8/10 | 9/10 | 7/10 |
-| Valor estratégico (15%) | 15% | 9/10 | 6/10 | 6/10 | 8/10 |
-| Consistencia naming (10%) | 10% | 5/10 | 9/10 | 8/10 | 7/10 |
-| **Total ponderado** | **100%** | **7.4** | **7.0** | **7.1** | **8.0** |
+| Criterio | Peso | SmartDiet | Recommendations | DiscoverFeed |
+|----------|------|-----------|-----------------|--------------|
+| Uso actual (30%) | 30% | 8/10 | 6/10 | 9/10 |
+| Features únicas (25%) | 25% | 9/10 | 7/10 | 8/10 |
+| Complejidad migración (20%) | 20% | 6/10 | 8/10 | 7/10 |
+| Valor estratégico (15%) | 15% | 9/10 | 6/10 | 8/10 |
+| Consistencia naming (10%) | 10% | 5/10 | 9/10 | 7/10 |
+| **Total ponderado** | **100%** | **7.4** | **7.0** | **8.0** |
 
 ### Decisiones Resultantes
 1. **SmartDiet vs Recommendations**: Mantener SmartDiet (renombrar a "Recomendaciones")
-2. **FeedScreen vs DiscoverFeed**: Mantener DiscoverFeed (mejor puntuación)
+2. **FeedScreen retirado → DiscoverFeed**: Mantener DiscoverFeed (mejor puntuación)
 3. **VisionLog vs UploadLabel vs Scanner**: Consolidar bajo "Log" con prioridad al scanner
 
 ---
@@ -456,16 +456,13 @@ interface NavigationState {
 |----------------|-----------------|--------|-------|
 | `App.tsx` (scanner home) | Log → Scanner | Migrar | El home deja de ser scanner |
 | `DiscoverFeedScreen` | Mis Recetas → Hub (modo Explorar) | Mantener | Base del hub integrado |
-| `FeedScreen` | Mis Recetas → Hub (modo Explorar) | Consolidar | Deprecar o fusionar |
-| `SmartDietScreen` | Plan → Recomendaciones | Mantener | Renombrar en UI |
-| `RecommendationsScreen` | Plan → Recomendaciones | Consolidar | Fusionar en SmartDiet |
+| `SmartDietScreen` | Plan → Recomendaciones | Mantener | Renombrar en UI y absorber el antiguo RecommendationsScreen |
 | `PlanScreen` | Plan → Plan | Mantener | Core plan |
 | `ShoppingOptimizationScreen` | Backlog | Deprecar | ROI a validar |
 | `TastePreferencesScreen` | Backlog | Deprecar | ROI a validar |
 | `TrackScreen` | Log → Track | Mantener | Registro de tracking |
 | `UploadLabel` | Log → Scanner (modo) | Consolidar | Integrar como modo |
 | `VisionLogScreen` | Log → Scanner (modo) | Consolidar | Integrar como modo |
-| `VisionHistoryScreen` | Log → Track (historial) | Consolidar | Integrar como sección |
 | `RecipeHomeScreen` | Backlog | Deprecar | ROI a validar |
 | `RecipeSearchScreen` | Backlog | Deprecar | ROI a validar |
 | `RecipeGenerationScreen` | Backlog | Deprecar | ROI a validar |
@@ -474,16 +471,14 @@ interface NavigationState {
 | `IntelligentFlowScreen` | Plan → IntelligentFlow | Mantener | Flujo IA de optimizacion |
 | `ProfileScreen` | Perfil → Profile | Mantener | Perfil |
 | `ProfileEditScreen` | Backlog | Deprecar | Edición inline en Profile |
-| `FollowersListScreen` | Backlog | Deprecar | Social fuera del MVP |
-| `FollowingListScreen` | Backlog | Deprecar | Social fuera del MVP |
-| `BlockedListScreen` | Backlog | Deprecar | Social fuera del MVP |
-| `BlockedByScreen` | Backlog | Deprecar | Social fuera del MVP |
-| `LoginScreen` | Auth → Login | Mantener | Fuera de tabs |
+  | `LoginScreen` | Auth → Login | Mantener | Fuera de tabs |
 | `RegisterScreen` | Auth → Register | Mantener | Fuera de tabs |
 | `SplashScreen` | Auth → Splash | Mantener | Fuera de tabs |
 | `ApiConfigModal` | Perfil → Settings/ApiConfig | Mover | Solo si developer mode |
 | `DeveloperSettingsModal` | Perfil → Settings/Developer | Mover | Solo si developer mode |
 | `LanguageSwitcher` | Perfil → Settings/Language | Mover | Integrar en Profile |
 | `ReminderSnippet` | Backlog | Deprecar | ROI a validar |
-| `ProductDetail` | Log → Scanner/ProductDetail | Mantener | Overlay post-scan |
+| `ProductDetail` | Log → Scanner/ProductSummary | Eliminado | La vista se consolida directamente en el flujo del scanner; ya no existe módulo separado. |
 | `HomeSummary` (nuevo) | Inicio → HomeSummary | Nuevo | Basarse en resumen de datos existentes |
+
+> Nota: Las pantallas `RecommendationsScreen`, `FeedScreen`, `VisionHistoryScreen` y el conjunto social (`FollowersListScreen`, `FollowingListScreen`, `BlockedListScreen`, `BlockedByScreen`) se han eliminado y sus funcionalidades fueron consolidadas en los hubs activos del diseño citado arriba.

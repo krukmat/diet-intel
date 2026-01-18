@@ -29,14 +29,8 @@ jest.mock('../../../screens/LoginScreen', () => ({
 jest.mock('../../../screens/RegisterScreen', () => ({
   default: 'RegisterScreen',
 }));
-jest.mock('../../../screens/FeedScreen', () => ({
-  default: 'FeedScreen',
-}));
 jest.mock('../../../screens/ProfileEditScreen', () => ({
   default: 'ProfileEditScreen',
-}));
-jest.mock('../../../screens/BlockedListScreen', () => ({
-  default: 'BlockedListScreen',
 }));
 jest.mock('../../../screens/SplashScreen', () => ({
   default: 'SplashScreen',
@@ -80,23 +74,14 @@ jest.mock('../../../screens/ShoppingOptimizationScreen', () => ({
 jest.mock('../../../screens/VisionLogScreen', () => ({
   default: 'VisionLogScreen',
 }));
-jest.mock('../../../screens/VisionHistoryScreen', () => ({
-  default: 'VisionHistoryScreen',
-}));
 jest.mock('../../../screens/DiscoverFeedScreen', () => ({
   default: 'DiscoverFeedScreen',
 }));
-jest.mock('../../../screens/FollowersListScreen', () => ({
-  default: 'FollowersListScreen',
-}));
-jest.mock('../../../screens/FollowingListScreen', () => ({
-  default: 'FollowingListScreen',
-}));
-jest.mock('../../../screens/BlockedByScreen', () => ({
-  default: 'BlockedByScreen',
-}));
 jest.mock('../../../screens/ProfileScreen', () => ({
   default: 'ProfileScreen',
+}));
+jest.mock('../../../screens/RewardsScreen', () => ({
+  default: 'RewardsScreen',
 }));
 
 describe('ScreenRegistryUtils', () => {
@@ -133,9 +118,8 @@ describe('ScreenRegistryUtils', () => {
 
   it('loads additional screen components', async () => {
     await expect(loadScreenComponent('register' as any)).resolves.toBe('RegisterScreen');
-    await expect(loadScreenComponent('feed' as any)).resolves.toBe('FeedScreen');
     await expect(loadScreenComponent('profile-edit' as any)).resolves.toBe('ProfileEditScreen');
-    await expect(loadScreenComponent('blocked-list' as any)).resolves.toBe('BlockedListScreen');
+    await expect(loadScreenComponent('discover-feed' as any)).resolves.toBe('DiscoverFeedScreen');
   });
 
   it('loads remaining screen components', async () => {
@@ -155,12 +139,9 @@ describe('ScreenRegistryUtils', () => {
       ['taste-preferences', 'TastePreferencesScreen'],
       ['shopping-optimization', 'ShoppingOptimizationScreen'],
       ['vision', 'VisionLogScreen'],
-      ['vision-history', 'VisionHistoryScreen'],
       ['discover-feed', 'DiscoverFeedScreen'],
-      ['followers-list', 'FollowersListScreen'],
-      ['following-list', 'FollowingListScreen'],
-      ['blocked-by', 'BlockedByScreen'],
       ['profile', 'ProfileScreen'],
+      ['rewards', 'RewardsScreen'],
     ] as const;
 
     for (const [screenName, expected] of screens) {

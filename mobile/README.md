@@ -76,30 +76,7 @@ npx expo start --offline
 
 ## Usage
 
-```tsx
-import { ScanBarcode } from './components/ScanBarcode';
-import { NavigationContainer } from '@react-navigation/native';
-import { createNativeStackNavigator } from '@react-navigation/native-stack';
-
-const Stack = createNativeStackNavigator();
-
-function App() {
-  return (
-    <NavigationContainer>
-      <Stack.Navigator>
-        <Stack.Screen 
-          name="ScanBarcode" 
-          component={ScanBarcode}
-          options={{ title: 'Scan Product' }}
-        />
-        <Stack.Screen name="ProductDetail" component={ProductDetailScreen} />
-        <Stack.Screen name="UploadLabel" component={UploadLabelScreen} />
-        <Stack.Screen name="ManualEntry" component={ManualEntryScreen} />
-      </Stack.Navigator>
-    </NavigationContainer>
-  );
-}
-```
+`App.tsx` is the entry point: it wraps `AuthProvider`, `ProfileProvider` and `GamificationProvider`, renders either the auth screens (`LoginScreen`, `RegisterScreen`, `SplashScreen`) or `MainApp`. `MainApp` drives the `HomeDashboard` flows, resolves home actions via `core/navigation/ScreenRegistry`, and renders feature screens through `core/navigation/legacyRouter.tsx`. There is no React Navigation stack; the router selects between the remaining active screens (scanner, upload, tracking, plans, recipes, profile, rewards, etc.) and renders them alongside the dashboard. The old `ProductDetail` module has been removed—product insights now surface directly from the scanner flow.
 
 ## API Configuration
 

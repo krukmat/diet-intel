@@ -72,11 +72,6 @@ jest.mock('../components/HomeDashboard', () => {
   const { Text } = require('react-native');
   return () => <Text>HomeDashboard</Text>;
 });
-jest.mock('../components/ProductDetail', () => {
-  const { Text } = require('react-native');
-  return () => <Text>ProductDetail</Text>;
-});
-
 jest.mock('../screens/SplashScreen', () => {
   const { Text } = require('react-native');
   return ({ onLoadingComplete }: any) => (
