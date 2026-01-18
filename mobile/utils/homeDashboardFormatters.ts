@@ -10,7 +10,7 @@ import { useTranslation } from 'react-i18next';
  */
 export const formatCaloriesText = (calories?: number | null): string => {
   if (calories === null || calories === undefined) {
-    return 'No calories set';
+    return 'Sin objetivo';
   }
 
   return `${Math.round(calories)} kcal`;
@@ -24,7 +24,7 @@ export const formatProgressText = (
   daily?: number | null
 ): string => {
   if (consumed === null || consumed === undefined) {
-    return 'No progress';
+    return 'Sin datos';
   }
 
   const consumedRounded = Math.round(consumed);
@@ -42,7 +42,7 @@ export const formatProgressText = (
  */
 export const formatSimpleProgressText = (consumed?: number | null): string => {
   if (consumed === null || consumed === undefined) {
-    return 'No progress';
+    return 'Sin datos';
   }
 
   return `${Math.round(consumed)} kcal`;
@@ -53,14 +53,14 @@ export const formatSimpleProgressText = (consumed?: number | null): string => {
  */
 export const formatPlanStatus = (active?: boolean | null): string => {
   if (active === true) {
-    return 'Plan active';
+    return 'Plan activo';
   }
 
   if (active === false) {
-    return 'Plan inactive';
+    return 'Plan inactivo';
   }
 
-  return 'Plan unknown';
+  return 'Sin datos';
 };
 
 /**
@@ -74,12 +74,12 @@ export const useHomeDashboardFormatters = () => {
       if (calories !== null && calories !== undefined) {
         return `${Math.round(calories)} kcal`;
       }
-      return 'No calories set';
+      return t('home.hero.noCalories');
     },
 
     formatProgressText: (consumed?: number | null, daily?: number | null) => {
       if (consumed === null || consumed === undefined) {
-        return 'No progress';
+        return t('home.hero.noProgress');
       }
 
       const consumedRounded = Math.round(consumed);
@@ -94,14 +94,14 @@ export const useHomeDashboardFormatters = () => {
 
     formatPlanStatus: (active?: boolean | null) => {
       if (active === true) {
-        return 'Plan active';
+        return t('home.hero.planActive');
       }
 
       if (active === false) {
-        return 'Plan inactive';
+        return t('home.hero.planInactive');
       }
 
-      return 'Plan unknown';
+      return t('home.hero.planUnknown');
     },
 
     // Método para obtener traducciones (fallback)

@@ -27,7 +27,7 @@ describe('useHomeDashboard hook', () => {
       caloriesText: '2000 kcal',
       plannedCaloriesText: '1800 / 1800 kcal',
       progressText: '1200 / 2000 kcal',
-      planText: 'Plan active'
+      planText: 'home.hero.planActive'
     });
   });
 
@@ -42,10 +42,10 @@ describe('useHomeDashboard hook', () => {
     const { result } = renderHook(() => useHomeDashboard(data));
 
     expect(result.current).toEqual({
-      caloriesText: 'No calories set',
+      caloriesText: 'home.hero.noCalories',
       plannedCaloriesText: null,
-      progressText: 'No progress',
-      planText: 'Plan unknown'
+      progressText: 'home.hero.noProgress',
+      planText: 'home.hero.planUnknown'
     });
   });
 
@@ -60,10 +60,10 @@ describe('useHomeDashboard hook', () => {
     const { result } = renderHook(() => useHomeDashboard(data));
 
     expect(result.current).toEqual({
-      caloriesText: 'No calories set',
+      caloriesText: 'home.hero.noCalories',
       plannedCaloriesText: null,
-      progressText: 'No progress',
-      planText: 'Plan unknown'
+      progressText: 'home.hero.noProgress',
+      planText: 'home.hero.planUnknown'
     });
   });
 
@@ -80,7 +80,7 @@ describe('useHomeDashboard hook', () => {
       caloriesText: '2000 kcal',
       plannedCaloriesText: null,
       progressText: '1200 / 2000 kcal',
-      planText: 'Plan unknown'
+      planText: 'home.hero.planUnknown'
     });
   });
 
@@ -91,7 +91,7 @@ describe('useHomeDashboard hook', () => {
 
     const { result } = renderHook(() => useHomeDashboard(data));
 
-    expect(result.current.planText).toBe('Plan inactive');
+    expect(result.current.planText).toBe('home.hero.planInactive');
   });
 
   it('should round decimal values', () => {
@@ -107,7 +107,7 @@ describe('useHomeDashboard hook', () => {
       caloriesText: '2001 kcal',
       plannedCaloriesText: '1801 / 1801 kcal',
       progressText: '1200 / 2001 kcal',
-      planText: 'Plan unknown'
+      planText: 'home.hero.planUnknown'
     });
   });
 

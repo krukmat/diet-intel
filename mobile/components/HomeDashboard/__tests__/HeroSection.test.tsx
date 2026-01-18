@@ -21,7 +21,7 @@ describe('HeroSection', () => {
     caloriesText: '2000 kcal',
     plannedCaloriesText: '1800 / 1800 kcal',
     progressText: '1200 / 2000 kcal',
-    planText: 'Plan active'
+    planText: 'Plan activo'
   };
 
   it('renders correctly with all props', () => {
@@ -32,7 +32,7 @@ describe('HeroSection', () => {
     expect(getByText('v1.0')).toBeTruthy();
     expect(getByText('2000 kcal')).toBeTruthy();
     expect(getByText('1200 / 2000 kcal')).toBeTruthy();
-    expect(getByText('Plan active')).toBeTruthy();
+    expect(getByText('Plan activo')).toBeTruthy();
   });
 
   it('handles null plannedCaloriesText', () => {

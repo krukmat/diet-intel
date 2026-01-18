@@ -82,6 +82,13 @@
       "noCalories": "No target",
       "noProgress": "No data"
     },
+    "summary": {
+      "title": "Today summary",
+      "ctaPlan": "View plan",
+      "ctaCreate": "Create plan",
+      "noPlan": "No active plan",
+      "emptyState": "Log your first meal"
+    },
     "progress": {
       "description": "Quick overview of your tracking and plan"
     }

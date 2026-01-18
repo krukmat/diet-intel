@@ -91,13 +91,6 @@ function MainApp({ user, onLogout }: { user: any; onLogout: () => void }) {
   const [developerConfig, setDeveloperConfig] = useState<DeveloperConfig>(DEFAULT_DEVELOPER_CONFIG);
   const [featureToggles, setFeatureToggles] = useState<FeatureToggle>(DEFAULT_FEATURE_TOGGLES);
   const { primaryActions, secondaryActions, toolActions } = useHomeActions(featureToggles);
-  const orderedActions = (() => {
-    const allActions = [...primaryActions, ...secondaryActions];
-    const photos = allActions.find(action => action.id === 'photos');
-    const recipes = allActions.find(action => action.id === 'recipes');
-    const rest = allActions.filter(action => action.id !== 'photos' && action.id !== 'recipes' && action.id !== 'vision' && action.id !== 'explore' && action.id !== 'profile' && action.id !== 'uploadLabel');
-    return [photos, recipes, ...rest].filter(Boolean);
-  })();
   const { dailyCalories, plannedCalories, consumedCalories, planActive } = useHomeHero(user?.id);
   
   // Debug logging
@@ -165,14 +158,20 @@ function MainApp({ user, onLogout }: { user: any; onLogout: () => void }) {
           icon: action.icon,
           onPress: () => handleHomeActionPress(action),
         }))}
-        primaryActions={orderedActions.map(action => ({
+        primaryActions={primaryActions.map(action => ({
           id: action.id,
           label: t(action.labelKey),
           subtitle: action.subtitleKey ? t(action.subtitleKey) : undefined,
           icon: action.icon,
           onPress: () => handleHomeActionPress(action),
         }))}
-        secondaryActions={[]}
+        secondaryActions={secondaryActions.map(action => ({
+          id: action.id,
+          label: t(action.labelKey),
+          subtitle: action.subtitleKey ? t(action.subtitleKey) : undefined,
+          icon: action.icon,
+          onPress: () => handleHomeActionPress(action),
+        }))}
         showDeveloperSettings={getDeveloperModeVisible(user, developerConfig)}
         showNotifications={getNotificationsVisible(featureToggles)}
         onLogout={onLogout}

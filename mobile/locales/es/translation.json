@@ -76,11 +76,18 @@
       "planCalories": "Plan: {{calories}} kcal",
       "todayProgress": "Hoy",
       "planStatus": "Estado del plan",
-      "planActive": "Activo",
-      "planInactive": "Inactivo",
+      "planActive": "Plan activo",
+      "planInactive": "Plan inactivo",
       "planUnknown": "Sin datos",
       "noCalories": "Sin objetivo",
       "noProgress": "Sin datos"
+    },
+    "summary": {
+      "title": "Resumen de hoy",
+      "ctaPlan": "Ver plan",
+      "ctaCreate": "Crear plan",
+      "noPlan": "Sin plan activo",
+      "emptyState": "Aún no registraste comidas"
     },
     "progress": {
       "description": "Resumen rápido de tu seguimiento y plan"

@@ -13,7 +13,7 @@ const baseToggles: FeatureToggle = {
 describe('homeActions config', () => {
   it('returns primary actions when toggles allow', () => {
     const actions = getHomeActions('primary', baseToggles).map(action => action.id);
-    expect(actions).toEqual(expect.arrayContaining(['aiPlan', 'plan', 'weight', 'photos']));
+    expect(actions).toEqual(expect.arrayContaining(['logMeal', 'aiPlan', 'progress']));
   });
 
 
@@ -26,7 +26,7 @@ describe('homeActions config', () => {
 
   it('returns secondary actions without toggles', () => {
     const actions = getHomeActions('secondary').map(action => action.id);
-    expect(actions).toEqual(expect.arrayContaining(['explore', 'profile', 'vision', 'recipes']));
+    expect(actions).toEqual(expect.arrayContaining(['explore', 'profile', 'vision', 'recipes', 'photos', 'weight']));
   });
 
   it('includes upload label when feature is enabled', () => {

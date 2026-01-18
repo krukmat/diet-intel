@@ -18,8 +18,8 @@ describe('HomeDashboard Formatters', () => {
     });
 
     it('should handle null and undefined', () => {
-      expect(formatCaloriesText(null)).toBe('No calories set');
-      expect(formatCaloriesText(undefined)).toBe('No calories set');
+      expect(formatCaloriesText(null)).toBe('Sin objetivo');
+      expect(formatCaloriesText(undefined)).toBe('Sin objetivo');
     });
 
     it('should handle zero', () => {
@@ -39,8 +39,8 @@ describe('HomeDashboard Formatters', () => {
     });
 
     it('should handle null/undefined consumed', () => {
-      expect(formatProgressText(null, 2000)).toBe('No progress');
-      expect(formatProgressText(undefined, 2000)).toBe('No progress');
+      expect(formatProgressText(null, 2000)).toBe('Sin datos');
+      expect(formatProgressText(undefined, 2000)).toBe('Sin datos');
     });
 
     it('should handle zero values', () => {
@@ -56,8 +56,8 @@ describe('HomeDashboard Formatters', () => {
     });
 
     it('should handle null and undefined', () => {
-      expect(formatSimpleProgressText(null)).toBe('No progress');
-      expect(formatSimpleProgressText(undefined)).toBe('No progress');
+      expect(formatSimpleProgressText(null)).toBe('Sin datos');
+      expect(formatSimpleProgressText(undefined)).toBe('Sin datos');
     });
 
     it('should handle zero', () => {
@@ -67,16 +67,16 @@ describe('HomeDashboard Formatters', () => {
 
   describe('formatPlanStatus', () => {
     it('should format active plan', () => {
-      expect(formatPlanStatus(true)).toBe('Plan active');
+      expect(formatPlanStatus(true)).toBe('Plan activo');
     });
 
     it('should format inactive plan', () => {
-      expect(formatPlanStatus(false)).toBe('Plan inactive');
+      expect(formatPlanStatus(false)).toBe('Plan inactivo');
     });
 
     it('should format unknown plan status', () => {
-      expect(formatPlanStatus(null)).toBe('Plan unknown');
-      expect(formatPlanStatus(undefined)).toBe('Plan unknown');
+      expect(formatPlanStatus(null)).toBe('Sin datos');
+      expect(formatPlanStatus(undefined)).toBe('Sin datos');
     });
   });
 });
