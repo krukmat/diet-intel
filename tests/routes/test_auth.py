@@ -27,6 +27,17 @@ def test_register_user_ok(client):
         "refresh_token": "refresh",
         "token_type": "bearer",
         "expires_in": 3600,
+        "user": {
+            "id": "user-1",
+            "email": "user@example.com",
+            "full_name": "User Example",
+            "avatar_url": None,
+            "is_developer": False,
+            "role": "standard",
+            "is_active": True,
+            "email_verified": False,
+            "created_at": "2024-01-01T00:00:00Z",
+        },
     }
     with patch("app.routes.auth.auth_service", autospec=True) as mock_auth:
         mock_auth.register_user = AsyncMock(return_value=token_payload)
@@ -46,6 +57,17 @@ def test_login_user_ok(client):
         "refresh_token": "refresh",
         "token_type": "bearer",
         "expires_in": 3600,
+        "user": {
+            "id": "user-1",
+            "email": "user@example.com",
+            "full_name": "User Example",
+            "avatar_url": None,
+            "is_developer": False,
+            "role": "standard",
+            "is_active": True,
+            "email_verified": False,
+            "created_at": "2024-01-01T00:00:00Z",
+        },
     }
     with patch("app.routes.auth.auth_service", autospec=True) as mock_auth:
         mock_auth.login_user = AsyncMock(return_value=token_payload)
@@ -64,6 +86,17 @@ def test_refresh_token_ok(client):
         "refresh_token": "new_refresh",
         "token_type": "bearer",
         "expires_in": 3600,
+        "user": {
+            "id": "user-1",
+            "email": "user@example.com",
+            "full_name": "User Example",
+            "avatar_url": None,
+            "is_developer": False,
+            "role": "standard",
+            "is_active": True,
+            "email_verified": False,
+            "created_at": "2024-01-01T00:00:00Z",
+        },
     }
     with patch("app.routes.auth.auth_service", autospec=True) as mock_auth:
         mock_auth.refresh_access_token = AsyncMock(return_value=token_payload)

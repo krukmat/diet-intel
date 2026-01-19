@@ -19,7 +19,7 @@ from fastapi.testclient import TestClient
 from fastapi import status
 
 from main import app
-from app.models.user import User, UserCreate, UserLogin, UserRole, Token, RefreshToken, UserUpdate, ChangePassword
+from app.models.user import User, UserCreate, UserLogin, UserRole, Token, RefreshToken, UserUpdate, ChangePassword, UserResponse
 from app.services.auth import auth_service, session_service, user_service
 from app.services.database import db_service
 from app.services.session_service import SessionService
@@ -43,6 +43,20 @@ def test_user():
         is_active=True,
         email_verified=True,
         created_at=datetime.utcnow()
+    )
+
+
+def _user_response() -> UserResponse:
+    return UserResponse(
+        id="1",
+        email="test@example.com",
+        full_name="Test User",
+        avatar_url=None,
+        is_developer=False,
+        role=UserRole.STANDARD,
+        is_active=True,
+        email_verified=True,
+        created_at=datetime.utcnow(),
     )
 
 
@@ -76,7 +90,8 @@ class TestRegistrationEndpoint:
             access_token="access_token_123",
             refresh_token="refresh_token_123",
             token_type="bearer",
-            expires_in=900
+            expires_in=900,
+            user=_user_response(),
         )
         
         with patch.object(auth_service, 'register_user', new_callable=AsyncMock, return_value=mock_token):
@@ -135,7 +150,8 @@ class TestRegistrationEndpoint:
             access_token="dev_access_token",
             refresh_token="dev_refresh_token",
             token_type="bearer",
-            expires_in=900
+            expires_in=900,
+            user=_user_response(),
         )
         
         with patch.object(auth_service, 'register_user', new_callable=AsyncMock, return_value=mock_token):
@@ -175,7 +191,8 @@ class TestLoginEndpoint:
             access_token="login_access_token",
             refresh_token="login_refresh_token",
             token_type="bearer",
-            expires_in=900
+            expires_in=900,
+            user=_user_response(),
         )
         
         with patch.object(auth_service, 'login_user', new_callable=AsyncMock, return_value=mock_token):
@@ -255,7 +272,8 @@ class TestRefreshTokenEndpoint:
             access_token="new_access_token",
             refresh_token="new_refresh_token", 
             token_type="bearer",
-            expires_in=900
+            expires_in=900,
+            user=_user_response(),
         )
         
         with patch.object(auth_service, 'refresh_access_token', new_callable=AsyncMock, return_value=mock_new_token):

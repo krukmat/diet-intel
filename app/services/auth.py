@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from fastapi import HTTPException, status, Depends
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import ValidationError
-from app.models.user import User, UserCreate, UserLogin, Token, TokenData, UserSession, UserRole
+from app.models.user import User, UserCreate, UserLogin, Token, TokenData, UserSession, UserRole, UserResponse
 from app.services.database import db_service
 from app.config import config
 import logging
@@ -224,7 +224,18 @@ class AuthService:
             access_token=access_token,
             refresh_token=refresh_token,
             token_type="bearer",
-            expires_in=self.access_token_expire_minutes * 60
+            expires_in=self.access_token_expire_minutes * 60,
+            user=UserResponse(
+                id=user.id,
+                email=user.email,
+                full_name=user.full_name,
+                avatar_url=user.avatar_url,
+                is_developer=user.is_developer,
+                role=user.role,
+                is_active=user.is_active,
+                email_verified=user.email_verified,
+                created_at=user.created_at,
+            ),
         )
     
     async def login_user(self, login_data: UserLogin) -> Token:
@@ -286,7 +297,18 @@ class AuthService:
             access_token=access_token,
             refresh_token=refresh_token,
             token_type="bearer",
-            expires_in=self.access_token_expire_minutes * 60
+            expires_in=self.access_token_expire_minutes * 60,
+            user=UserResponse(
+                id=user.id,
+                email=user.email,
+                full_name=user.full_name,
+                avatar_url=user.avatar_url,
+                is_developer=user.is_developer,
+                role=user.role,
+                is_active=user.is_active,
+                email_verified=user.email_verified,
+                created_at=user.created_at,
+            ),
         )
     
     async def refresh_access_token(self, refresh_token: str) -> Token:
@@ -350,7 +372,18 @@ class AuthService:
             access_token=new_access_token,
             refresh_token=new_refresh_token,
             token_type="bearer",
-            expires_in=self.access_token_expire_minutes * 60
+            expires_in=self.access_token_expire_minutes * 60,
+            user=UserResponse(
+                id=user.id,
+                email=user.email,
+                full_name=user.full_name,
+                avatar_url=user.avatar_url,
+                is_developer=user.is_developer,
+                role=user.role,
+                is_active=user.is_active,
+                email_verified=user.email_verified,
+                created_at=user.created_at,
+            ),
         )
     
     async def logout_user(self, refresh_token: str):

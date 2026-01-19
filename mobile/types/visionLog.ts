@@ -92,7 +92,7 @@ export interface VisionErrorResponse {
 
 // Service-related types
 export interface UploadVisionRequest {
-  image: string; // Base64 or file
+  imageUri: string;
   meal_type?: 'breakfast' | 'lunch' | 'dinner';
   user_context?: {
     current_weight_kg?: number;
@@ -109,6 +109,7 @@ export interface CorrectionRequest {
     actual_grams: number;
   }[];
   feedback_type: 'portion_correction' | 'ingredient_misidentification' | 'missing_ingredient';
+  correction_notes?: string;
 }
 
 export interface VisionHistoryParams {

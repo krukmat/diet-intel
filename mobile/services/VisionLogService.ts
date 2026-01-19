@@ -18,21 +18,32 @@ export class VisionLogService {
   async uploadImageForAnalysis(request: UploadVisionRequest): Promise<VisionLogResponse> {
     try {
       const formData = new FormData();
+      const file = {
+        uri: request.imageUri,
+        name: 'vision.jpg',
+        type: 'image/jpeg',
+      };
 
       // Add image data
-      formData.append('image', request.image);
+      formData.append('file', file as any);
 
       // Add optional meal type
       if (request.meal_type) {
         formData.append('meal_type', request.meal_type);
       }
 
-      // Add optional user context
-      if (request.user_context) {
-        formData.append('user_context', JSON.stringify(request.user_context));
+      // Add optional user context as separate fields for backend compatibility
+      if (request.user_context?.current_weight_kg !== undefined) {
+        formData.append('current_weight_kg', String(request.user_context.current_weight_kg));
+      }
+      if (request.user_context?.activity_level) {
+        formData.append('activity_level', request.user_context.activity_level);
+      }
+      if (request.user_context?.goal) {
+        formData.append('goal', request.user_context.goal);
       }
 
-      const response = await this.apiService.post('/food/vision-log', formData, {
+      const response = await this.apiService.post('/api/v1/food/vision/analyze', formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
@@ -59,7 +70,7 @@ export class VisionLogService {
         ...params,
       };
 
-      const response = await this.apiService.get('/food/vision-history', {
+      const response = await this.apiService.get('/api/v1/food/vision/history', {
         params: defaultParams,
       });
 
@@ -77,8 +88,24 @@ export class VisionLogService {
    */
   async submitCorrection(correctionData: CorrectionRequest): Promise<any> {
     try {
-      const { log_id, ...dataToSend } = correctionData;
-      const response = await this.apiService.put(`/food/vision-log/${log_id}/correct`, dataToSend);
+      const formData = new FormData();
+      formData.append('log_id', correctionData.log_id);
+      formData.append('feedback_type', correctionData.feedback_type);
+
+      const correctionNotes =
+        correctionData.correction_notes ??
+        (correctionData.corrections.length > 0
+          ? JSON.stringify(correctionData.corrections)
+          : '');
+      if (correctionNotes) {
+        formData.append('correction_notes', correctionNotes);
+      }
+
+      const response = await this.apiService.post('/api/v1/food/vision/correction', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
       return response.data;
     } catch (error) {
       console.error('Submitting correction failed:', error);
@@ -92,7 +119,7 @@ export class VisionLogService {
    */
   async isServiceAvailable(): Promise<boolean> {
     try {
-      await this.apiService.get('/health');
+      await this.apiService.get('/api/v1/food/vision/health');
       return true;
     } catch (error) {
       console.warn('Vision service health check failed:', error);
@@ -133,8 +160,8 @@ export class VisionLogService {
     const errors: string[] = [];
 
     // Validate image
-    if (!request.image || request.image.trim().length === 0) {
-      errors.push('Image data is required');
+    if (!request.imageUri || request.imageUri.trim().length === 0) {
+      errors.push('Image URI is required');
     }
 
     // Validate meal type if provided

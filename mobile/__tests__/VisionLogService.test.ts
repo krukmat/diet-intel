@@ -29,7 +29,7 @@ describe('VisionLogService', () => {
 
   describe('uploadImageForAnalysis', () => {
     const mockRequest: UploadVisionRequest = {
-      image: 'base64_image_data',
+      imageUri: 'file://vision.jpg',
       meal_type: 'lunch',
       user_context: {
         current_weight_kg: 70,
@@ -99,12 +99,17 @@ describe('VisionLogService', () => {
 
       const result = await visionLogService.uploadImageForAnalysis(mockRequest);
 
-      expect(mockFormData.append).toHaveBeenCalledWith('image', mockRequest.image);
+      expect(mockFormData.append).toHaveBeenCalledWith(
+        'file',
+        expect.objectContaining({ uri: mockRequest.imageUri })
+      );
       expect(mockFormData.append).toHaveBeenCalledWith('meal_type', mockRequest.meal_type);
-      expect(mockFormData.append).toHaveBeenCalledWith('user_context', JSON.stringify(mockRequest.user_context));
+      expect(mockFormData.append).toHaveBeenCalledWith('current_weight_kg', '70');
+      expect(mockFormData.append).toHaveBeenCalledWith('activity_level', 'moderately_active');
+      expect(mockFormData.append).toHaveBeenCalledWith('goal', 'lose_weight');
 
       expect(mockApiService.post).toHaveBeenCalledWith(
-        '/food/vision-log',
+        '/api/v1/food/vision/analyze',
         mockFormData,
         expect.objectContaining({
           headers: { 'Content-Type': 'multipart/form-data' },
@@ -116,7 +121,7 @@ describe('VisionLogService', () => {
 
     it('should handle missing optional parameters', async () => {
       const minimalRequest: UploadVisionRequest = {
-        image: 'base64_image_data',
+        imageUri: 'file://vision.jpg',
       };
 
       mockApiService.post.mockResolvedValueOnce({
@@ -129,12 +134,17 @@ describe('VisionLogService', () => {
 
       const result = await visionLogService.uploadImageForAnalysis(minimalRequest);
 
-      expect(mockFormData.append).toHaveBeenCalledWith('image', minimalRequest.image);
+      expect(mockFormData.append).toHaveBeenCalledWith(
+        'file',
+        expect.objectContaining({ uri: minimalRequest.imageUri })
+      );
       expect(mockFormData.append).not.toHaveBeenCalledWith('meal_type', expect.anything());
-      expect(mockFormData.append).not.toHaveBeenCalledWith('user_context', expect.anything());
+      expect(mockFormData.append).not.toHaveBeenCalledWith('current_weight_kg', expect.anything());
+      expect(mockFormData.append).not.toHaveBeenCalledWith('activity_level', expect.anything());
+      expect(mockFormData.append).not.toHaveBeenCalledWith('goal', expect.anything());
 
       expect(mockApiService.post).toHaveBeenCalledWith(
-        '/food/vision-log',
+        '/api/v1/food/vision/analyze',
         mockFormData,
         expect.objectContaining({
           headers: { 'Content-Type': 'multipart/form-data' },
@@ -166,7 +176,7 @@ describe('VisionLogService', () => {
         .rejects.toBe(axiosError);
 
       expect(mockApiService.post).toHaveBeenCalledWith(
-        '/food/vision-log',
+        '/api/v1/food/vision/analyze',
         mockFormData,
         expect.objectContaining({
           headers: { 'Content-Type': 'multipart/form-data' },
@@ -239,7 +249,7 @@ describe('VisionLogService', () => {
       const result = await visionLogService.getAnalysisHistory(mockHistoryParams);
 
       expect(mockApiService.get).toHaveBeenCalledWith(
-        '/food/vision-history',
+        '/api/v1/food/vision/history',
         expect.objectContaining({
           params: mockHistoryParams,
         })
@@ -258,7 +268,7 @@ describe('VisionLogService', () => {
       const result = await visionLogService.getAnalysisHistory();
 
       expect(mockApiService.get).toHaveBeenCalledWith(
-        '/food/vision-history',
+        '/api/v1/food/vision/history',
         expect.objectContaining({
           params: {
             limit: 20,
@@ -302,7 +312,7 @@ describe('VisionLogService', () => {
     };
 
     it('should successfully submit correction', async () => {
-      mockApiService.put.mockResolvedValueOnce({
+      mockApiService.post.mockResolvedValueOnce({
         data: mockCorrectionResponse,
         status: 200,
         statusText: 'OK',
@@ -312,19 +322,25 @@ describe('VisionLogService', () => {
 
       const result = await visionLogService.submitCorrection(mockCorrectionRequest);
 
-      expect(mockApiService.put).toHaveBeenCalledWith(
-        `/food/vision-log/${mockCorrectionRequest.log_id}/correct`,
-        {
-          corrections: mockCorrectionRequest.corrections,
-          feedback_type: mockCorrectionRequest.feedback_type
-        }
+      expect(mockFormData.append).toHaveBeenCalledWith('log_id', mockCorrectionRequest.log_id);
+      expect(mockFormData.append).toHaveBeenCalledWith('feedback_type', mockCorrectionRequest.feedback_type);
+      expect(mockFormData.append).toHaveBeenCalledWith(
+        'correction_notes',
+        JSON.stringify(mockCorrectionRequest.corrections)
+      );
+      expect(mockApiService.post).toHaveBeenCalledWith(
+        '/api/v1/food/vision/correction',
+        mockFormData,
+        expect.objectContaining({
+          headers: { 'Content-Type': 'multipart/form-data' },
+        })
       );
 
       expect(result).toEqual(mockCorrectionResponse);
     });
 
     it('should handle correction errors', async () => {
-      mockApiService.put.mockRejectedValueOnce(new Error('Correction failed'));
+      mockApiService.post.mockRejectedValueOnce(new Error('Correction failed'));
 
       await expect(visionLogService.submitCorrection(mockCorrectionRequest))
         .rejects.toThrow('Correction failed');
@@ -332,7 +348,7 @@ describe('VisionLogService', () => {
 
     it('should validate upload request successfully', () => {
       const validRequest: UploadVisionRequest = {
-        image: 'base64_image_data',
+        imageUri: 'file://vision.jpg',
         meal_type: 'lunch',
         user_context: {
           current_weight_kg: 70,
@@ -349,7 +365,7 @@ describe('VisionLogService', () => {
 
     it('should validate upload request with errors', () => {
       const invalidRequest = {
-        image: '',
+        imageUri: '',
         meal_type: 'invalid_meal' as any,
         user_context: {
           current_weight_kg: -10,

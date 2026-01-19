@@ -145,7 +145,7 @@ const VisionLogScreen: React.FC<VisionLogScreenProps> = ({ onBackPress }) => {
       setAnalysisState(prev => ({ ...prev, isAnalyzing: true, error: null }));
 
       const request: UploadVisionRequest = {
-        image: processedImage.base64,
+        imageUri: processedImage.uri,
         meal_type: selectedMealType,
       };
 

@@ -80,6 +80,7 @@ class Token(BaseModel):
     refresh_token: str = Field(..., description="JWT refresh token")
     token_type: str = Field(default="bearer", description="Token type")
     expires_in: int = Field(..., description="Token expiration in seconds")
+    user: UserResponse = Field(..., description="Authenticated user")
 
 
 class TokenData(BaseModel):
