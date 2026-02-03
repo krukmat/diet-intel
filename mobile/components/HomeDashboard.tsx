@@ -52,7 +52,7 @@ export default function HomeDashboard(props: HomeDashboardProps) {
   ];
   const findAction = (id: string) =>
     combinedActions.find(action => action.id === id);
-  const quickActionIds = ['logMeal', 'uploadLabel', 'photos'];
+  const quickActionIds = ['uploadLabel', 'photos'];
   const quickActions = quickActionIds
     .map((id) => findAction(id))
     .filter((action): action is ActionItem => Boolean(action))

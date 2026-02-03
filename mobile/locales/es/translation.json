@@ -47,7 +47,6 @@
       "progress": "Progreso"
     },
     "actions": {
-      "logMeal": "Registrar comida",
       "weight": "Peso",
       "photos": "Fotos",
       "aiPlan": "Plan IA",
@@ -59,7 +58,6 @@
       "gamification": "Recompensas"
     },
     "actionSubtitles": {
-      "logMeal": "Escanear o subir",
       "aiPlan": "Sugerencias IA",
       "plan": "Elige tu plan",
       "weight": "Registrar peso",

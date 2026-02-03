@@ -15,16 +15,6 @@ export interface HomeActionDefinition {
 
 export const HOME_ACTIONS: HomeActionDefinition[] = [
   {
-    id: 'logMeal',
-    labelKey: 'home.actions.logMeal',
-    subtitleKey: 'home.actionSubtitles.logMeal',
-    group: 'primary',
-    target: 'plan',
-    icon: '📝',
-    featureFlags: ['mealPlanFeature'],
-    featureMode: 'all',
-  },
-  {
     id: 'aiPlan',
     labelKey: 'home.actions.aiPlan',
     subtitleKey: 'home.actionSubtitles.aiPlan',

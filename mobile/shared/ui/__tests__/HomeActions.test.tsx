@@ -13,13 +13,11 @@ describe('HomeActions components', () => {
       <HomePrimaryActions
         title="Primary"
         actions={[
-          { id: 'logMeal', label: 'Log Meal', onPress: jest.fn() },
           { id: 'aiPlan', label: 'AI Plan', onPress: jest.fn() },
         ]}
       />
     );
     expect(getByText('Primary')).toBeTruthy();
-    expect(getByTestId('home-primary-logMeal')).toBeTruthy();
     expect(getByTestId('home-primary-aiPlan')).toBeTruthy();
   });
 

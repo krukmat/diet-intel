@@ -20,7 +20,6 @@ describe('HomeDashboard', () => {
     heroPlanActive: true,
     toolActions: [{ id: 'rewards', label: 'Recompensas', onPress: jest.fn() }],
     primaryActions: [
-      { id: 'logMeal', label: 'Registrar', onPress: jest.fn() },
       planAction,
       { id: 'photos', label: 'Fotos', onPress: jest.fn() },
     ],
@@ -53,7 +52,6 @@ describe('HomeDashboard', () => {
     expect(getAllByText('1200 / 2000 kcal').length).toBeGreaterThan(0);
     expect(getAllByText('home.hero.planActive').length).toBeGreaterThan(0);
     expect(getByTestId('summary-cta')).toBeTruthy();
-    expect(getByTestId('home-action-logMeal')).toBeTruthy();
     expect(getByTestId('home-action-photos')).toBeTruthy();
     expect(getByTestId('home-action-uploadLabel')).toBeTruthy();
   });

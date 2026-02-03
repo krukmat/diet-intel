@@ -47,7 +47,6 @@
       "progress": "Progress"
     },
     "actions": {
-      "logMeal": "Log meal",
       "weight": "Weight",
       "photos": "Photos",
       "aiPlan": "AI plan",
@@ -59,7 +58,6 @@
       "gamification": "Rewards"
     },
     "actionSubtitles": {
-      "logMeal": "Scan or upload",
       "aiPlan": "AI suggestions",
       "plan": "Pick your plan",
       "weight": "Track weight",
